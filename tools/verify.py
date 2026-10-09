@@ -584,6 +584,51 @@ def main() -> int:
               f"源码有 {len(shortcut_sites)} 处修饰键监听（{shortcut_sites[0]} 等），"
               "但帮助页键位小节只剩 help.kbd.pending 占位 —— 键位存在却未登记")
 
+    # 7h. 帮助页版本号兜底不得漂移（§P0-3 L1）
+    #     背景：`help.versionFallback` 自 V0.0.5 起被写死，一路带到 V0.0.9 无人发现 ——
+    #     后端离线时帮助页会向用户显示**错误的版本号**，而静态校验看不见。
+    #     判据：zh-CN.js / en-US.js 中该键的值必须等于项目根 VERSION 文件的内容。
+    version_file = root / "VERSION"
+    VFB = re.compile(r"'help\.versionFallback'\s*:\s*'([^']*)'")
+    if not version_file.is_file():
+        check(True, "版本兜底一致 §P0-3 L1", "无 VERSION 文件（预览目录），跳过")
+    else:
+        want = version_file.read_text(encoding="utf-8").strip()
+        got: dict[str, str] = {}
+        for name in ("zh-CN.js", "en-US.js"):
+            p = root / "src/web/js/i18n" / name
+            if p.is_file():
+                if m := VFB.search(p.read_text(encoding="utf-8")):
+                    got[name] = m.group(1)
+        stale = [f"{n}={v}" for n, v in sorted(got.items()) if v != want]
+        missing = [n for n in ("zh-CN.js", "en-US.js") if n not in got]
+        if missing:
+            check(False, "版本兜底一致 §P0-3 L1",
+                  "未找到 help.versionFallback：" + ", ".join(missing))
+        elif stale:
+            check(False, "版本兜底一致 §P0-3 L1",
+                  f"VERSION={want}，取词表写死为 " + " / ".join(stale)
+                  + " —— 后端离线时帮助页会显示错误版本")
+        else:
+            check(True, "版本兜底一致 §P0-3 L1",
+                  f"两份取词表与 VERSION 均为 {want}")
+
+    # 7i. 默认皮肤不可缺省（§P0-3 L5）
+    #     背景：applySkin() 曾在 `qm.skin` 为空时**不注入任何样式表**，而选择器显示的是
+    #     默认皮肤名 —— 首次启动「下拉写着 S06、界面却是裸色」，用户裁定的默认皮肤从未生效。
+    #     判据：i18n/index.js 必须引用 DEFAULT_SKIN_CID（否则无偏好时无从装载出厂默认）。
+    prefs_i18n = root / "src/web/js/i18n/index.js"
+    body_i18n = prefs_i18n.read_text(encoding="utf-8") if prefs_i18n.is_file() else ""
+    if not body_i18n:
+        check(False, "默认皮肤不可缺省 §P0-3 L5", "缺少 src/web/js/i18n/index.js")
+    elif "DEFAULT_SKIN_CID" not in body_i18n:
+        check(False, "默认皮肤不可缺省 §P0-3 L5",
+              "i18n/index.js 未引用 DEFAULT_SKIN_CID —— 未选皮肤时会退化为「无皮肤」裸色，"
+              "与选择器显示的默认皮肤不一致")
+    else:
+        check(True, "默认皮肤不可缺省 §P0-3 L5",
+              "i18n/index.js 已接线出厂默认皮肤，未选过时装载默认皮肤而非裸色")
+
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
     if handoff_file.is_file():

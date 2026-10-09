@@ -43,7 +43,6 @@ export const dict = {
   'lang.enUS': 'English',
 
   'skin.label': '皮肤',
-  'skin.default': '默认',
   'skin.1': '奶白·樱粉',
   'skin.2': '米白·松绿',
   'skin.3': '柔暗·冰蓝',
@@ -188,7 +187,8 @@ export const dict = {
   'help.backTip': '回到主界面（本页保持打开，不打断正在编辑的目录树）',
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
-  'help.versionFallback': 'V0.0.5',
+  /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
+  'help.versionFallback': 'V0.0.10',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',
@@ -205,12 +205,12 @@ export const dict = {
   'help.quickStart.title': '快速开始',
   'help.quickStart.1': '双击项目根目录的 start.bat 启动本地服务',
   'help.quickStart.2': '浏览器自动打开，确认顶栏显示「后端已连接」',
-  'help.quickStart.3': '在左侧「模板工作区」选模板，或在中间直接编辑目录树',
+  'help.quickStart.3': '在中间「目录树工作区」直接编辑目录树（模板库尚未接入，左栏为骨架自检清单）',
   'help.quickStart.4': '填写「目标位置」，先保持「仅演练」勾选试跑一次',
   'help.quickStart.5': '确认结果无误后取消勾选，点「一键生成」真实落盘',
 
   'help.ops.title': '界面说明',
-  'help.ops.sidebar': '左栏「模板工作区」——选择模板，下方为骨架自检清单',
+  'help.ops.sidebar': '左栏「模板工作区」——模板库尚未接入，当前显示骨架自检清单',
   'help.ops.center': '中栏「目录树工作区」——顶部是生成参数与工具栏，主体是目录树',
   'help.ops.genBar': '参数区左上角可点开／收起：收起后只留一行摘要（目标位置 · 根名 · 演练或写盘），当前设定仍一眼可见',
   'help.ops.inspector': '右栏「属性工作区」——选中节点的名称、类型、路径、深度与统计；下方显示生成结果',

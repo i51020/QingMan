@@ -12,6 +12,7 @@
 
 import { dict as zhCN } from './zh-CN.js';
 import { dict as enUS } from './en-US.js';
+import { SKINS, DEFAULT_SKIN_CID } from './skins.js';
 
 /** 语言代码 → 字典。新增语种时在此登记（§P0-3 L3）。 */
 const DICTIONARIES = { 'zh-CN': zhCN, 'en-US': enUS };
@@ -109,8 +110,27 @@ export function applyStatic(root) {
 
 /* ---------- 皮肤（§P0-3 L5 · L6，机制预留） ---------- */
 
+/**
+ * 出厂默认皮肤的文件名。
+ *
+ * 皮肤不可缺省 —— 未选过时**必须**落到默认皮肤（`DEFAULT_SKIN_CID`），
+ * 否则用户看到的是 `tokens.css` 的裸色，与选择器上显示的皮肤名不一致。
+ * 注册表缺失该项时回退为空串（不注入），由「皮肤注册表」守卫负责报错。
+ */
+function defaultSkinFile() {
+  const hit = SKINS.find((s) => s.cid === DEFAULT_SKIN_CID);
+  return hit ? hit.file : '';
+}
+
+/** 当前皮肤文件名。**恒返回非空**（无偏好时给出厂默认）。 */
 export function getSkin() {
-  return readPref(SKIN_KEY) || '';
+  const saved = readPref(SKIN_KEY);
+  return saved || defaultSkinFile();
+}
+
+/** 是否显式选过皮肤（用于区分「出厂默认」与「用户选的同一款」）。 */
+export function hasSkinPref() {
+  return Boolean(readPref(SKIN_KEY));
 }
 
 export function setSkin(name) {
@@ -123,7 +143,7 @@ export function setSkin(name) {
  *
  * 皮肤 = 一组 `--qm-*` 变量覆盖，文件放在 `src/web/css/skins/<name>.css`（§P0-3 L5）。
  * 组件 CSS **不得感知皮肤**（不写 `.skin-x .btn` 这类选择器），因此只需覆盖变量即可换肤。
- * 未选择皮肤时不注入任何样式表 —— 行为与不使用皮肤完全一致。
+ * 未选择皮肤时装载**出厂默认皮肤** —— 产品始终有一套完整配色，不存在"无皮肤"态。
  */
 export function applySkin() {
   if (typeof document === 'undefined') return;

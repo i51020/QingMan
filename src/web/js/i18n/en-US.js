@@ -34,7 +34,6 @@ export const dict = {
   'lang.enUS': 'English',
 
   'skin.label': 'Skin',
-  'skin.default': 'Default',
   'skin.1': 'Cream · Sakura Pink',
   'skin.2': 'Off-white · Pine Green',
   'skin.3': 'Soft Dark · Ice Blue',
@@ -179,7 +178,8 @@ export const dict = {
   'help.backTip': 'Return to the main view (this tab stays open)',
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
-  'help.versionFallback': 'V0.0.5',
+  /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
+  'help.versionFallback': 'V0.0.10',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',
@@ -196,12 +196,12 @@ export const dict = {
   'help.quickStart.title': 'Quick Start',
   'help.quickStart.1': 'Double-click start.bat in the project root to launch the local server',
   'help.quickStart.2': 'Browser opens automatically; confirm the top bar shows "Backend connected"',
-  'help.quickStart.3': 'Choose a template in the left "Template Workspace" or edit the tree directly in the center',
+  'help.quickStart.3': 'Edit the tree directly in the center "Tree Workspace" (the template library is not wired in yet; the left panel shows the self-check list)',
   'help.quickStart.4': 'Fill in the target path and keep "Dry run" checked for a test run',
   'help.quickStart.5': 'When satisfied, uncheck "Dry run" and click "Generate" to write to disk',
 
   'help.ops.title': 'Interface',
-  'help.ops.sidebar': 'Left "Template Workspace" — choose a template; below is the self-check list',
+  'help.ops.sidebar': 'Left "Template Workspace" — the template library is not wired in yet; it currently shows the self-check list',
   'help.ops.center': 'Center "Tree Workspace" — generation options and toolbar at the top, directory tree below',
   'help.ops.genBar': 'The parameter bar can be expanded/collapsed: collapsed it shows one summary line (target · root · dry/write)',
   'help.ops.inspector': 'Right "Property Workspace" — selected node name, type, path, depth and stats; generation result below',
@@ -230,7 +230,7 @@ export const dict = {
   'help.support.lead': 'QingMan is a free offline tool. If you find it useful, a voluntary tip helps keep it maintained.',
   'help.support.wechat': 'WeChat Tip',
   'help.support.qrAlt': 'WeChat tip QR code',
-  'help.support.thanks': 'Thanks for your support. Bug fixes come as grace.',
+  'help.support.thanks': 'Thanks for your support — bug fixes are best-effort.',
 
   'help.about.title': 'Version & About',
   'help.disclaimer.title': 'Disclaimer',

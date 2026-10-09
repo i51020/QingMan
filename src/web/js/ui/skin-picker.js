@@ -20,11 +20,7 @@ function luma(hex) {
 export function createSkinPicker(selectEl) {
   const sorted = [...SKINS].sort((a, b) => luma(b.swatch[0]) - luma(a.swatch[0]));
 
-  const none = document.createElement('option');
-  none.value = '';
-  none.textContent = t('skin.default');
-  selectEl.appendChild(none);
-
+  /* 皮肤不可缺省：不提供「无皮肤」选项，未选过时由 getSkin() 给出厂默认（§P0-3 L5）。 */
   for (const skin of sorted) {
     const opt = document.createElement('option');
     opt.value = skin.file;
@@ -32,8 +28,8 @@ export function createSkinPicker(selectEl) {
     selectEl.appendChild(opt);
   }
 
-  const saved = getSkin();
-  selectEl.value = saved || SKINS.find(s => s.cid === DEFAULT_SKIN_CID)?.file || '';
+  const fallback = SKINS.find((s) => s.cid === DEFAULT_SKIN_CID)?.file || '';
+  selectEl.value = getSkin() || fallback;
 
   selectEl.addEventListener('change', () => {
     setSkin(selectEl.value);
