@@ -17,6 +17,8 @@
      组件 CSS 不感知皮肤 / 皮肤目录契约 / 偏好键名 qm.lang · qm.skin
  7e. CSS 类名形态（§P2 第 1 项）：一律 kebab-case，不得含下划线或大写
  7f. 体积上限（§P2 第 4 项）：src/** 合计 ≤ 400K，单文件 ≤ 64K
+ 7g. 帮助页键位登记（§P2 第 8 项）：源码若有修饰键快捷键监听（ctrlKey/metaKey/altKey），
+     帮助页键位小节必须登记至少一条**具体键位**，不得只留「待定 / 留空」占位
  8. 接续说明实况段与盘上一致（§P1-6 H4；文件未建立则跳过）
  8b. 源码 § 引用可解析（《错误笔记》§三.22；约定文档不在则跳过）
   9. 编辑态持久化契约（§P0-7）：schema.json 的 editorDocument/editorNode + 接口标识 + 错误码
@@ -454,6 +456,41 @@ def main() -> int:
         check(budget_ok, "体积上限 §P2 第 4 项",
               f"{total_bytes // 1024}K / 上限 {SRC_TOTAL_LIMIT // 1024}K" +
               (f"；超限单文件：{', '.join(oversize)}" if oversize else "；单文件均在 64K 内"))
+
+    # 7g. 帮助页键位登记（§P2 第 8 项）：源码若有修饰键快捷键监听，
+    #     帮助页键位小节必须登记至少一条**具体键位**，不得只留"待定 / 留空"占位。
+    #     背景：「本表暂留空」是**会被代码沉默推翻**的断言 —— Ctrl/Cmd+S 自 V0.0.2 起
+    #     即在 main.js 中生效，该文案却一路带过 V0.0.2–V0.0.6 五个版本无人发现
+    #     （《错误笔记》§三.27 / §三.30）。本守卫把这类断言变成**可被机器推翻**的。
+    MOD_KEY = re.compile(r"\b(?:ctrlKey|metaKey|altKey)\b")
+    shortcut_sites: list[str] = []
+    for js in sorted((root / "src/web/js").rglob("*.js")):
+        if "i18n" in js.parts:
+            continue
+        body = strip_comments(js.read_text(encoding="utf-8"), "js")
+        for lineno, line in enumerate(body.splitlines(), 1):
+            if MOD_KEY.search(line):
+                shortcut_sites.append(f"{js.name}:{lineno}")
+    # 键位小节的登记项 = zh-CN.js 中 `id: 'kbd'` 那条的 items 列表
+    KBD_SECTION = re.compile(r"id:\s*'kbd'[^\n}]*items:\s*\[([^\]]*)\]")
+    kbd_items: list[str] = []
+    if dict_file.is_file():
+        if m := KBD_SECTION.search(dict_file.read_text(encoding="utf-8")):
+            kbd_items = re.findall(r"'([^']+)'", m.group(1))
+    kbd_real = [k for k in kbd_items if k != "help.kbd.pending"]
+    if not shortcut_sites:
+        check(True, "帮助页键位登记 §P2 第 8 项", "源码无修饰键快捷键监听，跳过")
+    elif not kbd_items:
+        check(False, "帮助页键位登记 §P2 第 8 项",
+              "未在 zh-CN.js 中定位到键位小节（`id: 'kbd'` 的 items）")
+    elif kbd_real:
+        check(True, "帮助页键位登记 §P2 第 8 项",
+              f"源码 {len(shortcut_sites)} 处修饰键监听 → 已登记 {len(kbd_real)} 项："
+              + ", ".join(kbd_real))
+    else:
+        check(False, "帮助页键位登记 §P2 第 8 项",
+              f"源码有 {len(shortcut_sites)} 处修饰键监听（{shortcut_sites[0]} 等），"
+              "但帮助页键位小节只剩 help.kbd.pending 占位 —— 键位存在却未登记")
 
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
