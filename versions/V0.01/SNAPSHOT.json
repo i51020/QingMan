@@ -1,0 +1,31 @@
+{
+  "version": "V0.01",
+  "createdAt": "2026-10-09 12:55:11",
+  "source": "C:\\Users\\i5102\\WorkBuddy\\2026-10-09-12-26-55\\QingMan",
+  "note": "V0.01 最小可运行骨架首次落地",
+  "fileCount": 22,
+  "files": {
+    "src/server/__init__.py": "31137f256bf9458480a7d4e64895ae4c",
+    "src/server/__main__.py": "ab71da3483b71680db7fcdc286d02408",
+    "src/server/app.py": "5092ec2db0071c6120deac03527bc879",
+    "src/server/config.py": "c6155ac0cf538306fa8743c77a388885",
+    "src/server/dtree_core.py": "0f43209f7693dfb705471d3437220616",
+    "src/server/routes.py": "4a4ed22fb43eba7af2fbbb2eab0240e6",
+    "src/shared/error-codes.json": "d1a9a32c5ed1b5b4dc2852f5d41bc292",
+    "src/shared/schema.json": "34b2762339b857848d1da25dead6264a",
+    "src/web/css/base.css": "4ee70aebd57831ec4f0f607ca489d2a4",
+    "src/web/css/layout.css": "6fe03371737a007da62f91d3591bf9b9",
+    "src/web/css/tokens.css": "9dc777b2e7eb886d5d2849b393ddc0e2",
+    "src/web/index.html": "33d4a9887cf3c6cca6e885d5232a5fd1",
+    "src/web/js/core/api.js": "c5191fbcebbabf4e43ddf9d5f5cac447",
+    "src/web/js/core/bus.js": "43c532853c1cb289a86955eb6dd29d53",
+    "src/web/js/core/store.js": "f20049787817ebeaed74d3009347011f",
+    "src/web/js/main.js": "a98789c4dfdac77f40c60d0d89498b29",
+    "src/web/js/modules/tree-model.js": "a27e743a966c6f9c75c63850eead348c",
+    "src/web/js/ui/inspector.js": "50b590964634de04b6636558d2bf139e",
+    "src/web/js/ui/toast.js": "50f394220ecb344726b1778d7be26b89",
+    "src/web/js/ui/tree-view.js": "76bf7c9e30f14f7ed760ff3fad4b15b8",
+    "start.bat": "f762eca31c5480759e8d93bc0982607f",
+    "VERSION": "d8696ab8be20c69bf4c284c225d3c2d1"
+  }
+}

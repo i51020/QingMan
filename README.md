@@ -1,0 +1,113 @@
+# 青蔓 QingMan
+
+本地离线运行的**目录树设计器**：可视化编辑目录树，一键在磁盘上生成真实目录结构。
+
+- 中文名：**青蔓**
+- 英文名：**QingMan**
+- 当前版本：**V0.0.1**（最小可运行骨架）
+- 运行环境：Windows 10/11 + Python 3.8+，完全离线，仅监听 `127.0.0.1`
+
+## 快速开始
+
+```bat
+:: 双击项目根目录下的 start.bat 即可
+start.bat
+```
+
+脚本会自动定位 `src/`、用 `python -m server` 启动后端、扫描 8765–8775 端口、打开浏览器。
+
+手动启动（等价）：
+
+```bash
+cd src
+python -m server
+```
+
+## 目录结构
+
+```
+QingMan/
+├─ VERSION              版本号唯一来源（内容：V0.0.1）
+├─ CHANGELOG.md         版本记录
+├─ start.bat            启动入口
+├─ README.md            本文件
+├─ src/                 主线源码（"当前版本"，只在确认后改动）
+│  ├─ web/              前端：index.html + css/ + js/{core,modules,ui}/
+│  ├─ server/           后端：Python 标准库，零第三方依赖
+│  └─ shared/           前后端共享契约：schema.json / error-codes.json
+├─ store/               内容寻址仓库
+│  ├─ objects/          blob 池：路径 = 内容的 SHA-256，跨版本自动去重
+│  └─ .trash/           checkout 时多余文件的回收区（不真删）
+├─ versions/            版本清单
+│  ├─ V0.0.1/           含 MANIFEST.json（路径→指纹 + parent/note/digest）
+│  └─ V0.01/            旧编号全量快照（历史遗留，原样保留）
+├─ preview/             试运行区（与主线物理隔离）
+│  └─ V0.01/            预览版完整副本，可独立启动
+├─ templates/           17 套中文目录树模板（内容资产）
+├─ tools/               工具链：store / verify / versioning / release / promote
+├─ legacy/              改造前的工具备份（回退点）
+└─ docs/                项目手册 / 任务进度 / 错误笔记
+```
+
+## 任务进度
+
+**进度以时间线为准，版本号为参考。**
+
+- 当前做到哪一步 → 看 `docs/任务进度.md` **最上方（最新）**的条目
+- 版本号只是索引标签，允许跳号、合并、同一版本内多次推进
+- 某个版本具体改了什么 → 看 `CHANGELOG.md`
+
+## 版本约定
+
+**SemVer 三段式：`V<MAJOR>.<MINOR>.<PATCH>`，从 V0.0.1 起。**（旧「V0.01 起、每次 +0.01」规则已于 2026-10-09 作废）
+
+| 递增 | 语义 | 例子 |
+|---|---|---|
+| `patch` | 修复、纠错 | V0.0.1 → V0.0.2 |
+| `minor` | 新增功能 / 逻辑迭代 | V0.0.2 → V0.1.0 |
+| `major` | 不兼容变更 | V0.1.0 → V1.0.0 |
+
+**触发规则**：凡改动 `src/` 或交付契约 → 升级；纯文档、纯工具改动 → **不升版**，只在 `docs/任务进度.md` 记一条时间线。
+
+| 步骤 | 命令 | 说明 |
+|---|---|---|
+| 1. 预览开发 | — | 在 `preview/V<版本>/` 试跑，主线不受影响 |
+| 2. 交付校验 | `python tools/verify.py preview/V0.01` | 31 项校验，不通过不落地 |
+| 3. 落地主线 | `python tools/promote.py --from preview/V0.01` | 单向：预览 → 主线，只复制不删除 |
+| 4. 提交版本 | `python tools/store.py commit --note "说明"` | 写入 blob 池 + 生成 MANIFEST（内容寻址） |
+| 5. 升级版本号 | `python tools/release.py bump --kind patch` | 或 `minor` / `major` |
+
+**改主线之前必须先 commit**，否则该版本没有回退点。
+
+## 存储机制
+
+采用**内容寻址存储**（借鉴 Git 思路）：
+
+- `store/objects/<sha256前2位>/<sha256>` —— 文件内容按 SHA-256 存放，**相同内容只存一份**，跨版本自动去重
+- `versions/<版本>/MANIFEST.json` —— 「路径 → 指纹」映射 + 元数据（时间 / 父版本 / 说明 / 清单摘要）
+
+实测数据：V0.0.1 → V0.0.2 的 23 个文件里**只新增 3 个 blob、复用 20 个**（对象池 22→25，而非 45）。
+
+| 命令 | 作用 |
+|---|---|
+| `python tools/store.py commit --note "说明"` | 提交当前 `src/` 状态为一个版本 |
+| `python tools/store.py checkout <版本>` | 回退到指定版本 |
+| `python tools/store.py log` | 列出版本链 |
+| `python tools/store.py diff <版本A> <版本B>` | 输出 改动 / 新增 / 缺失 |
+| `python tools/store.py fsck` | 校验对象池完整性 |
+
+## 回退
+
+```bash
+python tools/store.py checkout V0.0.1         # 按清单从 blob 池重建
+python tools/verify.py . --against V0.0.1     # 确认与清单完全一致
+```
+
+回退时「当前有、目标版本没有」的文件，会先复制进 `store/.trash/<时间戳>/` 并**逐字节校验**，通过后才移除原文件 —— 全程不真删。
+
+## 详细文档
+
+- 架构、接口、版本流程细则 → `docs/项目手册.md`
+- 任务进度（时间线口径）→ `docs/任务进度.md`
+- 开发纪律、技术坑点、交付清单 → `docs/错误笔记.md`
+- 版本变更明细 → `CHANGELOG.md`

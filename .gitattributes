@@ -1,0 +1,4 @@
+# 保持字节原样，禁止任何换行符转换。
+# 理由：本项目用 SHA-256 指纹校验内容（tools/store.py 的 MANIFEST + verify.py --against），
+# 一旦 git 在检出时改写换行，指纹比对会全部失配。
+* -text
