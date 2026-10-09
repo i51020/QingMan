@@ -1,0 +1,51 @@
+/* 青蔓 QingMan · 设计变量（唯一色彩与尺寸来源） */
+
+:root {
+  --qm-bg: #eceff4;
+  --qm-surface: #f6f8fb;
+  --qm-surface-2: #ffffff;
+  --qm-line: #d5dbe5;
+  --qm-line-soft: #e4e9f0;
+  --qm-text: #1e2732;
+  --qm-text-dim: #5d6a7c;
+  --qm-accent: #2f8f6b;
+  --qm-accent-ink: #1d6d50;
+  --qm-accent-soft: #e2f0e9;
+  /* 强调色背景上的文字色（§P0-3 L4：组件 CSS 不得写裸色值） */
+  --qm-on-accent: #ffffff;
+  --qm-danger: #bf4a3a;
+  --qm-danger-soft: #f7e6e2;
+  --qm-warn: #a8721a;
+
+  --qm-r-sm: 6px;
+  --qm-r-md: 8px;
+  --qm-gap: 10px;
+
+  --qm-shadow: 0 1px 2px rgba(30, 39, 50, .07);
+  --qm-shadow-raise: 3px 3px 8px rgba(30, 39, 50, .10), -2px -2px 6px rgba(255, 255, 255, .85);
+
+  --qm-font: "Microsoft YaHei UI", "Microsoft YaHei", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --qm-mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --qm-bg: #161a1f;
+    --qm-surface: #1d2229;
+    --qm-surface-2: #232a32;
+    --qm-line: #323a44;
+    --qm-line-soft: #2a313a;
+    --qm-text: #e7ecf2;
+    --qm-text-dim: #9aa7b5;
+    --qm-accent: #4fbf90;
+    --qm-accent-ink: #7dd6b0;
+    --qm-accent-soft: #1f3a31;
+    /* 深色主题下 --qm-accent 本身是浅绿，叠加白字对比度不足，改用深墨绿 */
+    --qm-on-accent: #0f1a16;
+    --qm-danger: #e0776a;
+    --qm-danger-soft: #3a2422;
+    --qm-warn: #d9a45b;
+    --qm-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+    --qm-shadow-raise: 3px 3px 8px rgba(0, 0, 0, .45), -2px -2px 6px rgba(255, 255, 255, .03);
+  }
+}

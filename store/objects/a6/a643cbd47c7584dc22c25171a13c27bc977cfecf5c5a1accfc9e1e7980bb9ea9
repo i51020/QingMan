@@ -1,0 +1,115 @@
+/* 青蔓 QingMan · 基础元素样式 */
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--qm-bg);
+  color: var(--qm-text);
+  font-family: var(--qm-font);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { margin: 0; font-weight: 600; }
+
+code, .prop-mono, .result {
+  font-family: var(--qm-mono);
+  font-size: 12px;
+}
+
+code {
+  background: var(--qm-line-soft);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--qm-line);
+  background: var(--qm-surface-2);
+  color: var(--qm-text);
+  border-radius: var(--qm-r-sm);
+  padding: 5px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: var(--qm-shadow);
+  transition: background .12s ease, border-color .12s ease, color .12s ease;
+}
+
+.btn:hover:not(:disabled) { border-color: var(--qm-accent); color: var(--qm-accent-ink); }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.btn-primary {
+  background: var(--qm-accent);
+  border-color: var(--qm-accent);
+  color: var(--qm-on-accent);
+}
+.btn-primary:hover:not(:disabled) { background: var(--qm-accent-ink); border-color: var(--qm-accent-ink); color: var(--qm-on-accent); }
+
+.btn-ghost { background: transparent; box-shadow: none; }
+.btn-danger { color: var(--qm-danger); border-color: var(--qm-line); }
+.btn-danger:hover:not(:disabled) { background: var(--qm-danger-soft); border-color: var(--qm-danger); color: var(--qm-danger); }
+
+input[type="text"] {
+  width: 100%;
+  border: 1px solid var(--qm-line);
+  background: var(--qm-surface-2);
+  color: var(--qm-text);
+  border-radius: var(--qm-r-sm);
+  padding: 5px 8px;
+  font-family: inherit;
+  font-size: 13px;
+}
+input[type="text"]::placeholder { color: var(--qm-text-dim); opacity: .8; }
+input[type="text"]:focus { outline: 2px solid var(--qm-accent-soft); border-color: var(--qm-accent); }
+
+.chip {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--qm-accent-soft);
+  color: var(--qm-accent-ink);
+  font-size: 11px;
+  font-family: var(--qm-mono);
+}
+.chip-ghost { background: transparent; color: var(--qm-text-dim); border: 1px solid var(--qm-line); }
+.chip-ok { background: var(--qm-accent-soft); color: var(--qm-accent-ink); }
+.chip-bad { background: var(--qm-danger-soft); color: var(--qm-danger); }
+
+.hint { color: var(--qm-text-dim); font-size: 12px; margin: 6px 0 0; }
+.divider { width: 1px; align-self: stretch; background: var(--qm-line); margin: 0 2px; }
+.spacer { flex: 1; }
+
+/* 品牌区（主界面与帮助页共用，故置于 base.css 而非某一页的布局表）
+ *
+ * 标记走 CSS mask 而非 <img>/内联 SVG：
+ *   - <img> 引用的 SVG 是独立文档，currentColor 不继承，无法跟随主题与皮肤（违反 §P0-3 L4/L5）
+ *   - 跨文档 <use href="x.svg#id"> 在现代浏览器已不支持
+ *   - mask 只取形状，颜色由 background-color 给，色值仍单一来源于 --qm-*
+ */
+.brand { display: flex; align-items: baseline; gap: 8px; }
+.brand-logo {
+  align-self: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  background-color: var(--qm-accent-ink);
+  -webkit-mask-image: url("../assets/logo.svg");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-image: url("../assets/logo.svg");
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}
+.brand-mark { font-size: 16px; font-weight: 700; letter-spacing: 2px; color: var(--qm-accent-ink); }
+.brand-sub { font-size: 12px; color: var(--qm-text-dim); font-family: var(--qm-mono); }

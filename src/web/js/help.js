@@ -5,32 +5,20 @@
  * 任何面向用户的文案都不写在这里 —— 全部来自 `i18n/zh-CN.js`（见 docs/项目约定.md §P0-3）。
  */
 
-import { dict, helpSections, LOCALE } from './i18n/zh-CN.js';
+import { helpSections } from './i18n/zh-CN.js';
+import { t, applyStatic, initPrefs } from './i18n/index.js';
 import { api } from './core/api.js';
 
 const el = (id) => document.getElementById(id);
-
-/** 取词。未命中的键直接回显键名并告警，便于一眼看出漏翻。 */
-function t(key) {
-  const value = dict[key];
-  if (value === undefined) {
-    console.warn('[i18n] missing key:', key, '(', LOCALE, ')');
-    return key;
-  }
-  return value;
-}
 
 /** 动态字段的当前值。version 为 null 表示尚未拿到后端实测值。 */
 const state = { version: null, backendOk: false };
 
 /* ---------- 静态占位 ---------- */
 
-function applyStatic() {
-  document.documentElement.lang = LOCALE;
+function applyShell() {
+  applyStatic(document);
   document.title = t('help.docTitle');
-  for (const node of document.querySelectorAll('[data-i18n]')) {
-    node.textContent = t(node.getAttribute('data-i18n'));
-  }
   const back = el('btnBack');
   if (back) back.title = t('help.backTip');
 }
@@ -132,7 +120,8 @@ function paint() {
 /* ---------- 启动 ---------- */
 
 async function boot() {
-  applyStatic();
+  initPrefs();                   // 先恢复语言/皮肤偏好，再填文案
+  applyShell();
   renderSections();
   paint();                       // 先渲染本机记录值，避免等后端时留空
 

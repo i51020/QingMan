@@ -1,7 +1,10 @@
 /**
  * 青蔓 QingMan · 后端调用封装
  * 所有网络请求集中在此，其余模块不直接使用 fetch。
+ * 文案一律经取词表（§P0-3 L1），本文件不直写任何用户可见文案。
  */
+
+import { t } from '../i18n/index.js';
 
 const BASE = window.location.origin;
 
@@ -26,7 +29,7 @@ async function request(path, options = {}) {
   try {
     payload = await res.json();
   } catch (err) {
-    throw new Error(`后端返回非 JSON（HTTP ${res.status}）`);
+    throw new Error(t('api.nonJson', { status: res.status }));
   }
 
   if (!res.ok || payload.ok === false) {

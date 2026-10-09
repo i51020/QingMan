@@ -1,24 +1,133 @@
 /**
  * 青蔓 QingMan · 中文取词表（zh-CN）
  *
- * 本文件是**帮助页正文的唯一数据源** —— 内容与页面骨架分离：
- *   help.html  只放空壳与 data-i18n 键名，一个中文都不写
- *   help.js    只负责查表与渲染，一个中文也不写
- *   本文件     全部文案与分节结构
+ * 本文件是**全部用户可见文案的唯一数据源** —— 内容与页面/模块分离：
+ *   *.html          只放空壳与 `data-i18n` 键名，一个中文都不写
+ *   *.js（UI 模块）  只查表取词，一个中文文案也不写
+ *   本文件          全部文案与分节结构
  *
  * 改文案、调分节顺序、增删条目，都只动这一个文件。
- * 后续新增 `en-US.js` 并在 help.js 切换导入即可双语（见 docs/项目约定.md §P0-3）。
+ * 后续新增 `en-US.js` 并在 `i18n/index.js` 登记即可双语（见 docs/项目约定.md §P0-3）。
  *
- * 键名规范：`<模块>.<元素>.<语义>`，与 §P0-3 L2 一致。
+ * 键名规范：`<模块>.<元素>.<语义>`（§P0-3 L2）。
+ * 占位符用 `{name}` 形式，由 `t(key, vars)` 替换。
  */
 
 export const LOCALE = 'zh-CN';
 
-/** 页面外壳与动态字段的文案。 */
+/** 界面文案（主界面 + 帮助页 + 模块内部透出给用户的报错）。 */
 export const dict = {
+  /* ---------- 应用与顶栏 ---------- */
+  'app.title': '青蔓 QingMan',
   'app.nameZh': '青蔓',
   'app.nameEn': 'QingMan',
 
+  'topbar.saveTip': '编辑内容自动保存到项目内的 data/editor.json',
+  'topbar.save.idle': '未保存',
+  'topbar.save.pending': '未保存',
+  'topbar.save.saving': '保存中…',
+  'topbar.save.saved': '已保存',
+  'topbar.save.savedAt': '已保存 {at}',
+  'topbar.save.error': '保存失败',
+  'topbar.backendOn': '后端已连接',
+  'topbar.backendOff': '后端未连接',
+  'topbar.help': '帮助',
+  'topbar.helpTip': '使用说明（新标签打开）',
+
+  /* ---------- 左栏：模板库与自检 ---------- */
+  'sidebar.title': '模板库',
+  'sidebar.noteLine1': '当前为最小可运行骨架，模板库尚未接入。',
+  'sidebar.noteLine2': '模板内容资产已就位：',
+  'sidebar.checkTitle': '骨架自检',
+  'check.modules': 'ES 模块化加载',
+  'check.backend': '本地后端连通',
+  'check.model': '目录树数据模型',
+  'check.write': '真实落盘能力',
+
+  /* ---------- 中栏：生成参数 ---------- */
+  'gen.rootLabel': '根文件夹名',
+  'gen.rootPlaceholder': '留空则直接写入目标位置',
+  'gen.targetLabel': '目标位置',
+  'gen.targetPlaceholder': '例如：E:\\我的项目',
+  'gen.dryRun': '仅演练（不写盘）',
+  'gen.button': '一键生成',
+
+  /* ---------- 中栏：工具栏与目录树 ---------- */
+  'tree.canvasLabel': '目录树',
+  'tree.addChild': '新建子节点',
+  'tree.rename': '重命名',
+  'tree.delete': '删除',
+  'tree.expandAll': '全部展开',
+  'tree.collapseAll': '全部折叠',
+  'tree.newDirPrompt': '新目录名称',
+  'tree.newDirDefault': '新建目录',
+  'tree.renamePrompt': '重命名',
+  'tree.deleteConfirm': '确认删除「{name}」及其全部子节点？',
+
+  /* ---------- 右栏：属性与生成结果 ---------- */
+  'inspector.title': '属性',
+  'inspector.name': '名称',
+  'inspector.type': '类型',
+  'inspector.typeDir': '目录',
+  'inspector.typeFile': '文件',
+  'inspector.path': '路径',
+  'inspector.depth': '深度',
+  'inspector.dirs': '子目录',
+  'inspector.files': '文件',
+  'inspector.resultTitle': '生成结果',
+  'inspector.resultEmpty': '尚未生成',
+  'inspector.genFailed': '生成失败\n{code}：{message}',
+
+  /* ---------- 状态栏 ---------- */
+  'status.ready': '就绪',
+  'status.readyWith': '就绪 · {nameZh} {app}',
+  'status.count': '目录 {dirs} · 文件 {files}',
+  'status.restored': '已恢复上次编辑内容',
+  'status.restoredAt': '已恢复上次编辑内容（{at}）',
+  'status.addedDir': '已新建目录「{name}」',
+  'status.renamed': '已重命名为「{name}」',
+  'status.deleted': '已删除「{name}」',
+  'status.dryRunning': '演练中…',
+  'status.writing': '正在写入磁盘…',
+  'status.dryDone': '演练完成：目录 {dirs} · 文件 {files} · 已存在 {existed}',
+  'status.genDone': '生成完成：目录 {dirs} · 文件 {files} · 已存在 {existed}',
+  'status.genFailed': '生成失败：{message}',
+  'status.backendOffHint': '后端未连接，请通过 start.bat 启动',
+
+  /* ---------- 轻提示 ---------- */
+  'toast.selectDirFirst': '请先选中一个目录节点',
+  'toast.nameEmpty': '名称不能为空',
+  'toast.siblingExists': '「{name}」已存在于该目录下',
+  'toast.rootRenameBlocked': '根节点名称由「根文件夹名」决定，不在此处重命名',
+  'toast.rootDeleteBlocked': '根节点不可删除',
+  'toast.targetRequired': '请先填写目标位置',
+  'toast.dryDone': '演练完成，未写入磁盘',
+  'toast.generatedTo': '已生成到 {root}',
+  'toast.saveFailed': '保存失败：{message}',
+  'toast.dupIdBlocked': '检测到重复 id（{ids}），已阻止保存',
+  'toast.docDupId': '文档存在重复 id：{ids}',
+  'toast.restoreFailed': '读取上次编辑内容失败：{message}',
+  'toast.backendOff': '后端未连接：{message}',
+
+  /* ---------- 默认示例文档（用户能直接看到的初始内容） ---------- */
+  'sample.root': '青蔓示例项目',
+  'sample.materials': '素材',
+  'sample.output': '产出',
+  'sample.raw': '原始素材',
+  'sample.tidied': '已整理',
+  'sample.readme': '说明.md',
+  'sample.readmeContent': '# 说明\n\n本目录骨架由青蔓 QingMan 生成。\n',
+
+  /* ---------- 模块内部（面向用户透出的报错 / 诊断） ---------- */
+  'list.separator': '、',
+  'api.nonJson': '后端返回非 JSON（HTTP {status}）',
+  'bus.handlerError': '[bus] 事件 {type} 的处理函数抛错：',
+  'doc.nodeNotObject': '文档节点非法（{path}）：应为对象',
+  'doc.nodeBadType': '文档节点非法（{path}）：type 必须为 dir 或 file',
+  'doc.nodeBadName': '文档节点非法（{path}）：name 必须为非空字符串',
+  'doc.nodeBadChildren': '文档节点非法（{path}.children）：应为数组',
+
+  /* ---------- 帮助页 ---------- */
   'help.docTitle': '青蔓 QingMan · 使用说明',
   'help.titleTag': '使用说明',
   'help.navTitle': '目录',
@@ -26,7 +135,7 @@ export const dict = {
   'help.backTip': '回到主界面（本页保持打开，不打断正在编辑的目录树）',
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
-  'help.versionFallback': 'V0.0.1',
+  'help.versionFallback': 'V0.0.5',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',

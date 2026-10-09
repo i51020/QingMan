@@ -4,6 +4,7 @@
  */
 
 import { isDir, pathOf, depthOf, countTree } from '../modules/tree-model.js';
+import { t } from '../i18n/index.js';
 
 export function createInspector(refs) {
   return {
@@ -21,7 +22,7 @@ export function createInspector(refs) {
       const depth = depthOf(root, selectedId);
 
       refs.name.textContent = node.name;
-      refs.type.textContent = isDir(node) ? '目录' : '文件';
+      refs.type.textContent = isDir(node) ? t('inspector.typeDir') : t('inspector.typeFile');
       refs.path.textContent = pathOf(root, selectedId) || node.name;
       refs.dirs.textContent = String(stats.dirs);
       refs.files.textContent = String(stats.files);
@@ -33,7 +34,8 @@ export function createInspector(refs) {
     },
 
     showError(err) {
-      refs.result.textContent = `生成失败\n${err.code || 'error'}：${err.message}`;
+      refs.result.textContent = t('inspector.genFailed',
+        { code: err.code || 'error', message: err.message });
     },
   };
 

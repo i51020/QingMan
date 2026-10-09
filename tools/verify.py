@@ -11,8 +11,10 @@
   4. JS 语法（ESM 方式交由 node --check 解析）
   5. CSS 大括号平衡
   6. Python 语法（ast 只读解析，不产生 __pycache__，保证校验不污染被校验目录）
-  7. 帮助页无硬编码中文（§P0-3 L1：文案必须经取词表，页面只留 data-i18n 键名）
-  8. 接续说明实况段与盘上一致（§P1-6 H4；文件未建立则跳过）
+ 7. 帮助页无硬编码中文（§P0-3 L1：文案必须经取词表，页面只留 data-i18n 键名）
+ 7b. 双语与皮肤预留（§P0-3）：主界面无硬编码中文 / JS 无中文串字面量 / 组件 CSS 无裸色值 /
+     组件 CSS 不感知皮肤 / 皮肤目录契约 / 偏好键名 qm.lang · qm.skin
+ 8. 接续说明实况段与盘上一致（§P1-6 H4；文件未建立则跳过）
   9. 编辑态持久化契约（§P0-7）：schema.json 的 editorDocument/editorNode + 接口标识 + 错误码
  9b. 落盘安全边界（§P0-1）：config 黑名单 / dtree_core.check_target / routes 接线 / 错误码
  9c. 回归测试网（§P0-2）：tests/ 四模块 + tools/smoke.py（仅项目根，预览目录跳过）
@@ -74,6 +76,7 @@ REQUIRED_FILES = (
     "src/web/css/help.css",
     "src/web/js/main.js",
     "src/web/js/help.js",
+    "src/web/js/i18n/index.js",
     "src/web/js/i18n/zh-CN.js",
     "src/web/js/core/bus.js",
     "src/web/js/core/store.js",
@@ -282,6 +285,92 @@ def main() -> int:
               f"发现 {len(hits)} 处字面量：{''.join(hits[:6])}" if hits else "文案全部走 data-i18n 取词")
     else:
         check(False, "帮助页无硬编码中文", "help.html 未读到")
+
+    # 7b. 文案一律经取词表（§P0-3 L1–L2）：页面只留键名，JS 模块不直写中文串
+    idx_html = root / "src/web/index.html"
+    if idx_html.is_file():
+        idx_hits = CJK.findall(idx_html.read_text(encoding="utf-8"))
+        check(not idx_hits, "主界面无硬编码中文",
+              f"发现 {len(idx_hits)} 处字面量：{''.join(idx_hits[:6])}" if idx_hits
+              else "文案全部走 data-i18n 取词")
+    else:
+        check(False, "主界面无硬编码中文", "index.html 未读到")
+
+    literal_bad = []
+    for js in sorted((root / "src/web/js").rglob("*.js")):
+        if "i18n" in js.parts:
+            continue   # 取词表自身就是文案的存放处
+        body = strip_comments(js.read_text(encoding="utf-8"), "js")
+        for _quote, text in re.findall(r"""(['"`])((?:\\.|(?!\1).)*?)\1""", body, flags=re.S):
+            if CJK.search(text):
+                literal_bad.append(f"{js.name}：{text.strip()[:24]}")
+    check(not literal_bad, "JS 文案经取词表 §P0-3 L1",
+          f"直写文案 {len(literal_bad)} 处：{'; '.join(literal_bad[:3])}" if literal_bad
+          else "除 i18n/ 外无中文串字面量")
+
+    # 7b-2. 取词键闭包（§P0-3 L2）：页面与 JS 引用的键必须在取词表里存在
+    KEY_SHAPE = re.compile(r"^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+)+$")
+    dict_file = root / "src/web/js/i18n/zh-CN.js"
+    known: set[str] = set()
+    if dict_file.is_file():
+        known = set(re.findall(
+            r"""['"]([A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+)+)['"]""",
+            dict_file.read_text(encoding="utf-8")))
+    used_keys: dict[str, str] = {}
+    for page in ("src/web/index.html", "src/web/help.html"):
+        page_file = root / page
+        if not page_file.is_file():
+            continue
+        for key in re.findall(
+                r'''data-i18n(?:-title|-placeholder|-aria-label)?="([^"]+)"''',
+                page_file.read_text(encoding="utf-8")):
+            used_keys.setdefault(key, page)
+    for js in sorted((root / "src/web/js").rglob("*.js")):
+        if "i18n" in js.parts:
+            continue
+        body = strip_comments(js.read_text(encoding="utf-8"), "js")
+        for text in re.findall(r"""['"]([^'"\n]+)['"]""", body):
+            if KEY_SHAPE.match(text):
+                used_keys.setdefault(text, js.name)
+    absent_keys = sorted(key for key in used_keys if key not in known)
+    check(not absent_keys, "取词键闭包 §P0-3 L2",
+          f"取词表缺少 {len(absent_keys)} 个键：{', '.join(absent_keys[:5])}" if absent_keys
+          else f"{len(used_keys)} 个引用键全部命中（取词表 {len(known)} 键）")
+
+    # 7c. 组件 CSS 只允许 var(--qm-*)（§P0-3 L4）
+    HEX_LIKE = re.compile(r"#[0-9a-fA-F]{3,8}\b")
+    raw_color = []
+    for css in sorted((root / "src/web/css").glob("*.css")):
+        if css.name == "tokens.css":
+            continue   # 变量的唯一来源，字面量只能写在这里
+        for m in HEX_LIKE.finditer(strip_comments(css.read_text(encoding="utf-8"), "css")):
+            raw_color.append(f"{css.name}:{m.group(0)}")
+    check(not raw_color, "组件 CSS 无裸色值 §P0-3 L4",
+          f"发现 {len(raw_color)} 处：{', '.join(raw_color[:4])}" if raw_color
+          else "组件样式全部经 var(--qm-*) 取色")
+
+    # 7d. 组件 CSS 不得感知皮肤（§P0-3 L5）—— 换肤只靠覆盖变量
+    skin_aware = []
+    for css in sorted((root / "src/web/css").rglob("*.css")):
+        if "skins" in css.parts:
+            continue
+        body = strip_comments(css.read_text(encoding="utf-8"), "css")
+        if "data-qm-skin" in body or re.search(r"\.skin-", body):
+            skin_aware.append(css.name)
+    check(not skin_aware, "组件 CSS 不感知皮肤 §P0-3 L5",
+          f"含皮肤选择器：{', '.join(skin_aware)}" if skin_aware
+          else "组件不引用皮肤，换肤只靠变量覆盖")
+
+    skins_doc = root / "src/web/css/skins/README.md"
+    check(skins_doc.is_file(), "皮肤目录契约 §P0-3 L5",
+          "src/web/css/skins/ 与契约就位" if skins_doc.is_file()
+          else "缺少 src/web/css/skins/README.md")
+
+    prefs_js = root / "src/web/js/i18n/index.js"
+    prefs_ok = prefs_js.is_file() and all(
+        key in prefs_js.read_text(encoding="utf-8") for key in ("qm.lang", "qm.skin"))
+    check(prefs_ok, "偏好键名 §P0-3 L6",
+          "qm.lang / qm.skin 齐备" if prefs_ok else "i18n/index.js 缺少 qm.lang 或 qm.skin")
 
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"

@@ -11,6 +11,8 @@
   --qm-accent: #2f8f6b;
   --qm-accent-ink: #1d6d50;
   --qm-accent-soft: #e2f0e9;
+  /* 强调色背景上的文字色（§P0-3 L4：组件 CSS 不得写裸色值） */
+  --qm-on-accent: #ffffff;
   --qm-danger: #bf4a3a;
   --qm-danger-soft: #f7e6e2;
   --qm-warn: #a8721a;
@@ -38,6 +40,8 @@
     --qm-accent: #4fbf90;
     --qm-accent-ink: #7dd6b0;
     --qm-accent-soft: #1f3a31;
+    /* 深色主题下 --qm-accent 本身是浅绿，叠加白字对比度不足，改用深墨绿 */
+    --qm-on-accent: #0f1a16;
     --qm-danger: #e0776a;
     --qm-danger-soft: #3a2422;
     --qm-warn: #d9a45b;

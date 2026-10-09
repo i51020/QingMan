@@ -3,7 +3,12 @@
  * 纯数据操作，不碰 DOM、不碰网络。
  *
  * 内存节点结构：{ id, type:'dir'|'file', name, children:[], content? }
+ *
+ * 说明：本模块会取词（§P0-3 L1）—— 抛出的错误消息面向用户，统一来自取词表。
+ * 取词模块不在顶层触碰 DOM / localStorage，故此处导入不会破坏「纯数据」定位。
  */
+
+import { t } from '../i18n/index.js';
 
 /* ---------- id 分配：唯一性靠判定，不靠概率 ---------- */
 
@@ -206,20 +211,20 @@ export function toDocumentNode(node) {
  */
 export function fromDocumentNode(raw, path = '$') {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    throw new Error(`文档节点非法（${path}）：应为对象`);
+    throw new Error(t('doc.nodeNotObject', { path }));
   }
   if (raw.type !== 'dir' && raw.type !== 'file') {
-    throw new Error(`文档节点非法（${path}）：type 必须为 dir 或 file`);
+    throw new Error(t('doc.nodeBadType', { path }));
   }
   if (typeof raw.name !== 'string' || !raw.name) {
-    throw new Error(`文档节点非法（${path}）：name 必须为非空字符串`);
+    throw new Error(t('doc.nodeBadName', { path }));
   }
   const id = (typeof raw.id === 'string' && raw.id) ? raw.id : uid(raw.type === 'dir' ? 'd' : 'f');
 
   if (raw.type === 'dir') {
     const children = raw.children === undefined ? [] : raw.children;
     if (!Array.isArray(children)) {
-      throw new Error(`文档节点非法（${path}.children）：应为数组`);
+      throw new Error(t('doc.nodeBadChildren', { path }));
     }
     return {
       id,

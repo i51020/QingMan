@@ -3,6 +3,8 @@
  * 极简发布/订阅，模块之间只通过事件通信，不互相直接引用。
  */
 
+import { t } from '../i18n/index.js';
+
 export function createBus() {
   /** @type {Map<string, Set<Function>>} */
   const listeners = new Map();
@@ -25,7 +27,7 @@ export function createBus() {
       try {
         handler(payload);
       } catch (err) {
-        console.error(`[bus] 事件 ${type} 的处理函数抛错：`, err);
+        console.error(t('bus.handlerError', { type }), err);
       }
     }
   }

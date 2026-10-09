@@ -1,10 +1,13 @@
 /**
  * 青蔓 QingMan · 应用入口
- * 负责装配：状态仓库 → 视图 → 交互绑定 → 编辑态持久化 → 后端连通性自检。
+ * 负责装配：偏好 → 取词填充 → 状态仓库 → 视图 → 交互绑定 → 编辑态持久化 → 后端连通性自检。
+ *
+ * 本文件不直写任何用户可见文案 —— 一律经 `t(key)` 取自 i18n 取词表（§P0-3 L1）。
  */
 
 import { createStore } from './core/store.js';
 import { api } from './core/api.js';
+import { t, applyStatic, initPrefs } from './i18n/index.js';
 import {
   createDir, createFile, findNode, findParent, addChild,
   renameNode, removeNode, countTree, treePayload,
@@ -27,13 +30,13 @@ const DOC_SCHEMA_VERSION = 1;
 
 function defaultRoot() {
   resetIdRegistry();
-  const root = createDir('青蔓示例项目');
-  addChild(root, createDir('素材'));
-  addChild(root, createDir('产出'));
-  addChild(root, createFile('说明.md', '# 说明\n\n本目录骨架由青蔓 QingMan 生成。\n'));
+  const root = createDir(t('sample.root'));
+  addChild(root, createDir(t('sample.materials')));
+  addChild(root, createDir(t('sample.output')));
+  addChild(root, createFile(t('sample.readme'), t('sample.readmeContent')));
   const sample = findNode(root, root.children[0].id);
-  addChild(sample, createDir('原始素材'));
-  addChild(sample, createDir('已整理'));
+  addChild(sample, createDir(t('sample.raw')));
+  addChild(sample, createDir(t('sample.tidied')));
   return root;
 }
 
@@ -71,7 +74,7 @@ function render() {
   treeView.render(root, selectedId);
   inspector.render(root, selectedId);
   const stats = countTree(root);
-  el('statusCount').textContent = `目录 ${stats.dirs} · 文件 ${stats.files}`;
+  el('statusCount').textContent = t('status.count', { dirs: stats.dirs, files: stats.files });
   renderSaveChip();
 }
 
@@ -87,24 +90,32 @@ const SAVE_CHIP_CLASS = {
   error: 'chip-bad',
 };
 
+const SAVE_CHIP_KEY = {
+  idle: 'topbar.save.idle',
+  pending: 'topbar.save.pending',
+  saving: 'topbar.save.saving',
+  error: 'topbar.save.error',
+};
+
 function renderSaveChip() {
   const { saveState, savedAt } = store.get();
   const chip = el('chipSave');
   if (!chip) return;
   chip.className = `chip ${SAVE_CHIP_CLASS[saveState] || ''}`.trim();
-  const labels = {
-    idle: '未保存',
-    pending: '未保存',
-    saving: '保存中…',
-    saved: savedAt ? `已保存 ${savedAt}` : '已保存',
-    error: '保存失败',
-  };
-  chip.textContent = labels[saveState] || '';
+  const key = SAVE_CHIP_KEY[saveState];
+  chip.textContent = saveState === 'saved'
+    ? (savedAt ? t('topbar.save.savedAt', { at: savedAt }) : t('topbar.save.saved'))
+    : (key ? t(key) : '');
 }
 
 /* ---------- 编辑态持久化（见 docs/项目约定.md §P0-7） ---------- */
 
 let saveTimer = null;
+
+/** 重复 id 列表 → 便于阅读的短串（分隔符同样走取词，避免直写全角标点）。 */
+function idList(ids) {
+  return ids.slice(0, 3).join(t('list.separator'));
+}
 
 function currentDocument() {
   return {
@@ -134,7 +145,7 @@ async function saveNow() {
   const duplicated = assertUniqueIds(store.get().root);
   if (duplicated.length) {
     store.set({ saveState: 'error' });
-    toast(`检测到重复 id（${duplicated.slice(0, 3).join('、')}），已阻止保存`, 'error', 8000);
+    toast(t('toast.dupIdBlocked', { ids: idList(duplicated) }), 'error', 8000);
     return;
   }
 
@@ -145,7 +156,7 @@ async function saveNow() {
     store.set({ saveState: 'saved', savedAt: at });
   } catch (err) {
     store.set({ saveState: 'error' });
-    toast(`保存失败：${err.message}`, 'error', 6000);
+    toast(t('toast.saveFailed', { message: err.message }), 'error', 6000);
   }
 }
 
@@ -159,16 +170,16 @@ async function restoreDocument() {
       const root = fromDocumentNode(res.doc.root);
       const duplicated = assertUniqueIds(root);
       if (duplicated.length) {
-        toast(`文档存在重复 id：${duplicated.slice(0, 3).join('、')}`, 'warn', 8000);
+        toast(t('toast.docDupId', { ids: idList(duplicated) }), 'warn', 8000);
       }
       const at = String(res.doc.savedAt || '').slice(11, 16);
       store.set({ root, selectedId: root.id, saveState: 'saved', savedAt: at });
-      setStatus(at ? `已恢复上次编辑内容（${at}）` : '已恢复上次编辑内容');
+      setStatus(at ? t('status.restoredAt', { at }) : t('status.restored'));
       return;
     }
     saveNow();
   } catch (err) {
-    toast(`读取上次编辑内容失败：${err.message}`, 'warn', 6000);
+    toast(t('toast.restoreFailed', { message: err.message }), 'warn', 6000);
   }
 }
 
@@ -182,24 +193,24 @@ el('btnAddChild').addEventListener('click', () => {
   const root = store.get().root;
   const node = findNode(root, selectedId());
   if (!node || node.type !== 'dir') {
-    toast('请先选中一个目录节点', 'warn');
+    toast(t('toast.selectDirFirst'), 'warn');
     return;
   }
-  const name = window.prompt('新目录名称', '新建目录');
+  const name = window.prompt(t('tree.newDirPrompt'), t('tree.newDirDefault'));
   if (name === null) return;
   const trimmed = name.trim();
   if (!trimmed) {
-    toast('名称不能为空', 'warn');
+    toast(t('toast.nameEmpty'), 'warn');
     return;
   }
   if (hasSiblingName(node, trimmed)) {
-    toast(`「${trimmed}」已存在于该目录下`, 'warn');
+    toast(t('toast.siblingExists', { name: trimmed }), 'warn');
     return;
   }
   const child = createDir(trimmed);
   addChild(node, child);
   store.set({ selectedId: child.id });
-  setStatus(`已新建目录「${trimmed}」`);
+  setStatus(t('status.addedDir', { name: trimmed }));
   markDirty();
 });
 
@@ -207,27 +218,27 @@ el('btnRename').addEventListener('click', () => {
   const root = store.get().root;
   const id = selectedId();
   if (id === root.id) {
-    toast('根节点名称由「根文件夹名」决定，不在此处重命名', 'warn');
+    toast(t('toast.rootRenameBlocked'), 'warn');
     return;
   }
   const node = findNode(root, id);
   if (!node) return;
-  const name = window.prompt('重命名', node.name);
+  const name = window.prompt(t('tree.renamePrompt'), node.name);
   if (name === null) return;
   const trimmed = name.trim();
   if (!trimmed) {
-    toast('名称不能为空', 'warn');
+    toast(t('toast.nameEmpty'), 'warn');
     return;
   }
   if (trimmed === node.name) return;
   const parent = findParent(root, id);
   if (hasSiblingName(parent, trimmed, id)) {
-    toast(`「${trimmed}」已存在于该目录下`, 'warn');
+    toast(t('toast.siblingExists', { name: trimmed }), 'warn');
     return;
   }
   renameNode(root, id, trimmed);
   store.set({});
-  setStatus(`已重命名为「${trimmed}」`);
+  setStatus(t('status.renamed', { name: trimmed }));
   markDirty();
 });
 
@@ -235,16 +246,16 @@ el('btnDelete').addEventListener('click', () => {
   const root = store.get().root;
   const id = selectedId();
   if (id === root.id) {
-    toast('根节点不可删除', 'warn');
+    toast(t('toast.rootDeleteBlocked'), 'warn');
     return;
   }
   const node = findNode(root, id);
   if (!node) return;
-  if (!window.confirm(`确认删除「${node.name}」及其全部子节点？`)) return;
+  if (!window.confirm(t('tree.deleteConfirm', { name: node.name }))) return;
   const parent = findParent(root, id);
   removeNode(root, id);
   store.set({ selectedId: parent ? parent.id : root.id });
-  setStatus(`已删除「${node.name}」`);
+  setStatus(t('status.deleted', { name: node.name }));
   markDirty();
 });
 
@@ -265,26 +276,28 @@ el('btnGenerate').addEventListener('click', async () => {
   const dryRun = el('inDryRun').checked;
 
   if (!target) {
-    toast('请先填写目标位置', 'warn');
+    toast(t('toast.targetRequired'), 'warn');
     el('inTarget').focus();
     return;
   }
 
   const btn = el('btnGenerate');
   btn.disabled = true;
-  setStatus(dryRun ? '演练中…' : '正在写入磁盘…');
+  setStatus(t(dryRun ? 'status.dryRunning' : 'status.writing'));
 
   try {
     const result = await api.generate(treePayload(root), { target, root: rootName, dryRun });
     inspector.showResult(result);
     markCheck('write', !dryRun);
-    setStatus(
-      `${dryRun ? '演练完成' : '生成完成'}：目录 ${result.createdDirs.length} · 文件 ${result.createdFiles.length} · 已存在 ${result.existed.length}`
-    );
-    toast(dryRun ? '演练完成，未写入磁盘' : `已生成到 ${result.root}`, 'info');
+    setStatus(t(dryRun ? 'status.dryDone' : 'status.genDone', {
+      dirs: result.createdDirs.length,
+      files: result.createdFiles.length,
+      existed: result.existed.length,
+    }));
+    toast(dryRun ? t('toast.dryDone') : t('toast.generatedTo', { root: result.root }), 'info');
   } catch (err) {
     inspector.showError(err);
-    setStatus(`生成失败：${err.message}`);
+    setStatus(t('status.genFailed', { message: err.message }));
     toast(err.message, 'error', 5000);
   } finally {
     btn.disabled = false;
@@ -341,18 +354,18 @@ async function boot() {
   try {
     const info = await api.health();
     store.set({ version: info.version, connected: true });
-    el('chipBackend').textContent = '后端已连接';
+    el('chipBackend').textContent = t('topbar.backendOn');
     el('chipBackend').classList.remove('chip-ghost');
     el('chipBackend').classList.add('chip-ok');
     markCheck('backend', true);
-    setStatus(`就绪 · ${info.nameZh} ${info.app}`);
+    setStatus(t('status.readyWith', { nameZh: info.nameZh, app: info.app }));
   } catch (err) {
     failCheck('backend');
     failCheck('write');
-    el('chipBackend').textContent = '后端未连接';
+    el('chipBackend').textContent = t('topbar.backendOff');
     el('chipBackend').classList.add('chip-bad');
-    setStatus('后端未连接，请通过 start.bat 启动');
-    toast(`后端未连接：${err.message}`, 'error', 6000);
+    setStatus(t('status.backendOffHint'));
+    toast(t('toast.backendOff', { message: err.message }), 'error', 6000);
     return;
   }
 
@@ -360,6 +373,9 @@ async function boot() {
   await restoreDocument();
 }
 
+/* 启动顺序：先恢复偏好并填静态文案，再渲染动态内容 —— 否则 applyStatic 会覆盖状态栏等动态字段 */
+initPrefs();
+applyStatic(document);
 render();
 markCheck('modules', true);
 markCheck('model', true);
