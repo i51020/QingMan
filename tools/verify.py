@@ -15,6 +15,7 @@
   8. 接续说明实况段与盘上一致（§P1-6 H4；文件未建立则跳过）
   9. 编辑态持久化契约（§P0-7）：schema.json 的 editorDocument/editorNode + 接口标识 + 错误码
  9b. 落盘安全边界（§P0-1）：config 黑名单 / dtree_core.check_target / routes 接线 / 错误码
+ 9c. 回归测试网（§P0-2）：tests/ 四模块 + tools/smoke.py（仅项目根，预览目录跳过）
  10. 指纹比对（--against <版本>）：与该版本**最高修订**清单逐文件比对 SHA-256
 退出码：0 全部通过；1 存在失败项。
 """
@@ -362,6 +363,17 @@ def main() -> int:
     check(not guard_absent, "落盘安全边界 §P0-1",
           f"缺失：{', '.join(guard_absent)}" if guard_absent
           else "config 黑名单 / dtree_core.check_target / routes 接线 / 错误码 齐备")
+
+    # 9c. 回归测试网（§P0-2）：仅在项目根（含 tests/）校验，预览目录自动跳过
+    if (root / "tests").is_dir():
+        net_missing = [rel for rel in (
+            "tests/test_dtree_core.py", "tests/test_routes.py",
+            "tests/test_store.py", "tests/test_versioning.py",
+            "tools/smoke.py",
+        ) if not (root / rel).is_file()]
+        check(not net_missing, "回归测试网 §P0-2",
+              f"缺失：{', '.join(net_missing)}" if net_missing
+              else "tests/ 四模块 + tools/smoke.py 齐备")
 
     # 10. 与版本清单比对指纹（仅在指定 --against 时启用）
     if against:
