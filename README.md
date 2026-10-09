@@ -46,8 +46,8 @@ QingMan/
 │  ├─ V0.0.2/           MANIFEST.json
 │  ├─ V0.0.1/           MANIFEST.json（基线 r1）+ MANIFEST-r<N>.json（同版本修订）
 │  └─ V0.01/            旧编号全量快照（历史遗留，原样保留）
-├─ preview/             试运行区（**按需新建** `preview/V<版本>/`）
-│  └─ V0.0.3/           V0.0.3 的试运行副本（落地后保留作对照）
+├─ preview/             试运行区（**只服务单次开发**：`promote` 后即清空，不跨版本保留 —— §P1-7）
+│  └─ README.md         用途与规则说明（占位，使目录保留在 git 跟踪内）
 ├─ templates/           17 套中文目录树模板（内容资产）
 ├─ tools/               工具链：store / verify / versioning / release / promote / handoff
 ├─ legacy/              历史归档，命名 `<对象>-<日期>/`，只增不删
@@ -83,7 +83,7 @@ QingMan/
 
 | 步骤 | 命令 | 说明 |
 |---|---|---|
-| 1. 预览开发 | — | 按需新建 `preview/V<版本>/` 试跑，主线不受影响 |
+| 1. 预览开发 | — | 按需新建 `preview/V<版本>/` 试跑，主线不受影响；**落地后按 §P1-7 清空，不跨版本保留** |
 | 2. 交付校验 | `python tools/verify.py preview/V<版本>` | 主线 **37 项**、预览目录 **36 项**（预览无 `docs/`，少「接续说明实况段」一项），不通过不落地 |
 | 3. 落地主线 | `python tools/promote.py --from preview/V<版本>` | 单向：预览 → 主线，只复制不删除 |
 | 4. 提交版本 | `python tools/store.py commit --note "说明"` | 写入 blob 池 + 生成清单（同版本则追加修订） |
