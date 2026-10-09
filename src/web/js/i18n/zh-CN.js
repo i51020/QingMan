@@ -52,6 +52,16 @@ export const dict = {
   'gen.dryRun': '仅演练（不写盘）',
   'gen.button': '一键生成',
 
+  /* 折叠摘要行（参数区收起后常驻显示当前设定） */
+  'gen.summaryEmpty': '未设置目标位置',
+  'gen.summaryTarget': '目标 {target}',
+  'gen.summaryRoot': '根名 {root}',
+  'gen.summaryDryRun': '演练中',
+  'gen.summaryWrite': '写盘',
+  'gen.summarySep': ' · ',
+  'gen.toggleExpand': '展开生成参数',
+  'gen.toggleCollapse': '收起生成参数',
+
   /* ---------- 中栏：工具栏与目录树 ---------- */
   'tree.canvasLabel': '目录树',
   'tree.addChild': '新建子节点',
@@ -159,6 +169,7 @@ export const dict = {
   'help.ops.title': '界面说明',
   'help.ops.sidebar': '左栏「模板库」——选择模板，下方为骨架自检清单',
   'help.ops.center': '中栏——顶部是生成参数与工具栏，主体是目录树',
+  'help.ops.genBar': '参数区左上角可点开／收起：收起后只留一行摘要（目标位置 · 根名 · 演练或写盘），当前设定仍一眼可见',
   'help.ops.inspector': '右栏「属性」——选中节点的名称、类型、路径、深度与统计；下方显示生成结果',
 
   'help.tree.title': '目录树操作',
@@ -194,7 +205,7 @@ export const helpSections = [
     'help.quickStart.4', 'help.quickStart.5',
   ] },
   { id: 'ops', title: 'help.ops.title', kind: 'ul', items: [
-    'help.ops.sidebar', 'help.ops.center', 'help.ops.inspector',
+    'help.ops.sidebar', 'help.ops.center', 'help.ops.genBar', 'help.ops.inspector',
   ] },
   { id: 'tree', title: 'help.tree.title', kind: 'ul', items: [
     'help.tree.1', 'help.tree.2', 'help.tree.3', 'help.tree.4', 'help.tree.5',

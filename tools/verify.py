@@ -367,10 +367,12 @@ def main() -> int:
           else "缺少 src/web/css/skins/README.md")
 
     prefs_js = root / "src/web/js/i18n/index.js"
-    prefs_ok = prefs_js.is_file() and all(
-        key in prefs_js.read_text(encoding="utf-8") for key in ("qm.lang", "qm.skin"))
-    check(prefs_ok, "偏好键名 §P0-3 L6",
-          "qm.lang / qm.skin 齐备" if prefs_ok else "i18n/index.js 缺少 qm.lang 或 qm.skin")
+    PREF_KEYS = ("qm.lang", "qm.skin", "qm.genBar")
+    prefs_body = prefs_js.read_text(encoding="utf-8") if prefs_js.is_file() else ""
+    prefs_missing = [key for key in PREF_KEYS if key not in prefs_body]
+    check(not prefs_missing, "偏好键名 §P0-3 L6",
+          " / ".join(PREF_KEYS) + " 齐备" if not prefs_missing
+          else "i18n/index.js 缺少：" + ", ".join(prefs_missing))
 
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"

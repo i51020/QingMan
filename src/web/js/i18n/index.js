@@ -4,7 +4,8 @@
  * 单一取词入口：**所有面向用户可见的文案都必须经 `t(key)` 取得**，
  * UI 模块一律不得直写文案（由 `tools/verify.py` 的静态检查把关）。
  *
- * 语言与皮肤分别持久化在 localStorage 的 `qm.lang` / `qm.skin`（§P0-3 L6）。
+ * 语言 / 皮肤 / 界面折叠态分别持久化在 localStorage 的
+ * `qm.lang` / `qm.skin` / `qm.genBar`（§P0-3 L6）。
  * 本模块的 DOM / localStorage 访问全部发生在函数内部 —— 顶层导入是安全的，
  * 因此纯逻辑模块（如 modules/tree-model.js）也可以取词。
  */
@@ -17,6 +18,7 @@ const DICTIONARIES = { 'zh-CN': zhCN };
 export const DEFAULT_LOCALE = 'zh-CN';
 export const LOCALE_KEY = 'qm.lang';
 export const SKIN_KEY = 'qm.skin';
+export const GENBAR_KEY = 'qm.genBar';
 
 let locale = DEFAULT_LOCALE;
 let dict = DICTIONARIES[locale];
@@ -130,6 +132,25 @@ export function applySkin() {
   link.rel = 'stylesheet';
   link.href = './css/skins/' + name + '.css';
   if (!existing) document.head.appendChild(link);
+}
+
+/* ---------- 界面折叠态（§P0-3 L6） ---------- */
+
+/**
+ * 生成参数区的折叠态，取值 `'open'` / `'closed'`；未设置时返回空串。
+ *
+ * 该状态**只在启动时定一次**并落盘，之后完全由用户控制。不要在每次渲染时
+ * 按"目标位置是否已填"动态推断 —— 那样用户输入目标位置的第一个字符就会
+ * 触发展开区自动收起，恰好与帮助页的引导顺序（先填目标位置）相反。
+ */
+export function getGenBarState() {
+  const saved = readPref(GENBAR_KEY);
+  return saved === 'open' || saved === 'closed' ? saved : '';
+}
+
+/** 写折叠态；传入非法值时清除记录（下次启动重新按默认展开）。 */
+export function setGenBarState(state) {
+  writePref(GENBAR_KEY, state === 'open' || state === 'closed' ? state : '');
 }
 
 /** 启动时恢复已保存的语言与皮肤。**必须在填充任何文案之前调用**。 */

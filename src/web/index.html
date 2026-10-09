@@ -44,19 +44,26 @@
       </aside>
 
       <section id="center">
-        <div id="genBar" class="bar">
-          <label class="field">
-            <span data-i18n="gen.rootLabel"></span>
-            <input type="text" id="inRoot" data-i18n-placeholder="gen.rootPlaceholder">
-          </label>
-          <label class="field field-wide">
-            <span data-i18n="gen.targetLabel"></span>
-            <input type="text" id="inTarget" data-i18n-placeholder="gen.targetPlaceholder">
-          </label>
-          <label class="switch">
-            <input type="checkbox" id="inDryRun" checked>
-            <span data-i18n="gen.dryRun"></span>
-          </label>
+        <div id="genBar">
+          <button type="button" class="genbar-head" id="btnGenToggle"
+                  aria-expanded="true" aria-controls="genFields">
+            <span class="genbar-caret" id="genCaret" aria-hidden="true"></span>
+            <span class="genbar-summary" id="genSummary" data-i18n="gen.summaryEmpty"></span>
+          </button>
+          <div class="genbar-fields" id="genFields">
+            <label class="field">
+              <span data-i18n="gen.rootLabel"></span>
+              <input type="text" id="inRoot" data-i18n-placeholder="gen.rootPlaceholder">
+            </label>
+            <label class="field field-wide">
+              <span data-i18n="gen.targetLabel"></span>
+              <input type="text" id="inTarget" data-i18n-placeholder="gen.targetPlaceholder">
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="inDryRun" checked>
+              <span data-i18n="gen.dryRun"></span>
+            </label>
+          </div>
         </div>
 
         <div id="toolbar" class="bar">

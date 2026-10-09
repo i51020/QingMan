@@ -7,7 +7,7 @@
 
 import { createStore } from './core/store.js';
 import { api } from './core/api.js';
-import { t, applyStatic, initPrefs } from './i18n/index.js';
+import { t, applyStatic, initPrefs, getGenBarState, setGenBarState } from './i18n/index.js';
 import {
   createDir, createFile, findNode, findParent, addChild,
   renameNode, removeNode, countTree, treePayload,
@@ -25,6 +25,46 @@ const AUTOSAVE_DELAY = 800;
 
 /** 编辑态文档结构版本，与 src/shared/schema.json 的 editorDocument.schemaVersion 一致 */
 const DOC_SCHEMA_VERSION = 1;
+
+/* ---------- 生成参数区：折叠 ---------- */
+
+/** 折叠标记，与目录树的展开/折叠符同款（见 ui/tree-view.js） */
+const CARET_OPEN = '\u25BC';
+const CARET_CLOSED = '\u25B6';
+
+/**
+ * 启动时定一次折叠态。无记录则默认展开 —— 目标位置目前不跨会话保存，
+ * 故首次启动总是展开，与帮助页的引导顺序（先填目标位置）一致。
+ */
+function initGenBar() {
+  if (!getGenBarState()) setGenBarState('open');
+  renderGenBar();
+}
+
+/** 摘要行文案：目标位置（未填时明说）· 根名（有才显示）· 演练或写盘 */
+function genSummaryText() {
+  const target = el('inTarget').value.trim();
+  const rootName = el('inRoot').value.trim();
+  const parts = [target ? t('gen.summaryTarget', { target }) : t('gen.summaryEmpty')];
+  if (rootName) parts.push(t('gen.summaryRoot', { root: rootName }));
+  parts.push(t(el('inDryRun').checked ? 'gen.summaryDryRun' : 'gen.summaryWrite'));
+  return parts.join(t('gen.summarySep'));
+}
+
+function renderGenBar() {
+  const collapsed = getGenBarState() === 'closed';
+  const head = el('btnGenToggle');
+  el('genBar').classList.toggle('is-collapsed', collapsed);
+  head.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  head.setAttribute('title', t(collapsed ? 'gen.toggleExpand' : 'gen.toggleCollapse'));
+  el('genCaret').textContent = collapsed ? CARET_CLOSED : CARET_OPEN;
+  el('genSummary').textContent = genSummaryText();
+}
+
+function setGenBarCollapsed(next) {
+  setGenBarState(next ? 'closed' : 'open');
+  renderGenBar();
+}
 
 /* ---------- 初值：尚无持久化文档时使用的默认示例 ---------- */
 
@@ -269,6 +309,16 @@ el('btnCollapseAll').addEventListener('click', () => {
   render();
 });
 
+el('btnGenToggle').addEventListener('click', () => {
+  setGenBarCollapsed(getGenBarState() !== 'closed');
+});
+
+/* 参数一变就刷新摘要行，使折叠态下也能一眼看清当前设定 */
+for (const id of ['inRoot', 'inTarget']) {
+  el(id).addEventListener('input', renderGenBar);
+}
+el('inDryRun').addEventListener('change', renderGenBar);
+
 el('btnGenerate').addEventListener('click', async () => {
   const { root } = store.get();
   const target = el('inTarget').value.trim();
@@ -276,6 +326,7 @@ el('btnGenerate').addEventListener('click', async () => {
   const dryRun = el('inDryRun').checked;
 
   if (!target) {
+    setGenBarCollapsed(false);   // 目标位置为空时参数区必须可见，否则用户看不到该填哪里
     toast(t('toast.targetRequired'), 'warn');
     el('inTarget').focus();
     return;
@@ -376,6 +427,7 @@ async function boot() {
 /* 启动顺序：先恢复偏好并填静态文案，再渲染动态内容 —— 否则 applyStatic 会覆盖状态栏等动态字段 */
 initPrefs();
 applyStatic(document);
+initGenBar();
 render();
 markCheck('modules', true);
 markCheck('model', true);
