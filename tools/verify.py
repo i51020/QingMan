@@ -16,6 +16,7 @@
  7b. 双语与皮肤预留（§P0-3）：主界面无硬编码中文 / JS 无中文串字面量 / 组件 CSS 无裸色值 /
      组件 CSS 不感知皮肤 / 皮肤目录契约 / 偏好键名 qm.lang · qm.skin
  8. 接续说明实况段与盘上一致（§P1-6 H4；文件未建立则跳过）
+ 8b. 源码 § 引用可解析（《错误笔记》§三.22；约定文档不在则跳过）
   9. 编辑态持久化契约（§P0-7）：schema.json 的 editorDocument/editorNode + 接口标识 + 错误码
  9b. 落盘安全边界（§P0-1）：config 黑名单 / dtree_core.check_target / routes 接线 / 错误码
  9c. 回归测试网（§P0-2）：tests/ 四模块 + tools/smoke.py（仅项目根，预览目录跳过）
@@ -90,6 +91,17 @@ REQUIRED_FILES = (
 
 CJK = re.compile(r"[\u4e00-\u9fff]")
 
+# 源码 § 引用守卫：`§<标签>` 的标签语法（ASCII 编号如 P0-1，或纯中文名如 编码基线）。
+# 契约：引用**必须紧贴书写**（`§P0-1`）—— `§` 后带空白视为散文（"§ 引用…"），不参与校验；
+# 否则中文散文会被误当成编号（实证：`_sandbox/srcref_probe_20261009/`）。
+SRC_REF = re.compile(r"§([A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*|[\u4e00-\u9fff]+)")
+# 约定文档里「已定义编号」的判据：标题行（含 `## 三、P2 …` 这类带序号的写法）
+SECTION_LABEL = re.compile(
+    r"^#+\s+(?:[一二三四五六七八九十]+、)?\s*(P\d+(?:-\d+)?|编码基线)(?=[\s、（(]|$)"
+)
+# § 引用只在源码文本里查（文档自身引用的编号体系另属 docs/ 维护规则）
+SRC_REF_EXTS = (".py", ".js", ".css", ".html", ".json", ".md")
+
 results: list[tuple[bool, str, str]] = []
 
 
@@ -163,6 +175,39 @@ def check_fingerprint(root: Path, version: str) -> None:
     check(clean, f"指纹比对 {label}", detail)
     for rel in (changed + added + missing)[:10]:
         print(f"        [差异] {rel}")
+
+
+def defined_section_labels(root: Path) -> set[str]:
+    """`docs/项目约定.md` 中**已定义**的约定编号（取自标题行）。
+
+    `### P0-1 落盘安全边界` → `P0-1`；`### 编码基线` → `编码基线`；
+    `## 三、P2 台账（…）` → `P2`（序号前缀与括号后缀均被剥离）。
+    """
+    doc = root / "docs" / "项目约定.md"
+    if not doc.is_file():
+        return set()
+    return {m.group(1) for line in doc.read_text(encoding="utf-8").splitlines()
+            if (m := SECTION_LABEL.match(line))}
+
+
+def collect_src_refs(root: Path) -> dict[str, list[str]]:
+    """`src/**` 下全部 `§<标签>` 引用：标签 → 出现位置（`相对路径:行号`）。"""
+    found: dict[str, list[str]] = {}
+    src = root / "src"
+    if not src.is_dir():
+        return found
+    for path in sorted(src.rglob("*")):
+        if not (path.is_file() and path.suffix in SRC_REF_EXTS):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        rel = path.relative_to(root).as_posix()
+        for lineno, line in enumerate(text.splitlines(), 1):
+            for label in SRC_REF.findall(line):
+                found.setdefault(label, []).append(f"{rel}:{lineno}")
+    return found
 
 
 def main() -> int:
@@ -390,6 +435,19 @@ def main() -> int:
             check(same, "接续说明实况段", "与盘上一致" if same else "已过期，运行 python tools/handoff.py")
         except (ValueError, OSError, UnicodeDecodeError) as exc:
             check(False, "接续说明实况段", f"无法生成：{exc}")
+
+    # 8b. 源码 § 引用必须能解析到 docs 中真实存在的编号（防「悬空引用」复发 —— 《错误笔记》§三.22；
+    #     约定文档不在（预览目录）则跳过）
+    if (root / "docs" / "项目约定.md").is_file():
+        refs = collect_src_refs(root)
+        known = defined_section_labels(root)
+        dangling = {lab: locs for lab, locs in refs.items() if lab not in known}
+        if dangling:
+            detail = "；".join(f"`{lab}`（{locs[0]}）" for lab, locs in sorted(dangling.items()))
+            check(False, "源码 § 引用可解析", f"指向不存在的编号：{detail}")
+        else:
+            check(True, "源码 § 引用可解析",
+                  f"{len(refs)} 个编号全部可解析 —— " + " / ".join(sorted(refs)))
 
     # 9. 编辑态持久化：共享契约、接口标识与错误码齐备（§P0-7）
     schema_file = root / "src/shared/schema.json"
