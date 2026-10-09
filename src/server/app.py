@@ -160,7 +160,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self._guard() or not self._guard_write():
             return
         path = urlparse(self.path).path
-        if path != routes.GENERATE_PATH:
+        if path not in (routes.GENERATE_PATH, routes.SHORTCUT_PATH):
             self._fail(404, "notFound", path=path)
             return
         try:
@@ -177,7 +177,10 @@ class Handler(BaseHTTPRequestHandler):
             self._fail(400, "badJson")
             return
         try:
-            self._json(200, routes.generate(payload))
+            if path == routes.GENERATE_PATH:
+                self._json(200, routes.generate(payload))
+            else:
+                self._json(200, routes.create_shortcut(payload))
         except TreeError as exc:
             self._fail(400, exc.code, **exc.detail)
         except OSError as exc:

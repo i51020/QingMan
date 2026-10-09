@@ -67,6 +67,7 @@ PROJECT_DIR = SRC_DIR.parent                    # 项目根
 WEB_DIR = SRC_DIR / "web"
 SHARED_DIR = SRC_DIR / "shared"
 VERSION_FILE = PROJECT_DIR / "VERSION"
+START_BAT = PROJECT_DIR / "start.bat"
 
 # ---------- 编辑态持久化（N2） ----------
 

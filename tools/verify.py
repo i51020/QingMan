@@ -54,7 +54,7 @@ PAIRED_TAGS = (
 )
 
 REQUIRED_IDS = (
-    "topbar", "chipSave", "chipBackend", "btnHelp", "btnSupport",
+    "topbar", "chipSave", "chipBackend", "btnHelp", "btnSupport", "btnLogo",
     "langSelect", "skinSelect",
     "sidebar", "checklist",
     "center", "genBar", "inRoot", "inTarget", "inDryRun",

@@ -143,6 +143,8 @@ export const dict = {
   'shortcut.title': '创建桌面快捷方式',
   'shortcut.confirm': '在桌面生成「青蔓 QingMan」快捷方式？',
   'shortcut.done': '快捷方式已生成',
+  'shortcut.fileName': '青蔓 QingMan.lnk',
+  'shortcut.downloaded': '（已下载）',
   'shortcut.failed': '快捷方式生成失败：{message}',
 
   /* ---------- 轻提示 ---------- */
@@ -260,7 +262,7 @@ export const helpSections = [
   { id: 'tree', title: 'help.tree.title', kind: 'ul', items: [
     'help.tree.1', 'help.tree.2', 'help.tree.3', 'help.tree.4', 'help.tree.5',
   ] },
-  { id: 'kbd', title: 'help.kbd.title', kind: 'note', items: ['help.kbd.save', 'help.kbd.pending'] },
+  { id: 'kbd', title: 'help.kbd.title', kind: 'note', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.pending'] },
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [
     'help.safety.1', 'help.safety.2', 'help.safety.3', 'help.safety.4', 'help.safety.5',
   ] },

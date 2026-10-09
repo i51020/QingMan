@@ -7,6 +7,41 @@
 
 ---
 
+## V0.0.9 — 2026-10-10
+
+**主题**：功能补全 —— 撤销/重做（50 步）与点击 logo 生成桌面快捷方式。
+
+> **立项依据**：用户 10 条需求中的第 7、8 两条，按 V0.0.8(UI) + V0.0.9(功能) 的版本切分落地。
+
+### 变更（`src/`）
+
+- **撤销 / 重做**
+  - `main.js` 引入文档快照栈（`toDocumentNode` / `fromDocumentNode`），上限 **50 步**；工具栏 `#btnUndo` / `#btnRedo` 已预置，现启用
+  - 键盘快捷键：`Ctrl / Cmd + Z` 撤销；`Ctrl / Cmd + Y` 与 `Ctrl / Cmd + Shift + Z` 重做；在输入框内保留原生撤销行为
+  - 新建 / 重命名 / 删除前自动压栈；撤销后恢复选中 id（若已不存在则回根节点）并触发自动保存
+  - `zh-CN.js` / `en-US.js` 帮助页键位表补登 `help.kbd.undo` / `help.kbd.redo`
+- **桌面快捷方式**
+  - 顶栏品牌区由静态展示改为可点击按钮 `#btnLogo`，点击二次确认后调用后端 `/api/shortcut`
+  - 后端新增 `POST /api/shortcut`：优先用 PowerShell `WScript.Shell` 在用户桌面生成 `青蔓 QingMan.lnk`
+  - 桌面不可写时降级：在临时目录生成同一份 `.lnk`，以 base64 返回前端触发下载
+  - 新增错误码 `shortcutTargetMissing` / `shortcutFailed`；`config.START_BAT` 作为快捷方式目标
+
+### 工具
+
+- `verify.py` 关键 id 清单加入 `btnLogo`
+
+### 验收（全部实测）
+
+| 项 | 结果 |
+|---|---|
+| 预览 `verify.py preview/V0.0.9` | **56 项 0 失败** |
+| 主线 `verify.py . --against V0.0.9` | **61 项 0 失败**，指纹 V0.0.9 完全一致 |
+| `unittest` | **71 tests OK** |
+| `tools/smoke.py` | **17 项 0 失败** |
+| `.lnk` 生成 | 沙箱验证可生成非空快捷方式文件 |
+
+---
+
 ## V0.0.8 — 2026-10-10
 
 **主题**：UI  overhaul —— 15 款独立皮肤、中英双语、微信赞赏码支持页、模板名去编号前缀，以及整体切到**锐利新拟物**视觉风格。

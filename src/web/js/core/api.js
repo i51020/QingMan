@@ -66,4 +66,16 @@ export const api = {
       body: JSON.stringify({ doc }),
     });
   },
+
+  /**
+   * 创建桌面快捷方式。
+   * 成功直写桌面 → { ok: true, path };
+   * 桌面不可写 → { ok: true, fallback: true, name, data(base64) }，由调用方触发下载。
+   */
+  createShortcut() {
+    return request('/api/shortcut', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  },
 };

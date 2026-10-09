@@ -6,9 +6,13 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
+import subprocess
+import tempfile
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict
 
 from server import config, dtree_core
@@ -17,6 +21,7 @@ from server.dtree_core import TreeError
 GENERATE_PATH = "/api/generate"
 HEALTH_PATH = "/api/health"
 EDITOR_PATH = "/api/editor"
+SHORTCUT_PATH = "/api/shortcut"
 
 # 编辑态文档结构版本；结构不兼容变更时递增（见 src/shared/schema.json）
 EDITOR_SCHEMA_VERSION = 1
@@ -120,3 +125,46 @@ def save_editor(payload: Dict[str, Any]) -> Dict[str, Any]:
         "bytes": size,
         "stats": stats,
     }
+
+
+def _write_lnk(path: Path, target: str, workdir: str) -> None:
+    """用 PowerShell WScript.Shell 写一个 Windows 快捷方式（.lnk）。"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    script = (
+        "$ws = New-Object -ComObject WScript.Shell; "
+        f"$sc = $ws.CreateShortcut({str(path)!r}); "
+        f"$sc.TargetPath = {target!r}; "
+        f"$sc.WorkingDirectory = {workdir!r}; "
+        "$sc.Save()"
+    )
+    result = subprocess.run(
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+        capture_output=True, text=True, check=False,
+    )
+    if result.returncode != 0:
+        raise OSError(result.stderr or "PowerShell CreateShortcut failed")
+
+
+def create_shortcut(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """在桌面生成启动快捷方式；若桌面不可写，降级为返回 .lnk 字节（base64）供下载。"""
+    target = str(config.START_BAT)
+    if not config.START_BAT.is_file():
+        raise TreeError("shortcutTargetMissing", target=target)
+
+    workdir = str(config.PROJECT_DIR)
+    name = f"{config.APP_NAME_ZH} {config.APP_NAME_EN}.lnk"
+    desktop = Path.home() / "Desktop"
+    lnk = desktop / name
+
+    try:
+        _write_lnk(lnk, target, workdir)
+        return {"ok": True, "path": str(lnk)}
+    except OSError:
+        # 桌面写入失败时，在临时目录生成同一份 .lnk 并返回 base64
+        tmp = Path(tempfile.gettempdir()) / name
+        try:
+            _write_lnk(tmp, target, workdir)
+            data = base64.b64encode(tmp.read_bytes()).decode("ascii")
+            return {"ok": True, "fallback": True, "name": name, "data": data}
+        except OSError as exc:
+            raise TreeError("shortcutFailed", message=str(exc)) from exc

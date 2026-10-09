@@ -90,6 +90,61 @@ function initTopbar() {
   });
 }
 
+/* ---------- 撤销 / 重做（上限 50 步） ---------- */
+
+const HISTORY_LIMIT = 50;
+let undoStack = [];
+let redoStack = [];
+
+function snapshotTree() {
+  return toDocumentNode(store.get().root);
+}
+
+function updateUndoUI() {
+  el('btnUndo').disabled = undoStack.length === 0;
+  el('btnRedo').disabled = redoStack.length === 0;
+}
+
+function pushHistory() {
+  undoStack.push(snapshotTree());
+  if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
+  redoStack = [];
+  updateUndoUI();
+}
+
+function restoreHistory(doc) {
+  resetIdRegistry();
+  reserveIds(doc);
+  const root = fromDocumentNode(doc);
+  let selectedId = store.get().selectedId;
+  if (!findNode(root, selectedId)) selectedId = root.id;
+  store.set({ root, selectedId });
+}
+
+function undo() {
+  if (!undoStack.length) {
+    toast(t('toast.cannotUndo'), 'warn');
+    return;
+  }
+  redoStack.push(snapshotTree());
+  const doc = undoStack.pop();
+  restoreHistory(doc);
+  setStatus(t('status.undid'));
+  markDirty();
+}
+
+function redo() {
+  if (!redoStack.length) {
+    toast(t('toast.cannotRedo'), 'warn');
+    return;
+  }
+  undoStack.push(snapshotTree());
+  const doc = redoStack.pop();
+  restoreHistory(doc);
+  setStatus(t('status.redid'));
+  markDirty();
+}
+
 /* ---------- 初值：尚无持久化文档时使用的默认示例 ---------- */
 
 function defaultRoot() {
@@ -140,6 +195,7 @@ function render() {
   const stats = countTree(root);
   el('statusCount').textContent = t('status.count', { dirs: stats.dirs, files: stats.files });
   renderSaveChip();
+  updateUndoUI();
 }
 
 store.subscribe(render);
@@ -271,6 +327,7 @@ el('btnAddChild').addEventListener('click', () => {
     toast(t('toast.siblingExists', { name: trimmed }), 'warn');
     return;
   }
+  pushHistory();
   const child = createDir(trimmed);
   addChild(node, child);
   store.set({ selectedId: child.id });
@@ -300,6 +357,7 @@ el('btnRename').addEventListener('click', () => {
     toast(t('toast.siblingExists', { name: trimmed }), 'warn');
     return;
   }
+  pushHistory();
   renameNode(root, id, trimmed);
   store.set({});
   setStatus(t('status.renamed', { name: trimmed }));
@@ -316,6 +374,7 @@ el('btnDelete').addEventListener('click', () => {
   const node = findNode(root, id);
   if (!node) return;
   if (!window.confirm(t('tree.deleteConfirm', { name: node.name }))) return;
+  pushHistory();
   const parent = findParent(root, id);
   removeNode(root, id);
   store.set({ selectedId: parent ? parent.id : root.id });
@@ -385,11 +444,54 @@ el('btnHelp').addEventListener('click', () => {
   window.open('./help.html', '_blank', 'noopener');
 });
 
-/* Ctrl/Cmd + S：跳过防抖立即写盘 */
+async function createShortcut() {
+  if (!window.confirm(t('shortcut.confirm'))) return;
+  try {
+    const res = await api.createShortcut();
+    if (res.fallback && res.data) {
+      const a = document.createElement('a');
+      a.href = 'data:application/octet-stream;base64,' + res.data;
+      a.download = res.name || t('shortcut.fileName');
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      toast(t('shortcut.done') + t('shortcut.downloaded'), 'info');
+    } else {
+      toast(t('shortcut.done'), 'info');
+    }
+  } catch (err) {
+    toast(t('shortcut.failed', { message: err.message }), 'error');
+  }
+}
+
+el('btnLogo').addEventListener('click', createShortcut);
+
+el('btnUndo').addEventListener('click', undo);
+el('btnRedo').addEventListener('click', redo);
+
+/* Ctrl/Cmd + S 立即保存；Ctrl/Cmd + Z 撤销；Ctrl/Cmd + Y / Ctrl/Cmd + Shift + Z 重做。
+   在输入框内时保留原生撤销行为，不拦截。 */
 document.addEventListener('keydown', (event) => {
-  if ((event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === 's') {
+  const mod = event.ctrlKey || event.metaKey;
+  if (!mod || event.altKey) return;
+  const key = String(event.key).toLowerCase();
+  const tag = (event.target.tagName || '').toLowerCase();
+  const typing = tag === 'input' || tag === 'textarea' || event.target.isContentEditable;
+
+  if (key === 's') {
     event.preventDefault();
     saveNow();
+    return;
+  }
+  if (typing) return;
+  if (key === 'z') {
+    event.preventDefault();
+    event.shiftKey ? redo() : undo();
+    return;
+  }
+  if (key === 'y') {
+    event.preventDefault();
+    redo();
   }
 });
 

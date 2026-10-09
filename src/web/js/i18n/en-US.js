@@ -134,6 +134,8 @@ export const dict = {
   'shortcut.title': 'Create desktop shortcut',
   'shortcut.confirm': 'Create a "QingMan" shortcut on the desktop?',
   'shortcut.done': 'Shortcut created',
+  'shortcut.fileName': 'QingMan.lnk',
+  'shortcut.downloaded': ' (downloaded)',
   'shortcut.failed': 'Shortcut failed: {message}',
 
   /* ---------- Toasts ---------- */
@@ -246,7 +248,7 @@ export const helpSections = [
   { id: 'tree', title: 'help.tree.title', kind: 'ul', items: [
     'help.tree.1', 'help.tree.2', 'help.tree.3', 'help.tree.4', 'help.tree.5',
   ] },
-  { id: 'kbd', title: 'help.kbd.title', kind: 'note', items: ['help.kbd.save', 'help.kbd.pending'] },
+  { id: 'kbd', title: 'help.kbd.title', kind: 'note', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.pending'] },
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [
     'help.safety.1', 'help.safety.2', 'help.safety.3', 'help.safety.4', 'help.safety.5',
   ] },

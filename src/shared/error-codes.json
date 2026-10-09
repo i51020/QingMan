@@ -38,5 +38,7 @@
   "editorTooLarge": "编辑态文档过大，上限 {limit} 字节（当前 {actual}）",
   "editorTooManyNodes": "编辑态文档节点过多，上限 {limit} 个",
   "editorReadFailed": "读取编辑态文档失败：{message}",
-  "editorCorrupt": "编辑态文档已损坏，无法解析：{path}"
+  "editorCorrupt": "编辑态文档已损坏，无法解析：{path}",
+  "shortcutTargetMissing": "启动文件不存在：{target}",
+  "shortcutFailed": "快捷方式生成失败：{message}"
 }
