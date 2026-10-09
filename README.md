@@ -46,7 +46,10 @@ QingMan/
 ├─ templates/           17 套中文目录树模板（内容资产）
 ├─ tools/               工具链：store / verify / versioning / release / promote
 ├─ legacy/              改造前的工具备份（回退点）
-└─ docs/                项目手册 / 任务进度 / 错误笔记
+├─ docs/                项目手册 / 项目约定 / 任务进度 / 错误笔记
+├─ .git/                过程历史仓库（git，覆盖全项目）
+├─ .gitattributes       `* -text` —— 禁止换行转换，保护 SHA-256 指纹
+└─ .gitignore           仅忽略 __pycache__ / store/.trash/ / 编辑器垃圾
 ```
 
 ## 任务进度
@@ -105,8 +108,28 @@ python tools/verify.py . --against V0.0.1     # 确认与清单完全一致
 
 回退时「当前有、目标版本没有」的文件，会先复制进 `store/.trash/<时间戳>/` 并**逐字节校验**，通过后才移除原文件 —— 全程不真删。
 
+## 过程历史（git）
+
+两套机制**分工不重叠**：
+
+| 机制 | 回答的问题 | 覆盖范围 |
+|---|---|---|
+| **git** | 什么时候、改了哪些行、为什么改 | **全项目**（含 `tools/` `docs/` `templates/`） |
+| **`tools/store.py`** | 某个交付版本如何完整取回 | `src/` + `start.bat` + `VERSION` |
+
+```bash
+git log --oneline          # 过程历史
+git diff                   # 未提交的改动
+git status                 # 工作区状态
+```
+
+- 提交信息模板：`<类型>(<范围>): <描述>`，如 `feat(web): 节点描述字段与右键动态文案`
+- 凡改动 `src/`，**git 提交与 `store.py commit` 成对执行**
+- `.gitattributes` 固定 `* -text`：本项目用 SHA-256 指纹校验内容，**任何换行转换都会让指纹全部失配**，故禁止 git 改写换行
+
 ## 详细文档
 
+- **工程约定（代码怎么写、规矩怎么立，P0/P1）→ `docs/项目约定.md`**
 - 架构、接口、版本流程细则 → `docs/项目手册.md`
 - 任务进度（时间线口径）→ `docs/任务进度.md`
 - 开发纪律、技术坑点、交付清单 → `docs/错误笔记.md`
