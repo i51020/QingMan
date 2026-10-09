@@ -4,7 +4,7 @@
 
 - 中文名：**青蔓**
 - 英文名：**QingMan**
-- 当前版本：**V0.0.5**
+- 当前版本：**V0.0.6**
 - 运行环境：Windows 10/11 + Python 3.8+，完全离线，仅监听 `127.0.0.1`
 
 ## 快速开始
@@ -27,7 +27,7 @@ python -m server
 
 ```
 QingMan/
-├─ VERSION              版本号唯一来源（内容：V0.0.5）
+├─ VERSION              版本号唯一来源（内容：V0.0.6）
 ├─ CHANGELOG.md         版本记录
 ├─ start.bat            启动入口
 ├─ README.md            本文件
@@ -50,7 +50,8 @@ QingMan/
 │  ├─ objects/          blob 池：路径 = 内容的 SHA-256，跨版本自动去重
 │  └─ .trash/           checkout 时多余文件的回收区（不真删）
 ├─ versions/            版本清单（**只增不改**）
-│  ├─ V0.0.5/           MANIFEST.json（基线 r1，当前版本）
+│  ├─ V0.0.6/           MANIFEST.json（基线 r1，当前版本）
+│  ├─ V0.0.5/           MANIFEST.json
 │  ├─ V0.0.4/           MANIFEST.json
 │  ├─ V0.0.3/           MANIFEST.json（基线 r1）+ MANIFEST-r<N>.json（同版本修订）
 │  ├─ V0.0.2/           MANIFEST.json
@@ -97,11 +98,11 @@ QingMan/
 
 | 步骤 | 命令 | 说明 |
 |---|---|---|
-| 1. 预览开发 | — | 按需新建 `preview/V<版本>/` 试跑，主线不受影响；**落地后按 §P1-7 清空，不跨版本保留** |
+| 1. 预览开发 | `python tools/release.py bump --kind patch`，再建 `preview/V<版本>/` | **先升版再建副本** —— 预览副本也含 `VERSION`。试错保护来自**主线仍停在上一版**；**开发期 `git add` 该目录（不提交）**，落地后 `git rm -r -f` 清空 —— 删除须经由 git（§P1-7 R2），但内容**不进历史**（§P1-7 规则细化） |
 | 2. 交付校验 | `python tools/verify.py preview/V<版本>` | 主线 **48 项**、预览目录 **46 项**（预览无 `docs/`，少「接续说明实况段」一项；带 `--against` 另加 2 项），不通过不落地 |
 | 3. 落地主线 | `python tools/promote.py --from preview/V<版本> --force` | 单向：预览 → 主线，只复制不删除（主线非空时需 `--force`） |
 | 4. 提交版本 | `python tools/store.py commit --note "说明"` | 写入 blob 池 + 生成清单（同版本则追加修订） |
-| 5. 升级版本号 | `python tools/release.py bump --kind patch` | 或 `minor` / `major`；不升版则跳过本步 |
+| 5. 升级版本号 | 见第 1 步 | 本步实际在**第 1 步之前**就要做（版本号须先升）；此处保留编号只为与 §P0-6 修订机制对照 |
 
 **改主线之前必须先 commit**，否则该版本没有回退点。
 
@@ -127,7 +128,7 @@ python tools/smoke.py                         # 端到端冒烟（起真实服�
 
 ## 界面文案与皮肤（§P0-3）
 
-**文案零直写**：界面上的每一句中文都来自 `src/web/js/i18n/zh-CN.js` 的取词表（**136 键**），代码里通过 `t(key)` 取；HTML 用 `data-i18n` / `data-i18n-title` / `data-i18n-placeholder` / `data-i18n-aria-label` 属性声明键名，加载时由 `applyStatic()` 统一填充。**后续加 `en-US.js` 即在 `DICTIONARIES` 注册即可切换**，无需改任何组件。
+**文案零直写**：界面上的每一句中文都来自 `src/web/js/i18n/zh-CN.js` 的取词表（**144 键**），代码里通过 `t(key)` 取；HTML 用 `data-i18n` / `data-i18n-title` / `data-i18n-placeholder` / `data-i18n-aria-label` 属性声明键名，加载时由 `applyStatic()` 统一填充。**后续加 `en-US.js` 即在 `DICTIONARIES` 注册即可切换**，无需改任何组件。
 
 | 约定 | 内容 |
 |---|---|
@@ -135,10 +136,30 @@ python tools/smoke.py                         # 端到端冒烟（起真实服�
 | 取词运行时 | `src/web/js/i18n/index.js`：`t()` / `applyStatic()` / `setLocale()` / `applySkin()` / `initPrefs()` |
 | 颜色 | 组件 CSS **只允许 `var(--qm-*)`**，禁止裸色值；新增变量先在 `tokens.css` 定义（**唯一允许写色值的文件**） |
 | 皮肤 | 皮肤 = **一组变量覆盖文件** `src/web/css/skins/<name>.css`，经 `applySkin()` 注入 `<link id="skinLink">`。**组件 CSS 不得感知皮肤**（不写 `.skin-dark .btn` 这类选择器） |
-| 偏好 | `localStorage` 的 `qm.lang` / `qm.skin`；启动顺序 `initPrefs()` → `applyStatic()` → `render()` |
+| 偏好 | `localStorage` 的 `qm.lang` / `qm.skin` / `qm.genBar`；启动顺序 `initPrefs()` → `applyStatic()` → `initGenBar()` → `render()` |
+| ⚠️ 新增偏好键 | 必须声明在 `i18n/index.js`（**导出常量**），不能写在别的模块里 —— 「取词键闭包」检查会排除 `i18n/` 目录，而把 JS 里任何 `a.b` 形式的字面量都当成取词键，写在别处会被误判为"漏翻" |
 | SVG 着色 | 一律 ① CSS `mask` 取形状 或 ② 内联 `currentColor`。**禁止 `<img src="*.svg">`** —— `<img>` 中的 SVG 是独立文档，`currentColor` 不继承 |
 
 以上七条外加 L7/L8，由 `verify.py` 的 7 项守卫（§P0-3 系列）逐条把关。
+
+## 中栏：生成参数区可折叠
+
+中栏顶部的三个生成参数（根文件夹名 / 目标位置 / 仅演练）是**"一个项目设一次"的低频项**，却长期占据一整行。**V0.0.6 起可折叠**：收起后只留一行摘要，形如
+
+```
+▶ 目标 E:\我的项目 · 根名 我的项目 · 演练中
+```
+
+| 行为 | 说明 |
+|---|---|
+| 切换 | 点击摘要行（`#btnGenToggle`）展开／收起；`aria-expanded` 与 `title` 同步更新 |
+| 默认 | **首次启动恒为展开** —— 目标位置不跨会话保存，故与帮助页引导顺序（先填目标位置）一致 |
+| 记忆 | 折叠态存 `localStorage['qm.genBar']`（`'open'` / `'closed'`），**只在启动时定一次**，之后完全由用户控制 |
+| ⚠️ 不要改成"动态推断" | 若每次渲染按"目标位置是否已填"推断，用户**输入第一个字符**就会触发自动收起，与引导顺序相反。行为探针已把这条写成断言 |
+| 摘要实时刷新 | `#inRoot` / `#inTarget` 的 `input`、`#inDryRun` 的 `change` 都会重画摘要行 |
+| 兜底 | 目标位置为空时点「一键生成」→ **自动展开**并聚焦，否则输入框不可见、`focus()` 无处落地 |
+
+**参数留在原位、不迁右栏的理由**（裁定记录见 `docs/项目约定.md` §P2 第 15 项）：三项是**作业级（job-scoped）可编辑参数**，而右栏是**选中节点级（selection-scoped）只读属性** —— `inspector.render()` 在无选中时**整栏清空为 `—`**，与"目标位置是必填项、必须始终可编辑"直接冲突。参数项增至 6+ 时再评估迁移，届时须在右栏**单开「生成设置」分区**且**不随选中清空**。
 
 ## 存储机制
 
@@ -148,7 +169,7 @@ python tools/smoke.py                         # 端到端冒烟（起真实服�
 - `versions/<版本>/MANIFEST.json` —— 版本**基线**（修订 r1）：「路径 → 指纹」映射 + 元数据（时间 / 父版本 / 说明 / 清单摘要）
 - `versions/<版本>/MANIFEST-r<N>.json` —— 同版本**后续修订**（r2、r3…），任何已有清单都不覆盖
 
-实测数据：`V0.0.1@r3` → `V0.0.2` 的 26 个文件里**新增 11 个 blob、复用 15 个**（对象池 35 → 46）；`V0.0.2` → `V0.0.3` 的 27 个文件里**新增 6 个 blob、复用 21 个**；`V0.0.4` → `V0.0.5` 的 29 个文件里**新增 13 个 blob、复用 16 个**。
+实测数据：`V0.0.1@r3` → `V0.0.2` 的 26 个文件里**新增 11 个 blob、复用 15 个**（对象池 35 → 46）；`V0.0.2` → `V0.0.3` 的 27 个文件里**新增 6 个 blob、复用 21 个**；`V0.0.4` → `V0.0.5` 的 29 个文件里**新增 13 个 blob、复用 16 个**；`V0.0.5` → `V0.0.6` 的 29 个文件里**新增 6 个 blob、复用 23 个**。
 
 | 命令 | 作用 |
 |---|---|
@@ -161,9 +182,9 @@ python tools/smoke.py                         # 端到端冒烟（起真实服�
 ## 回退
 
 ```bash
-python tools/store.py checkout V0.0.5         # 取当前版本（= 该版本最高修订）
+python tools/store.py checkout V0.0.6         # 取当前版本（= 该版本最高修订）
 python tools/store.py checkout V0.0.1@r1      # 精确回退到某个修订
-python tools/verify.py . --against V0.0.5     # 与当前版本清单比对
+python tools/verify.py . --against V0.0.6     # 与当前版本清单比对
 ```
 
 回退时「当前有、目标版本没有」的文件，会先复制进 `store/.trash/<时间戳>/` 并**逐字节校验**，通过后才移除原文件 —— 全程不真删。
