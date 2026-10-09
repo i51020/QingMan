@@ -180,7 +180,8 @@ export const dict = {
   'help.tree.5': '「全部展开 / 全部折叠」批量切换层级',
 
   'help.kbd.title': '快捷键',
-  'help.kbd.pending': '功能面尚未稳定，键位约定待定，本表暂留空。',
+  'help.kbd.save': 'Ctrl / Cmd + S — 立即保存（跳过防抖，不等自动保存）',
+  'help.kbd.pending': '本版仅设上述一项；其余键位待功能面稳定后统一约定，届时同步本页与《项目手册》。',
 
   'help.safety.title': '安全说明',
   'help.safety.1': '后端仅监听本机回环地址（127.0.0.1），局域网内其他设备无法访问',
@@ -210,7 +211,7 @@ export const helpSections = [
   { id: 'tree', title: 'help.tree.title', kind: 'ul', items: [
     'help.tree.1', 'help.tree.2', 'help.tree.3', 'help.tree.4', 'help.tree.5',
   ] },
-  { id: 'kbd', title: 'help.kbd.title', kind: 'note', items: ['help.kbd.pending'] },
+  { id: 'kbd', title: 'help.kbd.title', kind: 'note', items: ['help.kbd.save', 'help.kbd.pending'] },
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [
     'help.safety.1', 'help.safety.2', 'help.safety.3', 'help.safety.4', 'help.safety.5',
   ] },

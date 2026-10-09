@@ -19,6 +19,16 @@ RESERVED_NAMES = {
     *(f"LPT{i}" for i in range(1, 10)),
 }
 
+# 生成文件换行：**按扩展名**分流（§P2 第 12 项）。
+# 判据必须是**扩展名**，**绝不能是 os.linesep** —— 后者会把"平台差异"重新引入产出，
+# 正是 §P2 第 11 项要消灭的东西。按扩展名是**规则确定**的：同一输入在任何平台产同一字节。
+CRLF_SUFFIXES = (".bat", ".cmd", ".ps1")
+
+
+def newline_for(name: str) -> str:
+    """返回该文件名应使用的换行串：批处理族 → CRLF，其余 → LF。"""
+    return "\r\n" if name.lower().endswith(CRLF_SUFFIXES) else "\n"
+
 
 def _load_error_codes() -> Dict[str, str]:
     try:
@@ -238,10 +248,12 @@ def build_tree(tree: Any, base: Path, dry_run: bool = False) -> Dict[str, Any]:
                     continue
                 if not dry_run:
                     target.parent.mkdir(parents=True, exist_ok=True)
-                    # 显式 newline="\n"：默认 newline=None 会把 \n 译为 os.linesep
-                    # （Windows 下即 CRLF），使生成文件的字节随平台漂移（§编码基线）。
-                    with target.open("w", encoding="utf-8", newline="\n") as fh:
-                        fh.write(str(value))
+                    # 换行**按扩展名**分流（§P2 第 12 项）：批处理族 CRLF、其余 LF。
+                    # 先把值里的 CR / CRLF 归一为 LF，再交给 open 按 newline 翻译 ——
+                    # 否则原值含 CRLF 时会被译成 \r\r\n（§编码基线）。
+                    with target.open("w", encoding="utf-8",
+                                     newline=newline_for(target.name)) as fh:
+                        fh.write(str(value).replace("\r\n", "\n").replace("\r", "\n"))
                 created_files.append(str(target))
 
     if not dry_run:

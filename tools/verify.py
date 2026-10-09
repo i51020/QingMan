@@ -15,6 +15,8 @@
  7. 帮助页无硬编码中文（§P0-3 L1：文案必须经取词表，页面只留 data-i18n 键名）
  7b. 双语与皮肤预留（§P0-3）：主界面无硬编码中文 / JS 无中文串字面量 / 组件 CSS 无裸色值 /
      组件 CSS 不感知皮肤 / 皮肤目录契约 / 偏好键名 qm.lang · qm.skin
+ 7e. CSS 类名形态（§P2 第 1 项）：一律 kebab-case，不得含下划线或大写
+ 7f. 体积上限（§P2 第 4 项）：src/** 合计 ≤ 400K，单文件 ≤ 64K
  8. 接续说明实况段与盘上一致（§P1-6 H4；文件未建立则跳过）
  8b. 源码 § 引用可解析（《错误笔记》§三.22；约定文档不在则跳过）
   9. 编辑态持久化契约（§P0-7）：schema.json 的 editorDocument/editorNode + 接口标识 + 错误码
@@ -424,6 +426,34 @@ def main() -> int:
     check(not prefs_missing, "偏好键名 §P0-3 L6",
           " / ".join(PREF_KEYS) + " 齐备" if not prefs_missing
           else "i18n/index.js 缺少：" + ", ".join(prefs_missing))
+
+    # 7e. CSS 类名形态：kebab-case，不得含下划线或大写（§P2 第 1 项）
+    #     先剥掉 url(...) —— 否则 url("../assets/logo.svg") 里的 `.svg` 会被当成类名。
+    CLS_NAME = re.compile(r"\.([A-Za-z][A-Za-z0-9_-]*)")
+    URL_LIKE = re.compile(r"url\([^)]*\)")
+    bad_names = []
+    for css in sorted((root / "src/web/css").rglob("*.css")):
+        body = URL_LIKE.sub("", strip_comments(css.read_text(encoding="utf-8"), "css"))
+        for m in CLS_NAME.finditer(body):
+            name = m.group(1)
+            if "_" in name or name.lower() != name:
+                bad_names.append(f"{css.name}:{name}")
+    check(not bad_names, "CSS 类名形态 §P2 第 1 项",
+          f"违反 kebab-case：{', '.join(sorted(set(bad_names))[:4])}" if bad_names
+          else "类名全部 kebab-case（无下划线、无大写）")
+
+    # 7f. 体积上限（§P2 第 4 项）：src/** 合计 ≤ 400K，单文件 ≤ 64K
+    SRC_TOTAL_LIMIT = 400 * 1024
+    SRC_FILE_LIMIT = 64 * 1024
+    src_files = [p for p in (root / "src").rglob("*") if p.is_file()]
+    if src_files:
+        total_bytes = sum(p.stat().st_size for p in src_files)
+        oversize = [f"{p.relative_to(root)}（{p.stat().st_size // 1024}K）"
+                    for p in src_files if p.stat().st_size > SRC_FILE_LIMIT]
+        budget_ok = total_bytes <= SRC_TOTAL_LIMIT and not oversize
+        check(budget_ok, "体积上限 §P2 第 4 项",
+              f"{total_bytes // 1024}K / 上限 {SRC_TOTAL_LIMIT // 1024}K" +
+              (f"；超限单文件：{', '.join(oversize)}" if oversize else "；单文件均在 64K 内"))
 
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
