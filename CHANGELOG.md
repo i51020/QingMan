@@ -7,6 +7,43 @@
 
 ---
 
+## V0.0.3 — 2026-10-09
+
+**主题**：品牌标记进入界面 —— 顶栏接入青蔓 logo，颜色跟随主题变量而非硬编码。
+
+> 用户裁定：① **不留**白色圆角底板，只做透明底纯标记；② 落盘 `src/web/assets/`，版本号 ＝ **V0.0.3（patch）**；③ favicon 简化版待预览后另判。
+
+### 变更
+
+- **新增资源** `src/web/assets/logo.svg`（30,094 B）：源自 `E:\本地资源库\共用资产\品牌资产\Logo\青蔓QingMan\青蔓logo设计_02_01.svg`，只取可见图形 `path1`；剔除不可见的 `path2` 与白色圆角底板图层；viewBox 由原画布 `541.867²` 裁至图形包围盒 `403.610 × 422.634`（图形放大约 1.34 倍）
+- **顶栏接入**：`index.html` 与 `help.html` 的品牌区新增 `<span class="brand-logo" aria-hidden="true">`（纯装饰；语义由相邻品牌文字提供）
+- **着色方式**：CSS mask 取形状 + `background-color: var(--qm-accent-ink)` —— 浅色 `#1d6d50` / 深色 `#7dd6b0`，**一份文件随主题切换**
+- **样式归位**：`.brand` / `.brand-mark` / `.brand-sub` / `.brand-logo` 由 `layout.css` 移至 `base.css`，供主界面与帮助页共用
+
+### 本次修复 / 消除的缺陷
+
+| 缺陷 | 处理 |
+|---|---|
+| 帮助页未引用 `layout.css`，其品牌区（青蔓 / QingMan / 使用说明）**一直无样式** | `.brand-*` 上移至两页共用的 `base.css` |
+| 源 SVG 中 `path2` 与 `path1` 同形（1748 点）却为 `fill:none`，属**不可见冗余** | 落盘副本中剔除 |
+| 源 SVG 含白色圆角底板图层，直接用于深色界面会形成突兀白块 | 落盘副本只取图形，剔除底板与画布留白 |
+| 源 SVG 的 `fill:#000000` 硬编码 → 深色主题下几乎不可见 | 落盘副本改 `currentColor`，颜色交由 CSS 变量 |
+
+### 验证（均为实测）
+
+| 项 | 结果 |
+|---|---|
+| `tools/verify.py preview/V0.0.3` | **36 项全部通过** |
+| 沙盒服务冒烟（preview 副本独立启动 8790） | 首页 / `assets/logo.svg` / `base.css` / `help.html` 全 **200**；`logo.svg` → `image/svg+xml` |
+| 计算样式探针 | `--qm-accent-ink: #7dd6b0` → `logo.background: rgb(125, 214, 176)`；`mask-image` 指向 `assets/logo.svg`；盒子 22×22 |
+| 双主题渲染 | 浅色深绿 `#1d6d50` / 深色浅绿 `#7dd6b0`，**颜色跟随变量，非硬编码** |
+
+### src/ 代码
+
+`src/web/assets/logo.svg`（新增）、`src/web/index.html`、`src/web/help.html`、`src/web/css/base.css`、`src/web/css/layout.css`。
+
+---
+
 ## V0.0.2 — 2026-10-09
 
 **主题**：编辑态不再随刷新丢失 —— 确立编辑态数据契约并由后端持久化；id 唯一性由「概率」改为「判定」。

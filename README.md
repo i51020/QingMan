@@ -4,7 +4,7 @@
 
 - 中文名：**青蔓**
 - 英文名：**QingMan**
-- 当前版本：**V0.0.2**
+- 当前版本：**V0.0.3**
 - 运行环境：Windows 10/11 + Python 3.8+，完全离线，仅监听 `127.0.0.1`
 
 ## 快速开始
@@ -27,12 +27,13 @@ python -m server
 
 ```
 QingMan/
-├─ VERSION              版本号唯一来源（内容：V0.0.2）
+├─ VERSION              版本号唯一来源（内容：V0.0.3）
 ├─ CHANGELOG.md         版本记录
 ├─ start.bat            启动入口
 ├─ README.md            本文件
 ├─ src/                 主线源码（"当前版本"，只在确认后改动）
-│  ├─ web/              前端：index.html（主界面）+ help.html（帮助页）+ css/ + js/
+│  ├─ web/              前端：index.html（主界面）+ help.html（帮助页）+ css/ + js/ + assets/
+│  │  ├─ assets/        品牌资源：logo.svg（顶栏标记，经 CSS mask 着色）
 │  │  └─ js/i18n/       取词表：zh-CN.js（帮助页正文的唯一数据源）
 │  ├─ server/           后端：Python 标准库，零第三方依赖
 │  └─ shared/           前后端共享契约：schema.json / error-codes.json
@@ -41,11 +42,12 @@ QingMan/
 │  ├─ objects/          blob 池：路径 = 内容的 SHA-256，跨版本自动去重
 │  └─ .trash/           checkout 时多余文件的回收区（不真删）
 ├─ versions/            版本清单
-│  ├─ V0.0.2/           MANIFEST.json（当前版本）
+│  ├─ V0.0.3/           MANIFEST.json（当前版本）
+│  ├─ V0.0.2/           MANIFEST.json
 │  ├─ V0.0.1/           MANIFEST.json（基线 r1）+ MANIFEST-r<N>.json（同版本修订）
 │  └─ V0.01/            旧编号全量快照（历史遗留，原样保留）
 ├─ preview/             试运行区（**按需新建** `preview/V<版本>/`）
-│  └─ V0.0.2/           V0.0.2 的试运行副本（落地后保留作对照）
+│  └─ V0.0.3/           V0.0.3 的试运行副本（落地后保留作对照）
 ├─ templates/           17 套中文目录树模板（内容资产）
 ├─ tools/               工具链：store / verify / versioning / release / promote / handoff
 ├─ legacy/              历史归档，命名 `<对象>-<日期>/`，只增不删
@@ -82,7 +84,7 @@ QingMan/
 | 步骤 | 命令 | 说明 |
 |---|---|---|
 | 1. 预览开发 | — | 按需新建 `preview/V<版本>/` 试跑，主线不受影响 |
-| 2. 交付校验 | `python tools/verify.py preview/V<版本>` | **36 项**校验，不通过不落地 |
+| 2. 交付校验 | `python tools/verify.py preview/V<版本>` | 主线 **37 项**、预览目录 **36 项**（预览无 `docs/`，少「接续说明实况段」一项），不通过不落地 |
 | 3. 落地主线 | `python tools/promote.py --from preview/V<版本>` | 单向：预览 → 主线，只复制不删除 |
 | 4. 提交版本 | `python tools/store.py commit --note "说明"` | 写入 blob 池 + 生成清单（同版本则追加修订） |
 | 5. 升级版本号 | `python tools/release.py bump --kind patch` | 或 `minor` / `major`；不升版则跳过本步 |
@@ -105,7 +107,7 @@ QingMan/
 - `versions/<版本>/MANIFEST.json` —— 版本**基线**（修订 r1）：「路径 → 指纹」映射 + 元数据（时间 / 父版本 / 说明 / 清单摘要）
 - `versions/<版本>/MANIFEST-r<N>.json` —— 同版本**后续修订**（r2、r3…），任何已有清单都不覆盖
 
-实测数据：`V0.0.1@r3` → `V0.0.2` 的 26 个文件里**新增 11 个 blob、复用 15 个**（对象池 35 → 46）。
+实测数据：`V0.0.1@r3` → `V0.0.2` 的 26 个文件里**新增 11 个 blob、复用 15 个**（对象池 35 → 46）；`V0.0.2` → `V0.0.3` 的 27 个文件里**新增 6 个 blob、复用 21 个**。
 
 | 命令 | 作用 |
 |---|---|
@@ -118,9 +120,9 @@ QingMan/
 ## 回退
 
 ```bash
-python tools/store.py checkout V0.0.2         # 取当前版本
+python tools/store.py checkout V0.0.3         # 取当前版本
 python tools/store.py checkout V0.0.1@r1      # 精确回退到某个修订
-python tools/verify.py . --against V0.0.2     # 与当前版本清单比对
+python tools/verify.py . --against V0.0.3     # 与当前版本清单比对
 ```
 
 回退时「当前有、目标版本没有」的文件，会先复制进 `store/.trash/<时间戳>/` 并**逐字节校验**，通过后才移除原文件 —— 全程不真删。
