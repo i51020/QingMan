@@ -4,6 +4,7 @@
     python tools/verify.py [版本根目录]
 
 「版本根目录」需包含 src/ 与 VERSION；缺省为脚本所在项目的根目录。
+`--against <版本>` 的清单**只在该根目录之下的 versions/<版本>/ 查找**（不从项目根兜底）。
 校验项与《错误笔记》交付清单一致：
   1. 必需文件存在
   2. HTML 标签闭合、关键 id 存在
@@ -129,13 +130,18 @@ def check_fingerprint(root: Path, version: str) -> None:
     else:
         rev = latest_revision(root, version)
 
+    # `--against` 只在「传入根目录」之下查找；缺失时把实际查找路径点出来，
+    # 免得把「路径结构问题」误读成「内容不符」——见《错误笔记》§三.24。
+    vdir = root / "versions" / version
     if rev is None:
-        check(False, f"指纹比对 {version}", "无法判定：未找到任何 MANIFEST")
+        check(False, f"指纹比对 {version}",
+              f"无法判定：{vdir} 下无任何清单（--against 只查本目录的 versions/<版本>/）")
         return
 
-    manifest = root / "versions" / version / manifest_filename(rev)
+    manifest = vdir / manifest_filename(rev)
     if not manifest.is_file():
-        check(False, f"指纹比对 {version}@r{rev}", f"无法判定：未找到 {manifest.name}")
+        check(False, f"指纹比对 {version}@r{rev}",
+              f"无法判定：{vdir} 下无 {manifest.name}（--against 只查本目录的 versions/<版本>/）")
         return
 
     meta = load_manifest(root, version, rev) or {}
