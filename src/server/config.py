@@ -69,6 +69,18 @@ SHARED_DIR = SRC_DIR / "shared"
 VERSION_FILE = PROJECT_DIR / "VERSION"
 START_BAT = PROJECT_DIR / "start.bat"
 
+# ---------- 模板库（V0.0.11） ----------
+#
+# 模板库位于**项目根**而非 `src/`：它是内容资产、不是运行时代码，
+# 也因此**不在版本交付清单内**（清单只覆盖 `src/**` + `start.bat` + `VERSION`）。
+# 后果：预览副本（`preview/V<版本>/`）里没有 templates/ —— 后端必须优雅降级，
+# 目录缺失时返回「不可用」而不是报错（见 routes.list_templates）。
+TEMPLATES_DIR = PROJECT_DIR / "templates"
+
+# 模板文件的格式版本。现有 17 套模板**顶层无版本字段**，一律视为 v1。
+# 读取时容忍缺失；日后若结构不兼容变更，须同时引入 `schemaVersion` 字段（§P2 第 7 项）。
+TEMPLATE_SCHEMA_VERSION = 1
+
 # ---------- 编辑态持久化（N2） ----------
 
 # 编辑态文档落盘位置：项目根 data/editor.json。

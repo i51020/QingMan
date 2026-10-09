@@ -151,6 +151,19 @@ class Handler(BaseHTTPRequestHandler):
             except OSError as exc:
                 self._fail(500, "ioError", message=str(exc))
             return
+        if path == routes.TEMPLATES_PATH:
+            self._json(200, routes.list_templates())
+            return
+        if path.startswith(routes.TEMPLATES_PATH + "/"):
+            # 文件名经 URL 编码（模板名含中文），先解码再交给路由层过白名单
+            name = unquote(path[len(routes.TEMPLATES_PATH) + 1:])
+            try:
+                self._json(200, routes.load_template(name))
+            except TreeError as exc:
+                self._fail(404, exc.code, **exc.detail)
+            except OSError as exc:
+                self._fail(500, "ioError", message=str(exc))
+            return
         self._serve_static(path)
 
     def do_HEAD(self) -> None:  # noqa: N802

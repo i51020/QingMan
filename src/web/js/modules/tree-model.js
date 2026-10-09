@@ -264,3 +264,35 @@ export function toPlainTree(node) {
 export function treePayload(root) {
   return isDir(root) ? toPlainTree(root) : {};
 }
+
+/* ---------- 模板载入（V0.0.11） ---------- */
+
+/**
+ * 模板的**嵌套字典**结构 → 内存节点树。
+ *
+ * 模板格式与编辑态文档格式**不同**：模板里「目录 = 对象、文件 = 内容字符串」，
+ * 且没有 id / type 字段（`toPlainTree` 的输出即此形态）。因此载入模板必须走本函数，
+ * 由前端按既有规则补发 id —— 后端不发明第二套 id 规则。
+ *
+ * @param {Object} nested 模板的 tree 字段
+ * @param {string} rootName 根节点名称（取模板的 name）
+ * @returns 目录节点（id 已由 createDir/createFile 分配）
+ */
+export function fromNestedTree(nested, rootName = '') {
+  const root = createDir(rootName || 'root');
+  const build = (node, parent) => {
+    if (!node || typeof node !== 'object' || Array.isArray(node)) return;
+    for (const [name, value] of Object.entries(node)) {
+      // 对象 → 目录；其余（字符串 / 数字 / null）→ 文件，内容取其字符串形式
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const dir = createDir(name);
+        addChild(parent, dir);
+        build(value, dir);
+      } else {
+        addChild(parent, createFile(name, value === null || value === undefined ? '' : String(value)));
+      }
+    }
+  };
+  build(nested, root);
+  return root;
+}

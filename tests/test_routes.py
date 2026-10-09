@@ -142,6 +142,90 @@ class EditorRoundTripTests(unittest.TestCase):
         self.assertEqual(ctx.exception.code, "editorCorrupt")
 
 
+class TemplateTests(unittest.TestCase):
+    """V0.0.11 模板库接口。
+
+    `templates/` **不在版本交付清单内**，预览副本里没有它 —— 因此测试一律自建
+    临时目录，靠替换 `config.TEMPLATES_DIR` 隔离，不依赖主线真实模板。
+    """
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="qm_tpl_"))
+        self.addCleanup(lambda: __import__("shutil").rmtree(self.tmp, ignore_errors=True))
+        self.old = config.TEMPLATES_DIR
+        config.TEMPLATES_DIR = self.tmp
+        self.addCleanup(setattr, config, "TEMPLATES_DIR", self.old)
+
+    def _write(self, name, body):
+        p = self.tmp / name
+        p.write_text(body, encoding="utf-8")
+        return p
+
+    def test_missing_dir_is_unavailable_not_error(self):
+        """目录不存在 → available=False + 空列表（预览副本的常态，不得报错）。"""
+        config.TEMPLATES_DIR = self.tmp / "不存在"
+        res = routes.list_templates()
+        self.assertFalse(res["available"])
+        self.assertEqual(res["items"], [])
+
+    def test_list_stats(self):
+        self._write("a.json", json.dumps(
+            {"name": "甲模板", "description": "d", "tree": {"素材": {"原图": {}}, "说明.md": "x"}},
+            ensure_ascii=False))
+        self._write("b.json", json.dumps(
+            {"name": "乙模板", "description": "", "tree": {"日志": {}}}, ensure_ascii=False))
+        res = routes.list_templates()
+        self.assertTrue(res["available"])
+        self.assertEqual(len(res["items"]), 2)
+        first = res["items"][0]
+        self.assertEqual(first["name"], "甲模板")
+        self.assertEqual((first["dirs"], first["files"]), (2, 1))
+
+    def test_corrupt_file_skipped_not_fatal(self):
+        """单套损坏只跳过该套，不拖垮整个列表。"""
+        self._write("bad.json", "{不是合法 json")
+        self._write("ok.json", json.dumps({"name": "好", "tree": {"a": {}}}, ensure_ascii=False))
+        res = routes.list_templates()
+        self.assertEqual([i["name"] for i in res["items"]], ["好"])
+
+    def test_non_json_suffix_ignored(self):
+        self._write("readme.md", "不是模板")
+        self.assertEqual(routes.list_templates()["items"], [])
+
+    def test_load_returns_nested_tree(self):
+        tree = {"素材": {"原图": {}}, "说明.md": "内容\n"}
+        self._write("t.json", json.dumps({"name": "测试模板", "tree": tree}, ensure_ascii=False))
+        res = routes.load_template("t.json")
+        self.assertEqual(res["name"], "测试模板")
+        self.assertEqual(res["tree"], tree)
+        self.assertEqual(res["stats"], {"dirs": 2, "files": 1})
+
+    def test_path_traversal_rejected(self):
+        """文件名不含路径分隔符 → 穿越名在白名单处即被拒，读不到 templates/ 之外。"""
+        for bad in ("../secret.json", "..%2fsecret.json", "sub/x.json", "../../etc/passwd"):
+            with self.assertRaises(TreeError) as ctx:
+                routes.load_template(bad)
+            self.assertEqual(ctx.exception.code, "templateNotFound", bad)
+
+    def test_bad_suffix_and_empty_rejected(self):
+        for bad in ("", None, "x.txt", "x.json.bak"):
+            with self.assertRaises(TreeError) as ctx:
+                routes.load_template(bad)
+            self.assertEqual(ctx.exception.code, "templateNotFound", repr(bad))
+
+    def test_load_corrupt_is_bad_json(self):
+        self._write("bad.json", "{不是合法 json")
+        with self.assertRaises(TreeError) as ctx:
+            routes.load_template("bad.json")
+        self.assertEqual(ctx.exception.code, "templateBadJson")
+
+    def test_load_missing_key_is_bad_json(self):
+        self._write("notree.json", json.dumps({"name": "缺 tree"}, ensure_ascii=False))
+        with self.assertRaises(TreeError) as ctx:
+            routes.load_template("notree.json")
+        self.assertEqual(ctx.exception.code, "templateBadJson")
+
+
 class HealthTests(unittest.TestCase):
 
     def test_health_shape(self):

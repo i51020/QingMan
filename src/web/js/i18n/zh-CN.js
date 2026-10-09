@@ -61,13 +61,28 @@ export const dict = {
 
   /* ---------- 左栏：模板工作区 ---------- */
   'sidebar.title': '模板工作区',
-  'sidebar.noteLine1': '当前为最小可运行骨架，模板库尚未接入。',
-  'sidebar.noteLine2': '模板内容资产已就位：',
+  'sidebar.noteLine1': '选一套模板一键载入，或在中间自行编辑目录树。',
+  'sidebar.noteLine2': '模板库位置：',
   'sidebar.checkTitle': '骨架自检',
   'check.modules': 'ES 模块化加载',
   'check.backend': '本地后端连通',
   'check.model': '目录树数据模型',
   'check.write': '真实落盘能力',
+
+  /* 模板列表（V0.0.11） */
+  'template.listTitle': '模板列表',
+  'template.loading': '正在读取模板库…',
+  'template.unavailable': '模板库不可用：未找到 templates/ 目录',
+  'template.empty': '暂无模板',
+  'template.stats': '{dirs} 目录 · {files} 文件',
+  'template.loadConfirm': '载入模板「{name}」？当前编辑的目录树将被替换（可用撤销恢复）。',
+  'template.loaded': '已载入模板「{name}」',
+  'template.loadFailed': '模板载入失败：{message}',
+
+  /* 模板接口错误码 → 本地化文案（后端原文为兜底） */
+  'err.templateNotFound': '模板不存在：{name}',
+  'err.templateBadJson': '模板文件结构非法：{name}',
+  'err.templateReadFailed': '读取模板失败：{name}（{message}）',
 
   /* ---------- 中栏：生成参数 ---------- */
   'gen.rootLabel': '根文件夹名',
@@ -188,7 +203,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.10',
+  'help.versionFallback': 'V0.0.11',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',
@@ -205,12 +220,12 @@ export const dict = {
   'help.quickStart.title': '快速开始',
   'help.quickStart.1': '双击项目根目录的 start.bat 启动本地服务',
   'help.quickStart.2': '浏览器自动打开，确认顶栏显示「后端已连接」',
-  'help.quickStart.3': '在中间「目录树工作区」直接编辑目录树（模板库尚未接入，左栏为骨架自检清单）',
+  'help.quickStart.3': '在左侧「模板工作区」选一套模板直接载入，或在中间自行编辑目录树',
   'help.quickStart.4': '填写「目标位置」，先保持「仅演练」勾选试跑一次',
   'help.quickStart.5': '确认结果无误后取消勾选，点「一键生成」真实落盘',
 
   'help.ops.title': '界面说明',
-  'help.ops.sidebar': '左栏「模板工作区」——模板库尚未接入，当前显示骨架自检清单',
+  'help.ops.sidebar': '左栏「模板工作区」——列出 templates/ 下的模板，点击即载入；下方为骨架自检清单',
   'help.ops.center': '中栏「目录树工作区」——顶部是生成参数与工具栏，主体是目录树',
   'help.ops.genBar': '参数区左上角可点开／收起：收起后只留一行摘要（目标位置 · 根名 · 演练或写盘），当前设定仍一眼可见',
   'help.ops.inspector': '右栏「属性工作区」——选中节点的名称、类型、路径、深度与统计；下方显示生成结果',

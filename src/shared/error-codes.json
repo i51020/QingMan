@@ -40,5 +40,8 @@
   "editorReadFailed": "读取编辑态文档失败：{message}",
   "editorCorrupt": "编辑态文档已损坏，无法解析：{path}",
   "shortcutTargetMissing": "启动文件不存在：{target}",
-  "shortcutFailed": "快捷方式生成失败：{message}"
+  "shortcutFailed": "快捷方式生成失败：{message}",
+  "templateNotFound": "模板不存在：{name}",
+  "templateBadJson": "模板文件结构非法：{name}",
+  "templateReadFailed": "读取模板失败：{name}（{message}）"
 }

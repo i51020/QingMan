@@ -8,14 +8,14 @@
 import { createStore } from './core/store.js';
 import { api } from './core/api.js';
 import {
-  t, applyStatic, initPrefs, getLocale, setLocale,
+  t, applyStatic, initPrefs, getLocale, setLocale, has,
   getGenBarState, setGenBarState, SUPPORTED_LOCALES,
 } from './i18n/index.js';
 import {
   createDir, createFile, findNode, findParent, addChild,
   renameNode, removeNode, countTree, treePayload,
   hasSiblingName, reserveIds, assertUniqueIds,
-  toDocumentNode, fromDocumentNode, resetIdRegistry,
+  toDocumentNode, fromDocumentNode, resetIdRegistry, fromNestedTree,
 } from './modules/tree-model.js';
 import { createTreeView } from './ui/tree-view.js';
 import { createInspector } from './ui/inspector.js';
@@ -548,6 +548,87 @@ async function boot() {
 
   // 后端可用才恢复/初始化文档；后端未连接时保持默认示例，不做任何写盘尝试
   await restoreDocument();
+
+  // 模板库是只读素材，与文档恢复无依赖，放在最后且失败不影响主流程
+  await loadTemplateList();
+}
+
+/* ---------- 模板库（V0.0.11） ---------- */
+
+/**
+ * 后端错误码 → 取词键。
+ * 未登记的错误码**回退为后端原文**，与既有行为一致（存量错误码仍是中文）。
+ */
+function localizeError(err) {
+  const key = 'err.' + (err && err.code ? err.code : '');
+  if (has(key)) return t(key, (err && err.detail) || {});
+  return err && err.message ? err.message : '';
+}
+
+function renderTemplateState(text, kind) {
+  const host = el('templateList');
+  host.textContent = '';
+  const li = document.createElement('li');
+  li.className = 'tpl-empty' + (kind ? ' tpl-' + kind : '');
+  li.textContent = text;
+  host.appendChild(li);
+}
+
+async function loadTemplateList() {
+  renderTemplateState(t('template.loading'));
+  let res;
+  try {
+    res = await api.listTemplates();
+  } catch (err) {
+    renderTemplateState(localizeError(err) || t('template.unavailable'), 'warn');
+    return;
+  }
+  const items = (res && res.items) || [];
+  // available=false：templates/ 不在版本清单内，预览副本中本就没有它 —— 不可用而非报错
+  if (!res || res.available === false) {
+    renderTemplateState(t('template.unavailable'), 'warn');
+    return;
+  }
+  if (!items.length) {
+    renderTemplateState(t('template.empty'));
+    return;
+  }
+
+  const host = el('templateList');
+  host.textContent = '';
+  for (const item of items) {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tpl-item';
+    btn.title = item.description || item.name;
+    const name = document.createElement('span');
+    name.className = 'tpl-name';
+    name.textContent = item.name;
+    const stats = document.createElement('span');
+    stats.className = 'tpl-stats';
+    stats.textContent = t('template.stats', { dirs: item.dirs, files: item.files });
+    btn.append(name, stats);
+    btn.addEventListener('click', () => applyTemplate(item));
+    li.appendChild(btn);
+    host.appendChild(li);
+  }
+}
+
+async function applyTemplate(item) {
+  if (!window.confirm(t('template.loadConfirm', { name: item.name }))) return;
+  try {
+    const res = await api.loadTemplate(item.file);
+    pushHistory();                       // 载入可撤销：与新建/重命名/删除同一套历史栈
+    // 模板是「嵌套字典」格式（目录=对象、文件=内容），与编辑态文档不同 —— 走 fromNestedTree 转换，
+    // id 由前端按既有规则补发。根节点名取模板的 name。
+    const root = fromNestedTree(res.tree, res.name || item.name);
+    store.set({ root, selectedId: root.id });
+    setStatus(t('template.loaded', { name: res.name || item.name }));
+    markDirty();
+  } catch (err) {
+    toast(t('template.loadFailed', { message: localizeError(err) }), 'error', 6000);
+  }
 }
 
 /* 语言切换后刷新动态文案（静态文案由 applyStatic 在 setLocale 内处理） */

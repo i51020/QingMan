@@ -52,13 +52,28 @@ export const dict = {
 
   /* ---------- Left: template workspace ---------- */
   'sidebar.title': 'Template Workspace',
-  'sidebar.noteLine1': 'Template library is not yet wired into this minimal runnable skeleton.',
-  'sidebar.noteLine2': 'Template assets are in place:',
+  'sidebar.noteLine1': 'Load a template in one click, or edit the tree yourself in the center.',
+  'sidebar.noteLine2': 'Template library location:',
   'sidebar.checkTitle': 'Self-check',
   'check.modules': 'ES module loading',
   'check.backend': 'Local backend connectivity',
   'check.model': 'Directory tree data model',
   'check.write': 'Real disk write capability',
+
+  /* Template list (V0.0.11) */
+  'template.listTitle': 'Templates',
+  'template.loading': 'Reading template library…',
+  'template.unavailable': 'Template library unavailable: templates/ not found',
+  'template.empty': 'No templates',
+  'template.stats': '{dirs} dirs · {files} files',
+  'template.loadConfirm': 'Load template "{name}"? The tree you are editing will be replaced (undoable).',
+  'template.loaded': 'Loaded template "{name}"',
+  'template.loadFailed': 'Failed to load template: {message}',
+
+  /* Template API error codes -> localized text (backend text is the fallback) */
+  'err.templateNotFound': 'Template not found: {name}',
+  'err.templateBadJson': 'Malformed template file: {name}',
+  'err.templateReadFailed': 'Failed to read template: {name} ({message})',
 
   /* ---------- Center: generation parameters ---------- */
   'gen.rootLabel': 'Root folder name',
@@ -179,7 +194,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.10',
+  'help.versionFallback': 'V0.0.11',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',
@@ -196,12 +211,12 @@ export const dict = {
   'help.quickStart.title': 'Quick Start',
   'help.quickStart.1': 'Double-click start.bat in the project root to launch the local server',
   'help.quickStart.2': 'Browser opens automatically; confirm the top bar shows "Backend connected"',
-  'help.quickStart.3': 'Edit the tree directly in the center "Tree Workspace" (the template library is not wired in yet; the left panel shows the self-check list)',
+  'help.quickStart.3': 'Load a template from the left "Template Workspace", or edit the tree yourself in the center',
   'help.quickStart.4': 'Fill in the target path and keep "Dry run" checked for a test run',
   'help.quickStart.5': 'When satisfied, uncheck "Dry run" and click "Generate" to write to disk',
 
   'help.ops.title': 'Interface',
-  'help.ops.sidebar': 'Left "Template Workspace" — the template library is not wired in yet; it currently shows the self-check list',
+  'help.ops.sidebar': 'Left "Template Workspace" — lists templates from templates/; click to load. Below is the self-check list',
   'help.ops.center': 'Center "Tree Workspace" — generation options and toolbar at the top, directory tree below',
   'help.ops.genBar': 'The parameter bar can be expanded/collapsed: collapsed it shows one summary line (target · root · dry/write)',
   'help.ops.inspector': 'Right "Property Workspace" — selected node name, type, path, depth and stats; generation result below',

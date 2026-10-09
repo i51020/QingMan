@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import subprocess
 import tempfile
 from datetime import datetime
@@ -22,9 +23,14 @@ GENERATE_PATH = "/api/generate"
 HEALTH_PATH = "/api/health"
 EDITOR_PATH = "/api/editor"
 SHORTCUT_PATH = "/api/shortcut"
+TEMPLATES_PATH = "/api/templates"
 
 # 编辑态文档结构版本；结构不兼容变更时递增（见 src/shared/schema.json）
 EDITOR_SCHEMA_VERSION = 1
+
+# 模板文件名白名单：仅允许「中英文、数字、下划线、连字符」+ `.json`。
+# 不含路径分隔符，从源头堵死路径穿越（`..` / 子目录）。
+TEMPLATE_NAME = re.compile(r"^[A-Za-z0-9_\u4e00-\u9fff-]+\.json$")
 
 
 def health() -> Dict[str, Any]:
@@ -124,6 +130,86 @@ def save_editor(payload: Dict[str, Any]) -> Dict[str, Any]:
         "savedAt": saved["savedAt"],
         "bytes": size,
         "stats": stats,
+    }
+
+
+def list_templates() -> Dict[str, Any]:
+    """列出模板库。
+
+    `templates/` **不在版本交付清单内**，预览副本里根本没有它 —— 目录缺失时
+    返回 `available=False` + 空列表，**不报错**（否则预览版一启动就满屏红）。
+    单套模板损坏也只跳过该套，不拖垮整个列表。
+    """
+    d = config.TEMPLATES_DIR
+    if not d.is_dir():
+        return {"ok": True, "available": False, "items": [], "path": str(d)}
+
+    items: list[Dict[str, Any]] = []
+    for p in sorted(d.glob("*.json")):
+        if not TEMPLATE_NAME.match(p.name):
+            continue
+        try:
+            doc = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(doc, dict) or not isinstance(doc.get("tree"), dict):
+            continue
+        dirs, files = dtree_core.count_tree(doc["tree"])
+        items.append({
+            "file": p.name,
+            "name": doc.get("name") or p.stem,
+            "description": doc.get("description") or "",
+            "dirs": dirs,
+            "files": files,
+        })
+
+    return {
+        "ok": True,
+        "available": True,
+        "items": items,
+        "path": str(d),
+        "schemaVersion": config.TEMPLATE_SCHEMA_VERSION,
+    }
+
+
+def load_template(name: str) -> Dict[str, Any]:
+    """读取单套模板的完整树。
+
+    安全顺序：**先过文件名白名单**（不含路径分隔符，源头堵死穿越），
+    **再校验解析后的绝对路径仍在 `templates/` 之内**（防符号链接等绕过）。
+    """
+    if not name or not TEMPLATE_NAME.match(name):
+        raise TreeError("templateNotFound", name=str(name))
+
+    base = config.resolve_path(config.TEMPLATES_DIR)
+    path = config.resolve_path(base / name)
+    if not config.is_within(path, base) or not path.is_file():
+        raise TreeError("templateNotFound", name=name)
+
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise TreeError("templateReadFailed", name=name, message=str(exc))
+    try:
+        doc = json.loads(raw)
+    except ValueError:
+        raise TreeError("templateBadJson", name=name)
+
+    if not isinstance(doc, dict) or not isinstance(doc.get("tree"), dict):
+        raise TreeError("templateBadJson", name=name)
+
+    # 模板 `tree` 是**嵌套字典**（目录=dict、文件=内容字符串），与编辑态文档的
+    # 「id / type / children」结构**不同** —— 故统计用 count_tree 而非 validate_document。
+    # 两者格式的差异与演进策略登记在 docs/项目约定.md §P2 第 7 项。
+    dirs, files = dtree_core.count_tree(doc["tree"])
+    return {
+        "ok": True,
+        "file": name,
+        "name": doc.get("name") or path.stem,
+        "description": doc.get("description") or "",
+        "tree": doc["tree"],
+        "stats": {"dirs": dirs, "files": files},
+        "schemaVersion": config.TEMPLATE_SCHEMA_VERSION,
     }
 
 

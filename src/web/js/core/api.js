@@ -78,4 +78,18 @@ export const api = {
       body: JSON.stringify({}),
     });
   },
+
+  /**
+   * 列出模板库。
+   * `available=false` 表示 templates/ 不存在（预览副本中没有它），
+   * 此时 items 为空 —— 调用方应显示「不可用」，而不是报网络错。
+   */
+  listTemplates() {
+    return request('/api/templates', { method: 'GET' });
+  },
+
+  /** 读取单套模板的完整树。name 为模板文件名（含中文，需编码）。 */
+  loadTemplate(name) {
+    return request('/api/templates/' + encodeURIComponent(name), { method: 'GET' });
+  },
 };
