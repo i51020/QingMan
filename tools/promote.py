@@ -109,7 +109,10 @@ def main() -> int:
             shutil.copy2(src_item, root / item)
 
     version = (source / "VERSION").read_text(encoding="utf-8").strip()
-    (root / "VERSION").write_text(version + "\n", encoding="utf-8")
+    # 显式 newline="\n"：默认 newline=None 会把 \n 译为 os.linesep（Windows 下 CRLF），
+    # 使 VERSION 字节随平台漂移，导致 store digest 与 verify --against 失配。
+    with (root / "VERSION").open("w", encoding="utf-8", newline="\n") as fh:
+        fh.write(version + "\n")
 
     print(f"[落地] 完成，主线版本 = {version}")
     print("[下一步] python tools/verify.py  →  python tools/release.py snapshot")

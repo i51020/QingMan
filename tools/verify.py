@@ -254,6 +254,23 @@ def main() -> int:
             py_bad.append(f"{py.name}: {exc}")
     check(not py_bad, "Python 语法", "; ".join(py_bad) if py_bad else f"{len(py_files)} 个文件通过")
 
+    # 6b. 换行一致性（§编码基线：start.bat 用 CRLF，其余纳入版本控制的文本文件用 LF）
+    #     本项目以 SHA-256 指纹校验内容，字节随平台漂移会直接造成指纹失配，故必须把关。
+    eol_bad = []
+    for f in sorted((root / "src").rglob("*")):
+        if f.is_file() and b"\r" in f.read_bytes():
+            eol_bad.append(f"{f.relative_to(root).as_posix()}(含 CR)")
+    vf = root / "VERSION"
+    if vf.is_file() and b"\r" in vf.read_bytes():
+        eol_bad.append("VERSION(应为 LF)")
+    bat = root / "start.bat"
+    if bat.is_file():
+        b = bat.read_bytes()
+        if not (b"\r\n" in b and b.replace(b"\r\n", b"").count(b"\n") == 0):
+            eol_bad.append("start.bat(应为纯 CRLF)")
+    check(not eol_bad, "换行一致性",
+          "; ".join(eol_bad) if eol_bad else "src/ 与 VERSION = LF，start.bat = CRLF")
+
     # 7. 帮助页不得硬编码中文（§P0-3 L1：文案必须经取词表，页面只留 data-i18n 键名）
     help_html = root / "src/web/help.html"
     if help_html.is_file():

@@ -42,7 +42,10 @@ def do_bump(root: Path, kind: str) -> int:
     except ValueError as exc:
         print(f"[失败] {exc}")
         return 1
-    path.write_text(new + "\n", encoding="utf-8")
+    # 显式 newline="\n" 写盘：Path.write_text 的 newline 参数 Python 3.10 才有（本项目下限 3.8），
+    # 且默认 newline=None 会把 \n 译为 os.linesep —— Windows 下变 CRLF，破坏 SHA-256 指纹一致。
+    with path.open("w", encoding="utf-8", newline="\n") as fh:
+        fh.write(new + "\n")
     print(f"[升级] {old} → {new}（{kind}）")
     print("[提示] 请确认已用 store.py commit 留好回退点，否则本版本无快照")
     return 0

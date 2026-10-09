@@ -44,6 +44,24 @@
 
 `src/web/assets/logo.svg`（新增）、`src/web/index.html`、`src/web/help.html`、`src/web/css/base.css`、`src/web/css/layout.css`。
 
+### 同版本修订 r2（2026-10-09 21:39）· 换行规范化
+
+**性质**：**不升版**（§P0-6 同版本追加修订）。语义零变化，仅统一换行符，属缺陷修复。
+
+| 文件 | 变更 | 字节 |
+|---|---|---|
+| `VERSION` | CRLF → **LF** | 8 → 7 B |
+| `start.bat` | LF → **CRLF** | 619 → 653 B（补 34 处 CR） |
+| `src/web/assets/logo.svg` | CRLF → **LF** | 30,094 → 30,087 B（去 7 处 CR） |
+
+**根因**：`Path.write_text` 默认 `newline=None` 会把 `\n` 译为 `os.linesep`（Windows 为 `\r\n`）。本项目以 SHA-256 指纹校验内容、`.gitattributes` 设 `* -text` 禁止换行转换，故字节漂移会直接造成指纹失配。`logo.svg` 的 CR 来自 V0.0.3 落盘时的生成脚本（沙盒，默认换行），属**同类根因**。
+
+**工具修复**：`tools/release.py`（bump 写 `VERSION`）、`tools/promote.py`（落地写 `VERSION`）改用 `open(..., encoding="utf-8", newline="\n")`，照 `handoff.py` 既有范例（Python 下限 3.8，**不能**用 `write_text(newline=...)`）。
+
+**新增验收**：`tools/verify.py` 增「换行一致性」项（校验 `src/**` 与 `VERSION` 不含 CR、`start.bat` 为纯 CRLF）。该校验上线时**立即抓出 `logo.svg` 缺陷**，非事后发现。
+
+**验证**：`verify.py . --against V0.0.3` → **40 项全部通过**（对齐 r2 指纹）；`store.py commit` 27 文件 / 新增 3 blob / 复用 24；对象池 52 → **55** blob，`fsck` 0 损坏。
+
 ---
 
 ## V0.0.2 — 2026-10-09
