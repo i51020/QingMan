@@ -7,6 +7,114 @@
 
 ---
 
+## V0.0.5 — 2026-10-09
+
+**主题**：P0-3 双语与皮肤预留 —— 由"只有帮助页取词"推进到**全界面零硬编码文案**，并把皮肤机制从"口头约定"变成**可验收的契约**。
+
+> 立项背景（`docs/项目约定.md` §P0-3）：中英双语与多皮肤都在路线图内。等到 V0.1.x 再做，等于重写全部 UI 模块与组件 CSS —— 所以先立约定、再把**主界面**这条最大的尾巴收掉。
+>
+> 立项时状态为"⚠️ 部分落地"：`help.js` 有 `t()`、`help.html` 已零中文字面量，**但主界面文案全部直写**，`skins/` 目录不存在。
+
+### 变更
+
+- **新增取词运行时** `src/web/js/i18n/index.js`（4,653 B）：`t(key, vars)`（支持 `{name}` 占位替换，缺键时 `console.warn` 而非静默）、`applyStatic(root)`（扫 `data-i18n` / `data-i18n-title` / `data-i18n-placeholder` / `data-i18n-aria-label`）、`setLocale()`、`getSkin()` / `setSkin()` / `applySkin()`、`initPrefs()`
+- **取词表扩容** `zh-CN.js`：由"帮助页正文的唯一数据源"扩为**全界面唯一取词表**，**47 → 136 键**；按 `app/topbar`、`sidebar/check`、`gen`、`tree`、`inspector`、`status`、`toast`、`sample`、`module-internal`、`help`、`about` 分区；保留 `helpSections` 导出
+- **主界面取词化** `index.html`：所有中文改为 `data-i18n*` 属性（含 `<title data-i18n="app.title">`）
+- **JS 模块取词化**：`main.js`（全部 toast / status / 默认示例树走 `t()`，新增 `idList()` 用 `t('list.separator')` 拼列表）、`core/api.js`、`core/bus.js`、`ui/inspector.js`、`modules/tree-model.js`；`help.js` 删掉本地 `t()` 改从 `index.js` 导入（局部函数改名 `applyStatic` → `applyShell` 以避开同名导出）
+- **新增设计变量** `tokens.css`：`--qm-on-accent`（浅色 `#ffffff` / 深色 `#0f1a16`）—— 为 L7 的清除动作提供语义化落点
+- **新增皮肤契约** `src/web/css/skins/README.md`：皮肤 == **一组变量覆盖文件**，经 `applySkin()` 注入 `<link id="skinLink">`；**组件 CSS 不得感知皮肤**（不写 `.skin-dark .btn` 这类选择器）
+- **偏好持久化**：`qm.lang` / `qm.skin` 两键写入 `localStorage`；启动顺序固定 `initPrefs(); applyStatic(document); render(); … boot();` —— **先恢复偏好再填字**，避免闪一次默认语言
+
+### 本次消除的缺陷
+
+| 缺陷 | 处理 |
+|---|---|
+| `src/web/css/base.css` 第 53、55 行**硬编码 `#fff`**（§P0-3 L7 登记在案） | 改 `color: var(--qm-on-accent)`。**计算值不变**（浅色下仍是 `#ffffff`），故属**纯重构、零视觉变化** |
+| 主界面文案全部直写，改语言需逐文件grep | 全部经 `t()`；`verify.py` 三项把关（主界面 / 帮助页 / JS 均无中文字面量） |
+
+### 验证（均为实测）
+
+| 项 | 结果 |
+|---|---|
+| `tools/verify.py preview/V0.0.5` | **46 项 · 0 失败** |
+| `tools/verify.py . --against V0.0.5` | **50 项 · 0 失败**；指纹比对**完全一致** |
+| `python -m unittest discover -s tests` | **71 项全过**（对**预览版** `src/` 也跑了一遍，落地前后各一次） |
+| `tools/smoke.py` | **17 项全过**，`/api/health` 报 `version=V0.0.5` |
+| 无头 Edge 渲染（浅/深 × 首页/帮助页，4 张） | 页面注入错误捕获层后**全部 `NO-ERRORS`** —— 无 import 断裂、无 `console.error`；中文全部正常渲染、无裸 key 外露 |
+| WCAG 对比度审计（注入式，遍历全部含文本元素） | 深色 **0 处**；浅色 **2 处**不达 AA，**均为既有色值、非本轮引入** → 见下"遗留" |
+| 取词键闭包 | 108 个引用键（页面属性 + JS 字面量）**全部命中** 136 键取词表 |
+| 换行一致性 | `src/**` 与 `VERSION` 全 LF（本轮改动未引入 CR，规范化确认为 no-op） |
+
+### src/ 代码
+
+**修改**（10）：`src/web/index.html`、`src/web/css/tokens.css`、`src/web/css/base.css`、`src/web/js/main.js`、`src/web/js/help.js`、`src/web/js/i18n/zh-CN.js`、`src/web/js/core/api.js`、`src/web/js/core/bus.js`、`src/web/js/modules/tree-model.js`、`src/web/js/ui/inspector.js`
+
+**新增**（2）：`src/web/js/i18n/index.js`、`src/web/css/skins/README.md`
+
+> `help.html` **不在改动清单内** —— 它早在 V0.0.1@r3 就已取词化（本次实测确认）。
+
+### 遗留（已登记，待裁定）
+
+| 项 | 说明 | 登记处 |
+|---|---|---|
+| 浅色主题 2 处对比度不达 WCAG AA | `.btn-primary` 白字 on `--qm-accent #2f8f6b` = **3.99**；`--qm-warn #a8721a` on `#f6f8fb` = **3.98**。**既有色值缺陷**，不在 P0-3 的 L1–L8 范围内；改配色属可见 UI 变更，**须用户裁定** | §P2 第 13 项 |
+| 生成文件换行的扩展名例外 | 全局 `newline="\n"` 对 `.bat` / `.cmd` / `.ps1` 不正确（`cmd.exe` 跨行结构可能解析异常）。当前 17 套模板无此类后缀，**未触发** | §P2 第 12 项 |
+
+### 工具链
+
+- `tools/verify.py` 新增 9 项守卫：「主界面无硬编码中文」「JS 文案经取词表 §P0-3 L1」「取词键闭包 §P0-3 L2」「组件 CSS 无裸色值 §P0-3 L4」「组件 CSS 不感知皮肤 §P0-3 L5」「皮肤目录契约 §P0-3 L5」「偏好键名 §P0-3 L6」，并把 `src/web/js/i18n/index.js` 加入必需文件清单
+- 发布流程照五步走：`bump` → 预览开发 → 校验 → `promote --force` → `store.py commit` → git 提交 + tag
+
+---
+
+## V0.0.4 — 2026-10-09
+
+**主题**：P0-1 落盘安全边界 —— 给"青蔓唯一会写用户磁盘的动作"装上**服务端**闸门；同轮把 `src/` 内两处换行点一并规范化。
+
+> 立项背景（`docs/项目约定.md` §P0-1）：生成目录是青蔓**唯一会写用户磁盘**的动作。原实现只校验 `target` 是非空字符串，**无任何路径约束**；`dryRun` 也来自请求体、服务端不强制。任何请求都能让它在 `C:\Windows` 下建目录树 —— 前端弹窗属 UI 层、可绕过。
+>
+> 立项时状态为"⚠️ 尚未实现"。
+
+### 变更（R1–R8 全部落地在服务端）
+
+| 规则 | 落点 |
+|---|---|
+| R1 路径规范化 | `config.resolve_path()`（`expanduser().resolve()`，异常时退回 `absolute()`）+ `dtree_core.check_target()` |
+| R2 盘根黑名单 | `check_target()`：`path.parent == path` 或 `len(path.parts) < 2` → `targetTooShallow` |
+| R3 系统目录黑名单 | `config.BLOCKED_SUBTREES`（`SystemRoot` / `System32`、`Program Files`、`Program Files (x86)`、`ProgramData`），**整棵子树**拒绝 → `targetBlocked` |
+| R4 用户目录黑名单 | `config.BLOCKED_ROOTS`（`USERPROFILE` / `Desktop` / `Documents` / `Downloads`）**仅根本身**拒绝，**子目录放行** → `targetBlocked` |
+| R5 项目自身黑名单 | 项目目录及其**上级**目录拒绝（防工具改自己）→ `targetReserved` |
+| R6 规模阈值 | `config.MAX_NODES`（`QM_MAX_NODES`，默认 500）；`build_tree()` 用 `count_tree()` 算**计划规模**，超限即拒（`dryRun` 同样拦截）→ `tooManyNodes` |
+| R7 覆盖策略 | 目录已存在 → 复用；文件已存在 → **跳过、不覆盖、不比对内容**，计入 `existed` |
+| R8 永不删除 | 全程只 `mkdir` / 新建文件，**无任何删除调用** |
+
+- **辅助函数**：`config.is_within(child, parent)` —— 因 **Python 下限 3.8**，不能用 3.9+ 的 `Path.is_relative_to`，故用 `relative_to` + `except ValueError` 自实现
+- **接线**：`routes.generate()` 在写盘前调 `check_target(payload.get("target"))`；响应回填 `result["target"] = str(base)`；移除不再使用的 `from pathlib import Path`
+- **错误码**：`error-codes.json` 新增 `targetInvalid` / `targetTooShallow` / `targetBlocked` / `targetReserved` / `tooManyNodes` —— **全部映射 400，无 500**（黑名单命中是"用户可修复"级，不是内部错误）
+
+### 本次修复的缺陷
+
+| 缺陷 | 处理 |
+|---|---|
+| `src/server/dtree_core.py:194` 写**生成的目录树文件**时裸用 `open("w")` → 默认 `newline=None` 把 `\n` 译为 `os.linesep`。**这不是洁癖而是真缺陷**：同一棵树在 Windows 产 CRLF、在 Linux 产 LF，**产出不可复现** | 改 `open(..., encoding="utf-8", newline="\n")` |
+| `src/server/routes.py:112` 写 `data/editor.json` 同类问题 | 同上改法。该文件不入 git、不进版本清单，此改动**纯为消除平台漂移**，无用户可见影响 |
+| `save_editor()` 返回的 `bytes` 取自**写入前的字符串长度**，而盘上文件在 Windows 下是 CRLF、比它长 → **响应里的 `bytes` 小于实际文件大小** | 随 `newline="\n"` 修复自动一致；`tests/test_routes.py` 专门断言 |
+
+### 验证（均为实测）
+
+| 项 | 结果 |
+|---|---|
+| `tools/verify.py` | 新增「**落盘安全边界 §P0-1**」守卫项（核 `config` 黑名单 / `dtree_core.check_target` / `routes` 接线 / 错误码四处齐备） |
+| 沙盒探针（先行验证，非事后） | `C:\Windows\System32\evil` → `targetBlocked`；`Desktop` **子目录 → 放行**（验证 R4 的"仅根本身"语义）；项目**上级**目录 → `targetReserved`；盘根 → `targetTooShallow`；含 `..` 的路径 → 规范化后判定 |
+| `python -m unittest discover -s tests` | 全过（`CheckTargetTests` 覆盖 R1–R5，`BuildTreeTests` 覆盖 R6–R8 + 生成内容 LF） |
+| `tools/smoke.py` | **17 项全过**，含三项安全边界用例与「**超限未落盘**」断言 |
+
+### src/ 代码
+
+`src/server/config.py`（黑名单 + 辅助函数 + `MAX_NODES`）、`src/server/dtree_core.py`（`check_target()` + R6 前置 + `:194` 换行）、`src/server/routes.py`（接线 + `:112` 换行）、`src/shared/error-codes.json`（5 个错误码）。
+
+---
+
 ## V0.0.3 — 2026-10-09
 
 **主题**：品牌标记进入界面 —— 顶栏接入青蔓 logo，颜色跟随主题变量而非硬编码。

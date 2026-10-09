@@ -4,7 +4,7 @@
 
 - 中文名：**青蔓**
 - 英文名：**QingMan**
-- 当前版本：**V0.0.3**
+- 当前版本：**V0.0.5**
 - 运行环境：Windows 10/11 + Python 3.8+，完全离线，仅监听 `127.0.0.1`
 
 ## 快速开始
@@ -27,28 +27,43 @@ python -m server
 
 ```
 QingMan/
-├─ VERSION              版本号唯一来源（内容：V0.0.3）
+├─ VERSION              版本号唯一来源（内容：V0.0.5）
 ├─ CHANGELOG.md         版本记录
 ├─ start.bat            启动入口
 ├─ README.md            本文件
 ├─ src/                 主线源码（"当前版本"，只在确认后改动）
 │  ├─ web/              前端：index.html（主界面）+ help.html（帮助页）+ css/ + js/ + assets/
 │  │  ├─ assets/        品牌资源：logo.svg（顶栏标记，经 CSS mask 着色）
-│  │  └─ js/i18n/       取词表：zh-CN.js（帮助页正文的唯一数据源）
+│  │  ├─ css/
+│  │  │  ├─ tokens.css  设计变量唯一来源（**唯一允许出现裸色值的文件**）
+│  │  │  ├─ base.css    基础元素 + 品牌区（两页共用）
+│  │  │  ├─ layout.css  主界面布局
+│  │  │  ├─ help.css    帮助页布局
+│  │  │  └─ skins/      皮肤契约与皮肤文件（皮肤 = 一组变量覆盖，组件不感知皮肤 → §P0-3 L5）
+│  │  └─ js/
+│  │     ├─ i18n/       取词层：index.js（运行时 t() / applyStatic() / applySkin()）+ zh-CN.js（136 键取词表）
+│  │     └─ …           其余模块文案一律走 t()，**不得直写中文**（§P0-3 L1）
 │  ├─ server/           后端：Python 标准库，零第三方依赖
 │  └─ shared/           前后端共享契约：schema.json / error-codes.json
 ├─ data/                运行时数据：editor.json（编辑态文档；**不进 git**，见 §P0-7）
 ├─ store/               内容寻址仓库
 │  ├─ objects/          blob 池：路径 = 内容的 SHA-256，跨版本自动去重
 │  └─ .trash/           checkout 时多余文件的回收区（不真删）
-├─ versions/            版本清单
+├─ versions/            版本清单（**只增不改**）
+│  ├─ V0.0.5/           MANIFEST.json（基线 r1，当前版本）
+│  ├─ V0.0.4/           MANIFEST.json
 │  ├─ V0.0.3/           MANIFEST.json（基线 r1）+ MANIFEST-r<N>.json（同版本修订）
 │  ├─ V0.0.2/           MANIFEST.json
 │  └─ V0.0.1/           MANIFEST.json（基线 r1）+ MANIFEST-r<N>.json（同版本修订）
 ├─ preview/             试运行区（**只服务单次开发**：`promote` 后即清空，不跨版本保留 —— §P1-7）
 │  └─ README.md         用途与规则说明（占位，使目录保留在 git 跟踪内）
 ├─ templates/           17 套中文目录树模板（内容资产）
-├─ tools/               工具链：store / verify / versioning / release / promote / handoff
+├─ tests/               回归测试网（标准库 unittest，零第三方依赖 —— §P0-2）
+│  ├─ test_dtree_core.py   切分 / 统计 / 文档校验 / check_target(R1–R5) / build_tree(R6–R8)
+│  ├─ test_routes.py       生成守卫 / 写入 / 编辑态往返 / 健康
+│  ├─ test_store.py        manifest_digest 改名可检出 / parse_ref / 修订链
+│  └─ test_versioning.py   bump 三语义（minor 重置 PATCH、major 重置 MINOR+PATCH）
+├─ tools/               工具链：store / verify / versioning / release / promote / handoff / smoke
 ├─ legacy/              历史归档，命名 `<对象>-<日期>/`，只增不删
 │  ├─ tools-20261009/    改造前的工具备份
 │  └─ preview-20261009/  旧编号预览版 V0.01 全量归档（22 文件，git 保留重命名历史）
@@ -83,12 +98,24 @@ QingMan/
 | 步骤 | 命令 | 说明 |
 |---|---|---|
 | 1. 预览开发 | — | 按需新建 `preview/V<版本>/` 试跑，主线不受影响；**落地后按 §P1-7 清空，不跨版本保留** |
-| 2. 交付校验 | `python tools/verify.py preview/V<版本>` | 主线 **38 项**、预览目录 **37 项**（预览无 `docs/`，少「接续说明实况段」一项；带 `--against` 另加 2 项），不通过不落地 |
-| 3. 落地主线 | `python tools/promote.py --from preview/V<版本>` | 单向：预览 → 主线，只复制不删除 |
+| 2. 交付校验 | `python tools/verify.py preview/V<版本>` | 主线 **48 项**、预览目录 **46 项**（预览无 `docs/`，少「接续说明实况段」一项；带 `--against` 另加 2 项），不通过不落地 |
+| 3. 落地主线 | `python tools/promote.py --from preview/V<版本> --force` | 单向：预览 → 主线，只复制不删除（主线非空时需 `--force`） |
 | 4. 提交版本 | `python tools/store.py commit --note "说明"` | 写入 blob 池 + 生成清单（同版本则追加修订） |
 | 5. 升级版本号 | `python tools/release.py bump --kind patch` | 或 `minor` / `major`；不升版则跳过本步 |
 
 **改主线之前必须先 commit**，否则该版本没有回退点。
+
+**⚠️ 版本号与 `store.py commit` 的配套顺序**：`commit` 打的是**「此刻盘上的 `src/`」+「此刻的 `VERSION`」**这个组合，两者必须已配套。若先把 `VERSION` 升到新版**却尚未落地**，此时执行 `release.py snapshot`（= `store.py commit`）会把**上一版的代码**装进**新版本的清单**。落地前请用 `python tools/verify.py . --against <上一版>` 先确认主线仍等于上一版基线（见 `docs/错误笔记.md` §三.18）。
+
+**改 `src/` 后必跑三件套（§P0-2 T5）**：
+
+```bash
+python tools/verify.py .                      # 交付校验
+python -m unittest discover -s tests          # 单元测试
+python tools/smoke.py                         # 端到端冒烟（起真实服务 + 沙盒目录，测完即清）
+```
+
+三项全过才算完成。单元测试可用 `QM_SRC=<版本根>/src` 指向**预览版**，这样落地前就能过全部门禁。
 
 ## 编辑态持久化
 
@@ -98,6 +125,21 @@ QingMan/
 
 > 之所以不用 `localStorage`：它按 origin（含**端口**）隔离，而本服务端口是**扫描**出来的、并不固定 —— 端口一变 origin 就变，草稿会静默消失。
 
+## 界面文案与皮肤（§P0-3）
+
+**文案零直写**：界面上的每一句中文都来自 `src/web/js/i18n/zh-CN.js` 的取词表（**136 键**），代码里通过 `t(key)` 取；HTML 用 `data-i18n` / `data-i18n-title` / `data-i18n-placeholder` / `data-i18n-aria-label` 属性声明键名，加载时由 `applyStatic()` 统一填充。**后续加 `en-US.js` 即在 `DICTIONARIES` 注册即可切换**，无需改任何组件。
+
+| 约定 | 内容 |
+|---|---|
+| key 命名 | `<模块>.<元素>.<语义>`，如 `inspector.title`、`tree.menu.delete`、`toast.saved` |
+| 取词运行时 | `src/web/js/i18n/index.js`：`t()` / `applyStatic()` / `setLocale()` / `applySkin()` / `initPrefs()` |
+| 颜色 | 组件 CSS **只允许 `var(--qm-*)`**，禁止裸色值；新增变量先在 `tokens.css` 定义（**唯一允许写色值的文件**） |
+| 皮肤 | 皮肤 = **一组变量覆盖文件** `src/web/css/skins/<name>.css`，经 `applySkin()` 注入 `<link id="skinLink">`。**组件 CSS 不得感知皮肤**（不写 `.skin-dark .btn` 这类选择器） |
+| 偏好 | `localStorage` 的 `qm.lang` / `qm.skin`；启动顺序 `initPrefs()` → `applyStatic()` → `render()` |
+| SVG 着色 | 一律 ① CSS `mask` 取形状 或 ② 内联 `currentColor`。**禁止 `<img src="*.svg">`** —— `<img>` 中的 SVG 是独立文档，`currentColor` 不继承 |
+
+以上七条外加 L7/L8，由 `verify.py` 的 7 项守卫（§P0-3 系列）逐条把关。
+
 ## 存储机制
 
 采用**内容寻址存储**（借鉴 Git 思路）：
@@ -106,7 +148,7 @@ QingMan/
 - `versions/<版本>/MANIFEST.json` —— 版本**基线**（修订 r1）：「路径 → 指纹」映射 + 元数据（时间 / 父版本 / 说明 / 清单摘要）
 - `versions/<版本>/MANIFEST-r<N>.json` —— 同版本**后续修订**（r2、r3…），任何已有清单都不覆盖
 
-实测数据：`V0.0.1@r3` → `V0.0.2` 的 26 个文件里**新增 11 个 blob、复用 15 个**（对象池 35 → 46）；`V0.0.2` → `V0.0.3` 的 27 个文件里**新增 6 个 blob、复用 21 个**。
+实测数据：`V0.0.1@r3` → `V0.0.2` 的 26 个文件里**新增 11 个 blob、复用 15 个**（对象池 35 → 46）；`V0.0.2` → `V0.0.3` 的 27 个文件里**新增 6 个 blob、复用 21 个**；`V0.0.4` → `V0.0.5` 的 29 个文件里**新增 13 个 blob、复用 16 个**。
 
 | 命令 | 作用 |
 |---|---|
@@ -119,9 +161,9 @@ QingMan/
 ## 回退
 
 ```bash
-python tools/store.py checkout V0.0.3         # 取当前版本
+python tools/store.py checkout V0.0.5         # 取当前版本（= 该版本最高修订）
 python tools/store.py checkout V0.0.1@r1      # 精确回退到某个修订
-python tools/verify.py . --against V0.0.3     # 与当前版本清单比对
+python tools/verify.py . --against V0.0.5     # 与当前版本清单比对
 ```
 
 回退时「当前有、目标版本没有」的文件，会先复制进 `store/.trash/<时间戳>/` 并**逐字节校验**，通过后才移除原文件 —— 全程不真删。
