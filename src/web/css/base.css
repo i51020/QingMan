@@ -87,3 +87,29 @@ input[type="text"]:focus { outline: 2px solid var(--qm-accent-soft); border-colo
 .hint { color: var(--qm-text-dim); font-size: 12px; margin: 6px 0 0; }
 .divider { width: 1px; align-self: stretch; background: var(--qm-line); margin: 0 2px; }
 .spacer { flex: 1; }
+
+/* 品牌区（主界面与帮助页共用，故置于 base.css 而非某一页的布局表）
+ *
+ * 标记走 CSS mask 而非 <img>/内联 SVG：
+ *   - <img> 引用的 SVG 是独立文档，currentColor 不继承，无法跟随主题与皮肤（违反 §P0-3 L4/L5）
+ *   - 跨文档 <use href="x.svg#id"> 在现代浏览器已不支持
+ *   - mask 只取形状，颜色由 background-color 给，色值仍单一来源于 --qm-*
+ */
+.brand { display: flex; align-items: baseline; gap: 8px; }
+.brand-logo {
+  align-self: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  background-color: var(--qm-accent-ink);
+  -webkit-mask-image: url("../assets/logo.svg");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-image: url("../assets/logo.svg");
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}
+.brand-mark { font-size: 16px; font-weight: 700; letter-spacing: 2px; color: var(--qm-accent-ink); }
+.brand-sub { font-size: 12px; color: var(--qm-text-dim); font-family: var(--qm-mono); }

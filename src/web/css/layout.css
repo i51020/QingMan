@@ -17,9 +17,7 @@
   background: var(--qm-surface);
   border-bottom: 1px solid var(--qm-line);
 }
-.brand { display: flex; align-items: baseline; gap: 8px; }
-.brand-mark { font-size: 16px; font-weight: 700; letter-spacing: 2px; color: var(--qm-accent-ink); }
-.brand-sub { font-size: 12px; color: var(--qm-text-dim); font-family: var(--qm-mono); }
+/* 品牌区样式见 base.css（主界面与帮助页共用） */
 
 .topbar-right { display: flex; align-items: center; gap: var(--qm-gap); }
 
