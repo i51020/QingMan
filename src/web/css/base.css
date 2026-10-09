@@ -1,4 +1,4 @@
-/* 青蔓 QingMan · 基础元素样式 */
+/* 青蔓 QingMan · 基础元素样式（锐利新拟物） */
 
 * { box-sizing: border-box; }
 
@@ -29,6 +29,7 @@ code {
   padding: 1px 4px;
 }
 
+/* ---------- 按钮：锐利新拟物 ---------- */
 .btn {
   appearance: none;
   border: 1px solid var(--qm-line);
@@ -39,25 +40,88 @@ code {
   font-family: inherit;
   font-size: 13px;
   cursor: pointer;
-  box-shadow: var(--qm-shadow);
-  transition: background .12s ease, border-color .12s ease, color .12s ease;
+  box-shadow:
+    1px 1px 2px var(--qm-shadow-dark),
+    -1px -1px 1px var(--qm-shadow-light),
+    inset .5px .5px 1px var(--qm-edge-hi);
+  transition: background .12s ease, border-color .12s ease, color .12s ease, box-shadow .12s ease;
 }
 
-.btn:hover:not(:disabled) { border-color: var(--qm-accent); color: var(--qm-accent-ink); }
-.btn:active:not(:disabled) { transform: translateY(1px); }
-.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn:hover:not(:disabled) {
+  border-color: var(--qm-accent);
+  color: var(--qm-accent-ink);
+  box-shadow:
+    1.5px 1.5px 3px var(--qm-shadow-dark),
+    -1px -1px 1px var(--qm-shadow-light),
+    inset .5px .5px 1px var(--qm-edge-hi);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: var(--qm-inset);
+}
+.btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
 
 .btn-primary {
   /* 用 --qm-btn-bg 而非 --qm-accent：白字在其上需 ≥4.5（§P2 第 13 项） */
   background: var(--qm-btn-bg);
   border-color: var(--qm-btn-bg);
   color: var(--qm-on-accent);
+  box-shadow:
+    1px 1px 2px var(--qm-shadow-dark),
+    inset .5px .5px 1px rgba(255, 255, 255, .18);
 }
-.btn-primary:hover:not(:disabled) { background: var(--qm-accent-ink); border-color: var(--qm-accent-ink); color: var(--qm-on-accent); }
+.btn-primary:hover:not(:disabled) {
+  background: var(--qm-accent-ink);
+  border-color: var(--qm-accent-ink);
+  color: var(--qm-on-accent);
+}
+.btn-primary:active:not(:disabled) { box-shadow: inset 1px 1px 3px rgba(0, 0, 0, .25); }
 
-.btn-ghost { background: transparent; box-shadow: none; }
+.btn-ghost {
+  background: transparent;
+  box-shadow: none;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--qm-line-soft);
+  box-shadow: inset 1px 1px 2px var(--qm-shadow-light), inset -1px -1px 2px var(--qm-shadow-dark);
+}
 .btn-danger { color: var(--qm-danger); border-color: var(--qm-line); }
 .btn-danger:hover:not(:disabled) { background: var(--qm-danger-soft); border-color: var(--qm-danger); color: var(--qm-danger); }
+
+/* ---------- 表单：下拉框 ---------- */
+select {
+  appearance: none;
+  border: 1px solid var(--qm-line);
+  background: var(--qm-surface-2);
+  color: var(--qm-text);
+  border-radius: var(--qm-r-sm);
+  padding: 4px 22px 4px 8px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow:
+    1px 1px 2px var(--qm-shadow-dark),
+    -1px -1px 1px var(--qm-shadow-light),
+    inset .5px .5px 1px var(--qm-edge-hi);
+  background-image: var(--qm-select-arrow);
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+}
+select:focus { outline: 2px solid var(--qm-accent-soft); border-color: var(--qm-accent); }
+select option { background: var(--qm-surface-2); color: var(--qm-text); }
+
+.topbar-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--qm-text-dim);
+}
+.select-label { font-size: 11px; letter-spacing: .5px; }
 
 input[type="text"] {
   width: 100%;
@@ -68,6 +132,7 @@ input[type="text"] {
   padding: 5px 8px;
   font-family: inherit;
   font-size: 13px;
+  box-shadow: var(--qm-inset);
 }
 input[type="text"]::placeholder { color: var(--qm-text-dim); opacity: .8; }
 input[type="text"]:focus { outline: 2px solid var(--qm-accent-soft); border-color: var(--qm-accent); }
@@ -96,7 +161,19 @@ input[type="text"]:focus { outline: 2px solid var(--qm-accent-soft); border-colo
  *   - 跨文档 <use href="x.svg#id"> 在现代浏览器已不支持
  *   - mask 只取形状，颜色由 background-color 给，色值仍单一来源于 --qm-*
  */
-.brand { display: flex; align-items: baseline; gap: 8px; }
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+  color: inherit;
+}
+.brand:hover { opacity: .85; }
 .brand-logo {
   align-self: center;
   flex: 0 0 auto;

@@ -1,4 +1,4 @@
-/* 青蔓 QingMan · 布局 */
+/* 青蔓 QingMan · 布局（锐利新拟物 + 三栏职责） */
 
 #app {
   height: 100%;
@@ -16,6 +16,7 @@
   padding: 8px 14px;
   background: var(--qm-surface);
   border-bottom: 1px solid var(--qm-line);
+  box-shadow: 0 1px 2px var(--qm-shadow-dark);
 }
 /* 品牌区样式见 base.css（主界面与帮助页共用） */
 
@@ -38,6 +39,10 @@
   border-radius: var(--qm-r-md);
   display: flex;
   flex-direction: column;
+  box-shadow:
+    3px 3px 8px var(--qm-shadow-dark),
+    -2px -2px 6px var(--qm-shadow-light),
+    inset .5px .5px 1px var(--qm-edge-hi);
 }
 
 #sidebar, #inspector { padding: var(--qm-gap); overflow: auto; }
@@ -76,7 +81,14 @@
 .checklist li.is-bad::before { content: "●"; color: var(--qm-danger); }
 
 /* 中栏 */
-#center { background: var(--qm-surface); }
+#center { background: var(--qm-surface); padding: 0; overflow: hidden; }
+
+.center-head {
+  flex: 0 0 auto;
+  padding: var(--qm-gap) var(--qm-gap) 0;
+  border-bottom: 1px solid var(--qm-line-soft);
+}
+.center-head .panel-title { margin-bottom: 8px; }
 
 .bar {
   flex: 0 0 auto;
@@ -159,9 +171,18 @@
   border-radius: var(--qm-r-sm);
   cursor: pointer;
   user-select: none;
+  border: 1px solid transparent;
 }
-.tree-row:hover { background: var(--qm-line-soft); }
-.tree-row.is-selected { background: var(--qm-accent-soft); color: var(--qm-accent-ink); }
+.tree-row:hover {
+  background: var(--qm-line-soft);
+  box-shadow: inset 1px 1px 2px var(--qm-shadow-light), inset -1px -1px 2px var(--qm-shadow-dark);
+}
+.tree-row.is-selected {
+  background: var(--qm-accent-soft);
+  color: var(--qm-accent-ink);
+  border-color: var(--qm-accent-soft);
+  box-shadow: var(--qm-inset);
+}
 .tree-toggle {
   width: 14px;
   text-align: center;
@@ -184,6 +205,7 @@
   border-top: 1px solid var(--qm-line-soft);
   color: var(--qm-text-dim);
   font-size: 12px;
+  background: var(--qm-surface-2);
 }
 .status-count { font-family: var(--qm-mono); }
 
@@ -205,6 +227,7 @@
   max-height: 240px;
   overflow: auto;
   color: var(--qm-text-dim);
+  box-shadow: var(--qm-inset);
 }
 
 /* 提示条 */

@@ -7,7 +7,10 @@
 
 import { createStore } from './core/store.js';
 import { api } from './core/api.js';
-import { t, applyStatic, initPrefs, getGenBarState, setGenBarState } from './i18n/index.js';
+import {
+  t, applyStatic, initPrefs, getLocale, setLocale,
+  getGenBarState, setGenBarState, SUPPORTED_LOCALES,
+} from './i18n/index.js';
 import {
   createDir, createFile, findNode, findParent, addChild,
   renameNode, removeNode, countTree, treePayload,
@@ -16,6 +19,7 @@ import {
 } from './modules/tree-model.js';
 import { createTreeView } from './ui/tree-view.js';
 import { createInspector } from './ui/inspector.js';
+import { createSkinPicker } from './ui/skin-picker.js';
 import { toast } from './ui/toast.js';
 
 const el = (id) => document.getElementById(id);
@@ -64,6 +68,26 @@ function renderGenBar() {
 function setGenBarCollapsed(next) {
   setGenBarState(next ? 'closed' : 'open');
   renderGenBar();
+}
+
+/* ---------- 顶栏：语言 / 皮肤 / 支持 ---------- */
+
+function initTopbar() {
+  const langSel = el('langSelect');
+  for (const code of SUPPORTED_LOCALES) {
+    const opt = document.createElement('option');
+    opt.value = code;
+    opt.textContent = t(`lang.${code.replace('-', '')}`);
+    langSel.appendChild(opt);
+  }
+  langSel.value = getLocale();
+  langSel.addEventListener('change', () => setLocale(langSel.value));
+
+  createSkinPicker(el('skinSelect'));
+
+  el('btnSupport').addEventListener('click', () => {
+    window.open('./help.html#support', '_blank', 'noopener');
+  });
 }
 
 /* ---------- 初值：尚无持久化文档时使用的默认示例 ---------- */
@@ -424,9 +448,19 @@ async function boot() {
   await restoreDocument();
 }
 
+/* 语言切换后刷新动态文案（静态文案由 applyStatic 在 setLocale 内处理） */
+document.addEventListener('qmlocalechange', () => {
+  renderSaveChip();
+  renderGenBar();
+  render();
+  const { connected } = store.get();
+  if (connected) el('chipBackend').textContent = t('topbar.backendOn');
+});
+
 /* 启动顺序：先恢复偏好并填静态文案，再渲染动态内容 —— 否则 applyStatic 会覆盖状态栏等动态字段 */
 initPrefs();
 applyStatic(document);
+initTopbar();
 initGenBar();
 render();
 markCheck('modules', true);

@@ -11,10 +11,12 @@
  */
 
 import { dict as zhCN } from './zh-CN.js';
+import { dict as enUS } from './en-US.js';
 
-/** 语言代码 → 字典。日后新增 `en-US.js` 并在此登记即可切换（§P0-3 L3）。 */
-const DICTIONARIES = { 'zh-CN': zhCN };
+/** 语言代码 → 字典。新增语种时在此登记（§P0-3 L3）。 */
+const DICTIONARIES = { 'zh-CN': zhCN, 'en-US': enUS };
 
+export const SUPPORTED_LOCALES = Object.freeze(Object.keys(DICTIONARIES));
 export const DEFAULT_LOCALE = 'zh-CN';
 export const LOCALE_KEY = 'qm.lang';
 export const SKIN_KEY = 'qm.skin';
@@ -52,13 +54,17 @@ export function getLocale() {
   return locale;
 }
 
-/** 切换语言。未登记的语种返回 false，不做任何改动。 */
+/** 切换语言。未登记的语种返回 false，不做任何改动；成功时刷新全部静态文案并广播事件。 */
 export function setLocale(next) {
   if (!DICTIONARIES[next]) return false;
   locale = next;
   dict = DICTIONARIES[next];
   writePref(LOCALE_KEY, next);
-  if (typeof document !== 'undefined') document.documentElement.lang = next;
+  if (typeof document !== 'undefined') {
+    document.documentElement.lang = next;
+    applyStatic(document);
+    document.dispatchEvent(new CustomEvent('qmlocalechange', { detail: { locale: next } }));
+  }
   return true;
 }
 

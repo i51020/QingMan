@@ -29,6 +29,16 @@
   --qm-shadow: 0 1px 2px rgba(30, 39, 50, .07);
   --qm-shadow-raise: 3px 3px 8px rgba(30, 39, 50, .10), -2px -2px 6px rgba(255, 255, 255, .85);
 
+  /* 新拟物锐利边缘变量（皮肤文件可覆盖；§P0-3 L4：仅 tokens.css 允许字面量色值） */
+  --qm-edge-hi: rgba(255, 255, 255, .55);
+  --qm-edge-lo: rgba(30, 39, 50, .10);
+  --qm-shadow-dark: rgba(30, 39, 50, .12);
+  --qm-shadow-light: rgba(255, 255, 255, .85);
+  --qm-inset: inset 2px 2px 5px rgba(30, 39, 50, .12), inset -2px -2px 5px rgba(255, 255, 255, .85);
+
+  /* 下拉框箭头 SVG，颜色随主题切换（§P0-3 L4：组件 CSS 不写裸色值） */
+  --qm-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%236d7278' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+
   --qm-font: "Microsoft YaHei UI", "Microsoft YaHei", system-ui, -apple-system, "Segoe UI", sans-serif;
   --qm-mono: "Cascadia Mono", Consolas, "Courier New", monospace;
 }
@@ -54,5 +64,13 @@
     --qm-warn: #d9a45b;
     --qm-shadow: 0 1px 2px rgba(0, 0, 0, .35);
     --qm-shadow-raise: 3px 3px 8px rgba(0, 0, 0, .45), -2px -2px 6px rgba(255, 255, 255, .03);
+
+    --qm-edge-hi: rgba(255, 255, 255, .08);
+    --qm-edge-lo: rgba(0, 0, 0, .35);
+    --qm-shadow-dark: rgba(0, 0, 0, .45);
+    --qm-shadow-light: rgba(255, 255, 255, .03);
+    --qm-inset: inset 2px 2px 5px rgba(0, 0, 0, .45), inset -2px -2px 5px rgba(255, 255, 255, .03);
+
+    --qm-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%239aa7b5' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
   }
 }

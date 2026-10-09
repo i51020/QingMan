@@ -12,14 +12,23 @@
   <div id="app">
 
     <header id="topbar">
-      <div class="brand">
+      <div class="brand" id="brand">
         <span class="brand-logo" aria-hidden="true"></span>
         <span class="brand-mark" data-i18n="app.nameZh"></span>
         <span class="brand-sub" data-i18n="app.nameEn"></span>
       </div>
       <div class="topbar-right">
+        <label class="topbar-select" data-i18n-title="lang.label">
+          <span class="select-label" data-i18n="lang.label"></span>
+          <select id="langSelect"></select>
+        </label>
+        <label class="topbar-select" data-i18n-title="skin.label">
+          <span class="select-label" data-i18n="skin.label"></span>
+          <select id="skinSelect"></select>
+        </label>
         <span class="chip chip-ghost" id="chipSave" data-i18n="topbar.save.idle" data-i18n-title="topbar.saveTip"></span>
         <span class="chip chip-ghost" id="chipBackend" data-i18n="topbar.backendOff"></span>
+        <button type="button" class="btn btn-ghost" id="btnSupport" data-i18n="topbar.support" data-i18n-title="topbar.supportTip"></button>
         <button type="button" class="btn btn-ghost" id="btnHelp" data-i18n="topbar.help" data-i18n-title="topbar.helpTip"></button>
       </div>
     </header>
@@ -44,6 +53,10 @@
       </aside>
 
       <section id="center">
+        <header class="center-head">
+          <h2 class="panel-title" data-i18n="tree.title"></h2>
+        </header>
+
         <div id="genBar">
           <button type="button" class="genbar-head" id="btnGenToggle"
                   aria-expanded="true" aria-controls="genFields">
@@ -67,6 +80,9 @@
         </div>
 
         <div id="toolbar" class="bar">
+          <button type="button" id="btnUndo" class="btn btn-ghost" data-i18n="tree.undo" disabled></button>
+          <button type="button" id="btnRedo" class="btn btn-ghost" data-i18n="tree.redo" disabled></button>
+          <span class="divider"></span>
           <button type="button" id="btnAddChild" class="btn" data-i18n="tree.addChild"></button>
           <button type="button" id="btnRename" class="btn" data-i18n="tree.rename"></button>
           <button type="button" id="btnDelete" class="btn btn-danger" data-i18n="tree.delete"></button>

@@ -54,9 +54,12 @@ PAIRED_TAGS = (
 )
 
 REQUIRED_IDS = (
-    "topbar", "chipSave", "chipBackend", "btnHelp", "sidebar", "checklist",
+    "topbar", "chipSave", "chipBackend", "btnHelp", "btnSupport",
+    "langSelect", "skinSelect",
+    "sidebar", "checklist",
     "center", "genBar", "inRoot", "inTarget", "inDryRun",
     "toolbar", "btnAddChild", "btnRename", "btnDelete",
+    "btnUndo", "btnRedo",
     "btnExpandAll", "btnCollapseAll", "btnGenerate",
     "treeCanvas", "statusText", "statusCount",
     "inspector", "propName", "propType", "propPath", "propDirs", "propFiles", "propDepth",
@@ -76,6 +79,8 @@ REQUIRED_FILES = (
     "src/shared/error-codes.json",
     "src/web/index.html",
     "src/web/help.html",
+    "src/web/assets/logo.svg",
+    "src/web/assets/sponsor-wechat.png",
     "src/web/css/tokens.css",
     "src/web/css/base.css",
     "src/web/css/layout.css",
@@ -84,6 +89,8 @@ REQUIRED_FILES = (
     "src/web/js/help.js",
     "src/web/js/i18n/index.js",
     "src/web/js/i18n/zh-CN.js",
+    "src/web/js/i18n/en-US.js",
+    "src/web/js/i18n/skins.js",
     "src/web/js/core/bus.js",
     "src/web/js/core/store.js",
     "src/web/js/core/api.js",
@@ -94,6 +101,11 @@ REQUIRED_FILES = (
 )
 
 CJK = re.compile(r"[\u4e00-\u9fff]")
+
+# 二进制扩展名：换行检查豁免（PNG/JPEG 等含 CR 字节属正常）。
+# 同时单文件体积上限仍约束它们（SRC_FILE_LIMIT）。
+BINARY_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico",
+                   ".woff", ".woff2", ".ttf", ".otf", ".eot"}
 
 # 源码 § 引用守卫：`§<标签>` 的标签语法（ASCII 编号如 P0-1，或纯中文名如 编码基线）。
 # 契约：引用**必须紧贴书写**（`§P0-1`）—— `§` 后带空白视为散文（"§ 引用…"），不参与校验；
@@ -318,7 +330,9 @@ def main() -> int:
     #     本项目以 SHA-256 指纹校验内容，字节随平台漂移会直接造成指纹失配，故必须把关。
     eol_bad = []
     for f in sorted((root / "src").rglob("*")):
-        if f.is_file() and b"\r" in f.read_bytes():
+        if not f.is_file() or f.suffix.lower() in BINARY_SUFFIXES:
+            continue
+        if b"\r" in f.read_bytes():
             eol_bad.append(f"{f.relative_to(root).as_posix()}(含 CR)")
     vf = root / "VERSION"
     if vf.is_file() and b"\r" in vf.read_bytes():
@@ -392,6 +406,22 @@ def main() -> int:
           f"取词表缺少 {len(absent_keys)} 个键：{', '.join(absent_keys[:5])}" if absent_keys
           else f"{len(used_keys)} 个引用键全部命中（取词表 {len(known)} 键）")
 
+    # 7b-3. 中英取词表键对齐（§P0-3 L1）：en-US.js 必须与 zh-CN.js 键集一致
+    zh_file = root / "src/web/js/i18n/zh-CN.js"
+    en_file = root / "src/web/js/i18n/en-US.js"
+    align_bad = ""
+    if zh_file.is_file() and en_file.is_file():
+        zh_keys = set(re.findall(KEY_SHAPE, zh_file.read_text(encoding="utf-8")))
+        en_keys = set(re.findall(KEY_SHAPE, en_file.read_text(encoding="utf-8")))
+        only_zh = sorted(zh_keys - en_keys)
+        only_en = sorted(en_keys - zh_keys)
+        if only_zh or only_en:
+            align_bad = f"zh 独有 {len(only_zh)}：{', '.join(only_zh[:3])}；en 独有 {len(only_en)}：{', '.join(only_en[:3])}"
+    elif not en_file.is_file():
+        align_bad = "缺少 en-US.js"
+    check(not align_bad, "中英取词键对齐 §P0-3 L1",
+          align_bad if align_bad else "中英键集一致")
+
     # 7c. 组件 CSS 只允许 var(--qm-*)（§P0-3 L4）
     HEX_LIKE = re.compile(r"#[0-9a-fA-F]{3,8}\b")
     raw_color = []
@@ -416,6 +446,35 @@ def main() -> int:
           f"含皮肤选择器：{', '.join(skin_aware)}" if skin_aware
           else "组件不引用皮肤，换肤只靠变量覆盖")
 
+    # 7d-1. CSS 变量闭包（§P0-3 L4–L5）：组件 / 皮肤只能引用 tokens.css 已定义的 --qm-* 变量。
+    #       皮肤文件例外：允许声明未在 tokens.css 定义的新变量（由 skins/<name>.css 自身覆盖）。
+    tokens_file = root / "src/web/css/tokens.css"
+    defined_vars: set[str] = set()
+    if tokens_file.is_file():
+        defined_vars = set(re.findall(r"(--qm-[\w-]+)\s*:",
+                                      tokens_file.read_text(encoding="utf-8")))
+    used_vars: dict[str, set[str]] = {}
+    for css in sorted((root / "src/web/css").rglob("*.css")):
+        if css.name == "tokens.css":
+            continue
+        if "skins" in css.parts:
+            # 皮肤文件只检查 var() 使用，允许引入新变量；但为保持契约，仍建议引用 tokens 变量。
+            pass
+        body = strip_comments(css.read_text(encoding="utf-8"), "css")
+        for m in re.finditer(r"var\(\s*(--qm-[\w-]+)\s*\)", body):
+            used_vars.setdefault(css.name, set()).add(m.group(1))
+    missing_vars = {
+        name: sorted(vars_ - defined_vars)
+        for name, vars_ in used_vars.items()
+        if vars_ - defined_vars
+    }
+    if missing_vars:
+        detail = "; ".join(f"{name}:{', '.join(missing[:3])}"
+                           for name, missing in missing_vars.items())
+    check(not missing_vars, "CSS 变量闭包 §P0-3 L4",
+          f"引用未定义变量：{detail}" if missing_vars
+          else "所有 --qm-* 引用均有 tokens.css 定义")
+
     skins_doc = root / "src/web/css/skins/README.md"
     check(skins_doc.is_file(), "皮肤目录契约 §P0-3 L5",
           "src/web/css/skins/ 与契约就位" if skins_doc.is_file()
@@ -428,6 +487,39 @@ def main() -> int:
     check(not prefs_missing, "偏好键名 §P0-3 L6",
           " / ".join(PREF_KEYS) + " 齐备" if not prefs_missing
           else "i18n/index.js 缺少：" + ", ".join(prefs_missing))
+
+    # 7d-2. 皮肤注册表与文件一一对应
+    skin_errs = []
+    skins_dir = root / "src/web/css/skins"
+    reg_file = root / "src/web/js/i18n/skins.js"
+    if reg_file.is_file():
+        reg_text = reg_file.read_text(encoding="utf-8")
+        cids = re.findall(r"cid:\s*(\d+)", reg_text)
+        files = re.findall(r"file:\s*['\"]([^'\"]+)['\"]", reg_text)
+        labels = re.findall(r"label:\s*['\"]([^'\"]+)['\"]", reg_text)
+        if len({len(cids), len(files), len(labels)}) != 1:
+            skin_errs.append("注册表字段数量不一致")
+        else:
+            for cid, file, label in zip(cids, files, labels):
+                css = skins_dir / f"{file}.css"
+                if not css.is_file():
+                    skin_errs.append(f"缺少皮肤文件 {file}.css")
+                if not label.startswith("skin."):
+                    skin_errs.append(f"label 须为 skin.* 键：{label}")
+        if "DEFAULT_SKIN_CID" in reg_text:
+            m = re.search(r"DEFAULT_SKIN_CID\s*=\s*(\d+)", reg_text)
+            if m:
+                prefix = f"s{m.group(1).zfill(2)}-"
+                if not any(f.startswith(prefix) for f in files):
+                    skin_errs.append(f"默认皮肤前缀 {prefix} 未注册")
+        else:
+            skin_errs.append("注册表缺少 DEFAULT_SKIN_CID")
+    else:
+        skin_errs.append("缺少 skins.js")
+    def_note = "；".join(skin_errs) if skin_errs else f"{len(cids)} 款皮肤注册表与文件一致"
+    if not skin_errs and cids:
+        def_note += f"，默认 S{int(cids[5] if len(cids) > 5 else cids[0]):02d}"
+    check(not skin_errs, "皮肤注册表 §P0-3 L5", def_note)
 
     # 7e. CSS 类名形态：kebab-case，不得含下划线或大写（§P2 第 1 项）
     #     先剥掉 url(...) —— 否则 url("../assets/logo.svg") 里的 `.svg` 会被当成类名。

@@ -77,6 +77,10 @@
   border-radius: var(--qm-r-md);
   padding: 12px 14px;
   margin-bottom: var(--qm-gap);
+  box-shadow:
+    2px 2px 6px var(--qm-shadow-dark),
+    -1px -1px 4px var(--qm-shadow-light),
+    inset .5px .5px 1px var(--qm-edge-hi);
 }
 .help-section-title {
   font-size: 13px;
@@ -121,6 +125,41 @@
   color: var(--qm-text-dim);
 }
 .help-stale { color: var(--qm-warn); }
+
+/* 支持区块 */
+.help-support {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.help-qr {
+  margin: 0;
+  padding: 10px;
+  background: var(--qm-surface-2);
+  border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-md);
+  box-shadow: var(--qm-inset);
+}
+.help-qr img {
+  display: block;
+  width: 180px;
+  height: auto;
+  border-radius: var(--qm-r-sm);
+}
+.help-qr figcaption {
+  margin-top: 6px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--qm-text-dim);
+}
+.help-thanks {
+  flex: 1 1 200px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.9;
+  color: var(--qm-text-dim);
+}
 
 /* 页脚 */
 #helpFooter {

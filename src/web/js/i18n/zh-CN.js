@@ -7,7 +7,7 @@
  *   本文件          全部文案与分节结构
  *
  * 改文案、调分节顺序、增删条目，都只动这一个文件。
- * 后续新增 `en-US.js` 并在 `i18n/index.js` 登记即可双语（见 docs/项目约定.md §P0-3）。
+ * 英文版本见 `en-US.js`，键集必须与本文件完全一致（由 verify.py 静态对齐）。
  *
  * 键名规范：`<模块>.<元素>.<语义>`（§P0-3 L2）。
  * 占位符用 `{name}` 形式，由 `t(key, vars)` 替换。
@@ -33,9 +33,35 @@ export const dict = {
   'topbar.backendOff': '后端未连接',
   'topbar.help': '帮助',
   'topbar.helpTip': '使用说明（新标签打开）',
+  'topbar.support': '支持',
+  'topbar.supportTip': '赞赏与支持',
+  'topbar.logoTip': '点击生成桌面快捷方式',
 
-  /* ---------- 左栏：模板库与自检 ---------- */
-  'sidebar.title': '模板库',
+  /* ---------- 语言与皮肤 ---------- */
+  'lang.label': '语言',
+  'lang.zhCN': '中文',
+  'lang.enUS': 'English',
+
+  'skin.label': '皮肤',
+  'skin.default': '默认',
+  'skin.1': '奶白·樱粉',
+  'skin.2': '米白·松绿',
+  'skin.3': '柔暗·冰蓝',
+  'skin.4': '暖白·暖橙',
+  'skin.5': '奶黄·暖白',
+  'skin.6': '月光序章·钢笔灰',
+  'skin.7': '夜空墨蓝',
+  'skin.8': '冬日暖阳',
+  'skin.9': '初雪',
+  'skin.10': '白月光',
+  'skin.11': '旧书纸棕',
+  'skin.12': '月岩写意',
+  'skin.13': '苹果银·蓝',
+  'skin.14': '黑金·寂海',
+  'skin.15': '奶黄·晨曦',
+
+  /* ---------- 左栏：模板工作区 ---------- */
+  'sidebar.title': '模板工作区',
   'sidebar.noteLine1': '当前为最小可运行骨架，模板库尚未接入。',
   'sidebar.noteLine2': '模板内容资产已就位：',
   'sidebar.checkTitle': '骨架自检',
@@ -62,11 +88,14 @@ export const dict = {
   'gen.toggleExpand': '展开生成参数',
   'gen.toggleCollapse': '收起生成参数',
 
-  /* ---------- 中栏：工具栏与目录树 ---------- */
+  /* ---------- 中栏：目录树工作区 ---------- */
+  'tree.title': '目录树工作区',
   'tree.canvasLabel': '目录树',
   'tree.addChild': '新建子节点',
   'tree.rename': '重命名',
   'tree.delete': '删除',
+  'tree.undo': '撤销',
+  'tree.redo': '重做',
   'tree.expandAll': '全部展开',
   'tree.collapseAll': '全部折叠',
   'tree.newDirPrompt': '新目录名称',
@@ -74,8 +103,8 @@ export const dict = {
   'tree.renamePrompt': '重命名',
   'tree.deleteConfirm': '确认删除「{name}」及其全部子节点？',
 
-  /* ---------- 右栏：属性与生成结果 ---------- */
-  'inspector.title': '属性',
+  /* ---------- 右栏：属性工作区 ---------- */
+  'inspector.title': '属性工作区',
   'inspector.name': '名称',
   'inspector.type': '类型',
   'inspector.typeDir': '目录',
@@ -103,6 +132,18 @@ export const dict = {
   'status.genDone': '生成完成：目录 {dirs} · 文件 {files} · 已存在 {existed}',
   'status.genFailed': '生成失败：{message}',
   'status.backendOffHint': '后端未连接，请通过 start.bat 启动',
+
+  /* ---------- 撤销 / 重做 ---------- */
+  'status.undid': '已撤销',
+  'status.redid': '已重做',
+  'toast.cannotUndo': '没有可撤销的操作',
+  'toast.cannotRedo': '没有可重做的操作',
+
+  /* ---------- 桌面快捷方式 ---------- */
+  'shortcut.title': '创建桌面快捷方式',
+  'shortcut.confirm': '在桌面生成「青蔓 QingMan」快捷方式？',
+  'shortcut.done': '快捷方式已生成',
+  'shortcut.failed': '快捷方式生成失败：{message}',
 
   /* ---------- 轻提示 ---------- */
   'toast.selectDirFirst': '请先选中一个目录节点',
@@ -162,15 +203,15 @@ export const dict = {
   'help.quickStart.title': '快速开始',
   'help.quickStart.1': '双击项目根目录的 start.bat 启动本地服务',
   'help.quickStart.2': '浏览器自动打开，确认顶栏显示「后端已连接」',
-  'help.quickStart.3': '在左侧「模板库」选模板，或在中间直接编辑目录树',
+  'help.quickStart.3': '在左侧「模板工作区」选模板，或在中间直接编辑目录树',
   'help.quickStart.4': '填写「目标位置」，先保持「仅演练」勾选试跑一次',
   'help.quickStart.5': '确认结果无误后取消勾选，点「一键生成」真实落盘',
 
   'help.ops.title': '界面说明',
-  'help.ops.sidebar': '左栏「模板库」——选择模板，下方为骨架自检清单',
-  'help.ops.center': '中栏——顶部是生成参数与工具栏，主体是目录树',
+  'help.ops.sidebar': '左栏「模板工作区」——选择模板，下方为骨架自检清单',
+  'help.ops.center': '中栏「目录树工作区」——顶部是生成参数与工具栏，主体是目录树',
   'help.ops.genBar': '参数区左上角可点开／收起：收起后只留一行摘要（目标位置 · 根名 · 演练或写盘），当前设定仍一眼可见',
-  'help.ops.inspector': '右栏「属性」——选中节点的名称、类型、路径、深度与统计；下方显示生成结果',
+  'help.ops.inspector': '右栏「属性工作区」——选中节点的名称、类型、路径、深度与统计；下方显示生成结果',
 
   'help.tree.title': '目录树操作',
   'help.tree.1': '单击节点选中，右栏属性面板同步刷新',
@@ -181,7 +222,9 @@ export const dict = {
 
   'help.kbd.title': '快捷键',
   'help.kbd.save': 'Ctrl / Cmd + S — 立即保存（跳过防抖，不等自动保存）',
-  'help.kbd.pending': '本版仅设上述一项；其余键位待功能面稳定后统一约定，届时同步本页与《项目手册》。',
+  'help.kbd.undo': 'Ctrl / Cmd + Z — 撤销上一步编辑',
+  'help.kbd.redo': 'Ctrl / Cmd + Y 或 Ctrl / Cmd + Shift + Z — 重做',
+  'help.kbd.pending': '其余键位待功能面稳定后统一约定，届时同步本页与《项目手册》。',
 
   'help.safety.title': '安全说明',
   'help.safety.1': '后端仅监听本机回环地址（127.0.0.1），局域网内其他设备无法访问',
@@ -189,6 +232,12 @@ export const dict = {
   'help.safety.3': '不收集任何数据、不上传任何信息；目录树与生成结果都只留在本机',
   'help.safety.4': '「仅演练」模式不写盘；真实生成时已存在的文件一律跳过、不覆盖，且全程不删除任何既有内容',
   'help.safety.5': '删除节点等破坏性操作均有二次确认',
+
+  'help.support.title': '支持青蔓',
+  'help.support.lead': '青蔓是本地离线免费工具。如果你觉得它有帮助，欢迎自愿投喂支持持续维护。',
+  'help.support.wechat': '微信赞赏码',
+  'help.support.qrAlt': '微信赞赏二维码',
+  'help.support.thanks': '感谢支持，BUG 佛修。',
 
   'help.about.title': '版本与关于',
   'help.disclaimer.title': '免责声明',
@@ -215,6 +264,7 @@ export const helpSections = [
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [
     'help.safety.1', 'help.safety.2', 'help.safety.3', 'help.safety.4', 'help.safety.5',
   ] },
+  { id: 'support', title: 'help.support.title', kind: 'support', items: ['help.support.lead'] },
   { id: 'about', title: 'help.about.title', kind: 'about', items: [] },
   { id: 'disclaimer', title: 'help.disclaimer.title', kind: 'ul', items: ['help.disclaimer.1'] },
 ];

@@ -7,6 +7,55 @@
 
 ---
 
+## V0.0.8 — 2026-10-10
+
+**主题**：UI  overhaul —— 15 款独立皮肤、中英双语、微信赞赏码支持页、模板名去编号前缀，以及整体切到**锐利新拟物**视觉风格。
+
+> **立项依据**：用户基于参考项目 `E:\临时\20261009_目录树可视化管理器_1152_文心助手` 抛出 10 条需求，并逐条裁定：视觉风格＝锐利新拟物、15 皮肤全保留、默认 S06、模板 `name` 去编号前缀、支持页沿用参考项目微信赞赏码、版本切分 V0.0.8(UI) + V0.0.9(功能)。
+
+### 变更（`src/`）
+
+- **皮肤系统**
+  - 新增 15 款皮肤 CSS：`src/web/css/skins/s01-cream-pink.css` … `s15-cream-sunrise.css`，全部通过 WCAG AA 对比度钳制（最小 4.53）
+  - 新增皮肤注册表 `src/web/js/i18n/skins.js`：cid / file / label 键 / 三色色板；默认 `S06 月光序章·钢笔灰`
+  - 新增 `ui/skin-picker.js`：按背景明度（亮 → 暗）实时排序皮肤下拉框
+  - `tokens.css` 新增新拟物变量：`--qm-edge-hi` / `--qm-edge-lo` / `--qm-shadow-dark` / `--qm-shadow-light` / `--qm-inset` / `--qm-select-arrow`
+- **中英双语**
+  - 新增 `src/web/js/i18n/en-US.js`，键集与 `zh-CN.js` 完全一致；`i18n/index.js` 登记为第二语种
+  - `zh-CN.js` 键表由 146 键扩至 **187 键**，新增语言/皮肤/撤销/重做/快捷方式/支持页等全部新文案
+  - 顶栏新增语言下拉框 `#langSelect` 与皮肤下拉框 `#skinSelect`
+- **锐利新拟物 UI**
+  - `index.html`：顶栏加入语言/皮肤/支持按钮；三栏标题明确为「模板工作区 / 目录树工作区 / 属性工作区」；工具栏预置撤销/重做按钮（V0.0.9 启用）
+  - `base.css` / `layout.css`：按钮/面板/输入框/树节点统一采用方向阴影 + 内嵌高光，模块边缘清晰立体；树选中态使用 `--qm-inset` 凹陷效果
+- **支持页**
+  - `help.html` / `help.js` / `help.css` 新增「支持青蔓」分节，展示压缩后的微信赞赏二维码 `src/web/assets/sponsor-wechat.png`（640×640 调色板，28.5 KB）
+  - 主界面顶栏新增 `#btnSupport`，点击打开 `help.html#support`
+- **模板库**
+  - 17 套模板 `name` 字段统一去除 `P0_` / `S2_` 等编号前缀；`templates/模板库来源说明.md` 同步更新
+
+### 工具
+
+- **`tools/verify.py`** 新增 4 项守卫：
+  - 「中英取词键对齐 §P0-3 L1」：en-US.js 与 zh-CN.js 键集必须一致
+  - 「CSS 变量闭包 §P0-3 L4」：组件 / 皮肤引用的 `--qm-*` 必须在 `tokens.css` 定义
+  - 「皮肤注册表 §P0-3 L5」：注册表与 `skins/*.css` 文件一一对应，默认皮肤存在
+  - 「二进制换行豁免」：PNG 等二进制文件含 CR 字节不再误报
+- 必需文件清单加入 `en-US.js`、`skins.js`、`assets/sponsor-wechat.png`；关键 id 清单加入 `langSelect` / `skinSelect` / `btnSupport` / `btnUndo` / `btnRedo`
+
+### 验收（全部实测）
+
+| 项 | 结果 |
+|---|---|
+| 预览 `verify.py preview/V0.0.8` | **56 项 0 失败** |
+| 主线 `verify.py . --against V0.0.8` | **59 项 0 失败**，指纹 V0.0.8 完全一致 |
+| `unittest` | **71 tests OK** |
+| `tools/smoke.py` | **17 项 0 失败**（服务读到版本 = V0.0.8） |
+| 皮肤对比度 | 15 款全部 ≥ 4.53（AA 门槛 4.5） |
+| 体积 | `src/**` 合计 **208 KB** / 上限 400 KB；单文件最大 28.5 KB |
+| store 清单 | V0.0.8：48 文件 / 新增 29 blob / 复用 19 / parent=V0.0.7 |
+
+---
+
 ## V0.0.7 — 2026-10-09
 
 **主题**：**§P2 台账全面收口**（15 项全部结案或挂起）＋ 三项一并落地 —— 生成文件**换行按扩展名分流**、浅色主题**对比度达标 WCAG AA**、帮助页**补登已有快捷键**。

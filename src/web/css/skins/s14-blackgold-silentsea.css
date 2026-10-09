@@ -1,0 +1,28 @@
+/* 青蔓 QingMan · 皮肤：黑金·寂海（Black Gold · Silent Sea）
+ * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+
+:root {
+  --qm-bg: #202020;
+  --qm-surface: #2c2c2c;
+  --qm-surface-2: #383836;
+  --qm-line: rgba(255, 255, 255, 0.14);
+  --qm-line-soft: rgba(255, 255, 255, 0.08);
+  --qm-text: #fafaf8;
+  --qm-text-dim: #d3d2cd;
+  --qm-accent: #f0f0c0;
+  --qm-accent-ink: #c8c8b3;
+  --qm-accent-soft: #53534a;
+  --qm-on-accent: #232931;
+  --qm-btn-bg: #bbbb96;
+  --qm-danger: #f28a8a;
+  --qm-danger-soft: #584141;
+  --qm-warn: #f5ce60;
+  --qm-edge-hi: rgba(255, 255, 255, 0.1);
+  --qm-edge-lo: rgba(0, 0, 0, 0.5);
+  --qm-shadow-dark: rgba(0, 0, 0, 0.62);
+  --qm-shadow-light: rgba(255, 255, 255, 0.06);
+  --qm-shadow: 0 1px 2px rgba(0, 0, 0, 0.62);
+  --qm-shadow-raise: 4px 4px 9px var(--qm-shadow-dark), -3px -3px 8px var(--qm-shadow-light), inset 1px 1px 1.5px var(--qm-edge-hi), inset -1px -1px 1.5px var(--qm-edge-lo);
+  --qm-inset: inset 2px 2px 5px var(--qm-shadow-dark), inset -2px -2px 5px var(--qm-shadow-light), inset .5px .5px 1px var(--qm-edge-lo), inset -.5px -.5px 1px var(--qm-edge-hi);
+}

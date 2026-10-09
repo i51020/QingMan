@@ -2,14 +2,19 @@
  * 青蔓 QingMan · 帮助页
  *
  * 本文件只做三件事：① 用取词表填充静态占位；② 按分节结构渲染正文；③ 取后端实测版本。
- * 任何面向用户的文案都不写在这里 —— 全部来自 `i18n/zh-CN.js`（见 docs/项目约定.md §P0-3）。
+ * 任何面向用户的文案都不写在这里 —— 全部来自 `i18n/*.js`（见 docs/项目约定.md §P0-3）。
  */
 
-import { helpSections } from './i18n/zh-CN.js';
-import { t, applyStatic, initPrefs } from './i18n/index.js';
+import { helpSections as helpSectionsZh } from './i18n/zh-CN.js';
+import { helpSections as helpSectionsEn } from './i18n/en-US.js';
+import { t, applyStatic, initPrefs, getLocale } from './i18n/index.js';
 import { api } from './core/api.js';
 
 const el = (id) => document.getElementById(id);
+
+function currentHelpSections() {
+  return getLocale() === 'en-US' ? helpSectionsEn : helpSectionsZh;
+}
 
 /** 动态字段的当前值。version 为 null 表示尚未拿到后端实测值。 */
 const state = { version: null, backendOk: false };
@@ -68,6 +73,27 @@ function buildAbout() {
   return box;
 }
 
+function buildSupport() {
+  const box = document.createElement('div');
+  box.className = 'help-support';
+
+  const figure = document.createElement('figure');
+  figure.className = 'help-qr';
+  const img = document.createElement('img');
+  img.src = './assets/sponsor-wechat.png';
+  img.alt = t('help.support.qrAlt');
+  const figcaption = document.createElement('figcaption');
+  figcaption.textContent = t('help.support.wechat');
+  figure.append(img, figcaption);
+
+  const thanks = document.createElement('p');
+  thanks.className = 'help-thanks';
+  thanks.textContent = t('help.support.thanks');
+
+  box.append(figure, thanks);
+  return box;
+}
+
 function buildSection(section) {
   const wrap = document.createElement('section');
   wrap.className = 'help-section';
@@ -78,7 +104,11 @@ function buildSection(section) {
   title.textContent = t(section.title);
   wrap.appendChild(title);
 
-  wrap.appendChild(section.kind === 'about' ? buildAbout() : buildList(section));
+  let body;
+  if (section.kind === 'about') body = buildAbout();
+  else if (section.kind === 'support') body = buildSupport();
+  else body = buildList(section);
+  wrap.appendChild(body);
   return wrap;
 }
 
@@ -87,7 +117,7 @@ function renderSections() {
   const nav = el('helpNavList');
   if (!host || !nav) return;
 
-  for (const section of helpSections) {
+  for (const section of currentHelpSections()) {
     host.appendChild(buildSection(section));
 
     const li = document.createElement('li');
@@ -117,12 +147,20 @@ function paint() {
   if (backend) backend.textContent = state.backendOk ? t('about.backendOn') : t('about.backendOff');
 }
 
+function scrollToHash() {
+  const hash = window.location.hash.replace('#', '');
+  if (!hash) return;
+  const target = document.getElementById('sec-' + hash) || document.getElementById(hash);
+  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 /* ---------- 启动 ---------- */
 
 async function boot() {
   initPrefs();                   // 先恢复语言/皮肤偏好，再填文案
   applyShell();
   renderSections();
+  scrollToHash();
   paint();                       // 先渲染本机记录值，避免等后端时留空
 
   try {
