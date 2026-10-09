@@ -19,5 +19,19 @@
   "hostRejected": "调用来源主机不被允许：{host}",
   "originRejected": "调用来源不被允许：{origin}",
   "missingGuardHeader": "缺少防护请求头 {header}",
-  "methodNotAllowed": "请求方法不被允许：{method}"
+  "methodNotAllowed": "请求方法不被允许：{method}",
+  "editorRootMissing": "编辑态文档缺少 root 节点",
+  "editorRootNotDir": "编辑态文档的 root 必须是目录节点",
+  "editorNodeNotObject": "编辑态节点必须是对象：{path}",
+  "editorNodeBadType": "编辑态节点 type 必须为 dir 或 file：{path}",
+  "editorNodeBadName": "编辑态节点 name 必须为非空字符串：{path}",
+  "editorNodeBadId": "编辑态节点 id 必须为非空字符串：{path}",
+  "editorNodeBadContent": "编辑态文件节点 content 必须是字符串：{path}",
+  "editorNodeBadChildren": "编辑态目录节点 children 必须是数组：{path}",
+  "editorIdDuplicated": "编辑态文档存在重复 id：{id}（先出现在 {first}，再次出现在 {again}）",
+  "editorSiblingDuplicated": "同一层存在重名节点：{name}（{path}）",
+  "editorTooLarge": "编辑态文档过大，上限 {limit} 字节（当前 {actual}）",
+  "editorTooManyNodes": "编辑态文档节点过多，上限 {limit} 个",
+  "editorReadFailed": "读取编辑态文档失败：{message}",
+  "editorCorrupt": "编辑态文档已损坏，无法解析：{path}"
 }

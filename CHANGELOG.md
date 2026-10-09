@@ -7,6 +7,48 @@
 
 ---
 
+## V0.0.2 — 2026-10-09
+
+**主题**：编辑态不再随刷新丢失 —— 确立编辑态数据契约并由后端持久化；id 唯一性由「概率」改为「判定」。
+
+> 用户裁定：持久化载体＝后端文件；保存模式＝自动保存；流程＝新建 `preview/V0.0.2/` 走完整五步；版本号＝ **V0.0.2（patch）**。
+
+### 变更
+
+- **编辑态数据契约**：`src/shared/schema.json` 新增 `editorNode` / `editorDocument` / `editorResponse` 三段，前后端同一份定义
+- **持久化**：新增 `GET /api/editor` 与 `PUT /api/editor`，文档落在项目根 `data/editor.json`；写入用「临时文件 + `os.replace`」**原子替换**
+- **自动保存**：编辑后防抖 800ms 自动写盘；顶栏新增保存状态 chip（未保存 / 保存中 / 已保存 HH:MM / 保存失败）；`Ctrl+S` 跳过防抖立即保存
+- **id 唯一性（N3）**：`uid()` 由「时间基 + 计数」改为**对已用集合判定后派发**；新增 `reserveIds()`（恢复文档后登记既有 id）、`assertUniqueIds()`（让唯一性可断言）、`resetIdRegistry()`
+- **同级重名检测**：新增 `hasSiblingName()`，**大小写不敏感**（落盘目标多为 Windows 文件系统）；新建与重命名均拦截
+- **文档序列化**：新增 `toDocumentNode()` / `fromDocumentNode()`；后者对非法结构抛错并标明出错路径
+
+### 本次修复 / 消除的缺陷
+
+| 缺陷 | 处理 |
+|---|---|
+| 刷新页面即丢失全部编辑内容（`main.js` 每次用硬编码示例重建） | 后端持久化 + 启动恢复 |
+| `uid()` 无冲突检测，且计数随页面重载归零 → 并入持久化后可能撞号 | 改为集合判定派发；实测固定时钟下不登记既有 id **必然**撞号，`reserveIds()` 后消除 |
+| 同层同名节点会被 `toPlainTree` **静默覆盖** | 新建 / 重命名阶段拦截（大小写不敏感） |
+| 服务端对编辑态文档**无任何校验** | `dtree_core.validate_document()`：结构、命名、id 唯一、同层重名、规模上限，任一不合法**拒写** |
+| 文档损坏时若静默当作空文档，会**悄悄覆盖用户数据** | `editorCorrupt` 显式报错，前端提示且不写盘 |
+
+### 验证（均为实测）
+
+| 项 | 结果 |
+|---|---|
+| `tools/verify.py preview/V0.0.2` | **36 项全部通过**（新增「编辑态契约」「编辑态接口与错误码」两项） |
+| 接口冒烟（preview 独立启动 8794） | `GET /api/editor` 首次 `doc=null`；`PUT` 合法 → 200 + `stats{dirs:1,files:1}`；回读一致 |
+| 拒写分支 | 重复 id → 400 `editorIdDuplicated`；同级重名 → 400 `editorSiblingDuplicated`；非法段名 → 400 `segmentInvalid`；缺防护头 → 403 `missingGuardHeader`；损坏文档 → 400 `editorCorrupt` |
+| 拒写不污染 | 连续 3 次非法 `PUT` 之后，回读仍是上一次合法内容 |
+| 数据模型单元断言 | **23/23 通过**（含固定时钟下「不 `reserve` 必撞号 → `reserve` 后不撞号」的对照证明） |
+| 原子写入 | `data/` 下无 `.tmp` 残留 |
+
+### src/ 代码
+
+`src/web/js/modules/tree-model.js`、`src/web/js/main.js`、`src/web/js/core/api.js`、`src/web/index.html`、`src/server/{config,dtree_core,routes,app}.py`、`src/shared/{schema,error-codes}.json`。
+
+---
+
 ## V0.0.1 — 2026-10-09
 
 **主题**：版本号重制为 SemVer 三段式；交付机制由全量快照改为内容寻址存储。

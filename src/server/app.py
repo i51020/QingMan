@@ -143,6 +143,14 @@ class Handler(BaseHTTPRequestHandler):
         if path == routes.HEALTH_PATH:
             self._json(200, routes.health())
             return
+        if path == routes.EDITOR_PATH:
+            try:
+                self._json(200, routes.load_editor())
+            except TreeError as exc:
+                self._fail(400, exc.code, **exc.detail)
+            except OSError as exc:
+                self._fail(500, "ioError", message=str(exc))
+            return
         self._serve_static(path)
 
     def do_HEAD(self) -> None:  # noqa: N802
@@ -170,6 +178,40 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             self._json(200, routes.generate(payload))
+        except TreeError as exc:
+            self._fail(400, exc.code, **exc.detail)
+        except OSError as exc:
+            self._fail(500, "ioError", message=str(exc))
+        except Exception as exc:  # noqa: BLE001 - 兜底，避免服务崩溃
+            self._fail(500, "internalError", message=str(exc))
+
+    def do_PUT(self) -> None:  # noqa: N802
+        """PUT /api/editor —— 保存编辑态文档。
+
+        属写操作：同样要过 _guard_write()（防护头）。PUT 无法由 HTML 表单发出，
+        比 POST 更不易被跨站盲发，但仍按写操作同等对待。
+        """
+        if not self._guard() or not self._guard_write():
+            return
+        path = urlparse(self.path).path
+        if path != routes.EDITOR_PATH:
+            self._fail(404, "notFound", path=path)
+            return
+        try:
+            raw = self._read_body()
+        except TreeError as exc:
+            self._fail(413, exc.code, **exc.detail)
+            return
+        try:
+            payload = json.loads(raw.decode("utf-8") or "{}")
+        except (ValueError, UnicodeDecodeError):
+            self._fail(400, "badJson")
+            return
+        if not isinstance(payload, dict):
+            self._fail(400, "badJson")
+            return
+        try:
+            self._json(200, routes.save_editor(payload))
         except TreeError as exc:
             self._fail(400, exc.code, **exc.detail)
         except OSError as exc:

@@ -12,13 +12,16 @@
   5. CSS 大括号平衡
   6. Python 语法（ast 只读解析，不产生 __pycache__，保证校验不污染被校验目录）
   7. 帮助页无硬编码中文（§P0-3 L1：文案必须经取词表，页面只留 data-i18n 键名）
-  8. 指纹比对（--against <版本>）：与该版本**最高修订**清单逐文件比对 SHA-256
+  8. 接续说明实况段与盘上一致（§P1-6 H4；文件未建立则跳过）
+  9. 编辑态持久化契约（§P0-7）：schema.json 的 editorDocument/editorNode + 接口标识 + 错误码
+ 10. 指纹比对（--against <版本>）：与该版本**最高修订**清单逐文件比对 SHA-256
 退出码：0 全部通过；1 存在失败项。
 """
 
 from __future__ import annotations
 
 import ast
+import json
 import re
 import shutil
 import subprocess
@@ -41,7 +44,7 @@ PAIRED_TAGS = (
 )
 
 REQUIRED_IDS = (
-    "topbar", "chipBackend", "btnHelp", "sidebar", "checklist",
+    "topbar", "chipSave", "chipBackend", "btnHelp", "sidebar", "checklist",
     "center", "genBar", "inRoot", "inTarget", "inDryRun",
     "toolbar", "btnAddChild", "btnRename", "btnDelete",
     "btnExpandAll", "btnCollapseAll", "btnGenerate",
@@ -272,7 +275,51 @@ def main() -> int:
         except (ValueError, OSError, UnicodeDecodeError) as exc:
             check(False, "接续说明实况段", f"无法生成：{exc}")
 
-    # 9. 与版本清单比对指纹（仅在指定 --against 时启用）
+    # 9. 编辑态持久化：共享契约、接口标识与错误码齐备（§P0-7）
+    schema_file = root / "src/shared/schema.json"
+    contract_ok = False
+    contract_note = "schema.json 未读到"
+    if schema_file.is_file():
+        try:
+            schema = json.loads(schema_file.read_text(encoding="utf-8"))
+        except ValueError:
+            schema = None
+        if isinstance(schema, dict):
+            absent_keys = [k for k in ("editorDocument", "editorNode") if k not in schema]
+            contract_ok = not absent_keys
+            contract_note = (f"schema.json 缺少：{', '.join(absent_keys)}" if absent_keys
+                             else "editorDocument / editorNode 齐备")
+        else:
+            contract_note = "schema.json 无法解析"
+    check(contract_ok, "编辑态契约", contract_note)
+
+    anchors = (
+        ("src/server/config.py", "EDITOR_FILE"),
+        ("src/server/routes.py", "EDITOR_PATH"),
+        ("src/server/app.py", "do_PUT"),
+        ("src/web/js/core/api.js", "saveDoc"),
+    )
+    absent = []
+    for rel, token in anchors:
+        target = root / rel
+        if not target.is_file() or token not in target.read_text(encoding="utf-8"):
+            absent.append(f"{rel}:{token}")
+
+    codes_file = root / "src/shared/error-codes.json"
+    codes_ok = False
+    if codes_file.is_file():
+        try:
+            codes = json.loads(codes_file.read_text(encoding="utf-8"))
+            codes_ok = isinstance(codes, dict) and "editorIdDuplicated" in codes
+        except ValueError:
+            codes_ok = False
+    if not codes_ok:
+        absent.append("error-codes.json:editorIdDuplicated")
+
+    check(not absent, "编辑态接口与错误码",
+          f"缺失：{', '.join(absent)}" if absent else "config / routes / app / api / 错误码 齐备")
+
+    # 10. 与版本清单比对指纹（仅在指定 --against 时启用）
     if against:
         check_fingerprint(root, against)
 

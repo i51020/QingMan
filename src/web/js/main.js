@@ -1,6 +1,6 @@
 /**
  * 青蔓 QingMan · 应用入口
- * 负责装配：状态仓库 → 视图 → 交互绑定 → 后端连通性自检。
+ * 负责装配：状态仓库 → 视图 → 交互绑定 → 编辑态持久化 → 后端连通性自检。
  */
 
 import { createStore } from './core/store.js';
@@ -8,6 +8,8 @@ import { api } from './core/api.js';
 import {
   createDir, createFile, findNode, findParent, addChild,
   renameNode, removeNode, countTree, treePayload,
+  hasSiblingName, reserveIds, assertUniqueIds,
+  toDocumentNode, fromDocumentNode, resetIdRegistry,
 } from './modules/tree-model.js';
 import { createTreeView } from './ui/tree-view.js';
 import { createInspector } from './ui/inspector.js';
@@ -15,22 +17,35 @@ import { toast } from './ui/toast.js';
 
 const el = (id) => document.getElementById(id);
 
-/* ---------- 初始数据 ---------- */
+/** 自动保存的防抖窗口（毫秒）：停手这么久之后才写盘，避免连击时反复落盘 */
+const AUTOSAVE_DELAY = 800;
 
-const rootNode = createDir('青蔓示例项目');
-addChild(rootNode, createDir('素材'));
-addChild(rootNode, createDir('产出'));
-addChild(rootNode, createFile('说明.md', '# 说明\n\n本目录骨架由青蔓 QingMan 生成。\n'));
+/** 编辑态文档结构版本，与 src/shared/schema.json 的 editorDocument.schemaVersion 一致 */
+const DOC_SCHEMA_VERSION = 1;
 
-const sample = findNode(rootNode, rootNode.children[0].id);
-addChild(sample, createDir('原始素材'));
-addChild(sample, createDir('已整理'));
+/* ---------- 初值：尚无持久化文档时使用的默认示例 ---------- */
+
+function defaultRoot() {
+  resetIdRegistry();
+  const root = createDir('青蔓示例项目');
+  addChild(root, createDir('素材'));
+  addChild(root, createDir('产出'));
+  addChild(root, createFile('说明.md', '# 说明\n\n本目录骨架由青蔓 QingMan 生成。\n'));
+  const sample = findNode(root, root.children[0].id);
+  addChild(sample, createDir('原始素材'));
+  addChild(sample, createDir('已整理'));
+  return root;
+}
+
+const rootNode = defaultRoot();
 
 const store = createStore({
   root: rootNode,
   selectedId: rootNode.id,
   version: '—',
   connected: false,
+  saveState: 'idle',   // idle | pending | saving | saved | error
+  savedAt: '',
 });
 
 /* ---------- 视图 ---------- */
@@ -57,9 +72,105 @@ function render() {
   inspector.render(root, selectedId);
   const stats = countTree(root);
   el('statusCount').textContent = `目录 ${stats.dirs} · 文件 ${stats.files}`;
+  renderSaveChip();
 }
 
 store.subscribe(render);
+
+/* ---------- 保存状态指示（复用现有 chip 变体，不新造视觉语言） ---------- */
+
+const SAVE_CHIP_CLASS = {
+  idle: 'chip-ghost',
+  pending: 'chip-ghost',
+  saving: '',
+  saved: 'chip-ok',
+  error: 'chip-bad',
+};
+
+function renderSaveChip() {
+  const { saveState, savedAt } = store.get();
+  const chip = el('chipSave');
+  if (!chip) return;
+  chip.className = `chip ${SAVE_CHIP_CLASS[saveState] || ''}`.trim();
+  const labels = {
+    idle: '未保存',
+    pending: '未保存',
+    saving: '保存中…',
+    saved: savedAt ? `已保存 ${savedAt}` : '已保存',
+    error: '保存失败',
+  };
+  chip.textContent = labels[saveState] || '';
+}
+
+/* ---------- 编辑态持久化（见 docs/项目约定.md §P0-7） ---------- */
+
+let saveTimer = null;
+
+function currentDocument() {
+  return {
+    schemaVersion: DOC_SCHEMA_VERSION,
+    root: toDocumentNode(store.get().root),
+  };
+}
+
+/** 标脏：重启防抖计时器，编辑安静下来后自动写盘。 */
+function markDirty() {
+  if (saveTimer) clearTimeout(saveTimer);
+  store.set({ saveState: 'pending' });
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    saveNow();
+  }, AUTOSAVE_DELAY);
+}
+
+/** 立即写盘。防抖到点与 Ctrl+S 都走这里。 */
+async function saveNow() {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+
+  // 落盘前自检：重复 id 属内部缺陷，宁可拒存也不写坏文档（服务端另有一道校验）
+  const duplicated = assertUniqueIds(store.get().root);
+  if (duplicated.length) {
+    store.set({ saveState: 'error' });
+    toast(`检测到重复 id（${duplicated.slice(0, 3).join('、')}），已阻止保存`, 'error', 8000);
+    return;
+  }
+
+  store.set({ saveState: 'saving' });
+  try {
+    const res = await api.saveDoc(currentDocument());
+    const at = String(res.savedAt || '').slice(11, 16);
+    store.set({ saveState: 'saved', savedAt: at });
+  } catch (err) {
+    store.set({ saveState: 'error' });
+    toast(`保存失败：${err.message}`, 'error', 6000);
+  }
+}
+
+/** 从后端恢复文档；尚无文档时把默认示例落盘一次，使持久化状态从一开始就一致。 */
+async function restoreDocument() {
+  try {
+    const res = await api.loadDoc();
+    if (res.doc && res.doc.root) {
+      // 顺序不可颠倒：先登记文档里的既有 id，再转换 —— 否则补发的新 id 可能撞上它们
+      reserveIds(res.doc.root);
+      const root = fromDocumentNode(res.doc.root);
+      const duplicated = assertUniqueIds(root);
+      if (duplicated.length) {
+        toast(`文档存在重复 id：${duplicated.slice(0, 3).join('、')}`, 'warn', 8000);
+      }
+      const at = String(res.doc.savedAt || '').slice(11, 16);
+      store.set({ root, selectedId: root.id, saveState: 'saved', savedAt: at });
+      setStatus(at ? `已恢复上次编辑内容（${at}）` : '已恢复上次编辑内容');
+      return;
+    }
+    saveNow();
+  } catch (err) {
+    toast(`读取上次编辑内容失败：${err.message}`, 'warn', 6000);
+  }
+}
 
 /* ---------- 交互 ---------- */
 
@@ -81,10 +192,15 @@ el('btnAddChild').addEventListener('click', () => {
     toast('名称不能为空', 'warn');
     return;
   }
+  if (hasSiblingName(node, trimmed)) {
+    toast(`「${trimmed}」已存在于该目录下`, 'warn');
+    return;
+  }
   const child = createDir(trimmed);
   addChild(node, child);
   store.set({ selectedId: child.id });
   setStatus(`已新建目录「${trimmed}」`);
+  markDirty();
 });
 
 el('btnRename').addEventListener('click', () => {
@@ -103,9 +219,16 @@ el('btnRename').addEventListener('click', () => {
     toast('名称不能为空', 'warn');
     return;
   }
+  if (trimmed === node.name) return;
+  const parent = findParent(root, id);
+  if (hasSiblingName(parent, trimmed, id)) {
+    toast(`「${trimmed}」已存在于该目录下`, 'warn');
+    return;
+  }
   renameNode(root, id, trimmed);
   store.set({});
   setStatus(`已重命名为「${trimmed}」`);
+  markDirty();
 });
 
 el('btnDelete').addEventListener('click', () => {
@@ -122,6 +245,7 @@ el('btnDelete').addEventListener('click', () => {
   removeNode(root, id);
   store.set({ selectedId: parent ? parent.id : root.id });
   setStatus(`已删除「${node.name}」`);
+  markDirty();
 });
 
 el('btnExpandAll').addEventListener('click', () => {
@@ -173,6 +297,23 @@ el('btnHelp').addEventListener('click', () => {
   window.open('./help.html', '_blank', 'noopener');
 });
 
+/* Ctrl/Cmd + S：跳过防抖立即写盘 */
+document.addEventListener('keydown', (event) => {
+  if ((event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === 's') {
+    event.preventDefault();
+    saveNow();
+  }
+});
+
+/* 防抖窗口内关页会丢最后一次改动，提醒一下 */
+window.addEventListener('beforeunload', (event) => {
+  const state = store.get().saveState;
+  if (state === 'pending' || state === 'saving') {
+    event.preventDefault();
+    event.returnValue = '';
+  }
+});
+
 function setStatus(text) {
   el('statusText').textContent = text;
 }
@@ -212,7 +353,11 @@ async function boot() {
     el('chipBackend').classList.add('chip-bad');
     setStatus('后端未连接，请通过 start.bat 启动');
     toast(`后端未连接：${err.message}`, 'error', 6000);
+    return;
   }
+
+  // 后端可用才恢复/初始化文档；后端未连接时保持默认示例，不做任何写盘尝试
+  await restoreDocument();
 }
 
 render();

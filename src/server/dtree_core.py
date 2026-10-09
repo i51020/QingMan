@@ -87,6 +87,75 @@ def count_tree(tree: Any) -> Tuple[int, int]:
     return dirs, files
 
 
+def validate_document(root: Any) -> Dict[str, int]:
+    """校验整篇编辑态文档：结构、命名、id 唯一、同层不重名、规模上限。
+
+    返回 {"dirs": n, "files": n}（根节点不计入目录数，与前端 countTree 口径一致）。
+    任一项不合法即抛 TreeError —— 服务端**绝不落盘非法文档**。
+    """
+    if not isinstance(root, dict):
+        raise TreeError("editorRootMissing")
+    if root.get("type") != "dir":
+        raise TreeError("editorRootNotDir")
+
+    seen_ids: Dict[str, str] = {}
+    limit = config.MAX_EDITOR_NODES
+
+    def walk(node: Any, path: str) -> Tuple[int, int]:
+        if not isinstance(node, dict):
+            raise TreeError("editorNodeNotObject", path=path)
+        kind = node.get("type")
+        if kind not in ("dir", "file"):
+            raise TreeError("editorNodeBadType", path=path)
+
+        name = node.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise TreeError("editorNodeBadName", path=path)
+        ok, reason = validate_segment(name)
+        if not ok:
+            raise TreeError("segmentInvalid", name=name, reason=message(reason, name=name))
+
+        node_id = node.get("id")
+        if not isinstance(node_id, str) or not node_id:
+            raise TreeError("editorNodeBadId", path=path)
+        if node_id in seen_ids:
+            raise TreeError("editorIdDuplicated", id=node_id,
+                            first=seen_ids[node_id], again=path)
+        seen_ids[node_id] = path
+        if len(seen_ids) > limit:
+            raise TreeError("editorTooManyNodes", limit=limit)
+
+        if kind == "file":
+            if not isinstance(node.get("content", ""), str):
+                raise TreeError("editorNodeBadContent", path=path)
+            return 0, 1
+
+        children = node.get("children", [])
+        if not isinstance(children, list):
+            raise TreeError("editorNodeBadChildren", path=path)
+
+        # 同层重名：大小写不敏感 —— 落盘目标多为 Windows 文件系统
+        names = set()
+        for index, child in enumerate(children):
+            child_name = child.get("name") if isinstance(child, dict) else None
+            if isinstance(child_name, str):
+                key = child_name.strip().lower()
+                if key and key in names:
+                    raise TreeError("editorSiblingDuplicated", name=child_name,
+                                    path=f"{path}.children[{index}]")
+                names.add(key)
+
+        dirs, files = 1, 0
+        for index, child in enumerate(children):
+            sub_dirs, sub_files = walk(child, f"{path}.children[{index}]")
+            dirs += sub_dirs
+            files += sub_files
+        return dirs, files
+
+    dirs, files = walk(root, "$")
+    return {"dirs": dirs - 1, "files": files}
+
+
 def build_tree(tree: Any, base: Path, dry_run: bool = False) -> Dict[str, Any]:
     """按 tree 结构在 base 下真实建目录与文件。
 

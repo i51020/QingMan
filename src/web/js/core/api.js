@@ -50,4 +50,17 @@ export const api = {
       body: JSON.stringify({ tree, target, root, dryRun }),
     });
   },
+
+  /** 读取编辑态文档。doc 为 null 表示尚无文档，调用方回落到默认示例。 */
+  loadDoc() {
+    return request('/api/editor', { method: 'GET' });
+  },
+
+  /** 保存编辑态文档。服务端会重新校验结构，非法内容拒写。 */
+  saveDoc(doc) {
+    return request('/api/editor', {
+      method: 'PUT',
+      body: JSON.stringify({ doc }),
+    });
+  },
 };

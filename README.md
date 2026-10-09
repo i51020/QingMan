@@ -4,7 +4,7 @@
 
 - 中文名：**青蔓**
 - 英文名：**QingMan**
-- 当前版本：**V0.0.1**（最小可运行骨架）
+- 当前版本：**V0.0.2**
 - 运行环境：Windows 10/11 + Python 3.8+，完全离线，仅监听 `127.0.0.1`
 
 ## 快速开始
@@ -27,7 +27,7 @@ python -m server
 
 ```
 QingMan/
-├─ VERSION              版本号唯一来源（内容：V0.0.1）
+├─ VERSION              版本号唯一来源（内容：V0.0.2）
 ├─ CHANGELOG.md         版本记录
 ├─ start.bat            启动入口
 ├─ README.md            本文件
@@ -36,13 +36,16 @@ QingMan/
 │  │  └─ js/i18n/       取词表：zh-CN.js（帮助页正文的唯一数据源）
 │  ├─ server/           后端：Python 标准库，零第三方依赖
 │  └─ shared/           前后端共享契约：schema.json / error-codes.json
+├─ data/                运行时数据：editor.json（编辑态文档；**不进 git**，见 §P0-7）
 ├─ store/               内容寻址仓库
 │  ├─ objects/          blob 池：路径 = 内容的 SHA-256，跨版本自动去重
 │  └─ .trash/           checkout 时多余文件的回收区（不真删）
 ├─ versions/            版本清单
+│  ├─ V0.0.2/           MANIFEST.json（当前版本）
 │  ├─ V0.0.1/           MANIFEST.json（基线 r1）+ MANIFEST-r<N>.json（同版本修订）
 │  └─ V0.01/            旧编号全量快照（历史遗留，原样保留）
-├─ preview/             试运行区（**按需新建** `preview/V<版本>/`，平时为空）
+├─ preview/             试运行区（**按需新建** `preview/V<版本>/`）
+│  └─ V0.0.2/           V0.0.2 的试运行副本（落地后保留作对照）
 ├─ templates/           17 套中文目录树模板（内容资产）
 ├─ tools/               工具链：store / verify / versioning / release / promote / handoff
 ├─ legacy/              历史归档，命名 `<对象>-<日期>/`，只增不删
@@ -51,7 +54,7 @@ QingMan/
 ├─ docs/                项目手册 / 项目约定 / 任务进度 / 错误笔记 / 接续说明
 ├─ .git/                过程历史仓库（git，覆盖全项目）
 ├─ .gitattributes       `* -text` —— 禁止换行转换，保护 SHA-256 指纹
-└─ .gitignore           仅忽略 __pycache__ / store/.trash/ / 编辑器垃圾
+└─ .gitignore           忽略 __pycache__ / store/.trash/ / data/ / 编辑器垃圾
 ```
 
 ## 任务进度
@@ -86,6 +89,14 @@ QingMan/
 
 **改主线之前必须先 commit**，否则该版本没有回退点。
 
+## 编辑态持久化
+
+主界面的目录树**自动保存**到项目根 `data/editor.json`：编辑后防抖 800ms 自动写盘，`Ctrl+S` 可立即保存，顶栏 chip 显示「未保存 / 保存中 / 已保存 HH:MM / 保存失败」。刷新或重开浏览器后自动恢复。
+
+接口：`GET /api/editor`（读取）／`PUT /api/editor`（写入，需防护头）。契约见 `src/shared/schema.json` 的 `editorDocument`；规则见 `docs/项目约定.md` §P0-7。
+
+> 之所以不用 `localStorage`：它按 origin（含**端口**）隔离，而本服务端口是**扫描**出来的、并不固定 —— 端口一变 origin 就变，草稿会静默消失。
+
 ## 存储机制
 
 采用**内容寻址存储**（借鉴 Git 思路）：
@@ -94,7 +105,7 @@ QingMan/
 - `versions/<版本>/MANIFEST.json` —— 版本**基线**（修订 r1）：「路径 → 指纹」映射 + 元数据（时间 / 父版本 / 说明 / 清单摘要）
 - `versions/<版本>/MANIFEST-r<N>.json` —— 同版本**后续修订**（r2、r3…），任何已有清单都不覆盖
 
-实测数据：V0.0.1 → V0.0.2 的 23 个文件里**只新增 3 个 blob、复用 20 个**（对象池 22→25，而非 45）。
+实测数据：`V0.0.1@r3` → `V0.0.2` 的 26 个文件里**新增 11 个 blob、复用 15 个**（对象池 35 → 46）。
 
 | 命令 | 作用 |
 |---|---|
@@ -107,9 +118,9 @@ QingMan/
 ## 回退
 
 ```bash
-python tools/store.py checkout V0.0.1         # 取该版本最高修订
-python tools/store.py checkout V0.0.1@r1      # 精确回退到基线修订
-python tools/verify.py . --against V0.0.1     # 与最高修订清单比对
+python tools/store.py checkout V0.0.2         # 取当前版本
+python tools/store.py checkout V0.0.1@r1      # 精确回退到某个修订
+python tools/verify.py . --against V0.0.2     # 与当前版本清单比对
 ```
 
 回退时「当前有、目标版本没有」的文件，会先复制进 `store/.trash/<时间戳>/` 并**逐字节校验**，通过后才移除原文件 —— 全程不真删。

@@ -68,6 +68,18 @@ WEB_DIR = SRC_DIR / "web"
 SHARED_DIR = SRC_DIR / "shared"
 VERSION_FILE = PROJECT_DIR / "VERSION"
 
+# ---------- 编辑态持久化（N2） ----------
+
+# 编辑态文档落盘位置：项目根 data/editor.json。
+# 选后端文件而非 localStorage：端口自 PORT_START 起扫描、并不固定，
+# 而 localStorage 按 origin（含端口）隔离 —— 端口一变，草稿即静默丢失。
+DATA_DIR = PROJECT_DIR / "data"
+EDITOR_FILE = DATA_DIR / "editor.json"
+
+# 编辑态文档体积与节点数上限（防异常大文档落盘）
+MAX_EDITOR_BYTES = _env_int("QM_MAX_EDITOR_BYTES", 8 * 1024 * 1024)
+MAX_EDITOR_NODES = _env_int("QM_MAX_EDITOR_NODES", 20000)
+
 DEFAULT_VERSION = "V0.00"
 
 

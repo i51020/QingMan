@@ -1,6 +1,6 @@
 {
   "$comment": "青蔓 QingMan · 前后端共享数据契约。前端、后端、CLI 均以本文件为准。",
-  "version": "V0.0.1",
+  "version": "V0.0.2",
   "template": {
     "$comment": "模板文件格式，与 templates/*.json 一致",
     "name": "模板名（中文）",
@@ -34,5 +34,37 @@
     "code": "错误码，见 error-codes.json",
     "message": "中文可读信息",
     "detail": {}
+  },
+  "editorNode": {
+    "$comment": "编辑态节点。目录有 children、无 content；文件有 content、无 children。id 全树唯一，前缀 d=目录 / f=文件",
+    "id": "d<时间基36><计数36> | f<时间基36><计数36>",
+    "type": "dir | file",
+    "name": "节点名（单段，不含路径分隔符）",
+    "children": ["…（仅 type=dir；同层名称不得重复，大小写不敏感）"],
+    "content": "…（仅 type=file）"
+  },
+  "editorDocument": {
+    "$comment": "编辑态文档。GET /api/editor 返回、PUT /api/editor 接收；落盘于项目根 data/editor.json（不入 git）",
+    "schemaVersion": 1,
+    "savedAt": "YYYY-MM-DDTHH:mm:ss+08:00",
+    "root": {
+      "$comment": "整棵目录树的根，type 必须为 dir；节点结构见 editorNode",
+      "id": "d…",
+      "type": "dir",
+      "name": "根文件夹名",
+      "children": []
+    }
+  },
+  "editorResponse": {
+    "$comment": "GET /api/editor 与 PUT /api/editor 的响应。doc 为 null 表示尚无文档（前端改用默认示例）",
+    "ok": true,
+    "doc": "editorDocument | null（仅 GET）",
+    "path": "文档落盘的绝对路径",
+    "savedAt": "YYYY-MM-DDTHH:mm:ss+08:00（仅 PUT）",
+    "bytes": 0,
+    "stats": {
+      "dirs": 0,
+      "files": 0
+    }
   }
 }
