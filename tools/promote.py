@@ -1,13 +1,15 @@
 """青蔓 QingMan · 预览版落地主线。
 
 用法：
-    python tools/promote.py --from preview/V0.01 [--root DIR] [--dry-run] [--force]
+    python tools/promote.py [--from preview/V<版本>] [--root DIR] [--dry-run] [--force]
 
 把预览版（<from>/src、<from>/start.bat）复制进主线根目录，并把 VERSION 写为主线的当前版本。
 规则：
   * 单向：只从预览流向主线，绝不反向。
   * 只复制，不删除。主线中不存在于预览版的旧文件会被明确列出（需 --force 才继续）。
   * 默认要求主线为空，避免误覆盖正在开发的版本；--force 显式放行。
+  * `preview/` 平时为空 —— 需要试跑时**按版本新建** `preview/V<版本>/`（见项目约定 §P1-4）。
+    `--from` 缺省时按主线 `VERSION` 推导为 `preview/<当前版本>`，不写死任何旧编号。
 """
 
 from __future__ import annotations
@@ -23,6 +25,19 @@ DEFAULT_ROOT = TOOLS_DIR.parent
 COPY_DIRS = ("src",)
 COPY_FILES = ("start.bat",)
 IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc")
+
+
+def default_source(root: Path) -> str:
+    """缺省预览目录：`preview/<当前 VERSION>`，如 `preview/V0.0.1`。
+
+    `preview/` 是试运行区，不是常驻目录：需要试跑时按版本新建，试完可整体归档。
+    因此这里不写死任何具体版本号，一律按主线 `VERSION` 推导。
+    """
+    try:
+        current = (root / "VERSION").read_text(encoding="utf-8").strip()
+    except OSError:
+        return "preview"
+    return f"preview/{current}" if current else "preview"
 
 
 def list_files(base: Path) -> set[str]:
@@ -43,17 +58,20 @@ def list_files(base: Path) -> set[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="青蔓 QingMan 预览版落地主线")
-    parser.add_argument("--from", dest="source", default="preview/V0.01")
+    parser.add_argument("--from", dest="source", default=None,
+                        help="预览目录，缺省按主线 VERSION 推导为 preview/<当前版本>")
     parser.add_argument("--root", default=str(DEFAULT_ROOT))
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
-    source = (root / args.source).resolve() if not Path(args.source).is_absolute() else Path(args.source)
+    source_arg = args.source or default_source(root)
+    source = Path(source_arg) if Path(source_arg).is_absolute() else (root / source_arg).resolve()
 
     if not (source / "src").is_dir():
         print(f"[失败] 预览版 src/ 不存在：{source / 'src'}")
+        print(f"[提示] preview/ 为按需新建的试运行区。请先建好 {source_arg}/ 再落地，或显式指定 --from")
         return 1
 
     existing = list_files(root)

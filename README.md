@@ -42,11 +42,12 @@ QingMan/
 ├─ versions/            版本清单
 │  ├─ V0.0.1/           MANIFEST.json（基线 r1）+ MANIFEST-r<N>.json（同版本修订）
 │  └─ V0.01/            旧编号全量快照（历史遗留，原样保留）
-├─ preview/             试运行区（与主线物理隔离）
-│  └─ V0.01/            预览版完整副本，可独立启动
+├─ preview/             试运行区（**按需新建** `preview/V<版本>/`，平时为空）
 ├─ templates/           17 套中文目录树模板（内容资产）
 ├─ tools/               工具链：store / verify / versioning / release / promote
-├─ legacy/              改造前的工具备份（回退点）
+├─ legacy/              历史归档，命名 `<对象>-<日期>/`，只增不删
+│  ├─ tools-20261009/    改造前的工具备份
+│  └─ preview-20261009/  旧编号预览版 V0.01 全量归档（22 文件，git 保留重命名历史）
 ├─ docs/                项目手册 / 项目约定 / 任务进度 / 错误笔记
 ├─ .git/                过程历史仓库（git，覆盖全项目）
 ├─ .gitattributes       `* -text` —— 禁止换行转换，保护 SHA-256 指纹
@@ -77,9 +78,9 @@ QingMan/
 
 | 步骤 | 命令 | 说明 |
 |---|---|---|
-| 1. 预览开发 | — | 在 `preview/V<版本>/` 试跑，主线不受影响 |
-| 2. 交付校验 | `python tools/verify.py preview/V0.01` | 31 项校验，不通过不落地 |
-| 3. 落地主线 | `python tools/promote.py --from preview/V0.01` | 单向：预览 → 主线，只复制不删除 |
+| 1. 预览开发 | — | 按需新建 `preview/V<版本>/` 试跑，主线不受影响 |
+| 2. 交付校验 | `python tools/verify.py preview/V<版本>` | **36 项**校验，不通过不落地 |
+| 3. 落地主线 | `python tools/promote.py --from preview/V<版本>` | 单向：预览 → 主线，只复制不删除 |
 | 4. 提交版本 | `python tools/store.py commit --note "说明"` | 写入 blob 池 + 生成清单（同版本则追加修订） |
 | 5. 升级版本号 | `python tools/release.py bump --kind patch` | 或 `minor` / `major`；不升版则跳过本步 |
 
