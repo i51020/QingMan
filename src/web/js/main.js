@@ -167,6 +167,12 @@ el('btnGenerate').addEventListener('click', async () => {
   }
 });
 
+/* 帮助页在新标签打开：主界面内存里可能正握着一棵尚未落盘的目录树，
+   同标签跳转会丢掉编辑态（见 docs/项目约定.md §P0-3）。 */
+el('btnHelp').addEventListener('click', () => {
+  window.open('./help.html', '_blank', 'noopener');
+});
+
 function setStatus(text) {
   el('statusText').textContent = text;
 }
@@ -194,12 +200,11 @@ async function boot() {
   try {
     const info = await api.health();
     store.set({ version: info.version, connected: true });
-    el('chipVersion').textContent = info.version;
-    el('chipBackend').textContent = `后端已连接 ${info.version}`;
+    el('chipBackend').textContent = '后端已连接';
     el('chipBackend').classList.remove('chip-ghost');
     el('chipBackend').classList.add('chip-ok');
     markCheck('backend', true);
-    setStatus(`就绪 · ${info.nameZh} ${info.app} ${info.version}`);
+    setStatus(`就绪 · ${info.nameZh} ${info.app}`);
   } catch (err) {
     failCheck('backend');
     failCheck('write');

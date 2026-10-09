@@ -1,0 +1,23 @@
+{
+  "ok": "成功",
+  "segmentNotString": "目录名必须是字符串",
+  "segmentEmpty": "目录名不能为空",
+  "segmentTooLong": "目录名过长（上限 120 字符）：{name}",
+  "segmentDot": "目录名不能是 . 或 .. ：{name}",
+  "segmentIllegalChar": "目录名含非法字符：{name}",
+  "segmentReserved": "目录名是系统保留名：{name}",
+  "segmentInvalid": "「{name}」不是合法目录名（{reason}）",
+  "treeMissing": "缺少目录树数据 tree",
+  "targetMissing": "缺少目标位置 target",
+  "pathConflict": "目标路径已存在同名文件，无法建为目录：{path}",
+  "badJson": "请求体不是合法 JSON 对象",
+  "badPath": "访问路径不合法",
+  "notFound": "接口不存在：{path}",
+  "bodyTooLarge": "请求体过大，上限 {limit} 字节",
+  "ioError": "磁盘写入失败：{message}",
+  "internalError": "服务内部错误：{message}",
+  "hostRejected": "调用来源主机不被允许：{host}",
+  "originRejected": "调用来源不被允许：{origin}",
+  "missingGuardHeader": "缺少防护请求头 {header}",
+  "methodNotAllowed": "请求方法不被允许：{method}"
+}

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>青蔓 QingMan</title>
+  <link rel="stylesheet" href="./css/tokens.css">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/layout.css">
+</head>
+<body>
+  <div id="app">
+
+    <header id="topbar">
+      <div class="brand">
+        <span class="brand-mark">青蔓</span>
+        <span class="brand-sub">QingMan</span>
+        <span class="chip" id="chipVersion">V0.0.1</span>
+      </div>
+      <div class="topbar-right">
+        <span class="chip chip-ghost" id="chipBackend">后端未连接</span>
+      </div>
+    </header>
+
+    <main id="main">
+
+      <aside id="sidebar">
+        <h2 class="panel-title">模板库</h2>
+        <p class="hint" id="tplNote">
+          V0.0.1 为最小可运行骨架，模板库尚未接入。<br>
+          模板内容资产已就位：<code>templates/</code>
+        </p>
+        <div class="panel-block">
+          <h3 class="panel-sub">骨架自检</h3>
+          <ul class="checklist" id="checklist">
+            <li data-check="modules">ES 模块化加载</li>
+            <li data-check="backend">本地后端连通</li>
+            <li data-check="model">目录树数据模型</li>
+            <li data-check="write">真实落盘能力</li>
+          </ul>
+        </div>
+      </aside>
+
+      <section id="center">
+        <div id="genBar" class="bar">
+          <label class="field">
+            <span>根文件夹名</span>
+            <input type="text" id="inRoot" placeholder="留空则直接写入目标位置">
+          </label>
+          <label class="field field-wide">
+            <span>目标位置</span>
+            <input type="text" id="inTarget" placeholder="例如：E:\我的项目">
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="inDryRun" checked>
+            <span>仅演练（不写盘）</span>
+          </label>
+        </div>
+
+        <div id="toolbar" class="bar">
+          <button type="button" id="btnAddChild" class="btn">新建子节点</button>
+          <button type="button" id="btnRename" class="btn">重命名</button>
+          <button type="button" id="btnDelete" class="btn btn-danger">删除</button>
+          <span class="divider"></span>
+          <button type="button" id="btnExpandAll" class="btn btn-ghost">全部展开</button>
+          <button type="button" id="btnCollapseAll" class="btn btn-ghost">全部折叠</button>
+          <span class="spacer"></span>
+          <button type="button" id="btnGenerate" class="btn btn-primary">一键生成</button>
+        </div>
+
+        <div id="treeWrap">
+          <div id="treeCanvas" role="tree" aria-label="目录树"></div>
+        </div>
+
+        <footer id="statusBar">
+          <span id="statusText">就绪</span>
+          <span id="statusCount" class="status-count"></span>
+        </footer>
+      </section>
+
+      <aside id="inspector">
+        <h2 class="panel-title">属性</h2>
+        <div class="prop-list">
+          <div class="prop"><span class="prop-key">名称</span><span class="prop-val" id="propName">—</span></div>
+          <div class="prop"><span class="prop-key">类型</span><span class="prop-val" id="propType">—</span></div>
+          <div class="prop"><span class="prop-key">路径</span><span class="prop-val prop-mono" id="propPath">—</span></div>
+          <div class="prop"><span class="prop-key">深度</span><span class="prop-val" id="propDepth">—</span></div>
+          <div class="prop"><span class="prop-key">子目录</span><span class="prop-val" id="propDirs">0</span></div>
+          <div class="prop"><span class="prop-key">文件</span><span class="prop-val" id="propFiles">0</span></div>
+        </div>
+        <h3 class="panel-sub">生成结果</h3>
+        <pre class="result" id="genResult">尚未生成</pre>
+      </aside>
+
+    </main>
+  </div>
+
+  <div id="toastHost" class="toast-host" aria-live="polite"></div>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

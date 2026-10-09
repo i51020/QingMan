@@ -32,14 +32,15 @@ QingMan/
 ├─ start.bat            启动入口
 ├─ README.md            本文件
 ├─ src/                 主线源码（"当前版本"，只在确认后改动）
-│  ├─ web/              前端：index.html + css/ + js/{core,modules,ui}/
+│  ├─ web/              前端：index.html（主界面）+ help.html（帮助页）+ css/ + js/
+│  │  └─ js/i18n/       取词表：zh-CN.js（帮助页正文的唯一数据源）
 │  ├─ server/           后端：Python 标准库，零第三方依赖
 │  └─ shared/           前后端共享契约：schema.json / error-codes.json
 ├─ store/               内容寻址仓库
 │  ├─ objects/          blob 池：路径 = 内容的 SHA-256，跨版本自动去重
 │  └─ .trash/           checkout 时多余文件的回收区（不真删）
 ├─ versions/            版本清单
-│  ├─ V0.0.1/           含 MANIFEST.json（路径→指纹 + parent/note/digest）
+│  ├─ V0.0.1/           MANIFEST.json（基线 r1）+ MANIFEST-r<N>.json（同版本修订）
 │  └─ V0.01/            旧编号全量快照（历史遗留，原样保留）
 ├─ preview/             试运行区（与主线物理隔离）
 │  └─ V0.01/            预览版完整副本，可独立启动
@@ -72,13 +73,15 @@ QingMan/
 
 **触发规则**：凡改动 `src/` 或交付契约 → 升级；纯文档、纯工具改动 → **不升版**，只在 `docs/任务进度.md` 记一条时间线。
 
+**不升版也要留回退点**：若裁定不升版却改了 `src/`，同一版本内追加**修订**（`r2`、`r3`…），清单落在 `versions/<版本>/MANIFEST-r<N>.json`，可精确取回。规则见 `docs/项目约定.md` §P0-6。
+
 | 步骤 | 命令 | 说明 |
 |---|---|---|
 | 1. 预览开发 | — | 在 `preview/V<版本>/` 试跑，主线不受影响 |
 | 2. 交付校验 | `python tools/verify.py preview/V0.01` | 31 项校验，不通过不落地 |
 | 3. 落地主线 | `python tools/promote.py --from preview/V0.01` | 单向：预览 → 主线，只复制不删除 |
-| 4. 提交版本 | `python tools/store.py commit --note "说明"` | 写入 blob 池 + 生成 MANIFEST（内容寻址） |
-| 5. 升级版本号 | `python tools/release.py bump --kind patch` | 或 `minor` / `major` |
+| 4. 提交版本 | `python tools/store.py commit --note "说明"` | 写入 blob 池 + 生成清单（同版本则追加修订） |
+| 5. 升级版本号 | `python tools/release.py bump --kind patch` | 或 `minor` / `major`；不升版则跳过本步 |
 
 **改主线之前必须先 commit**，否则该版本没有回退点。
 
@@ -87,23 +90,25 @@ QingMan/
 采用**内容寻址存储**（借鉴 Git 思路）：
 
 - `store/objects/<sha256前2位>/<sha256>` —— 文件内容按 SHA-256 存放，**相同内容只存一份**，跨版本自动去重
-- `versions/<版本>/MANIFEST.json` —— 「路径 → 指纹」映射 + 元数据（时间 / 父版本 / 说明 / 清单摘要）
+- `versions/<版本>/MANIFEST.json` —— 版本**基线**（修订 r1）：「路径 → 指纹」映射 + 元数据（时间 / 父版本 / 说明 / 清单摘要）
+- `versions/<版本>/MANIFEST-r<N>.json` —— 同版本**后续修订**（r2、r3…），任何已有清单都不覆盖
 
 实测数据：V0.0.1 → V0.0.2 的 23 个文件里**只新增 3 个 blob、复用 20 个**（对象池 22→25，而非 45）。
 
 | 命令 | 作用 |
 |---|---|
-| `python tools/store.py commit --note "说明"` | 提交当前 `src/` 状态为一个版本 |
-| `python tools/store.py checkout <版本>` | 回退到指定版本 |
-| `python tools/store.py log` | 列出版本链 |
-| `python tools/store.py diff <版本A> <版本B>` | 输出 改动 / 新增 / 缺失 |
+| `python tools/store.py commit --note "说明"` | 提交当前 `src/` 状态；同版本已有清单时**追加修订** |
+| `python tools/store.py checkout <版本[@rN]>` | 回退到指定版本／修订 |
+| `python tools/store.py log` | 列出版本链（同版本内按修订倒序） |
+| `python tools/store.py diff <版本[@rN]> <版本[@rN]>` | 输出 改动 / 新增 / 缺失 |
 | `python tools/store.py fsck` | 校验对象池完整性 |
 
 ## 回退
 
 ```bash
-python tools/store.py checkout V0.0.1         # 按清单从 blob 池重建
-python tools/verify.py . --against V0.0.1     # 确认与清单完全一致
+python tools/store.py checkout V0.0.1         # 取该版本最高修订
+python tools/store.py checkout V0.0.1@r1      # 精确回退到基线修订
+python tools/verify.py . --against V0.0.1     # 与最高修订清单比对
 ```
 
 回退时「当前有、目标版本没有」的文件，会先复制进 `store/.trash/<时间戳>/` 并**逐字节校验**，通过后才移除原文件 —— 全程不真删。
