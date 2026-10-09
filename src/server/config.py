@@ -80,6 +80,79 @@ EDITOR_FILE = DATA_DIR / "editor.json"
 MAX_EDITOR_BYTES = _env_int("QM_MAX_EDITOR_BYTES", 8 * 1024 * 1024)
 MAX_EDITOR_NODES = _env_int("QM_MAX_EDITOR_NODES", 20000)
 
+# ---------- 落盘安全边界（§P0-1） ----------
+#
+# 生成目录是青蔓唯一会写用户磁盘的动作，边界必须落在服务端（此文件 + dtree_core.py），
+# 不得只靠前端弹窗 —— UI 层可绕过。
+#
+# R6 规模阈值：一次生成允许的「目录 + 文件」总数上限，服务端直接拒绝（不依赖前端确认）。
+MAX_NODES = _env_int("QM_MAX_NODES", 500)
+# R7（已存在即跳过、不覆盖）与 R8（永不删除）由 dtree_core.build_tree 保证，无需配置项。
+
+
+def resolve_path(value: "str | os.PathLike[str]") -> Path:
+    """路径规范化（§P0-1 R1）：expanduser + resolve，**不要求路径已存在**。
+
+    解析失败（极少数权限/盘符异常）时退化为绝对路径，绝不把异常抛给调用方。
+    """
+    try:
+        return Path(value).expanduser().resolve()
+    except (OSError, RuntimeError, ValueError):
+        return Path(value).expanduser().absolute()
+
+
+def is_within(child: Path, parent: Path) -> bool:
+    """child 是否等于 parent 或位于 parent 之下。
+
+    不用 `Path.is_relative_to`：那是 Python 3.9+ 才有的 API，本项目下限 3.8。
+    """
+    try:
+        child.relative_to(parent)
+        return True
+    except ValueError:
+        return False
+
+
+def _blocked_subtrees() -> tuple[tuple[Path, str], ...]:
+    """R3 系统目录：**整棵子树**禁止写入（C:\\Windows\\ 下任何位置都不行）。"""
+    entries = (
+        (os.environ.get("SystemRoot") or r"C:\Windows", "系统目录 SystemRoot"),
+        (os.environ.get("ProgramFiles") or r"C:\Program Files", "系统目录 Program Files"),
+        (os.environ.get("ProgramFiles(x86)") or r"C:\Program Files (x86)", "系统目录 Program Files (x86)"),
+        (os.environ.get("ProgramData") or r"C:\ProgramData", "系统目录 ProgramData"),
+    )
+    out: list[tuple[Path, str]] = []
+    for raw, label in entries:
+        try:
+            out.append((resolve_path(raw), label))
+        except (OSError, ValueError):
+            continue
+    return tuple(out)
+
+
+def _blocked_roots() -> tuple[tuple[Path, str], ...]:
+    """R4 用户关键目录：仅**根本身**禁止，允许其子目录（`桌面\\我的项目` 是正常目标）。"""
+    home = Path.home()
+    entries = (
+        (home, "用户主目录"),
+        (home / "Desktop", "桌面"),
+        (home / "Documents", "文档"),
+        (home / "Downloads", "下载"),
+    )
+    out: list[tuple[Path, str]] = []
+    for raw, label in entries:
+        try:
+            out.append((resolve_path(raw), label))
+        except (OSError, ValueError):
+            continue
+    return tuple(out)
+
+
+# R5 项目自身：工具的落盘目标绝不能指向青蔓自己或其上级目录
+PROJECT_DIR_RESOLVED = resolve_path(PROJECT_DIR)
+BLOCKED_SUBTREES = _blocked_subtrees()
+BLOCKED_ROOTS = _blocked_roots()
+
 DEFAULT_VERSION = "V0.00"
 
 

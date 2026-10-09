@@ -14,6 +14,7 @@
   7. 帮助页无硬编码中文（§P0-3 L1：文案必须经取词表，页面只留 data-i18n 键名）
   8. 接续说明实况段与盘上一致（§P1-6 H4；文件未建立则跳过）
   9. 编辑态持久化契约（§P0-7）：schema.json 的 editorDocument/editorNode + 接口标识 + 错误码
+ 9b. 落盘安全边界（§P0-1）：config 黑名单 / dtree_core.check_target / routes 接线 / 错误码
  10. 指纹比对（--against <版本>）：与该版本**最高修订**清单逐文件比对 SHA-256
 退出码：0 全部通过；1 存在失败项。
 """
@@ -335,6 +336,32 @@ def main() -> int:
 
     check(not absent, "编辑态接口与错误码",
           f"缺失：{', '.join(absent)}" if absent else "config / routes / app / api / 错误码 齐备")
+
+    # 9b. 落盘安全边界（§P0-1）：边界必须落在服务端，不得只做前端限制
+    guard_anchors = (
+        ("src/server/config.py", "BLOCKED_SUBTREES"),
+        ("src/server/config.py", "MAX_NODES"),
+        ("src/server/dtree_core.py", "check_target"),
+        ("src/server/routes.py", "check_target"),
+    )
+    guard_absent = []
+    for rel, token in guard_anchors:
+        target = root / rel
+        if not target.is_file() or token not in target.read_text(encoding="utf-8"):
+            guard_absent.append(f"{rel}:{token}")
+    if codes_file.is_file():
+        try:
+            codes = json.loads(codes_file.read_text(encoding="utf-8"))
+        except ValueError:
+            codes = {}
+        for code in ("targetTooShallow", "targetBlocked", "targetReserved", "tooManyNodes"):
+            if not isinstance(codes, dict) or code not in codes:
+                guard_absent.append(f"error-codes.json:{code}")
+    else:
+        guard_absent.append("error-codes.json:未读到")
+    check(not guard_absent, "落盘安全边界 §P0-1",
+          f"缺失：{', '.join(guard_absent)}" if guard_absent
+          else "config 黑名单 / dtree_core.check_target / routes 接线 / 错误码 齐备")
 
     # 10. 与版本清单比对指纹（仅在指定 --against 时启用）
     if against:

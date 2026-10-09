@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 import os
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Dict
 
 from server import config, dtree_core
@@ -37,11 +36,9 @@ def generate(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(tree, dict):
         raise TreeError("treeMissing")
 
-    target = payload.get("target")
-    if not isinstance(target, str) or not target.strip():
-        raise TreeError("targetMissing")
-
-    base = Path(target.strip()).expanduser()
+    # 落盘安全边界（§P0-1 R1–R5）：规范化 + 黑名单校验，全在服务端完成。
+    # 命中即抛 TreeError（明确的 4xx 错误码），绝不进入写盘流程。
+    base = dtree_core.check_target(payload.get("target"))
 
     root = payload.get("root")
     root = root.strip() if isinstance(root, str) else ""
@@ -55,6 +52,7 @@ def generate(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     result = dtree_core.build_tree(tree, base, dry_run=bool(payload.get("dryRun")))
     result["ok"] = True
+    result["target"] = str(base)
     return result
 
 
@@ -109,7 +107,10 @@ def save_editor(payload: Dict[str, Any]) -> Dict[str, Any]:
     path = config.EDITOR_FILE
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(body, encoding="utf-8")
+    # 显式 newline="\n"：默认 newline=None 在 Windows 下会写成 CRLF，
+    # 使返回的 bytes 与磁盘实际字节不符，且破坏跨平台字节一致性（§编码基线）。
+    with tmp.open("w", encoding="utf-8", newline="\n") as fh:
+        fh.write(body)
     os.replace(tmp, path)   # 原子替换：避免断电/中断留下半截文件
 
     return {

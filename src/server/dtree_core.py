@@ -156,13 +156,60 @@ def validate_document(root: Any) -> Dict[str, int]:
     return {"dirs": dirs - 1, "files": files}
 
 
+def check_target(raw: Any) -> Path:
+    """落盘安全边界（§P0-1 R1–R5）：规范化 target 并逐条比对黑名单。
+
+    返回规范化后的**绝对路径**；任一规则命中即抛 TreeError，错误码明确
+    （由上层映射为 4xx，而非笼统 500）。本函数**不产生任何 IO**。
+    """
+    if not isinstance(raw, str) or not raw.strip():
+        raise TreeError("targetMissing")
+
+    text = raw.strip()
+    try:
+        path = Path(text).expanduser().resolve()
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise TreeError("targetInvalid", target=text, reason=str(exc))
+
+    # R2 盘根：至少两级（C:\ / D:\ / / 一律拒），否则等于「往整个盘写」
+    if path.parent == path or len(path.parts) < 2:
+        raise TreeError("targetTooShallow", target=str(path))
+
+    # R5 项目自身及其上级目录：防止工具改到自己（或改到项目所在的工作区）
+    project = config.PROJECT_DIR_RESOLVED
+    if path == project or config.is_within(project, path):
+        raise TreeError("targetReserved", target=str(path), reason="青蔓项目自身或其上级目录")
+
+    # R3 系统目录：整棵子树禁止（含 System32）
+    for blocked, label in config.BLOCKED_SUBTREES:
+        if config.is_within(path, blocked):
+            raise TreeError("targetBlocked", target=str(path), reason=label)
+
+    # R4 用户关键目录：仅根本身禁止（子目录放行）
+    for blocked, label in config.BLOCKED_ROOTS:
+        if path == blocked:
+            raise TreeError("targetBlocked", target=str(path), reason=f"{label}根目录")
+
+    return path
+
+
 def build_tree(tree: Any, base: Path, dry_run: bool = False) -> Dict[str, Any]:
     """按 tree 结构在 base 下真实建目录与文件。
 
     dry_run=True 时只演练：不写盘，但返回同样的 planned 结构。
+
+    R6：规模超限由服务端直接拒绝（dry_run 同样拦截 —— 上限针对的是「计划规模」本身）。
+    R7：目录已存在 → 复用；文件已存在 → 跳过、不覆盖、不比对内容，计入 existed。
+    R8：全程只新建，**绝不删除**任何既有文件或目录。
     """
     if not isinstance(tree, dict):
         raise TreeError("treeMissing")
+
+    planned_dirs, planned_files = count_tree(tree)
+    total = planned_dirs + planned_files
+    if total > config.MAX_NODES:
+        raise TreeError("tooManyNodes", dirs=planned_dirs, files=planned_files,
+                        total=total, limit=config.MAX_NODES)
 
     base = Path(base).expanduser()
     created_dirs: List[str] = []
@@ -191,19 +238,21 @@ def build_tree(tree: Any, base: Path, dry_run: bool = False) -> Dict[str, Any]:
                     continue
                 if not dry_run:
                     target.parent.mkdir(parents=True, exist_ok=True)
-                    target.write_text(str(value), encoding="utf-8")
+                    # 显式 newline="\n"：默认 newline=None 会把 \n 译为 os.linesep
+                    # （Windows 下即 CRLF），使生成文件的字节随平台漂移（§编码基线）。
+                    with target.open("w", encoding="utf-8", newline="\n") as fh:
+                        fh.write(str(value))
                 created_files.append(str(target))
 
     if not dry_run:
         base.mkdir(parents=True, exist_ok=True)
     walk(tree, base)
 
-    dirs, files = count_tree(tree)
     return {
         "root": str(base),
         "dryRun": bool(dry_run),
-        "plannedDirs": dirs,
-        "plannedFiles": files,
+        "plannedDirs": planned_dirs,
+        "plannedFiles": planned_files,
         "createdDirs": created_dirs,
         "createdFiles": created_files,
         "existed": existed,
