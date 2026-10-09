@@ -14,7 +14,7 @@ import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import unquote, urlparse, urlsplit
 
 from server import config, routes
 from server.dtree_core import TreeError, message
@@ -29,6 +29,24 @@ STATIC_SUFFIX_TYPES = {
     ".ico": "image/x-icon",
     ".woff2": "font/woff2",
 }
+
+
+def host_of(value: str) -> str:
+    """从 Host 头或 Origin 中取出主机名（小写、去端口、去 IPv6 方括号）。
+
+    `127.0.0.1:8765` → `127.0.0.1`；`http://localhost:8765` → `localhost`；
+    `[::1]:8765` → `::1`；空值或非法值 → `""`。
+    """
+    text = (value or "").strip()
+    if not text:
+        return ""
+    if "://" not in text:
+        text = "//" + text
+    try:
+        name = urlsplit(text).hostname
+    except ValueError:
+        return ""
+    return (name or "").lower()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -69,9 +87,58 @@ class Handler(BaseHTTPRequestHandler):
             raise TreeError("bodyTooLarge", limit=config.MAX_BODY_BYTES)
         return self.rfile.read(length) if length > 0 else b""
 
+    # ---------- 调用来源校验（N1） ----------
+
+    def _guard(self) -> bool:
+        """校验调用来源。通过返回 True；不通过时已写出 403 并返回 False。
+
+        两道检查：
+          ① Host 必须指向回环地址 —— 阻断 DNS rebinding（攻击者域名解析到 127.0.0.1
+             时，浏览器发出的 Host 仍是攻击者域名，不在白名单内）。
+          ② 若带 Origin，其 host 也必须在白名单内 —— 阻断跨站页面调用。
+        """
+        raw_host = self.headers.get("Host") or ""
+        if host_of(raw_host) not in config.ALLOWED_HOSTS:
+            self._fail(403, "hostRejected", host=raw_host or "(缺失)")
+            return False
+
+        origin = (self.headers.get("Origin") or "").strip()
+        if origin:
+            # 严格要求与本站同源：scheme 必须是 http、host 在白名单、端口为绑定端口。
+            # `Origin: null`（沙箱化 iframe / data: / file:）在此被拒（scheme 为空）。
+            parts = urlsplit(origin)
+            try:
+                origin_port = parts.port
+            except ValueError:
+                origin_port = None
+            bound_port = self.server.server_address[1]
+            if (
+                parts.scheme != "http"
+                or (parts.hostname or "").lower() not in config.ALLOWED_HOSTS
+                or origin_port != bound_port
+            ):
+                self._fail(403, "originRejected", origin=origin)
+                return False
+        return True
+
+    def _guard_write(self) -> bool:
+        """写操作额外门槛：必须携带自定义防护头。
+
+        跨站页面要携带自定义头必然先触发 CORS 预检，而本服务不响应预检
+        （do_OPTIONS 一律拒绝），故该头可阻断「跨站盲发 POST」。
+        同源请求携带自定义头不触发预检，不影响正常使用。
+        """
+        value = (self.headers.get(config.GUARD_HEADER) or "").strip()
+        if value != config.GUARD_HEADER_VALUE:
+            self._fail(403, "missingGuardHeader", header=config.GUARD_HEADER)
+            return False
+        return True
+
     # ---------- 路由 ----------
 
     def do_GET(self) -> None:  # noqa: N802
+        if not self._guard():
+            return
         path = urlparse(self.path).path
         if path == routes.HEALTH_PATH:
             self._json(200, routes.health())
@@ -82,6 +149,8 @@ class Handler(BaseHTTPRequestHandler):
         self.do_GET()
 
     def do_POST(self) -> None:  # noqa: N802
+        if not self._guard() or not self._guard_write():
+            return
         path = urlparse(self.path).path
         if path != routes.GENERATE_PATH:
             self._fail(404, "notFound", path=path)
@@ -107,6 +176,11 @@ class Handler(BaseHTTPRequestHandler):
             self._fail(500, "ioError", message=str(exc))
         except Exception as exc:  # noqa: BLE001 - 兜底，避免服务崩溃
             self._fail(500, "internalError", message=str(exc))
+
+    def do_OPTIONS(self) -> None:  # noqa: N802
+        # 刻意不提供 CORS 预检：本服务不接受跨站调用，
+        # 预检失败会使浏览器放弃后续的实际请求，从而阻断跨站写操作。
+        self._fail(403, "methodNotAllowed", method="OPTIONS")
 
     # ---------- 静态文件 ----------
 

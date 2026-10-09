@@ -15,5 +15,9 @@
   "notFound": "接口不存在：{path}",
   "bodyTooLarge": "请求体过大，上限 {limit} 字节",
   "ioError": "磁盘写入失败：{message}",
-  "internalError": "服务内部错误：{message}"
+  "internalError": "服务内部错误：{message}",
+  "hostRejected": "调用来源主机不被允许：{host}",
+  "originRejected": "调用来源不被允许：{origin}",
+  "missingGuardHeader": "缺少防护请求头 {header}",
+  "methodNotAllowed": "请求方法不被允许：{method}"
 }

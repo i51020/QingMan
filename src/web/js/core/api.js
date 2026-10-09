@@ -5,10 +5,21 @@
 
 const BASE = window.location.origin;
 
+/**
+ * 默认请求头。
+ * `X-QingMan` 是服务端的写操作防护头（见 docs/项目约定.md N1）：
+ * 跨站页面无法在不触发 CORS 预检的前提下携带自定义头，而本服务不响应预检，
+ * 因此该头可阻断跨站盲发 POST。同源请求携带自定义头不触发预检，正常可用。
+ */
+const DEFAULT_HEADERS = {
+  'Content-Type': 'application/json',
+  'X-QingMan': '1',
+};
+
 async function request(path, options = {}) {
   const res = await fetch(BASE + path, {
-    headers: { 'Content-Type': 'application/json' },
     ...options,
+    headers: { ...DEFAULT_HEADERS, ...(options.headers || {}) },
   });
 
   let payload = null;

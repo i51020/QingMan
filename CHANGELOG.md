@@ -43,6 +43,23 @@
 
 **无改动**（与 V0.01 逐字节相同）。
 
+### 修订 · 2026-10-09 15:42（**同版本内，未升版**）
+
+> 用户裁定：N1 落地与旧编号统一**均不升版**，VERSION 仍 `V0.0.1`。
+
+| 文件 | 内容 |
+|---|---|
+| `src/server/app.py` | 新增 `host_of()` · `_guard()` · `_guard_write()` · `do_OPTIONS` —— **本地服务调用来源校验**（Host 白名单 + Origin 严格同源 + 写操作防护头 + 拒答 CORS 预检）。此前全文无来源校验，任意网页可盲发 POST 触发磁盘写入 |
+| `src/server/config.py` | 新增 `ALLOWED_HOSTS` · `GUARD_HEADER` · `GUARD_HEADER_VALUE` 与 `_env_list()` |
+| `src/shared/error-codes.json` | 新增 4 码：`hostRejected` · `originRejected` · `missingGuardHeader` · `methodNotAllowed` |
+| `src/web/js/core/api.js` | `DEFAULT_HEADERS` 固定携带 `X-QingMan: 1` |
+| `src/web/index.html` | 版本徽标 + 侧栏文案 `V0.01` → `V0.0.1`（**编号重制漏改**） |
+| `src/shared/schema.json` | `"version"` `V0.01` → `V0.0.1`（**编号重制漏改**） |
+
+**验证**：沙盒冒烟 **25/25 通过**（含「被拒请求均未落盘」单独断言）；5 个 `.py` ast 通过、2 个 JSON 合法、`api.js` ESM 语法通过；缓存残留 0。
+
+**⚠️ 遗留**：本轮改动 `src/` 但未升版，而 `store.py do_commit` 对**已存在版本跳过不覆盖** → **本轮改动无 store 回退点**，目前仅 git 可回退。处理方式待用户裁定。
+
 ---
 
 ## V0.01 — 2026-10-09（旧编号，已重制为 V0.0.1）
