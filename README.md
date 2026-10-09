@@ -44,11 +44,11 @@ QingMan/
 │  └─ V0.01/            旧编号全量快照（历史遗留，原样保留）
 ├─ preview/             试运行区（**按需新建** `preview/V<版本>/`，平时为空）
 ├─ templates/           17 套中文目录树模板（内容资产）
-├─ tools/               工具链：store / verify / versioning / release / promote
+├─ tools/               工具链：store / verify / versioning / release / promote / handoff
 ├─ legacy/              历史归档，命名 `<对象>-<日期>/`，只增不删
 │  ├─ tools-20261009/    改造前的工具备份
 │  └─ preview-20261009/  旧编号预览版 V0.01 全量归档（22 文件，git 保留重命名历史）
-├─ docs/                项目手册 / 项目约定 / 任务进度 / 错误笔记
+├─ docs/                项目手册 / 项目约定 / 任务进度 / 错误笔记 / 接续说明
 ├─ .git/                过程历史仓库（git，覆盖全项目）
 ├─ .gitattributes       `* -text` —— 禁止换行转换，保护 SHA-256 指纹
 └─ .gitignore           仅忽略 __pycache__ / store/.trash/ / 编辑器垃圾
@@ -135,6 +135,7 @@ git status                 # 工作区状态
 
 ## 详细文档
 
+- **接续说明（跨会话交接入口 —— 新会话先读这份）→ `docs/接续说明.md`**
 - **工程约定（代码怎么写、规矩怎么立，P0/P1）→ `docs/项目约定.md`**
 - 架构、接口、版本流程细则 → `docs/项目手册.md`
 - 任务进度（时间线口径）→ `docs/任务进度.md`

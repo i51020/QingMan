@@ -261,7 +261,18 @@ def main() -> int:
     else:
         check(False, "帮助页无硬编码中文", "help.html 未读到")
 
-    # 8. 与版本清单比对指纹（仅在指定 --against 时启用）
+    # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
+    handoff_file = root / "docs/接续说明.md"
+    if handoff_file.is_file():
+        try:
+            from handoff import render_live, replace_block
+            raw = handoff_file.read_text(encoding="utf-8")
+            same = replace_block(raw, render_live(root)) == raw
+            check(same, "接续说明实况段", "与盘上一致" if same else "已过期，运行 python tools/handoff.py")
+        except (ValueError, OSError, UnicodeDecodeError) as exc:
+            check(False, "接续说明实况段", f"无法生成：{exc}")
+
+    # 9. 与版本清单比对指纹（仅在指定 --against 时启用）
     if against:
         check_fingerprint(root, against)
 
