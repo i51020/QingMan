@@ -274,10 +274,18 @@ export function applySkin() {
     return;
   }
   const link = existing || document.createElement('link');
+  const firstLoad = !existing;
   link.id = 'skinLink';
   link.rel = 'stylesheet';
   link.href = './css/skins/' + name + '.css';
-  if (!existing) document.head.appendChild(link);
+  if (firstLoad) document.head.appendChild(link);
+
+  // 皮肤样式表**加载完成**后才广播换肤（V0.0.15）：订阅方（如皮肤联动图标）
+  // 需要读到新皮肤的 --qm-* 计算值 —— onload 之前 getComputedStyle 拿到的还是旧色。
+  // 每次换肤都重建监听（href 赋值即触发重载）；内存态切换（非 setSkin）不重复广播。
+  link.onload = () => {
+    document.dispatchEvent(new CustomEvent('qmskinchange', { detail: { skin: name } }));
+  };
 }
 
 /* ---------- 界面折叠态（§P0-3 L6） ---------- */

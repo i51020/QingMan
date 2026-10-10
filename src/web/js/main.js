@@ -23,6 +23,7 @@ import { createInspector } from './ui/inspector.js';
 import { createSkinPicker } from './ui/skin-picker.js';
 import { createLangPicker } from './ui/lang-picker.js';
 import { toast } from './ui/toast.js';
+import { renderLaunchIcon, ensureLaunchIcon } from './ui/launch-icon.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -441,7 +442,18 @@ el('btnHelp').addEventListener('click', () => {
 async function createShortcut() {
   if (!window.confirm(t('shortcut.confirm'))) return;
   try {
-    const res = await api.createShortcut();
+    // 皮肤联动图标（V0.0.15）：生成失败走 null → 后端沿用默认图标，不阻塞快捷方式
+    let iconBase64 = null;
+    const ico = await renderLaunchIcon();
+    if (ico) {
+      let binary = '';
+      const CHUNK = 0x8000;
+      for (let i = 0; i < ico.length; i += CHUNK) {
+        binary += String.fromCharCode.apply(null, ico.subarray(i, i + CHUNK));
+      }
+      iconBase64 = btoa(binary);
+    }
+    const res = await api.createShortcut(iconBase64);
     if (res.fallback && res.data) {
       const a = document.createElement('a');
       a.href = 'data:application/octet-stream;base64,' + res.data;
@@ -652,6 +664,12 @@ document.addEventListener('qmlocalechange', () => {
   render();
   const { connected } = store.get();
   if (connected) el('chipBackend').textContent = t('topbar.backendOn');
+});
+
+/* 换肤后重传启动图标（V0.0.15）：事件由 applySkin 在样式表 onload 后派发，
+   此时 getComputedStyle 读到的已是新皮肤配色。失败静默（launch-icon 内部处理）。 */
+document.addEventListener('qmskinchange', () => {
+  ensureLaunchIcon();
 });
 
 /* 启动顺序：先恢复偏好并填静态文案，再渲染动态内容 —— 否则 applyStatic 会覆盖状态栏等动态字段 */

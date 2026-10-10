@@ -72,13 +72,22 @@ export const api = {
 
   /**
    * 创建桌面快捷方式。
-   * 成功直写桌面 → { ok: true, path };
+   * 成功直写桌面 → { ok: true, path }；icon=true 表示已写入皮肤联动图标。
    * 桌面不可写 → { ok: true, fallback: true, name, data(base64) }，由调用方触发下载。
+   * icon 参数（base64 ICO）可选：由 launch-icon.js 按当前皮肤绘制。
    */
-  createShortcut() {
+  createShortcut(icon) {
     return request('/api/shortcut', {
       method: 'POST',
-      body: JSON.stringify({}),
+      body: JSON.stringify(icon ? { icon } : {}),
+    });
+  },
+
+  /** 上传皮肤联动启动图标（base64 ICO，V0.0.15），落盘 data/qm-launch.ico。 */
+  saveLaunchIcon(payload) {
+    return request('/api/launch-icon', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
   },
 

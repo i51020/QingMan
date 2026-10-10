@@ -99,6 +99,17 @@ EDITOR_FILE = DATA_DIR / "editor.json"
 MAX_EDITOR_BYTES = _env_int("QM_MAX_EDITOR_BYTES", 8 * 1024 * 1024)
 MAX_EDITOR_NODES = _env_int("QM_MAX_EDITOR_NODES", 20000)
 
+# ---------- 桌面快捷方式图标（V0.0.15） ----------
+#
+# 皮肤联动的启动图标：前端按当前皮肤配色用 canvas 绘制多尺寸 ICO，
+# 上传后端落盘到 data/ 下（随编辑态同目录：内容数据，不是运行时代码），
+# 快捷方式的 IconLocation 指向它 —— 换肤后前端重传，图标随之变色。
+# 路径恒定，由后端单点决定，不存在用户可控的路径穿越面。
+ICON_DIR = DATA_DIR
+ICON_FILE = DATA_DIR / "qm-launch.ico"
+# 多尺寸 PNG-in-ICO（16/32/48/256）上限：256px PNG 约 20-60K，留足余量
+MAX_ICON_BYTES = _env_int("QM_MAX_ICON_BYTES", 256 * 1024)
+
 # ---------- 落盘安全边界（§P0-1） ----------
 #
 # 生成目录是青蔓唯一会写用户磁盘的动作，边界必须落在服务端（此文件 + dtree_core.py），

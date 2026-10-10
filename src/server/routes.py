@@ -7,9 +7,11 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 import os
 import re
+import struct
 import subprocess
 import tempfile
 from datetime import datetime
@@ -24,6 +26,8 @@ HEALTH_PATH = "/api/health"
 EDITOR_PATH = "/api/editor"
 SHORTCUT_PATH = "/api/shortcut"
 TEMPLATES_PATH = "/api/templates"
+# 皮肤联动的桌面图标上传（V0.0.15）：前端 canvas 绘制、后端只落盘与接线
+ICON_PATH = "/api/launch-icon"
 # 「跟随系统」要跟的是 **操作系统语言**，不是浏览器语言（V0.0.14）。
 # 浏览器语言可被单独改写（装浏览器时选了英文、或用户手动调过），
 # 与「系统显示语言」不是一回事 —— 故由后端取真值，再经本端点同步注入前端。
@@ -340,16 +344,14 @@ def save_template(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _write_lnk(path: Path, target: str, workdir: str) -> None:
-    """用 PowerShell WScript.Shell 写一个 Windows 快捷方式（.lnk）。"""
+def _write_lnk(path: Path, target: str, workdir: str, icon: str = "") -> None:
+    """用 PowerShell WScript.Shell 写一个 Windows 快捷方式（.lnk）。
+
+    `icon` 为空时不设 IconLocation（快捷方式沿用 .bat 的默认控制台图标）；
+    给定时形如 `C:\\path\\qm-launch.ico,0` —— 皮肤联动图标（V0.0.15）。
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    script = (
-        "$ws = New-Object -ComObject WScript.Shell; "
-        f"$sc = $ws.CreateShortcut({str(path)!r}); "
-        f"$sc.TargetPath = {target!r}; "
-        f"$sc.WorkingDirectory = {workdir!r}; "
-        "$sc.Save()"
-    )
+    script = _lnk_script(path, target, workdir, icon)
     result = subprocess.run(
         ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
         capture_output=True, text=True, check=False,
@@ -358,11 +360,144 @@ def _write_lnk(path: Path, target: str, workdir: str) -> None:
         raise OSError(result.stderr or "PowerShell CreateShortcut failed")
 
 
+def _lnk_script(path: Path, target: str, workdir: str, icon: str = "") -> str:
+    """_write_lnk 的纯函数体：只拼 PowerShell 语句，不做任何 I/O（便于单测）。
+
+    路径统一经 `_ps_quote` 处理：反斜杠转正斜杠（Windows API 完全接受）、
+    单引号翻倍 —— 绝不依赖 Python repr，否则反斜杠会被 repr 加倍成 `\\\\`，
+    而 PowerShell 单引号里反斜杠是字面量，会把 `D:\\\\Data` 这类错路径写进 .lnk。
+    """
+    lines = [
+        "$ws = New-Object -ComObject WScript.Shell; ",
+        f"$sc = $ws.CreateShortcut({_ps_quote(str(path))}); ",
+        f"$sc.TargetPath = {_ps_quote(target)}; ",
+        f"$sc.WorkingDirectory = {_ps_quote(workdir)}; ",
+    ]
+    if icon:
+        lines.append(f"$sc.IconLocation = {_ps_quote(icon)}; ")
+    lines.append("$sc.Save()")
+    return "".join(lines)
+
+
+def _ps_quote(value: str) -> str:
+    """把字符串包成 PowerShell 单引号字面量：反斜杠→正斜杠，单引号→两个单引号。
+
+    PowerShell 单引号字符串只有单引号是转义（`''`），反斜杠是普通字符；
+    Windows 各 API 均接受正斜杠路径，故统一转正斜杠，避免 repr 的反斜杠加倍问题。
+    """
+    return "'" + value.replace("\\", "/").replace("'", "''") + "'"
+
+
+def validate_ico(data: bytes) -> None:
+    """校验 ICO 二进制结构（V0.0.15）：只认 PNG-in-ICO，防任意文件挂名上传。
+
+    检查项：魔数（6 字节头，保留字 0）、目录项数量 ≥ 1 且 ≤ 16、
+    每个目录项的尺寸字段合法（宽高 0(=256)/16/32/48/64/128/256、色彩数 0）、
+    图像数据偏移与长度落在文件范围内、每帧数据是完整 PNG。
+    校验不过即抛 iconInvalid。
+    """
+    def fail() -> "TreeError":
+        return TreeError("iconInvalid")
+
+    if len(data) > config.MAX_ICON_BYTES:
+        raise TreeError("iconTooLarge", limit=config.MAX_ICON_BYTES, actual=len(data))
+    if len(data) < 6:
+        raise fail()
+    reserved, typ, count = struct.unpack("<HHH", data[:6])
+    if reserved != 0 or typ != 1 or not (1 <= count <= 16):
+        raise fail()
+    pos = 6
+    frames = []
+    for _ in range(count):
+        if pos + 16 > len(data):
+            raise fail()
+        (w, h, colors, _res, planes, bpp,
+         size, offset) = struct.unpack("<BBBBHHII", data[pos:pos + 16])
+        pos += 16
+        if colors not in (0, 2, 16, 256):
+            raise fail()
+        if planes != 1 or bpp not in (0, 8, 24, 32):
+            raise fail()
+        if offset + size > len(data):
+            raise fail()
+        frames.append((w, h, size, offset))
+    if not frames:
+        raise fail()
+    for w, h, size, offset in frames:
+        blob = data[offset:offset + size]
+        # PNG 签名 89 50 4E 47 0D 0A 1A 0A + IEND 块（12 字节收尾）
+        if not blob.startswith(b"\x89PNG\r\n\x1a\n") or not blob.endswith(b"IEND\xaeB`\x82"):
+            raise fail()
+
+
+def save_launch_icon(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """保存皮肤联动启动图标（V0.0.15）：base64 ICO → 原子写 `data/qm-launch.ico`。
+
+    图标由前端按当前皮肤配色用 canvas 绘制 —— 色值与皮肤的单一事实源
+    都在前端 CSS 变量里，后端不镜像调色板。后端只做三件事：
+    结构校验（validate_ico）、体积上限、原子落盘。
+    落盘后**不主动改桌面**：`refresh` 由 create_shortcut 的正常流程做，
+    换肤时前端重传同一文件，桌面 .lnk 的 IconLocation 不变、内容已更新。
+    """
+    raw = payload.get("data")
+    if not isinstance(raw, str) or not raw.strip():
+        raise TreeError("iconDataMissing")
+    try:
+        data = base64.b64decode(raw, validate=True)
+    except (binascii.Error, ValueError):
+        raise TreeError("iconInvalid")
+
+    validate_ico(data)
+
+    path = config.ICON_FILE
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(path.name + ".tmp")
+        tmp.write_bytes(data)
+        os.replace(tmp, path)   # 原子替换，避免中断留下半截文件
+    except OSError:
+        raise TreeError("iconWriteFailed")
+
+    return {"ok": True, "path": str(path), "bytes": len(data)}
+
+
+def _refresh_icon_cache() -> None:
+    """通知 Explorer 图标缓存已失效（SHChangeNotify，尽力而为）。
+
+    Windows 的图标缓存很固执：只替换 .ico 文件常被忽略。广播
+    SHCNE_ASSOCCHANGED 让 Explorer 重读关联图标。失败不抛错 ——
+    缓存刷新是尽力而为，不构成功能的成败判据。
+    """
+    if os.name != "nt":
+        return
+    try:
+        import ctypes
+
+        shell32 = ctypes.windll.shell32
+        SHCNE_ASSOCCHANGED = 0x08000000
+        SHCNF_IDLIST = 0x0000
+        shell32.SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, None, None)
+    except (OSError, AttributeError, ValueError):
+        pass
+
+
 def create_shortcut(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """在桌面生成启动快捷方式；若桌面不可写，降级为返回 .lnk 字节（base64）供下载。"""
+    """在桌面生成启动快捷方式；若桌面不可写，降级为返回 .lnk 字节（base64）供下载。
+
+    皮肤联动图标（V0.0.15）：请求带 `icon`（base64 ICO，前端按当前皮肤绘制）时
+    先落盘 `data/qm-launch.ico` 再写 .lnk 的 IconLocation 指向它；不带则沿用
+    默认图标 —— 下载降级路径**刻意不主题化**（.lnk 指向的绝对路径在用户机器上
+    不存在，主题化只会换来一个裂开的图标）。
+    """
     target = str(config.START_BAT)
     if not config.START_BAT.is_file():
         raise TreeError("shortcutTargetMissing", target=target)
+
+    icon_ref = ""
+    raw_icon = payload.get("icon")
+    if isinstance(raw_icon, str) and raw_icon.strip():
+        save_launch_icon({"data": raw_icon})
+        icon_ref = f"{config.ICON_FILE},0"
 
     workdir = str(config.PROJECT_DIR)
     name = f"{config.APP_NAME_ZH} {config.APP_NAME_EN}.lnk"
@@ -370,13 +505,15 @@ def create_shortcut(payload: Dict[str, Any]) -> Dict[str, Any]:
     lnk = desktop / name
 
     try:
-        _write_lnk(lnk, target, workdir)
-        return {"ok": True, "path": str(lnk)}
+        _write_lnk(lnk, target, workdir, icon_ref)
+        if icon_ref:
+            _refresh_icon_cache()
+        return {"ok": True, "path": str(lnk), "icon": bool(icon_ref)}
     except OSError:
         # 桌面写入失败时，在临时目录生成同一份 .lnk 并返回 base64
         tmp = Path(tempfile.gettempdir()) / name
         try:
-            _write_lnk(tmp, target, workdir)
+            _write_lnk(tmp, target, workdir)   # 降级路径不设图标（见 docstring）
             data = base64.b64encode(tmp.read_bytes()).decode("ascii")
             return {"ok": True, "fallback": True, "name": name, "data": data}
         except OSError as exc:

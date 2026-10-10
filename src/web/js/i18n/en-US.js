@@ -129,6 +129,10 @@ export const dict = {
   'err.editorCorrupt': 'Editor document is corrupt and cannot be parsed: {path}',
   'err.shortcutTargetMissing': 'Startup file does not exist: {target}',
   'err.shortcutFailed': 'Failed to create the shortcut: {message}',
+  'err.iconDataMissing': 'Missing icon data: data',
+  'err.iconInvalid': 'Malformed icon file (PNG-in-ICO only)',
+  'err.iconTooLarge': 'Icon too large, limit {limit} bytes (current {actual})',
+  'err.iconWriteFailed': 'Failed to write icon (disk not writable or file in use)',
   'err.templateNotFound': 'Template not found: {name}',
   'err.templateBadJson': 'Malformed template file: {name}',
   'err.templateReadFailed': 'Failed to read template: {name} ({message})',
@@ -265,7 +269,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.14',
+  'help.versionFallback': 'V0.0.15',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

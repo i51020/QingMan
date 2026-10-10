@@ -7,6 +7,55 @@
 
 ---
 
+## V0.0.15 — 2026-10-10
+
+**主题**：桌面快捷方式图标「皮肤联动」—— 图标配色跟随当前皮肤，换肤即变色。
+
+> **立项依据**：V0.0.9 的 `_write_lnk` **从不设置 IconLocation**，桌面快捷方式显示的是
+> `.bat` 的默认控制台图标。且皮肤是前端 CSS 变量概念，后端不掌握调色板 —— 要让图标
+> 随皮肤变色，只能由前端按当前皮肤绘制 ICO、后端负责落盘与接线。
+
+### 变更（`src/`）
+
+- **后端**（`routes.py` / `config.py` / `app.py`）
+  - 新增 `POST /api/launch-icon`（`save_launch_icon`）：base64 ICO → `validate_ico` 结构校验 → 原子落盘 `data/qm-launch.ico`（恒定路径，无穿越面）
+  - `validate_ico` 只认 **PNG-in-ICO**：魔数 / 目录项 1–16 / 尺寸合法值 / 每帧偏移与长度落于文件内 / 每帧 PNG 头尾完整 —— 防任意文件挂名上传
+  - `_write_lnk` 增加 `icon` 参数，`create_shortcut` 请求带 `icon` 时先落盘再写 `IconLocation`；下载降级路径**刻意不主题化**（.lnk 指向的绝对路径在用户机器上不存在，主题化只会换裂图标）
+  - `_refresh_icon_cache`：`SHChangeNotify(SHCNE_ASSOCCHANGED)` 尽力刷新 Explorer 缓存，失败静默
+  - 新增 4 个错误码 `iconDataMissing` / `iconInvalid` / `iconTooLarge` / `iconWriteFailed`
+- **前端**（新增 `ui/launch-icon.js`）
+  - 字形 = `logo.svg` 的 path（运行时 `fetch` 解析，**单一事实源**）；底板 = `--qm-surface`；字形色 = `--qm-accent`，对比度 < 3:1 时回退 `--qm-text`（守卫只兜底）
+  - 16/32/48/256 四档 PNG → `buildIco` 组包（纯函数，Node 可复用验证）
+  - `ensureLaunchIcon()`：换肤后重传同路径 ICO（去重：配色未变不重传）；`applySkin` 在样式表 `onload` 后派发 `qmskinchange`，确保读到新皮肤计算值
+  - `createShortcut` 点击时先渲染图标再 POST，失败走 null → 默认图标，不阻塞
+- **既有 bug 修复**：`_lnk_script` 原用 Python `repr`（`!r`）转义路径，反斜杠被加倍成 `\\`，而 PowerShell 单引号里反斜杠是字面量 —— `.lnk` 里写的是 `D:\\Data\\...` 错路径。改为 `_ps_quote`（反斜杠→正斜杠、单引号翻倍）
+
+### 变更（`tools/` 与测试）
+
+- `verify.py` 新增守卫**「快捷方式图标契约」**（65 → 66 项）：AST 钉函数体，确认 `_lnk_script` 真拼 IconLocation、`create_shortcut` 串联落盘+刷缓存、`save_launch_icon` 过 `validate_ico` + 原子替换、`validate_ico` 校验 PNG 帧完整性
+- `tests/test_launch_icon.py` 新增 **16 条**（套件 90 → 104）：`validate_ico` 正反例、`_lnk_script` 的 IconLocation 拼装与**双反斜杠回归锁**、`save_launch_icon` 落盘往返
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| 主线 `verify.py` | 66 项 0 失败 |
+| `unittest` | 104 OK |
+| `smoke.py` | 17 项 0 失败 |
+| Node ICO 往返（E 盘） | 5 项：`parseLogoSvg` 取到 d(29476)+viewBox / 对比度守卫 s06=4.85·深色=7.00 / `buildIco` 目录项=4·offset 落范围 |
+| 后端 `validate_ico` | 接受 Node 产物(114154B) + 拒绝空/魔数错/截断 → `iconInvalid` |
+| 浏览器 Path2D（Edge headless） | 29476 字符超长 path 解析+fill 成功，`nonWhitePx=9555`（~14.6% 画布） |
+| HTTP 探针 | `/api/launch-icon` 200 + 落盘字节一致(114154B)；无 `X-QingMan` 头 → 403 |
+| `.lnk` 实证（PowerShell 真生成） | IconLocation 写入 + 双反斜杠修复（841→821 字节） |
+
+### 已知边界
+
+- 下载降级路径的 `.lnk` 不主题化（见上）；主题化仅覆盖「直接写桌面」路径
+- `validate_ico` 只做结构校验，不解析 PNG 内部 IHDR 尺寸 —— 防恶意文件，不承担图像深检
+- `SHChangeNotify` 刷新 Explorer 缓存是尽力而为：个别系统版本可能需重启资源管理器才生效（图标文件本身已更新，不影响下次创建）
+
+---
+
 ## V0.0.12 — 2026-10-10
 
 **主题**：错误消息随语言切换 —— 后端错误码全量登记 `err.<code>`，并给语言加上「跟随系统」档。

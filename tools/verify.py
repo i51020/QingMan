@@ -810,6 +810,65 @@ def main() -> int:
           f"缺失：{', '.join(os_bad)}" if os_bad
           else "后端取 OS 语言 + env.js 同步注入 + OS 优先于浏览器 齐备")
 
+    # 7l. 快捷方式图标契约（V0.0.15 · 皮肤联动桌面图标）
+    #     判据用 AST 钉函数体（字面量锚点会被同名字段蒙混 —— 模板契约守卫的教训）：
+    #     ① _lnk_script 必须真的拼 IconLocation（否则删掉图标接线后守卫照过）；
+    #     ② create_shortcut 必须调用 save_launch_icon 且落盘后刷新缓存；
+    #     ③ save_launch_icon 落盘前必须过 validate_ico（结构校验不得绕过）。
+    icon_bad: list[str] = []
+    icon_anchors = (
+        ("src/server/config.py", "ICON_FILE"),
+        ("src/server/routes.py", "ICON_PATH"),
+        ("src/server/app.py", "routes.ICON_PATH"),
+        ("src/web/js/core/api.js", "saveLaunchIcon"),
+        ("src/web/js/ui/launch-icon.js", "buildIco"),
+        ("src/web/js/main.js", "qmskinchange"),
+        ("src/web/js/i18n/index.js", "qmskinchange"),
+    )
+    for rel, token in icon_anchors:
+        target = root / rel
+        if not target.is_file() or token not in target.read_text(encoding="utf-8"):
+            icon_bad.append(f"{rel}:{token}")
+    if routes_py.is_file():
+        try:
+            itree = ast.parse(routes_py.read_text(encoding="utf-8"))
+        except SyntaxError:
+            itree = None
+            icon_bad.append("routes.py:无法解析")
+        if itree is not None:
+            fn_bodies: dict[str, str] = {}
+            for node in ast.walk(itree):
+                if isinstance(node, ast.FunctionDef) and node.name in (
+                    "_lnk_script", "create_shortcut", "save_launch_icon", "validate_ico"
+                ):
+                    fn_bodies[node.name] = ast.get_source_segment(
+                        routes_py.read_text(encoding="utf-8"), node) or ""
+            if "IconLocation" not in fn_bodies.get("_lnk_script", ""):
+                icon_bad.append("_lnk_script 未拼 IconLocation")
+            cs = fn_bodies.get("create_shortcut", "")
+            if "save_launch_icon" not in cs:
+                icon_bad.append("create_shortcut 未串联图标落盘")
+            if "_refresh_icon_cache" not in cs:
+                icon_bad.append("create_shortcut 未刷新图标缓存")
+            sl = fn_bodies.get("save_launch_icon", "")
+            if "validate_ico" not in sl:
+                icon_bad.append("save_launch_icon 未过 validate_ico")
+            if "os.replace" not in sl:
+                icon_bad.append("save_launch_icon 未原子替换")
+            if "IEND" not in fn_bodies.get("validate_ico", ""):
+                icon_bad.append("validate_ico 未校验 PNG 帧完整性")
+    codes_file = root / "src/shared/error-codes.json"
+    try:
+        icon_codes = json.loads(codes_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        icon_codes = {}
+    for code in ("iconDataMissing", "iconInvalid", "iconTooLarge", "iconWriteFailed"):
+        if code not in icon_codes:
+            icon_bad.append(f"error-codes.json:{code}")
+    check(not icon_bad, "快捷方式图标契约 V0.0.15",
+          f"缺失：{', '.join(icon_bad)}" if icon_bad
+          else "IconLocation / 落盘串联 / validate_ico / 缓存刷新 / 错误码 齐备")
+
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
     if handoff_file.is_file():

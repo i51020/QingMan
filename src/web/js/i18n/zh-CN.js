@@ -135,6 +135,10 @@ export const dict = {
   'err.editorCorrupt': '编辑态文档已损坏，无法解析：{path}',
   'err.shortcutTargetMissing': '启动文件不存在：{target}',
   'err.shortcutFailed': '快捷方式生成失败：{message}',
+  'err.iconDataMissing': '缺少图标数据 data',
+  'err.iconInvalid': '图标文件结构非法（仅接受 PNG-in-ICO）',
+  'err.iconTooLarge': '图标过大，上限 {limit} 字节（当前 {actual}）',
+  'err.iconWriteFailed': '图标写入失败（磁盘不可写或文件被占用）',
   'err.templateNotFound': '模板不存在：{name}',
   'err.templateBadJson': '模板文件结构非法：{name}',
   'err.templateReadFailed': '读取模板失败：{name}（{message}）',
@@ -271,7 +275,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.14',
+  'help.versionFallback': 'V0.0.15',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',
