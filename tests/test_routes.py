@@ -225,6 +225,67 @@ class TemplateTests(unittest.TestCase):
             routes.load_template("notree.json")
         self.assertEqual(ctx.exception.code, "templateBadJson")
 
+    # ---------- V0.0.13 另存为模板 ----------
+
+    def test_save_roundtrip_includes_schema_version(self):
+        """写入必带 schemaVersion，且落盘后能被正常读回（§P2 第 7 项）。"""
+        tree = {"素材": {"原图": {}}, "说明.md": "内容\n"}
+        res = routes.save_template({"name": "我的模板", "tree": tree})
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["file"], "我的模板.json")
+        self.assertEqual(res["stats"], {"dirs": 2, "files": 1})
+        raw = (self.tmp / "我的模板.json").read_bytes()
+        self.assertNotIn(b"\r", raw)          # §编码基线：落盘一律 LF
+        doc = json.loads(raw.decode("utf-8"))
+        self.assertEqual(doc["schemaVersion"], config.TEMPLATE_SCHEMA_VERSION)
+        self.assertEqual(doc["name"], "我的模板")
+        self.assertEqual(doc["tree"], tree)
+        self.assertEqual(routes.load_template("我的模板.json")["tree"], tree)
+
+    def test_save_strips_redundant_json_suffix(self):
+        """用户顺手带上 .json 时不得叠成 `甲.json.json`。"""
+        routes.save_template({"name": "甲.json", "tree": {"a": {}}})
+        self.assertTrue((self.tmp / "甲.json").is_file())
+        self.assertFalse((self.tmp / "甲.json.json").exists())
+
+    def test_save_refuses_overwrite(self):
+        routes.save_template({"name": "甲", "tree": {"a": {}}})
+        with self.assertRaises(TreeError) as ctx:
+            routes.save_template({"name": "甲", "tree": {"b": {}}})
+        self.assertEqual(ctx.exception.code, "templateExists")
+        # 原文件必须原样保留：拒写不是「先覆盖再报错」
+        doc = json.loads((self.tmp / "甲.json").read_text(encoding="utf-8"))
+        self.assertEqual(doc["tree"], {"a": {}})
+
+    def test_save_rejects_bad_names(self):
+        for bad in ("", "   ", "a/b", "../x", "x.txt", None, 123):
+            with self.assertRaises(TreeError) as ctx:
+                routes.save_template({"name": bad, "tree": {"a": {}}})
+            self.assertIn(ctx.exception.code,
+                          ("templateNameEmpty", "templateNameInvalid"), repr(bad))
+        self.assertEqual(list(self.tmp.glob("*.json")), [])
+
+    def test_save_rejects_too_long_name(self):
+        long_name = "甲" * (config.TEMPLATE_NAME_MAX + 1)
+        with self.assertRaises(TreeError) as ctx:
+            routes.save_template({"name": long_name, "tree": {"a": {}}})
+        self.assertEqual(ctx.exception.code, "templateNameTooLong")
+
+    def test_save_rejects_bad_tree(self):
+        for bad in (None, [], "x"):
+            with self.assertRaises(TreeError) as ctx:
+                routes.save_template({"name": "甲", "tree": bad})
+            self.assertEqual(ctx.exception.code, "templateTreeMissing", repr(bad))
+
+    def test_save_rejects_oversize_tree(self):
+        old = config.MAX_NODES
+        config.MAX_NODES = 1
+        self.addCleanup(setattr, config, "MAX_NODES", old)
+        with self.assertRaises(TreeError) as ctx:
+            routes.save_template({"name": "甲", "tree": {"a": {}, "b": {}}})
+        self.assertEqual(ctx.exception.code, "templateTooManyNodes")
+        self.assertFalse((self.tmp / "甲.json").exists())
+
 
 class HealthTests(unittest.TestCase):
 

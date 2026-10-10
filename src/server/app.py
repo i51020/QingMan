@@ -173,7 +173,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self._guard() or not self._guard_write():
             return
         path = urlparse(self.path).path
-        if path not in (routes.GENERATE_PATH, routes.SHORTCUT_PATH):
+        # POST /api/templates = 另存为模板（V0.0.13），与生成、快捷方式同为写操作
+        if path not in (routes.GENERATE_PATH, routes.SHORTCUT_PATH, routes.TEMPLATES_PATH):
             self._fail(404, "notFound", path=path)
             return
         try:
@@ -192,6 +193,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path == routes.GENERATE_PATH:
                 self._json(200, routes.generate(payload))
+            elif path == routes.TEMPLATES_PATH:
+                self._json(200, routes.save_template(payload))
             else:
                 self._json(200, routes.create_shortcut(payload))
         except TreeError as exc:

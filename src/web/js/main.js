@@ -601,7 +601,7 @@ async function loadTemplateList() {
   }
 }
 
-async function applyTemplate(item) {
+ async function applyTemplate(item) {
   if (!window.confirm(t('template.loadConfirm', { name: item.name }))) return;
   try {
     const res = await api.loadTemplate(item.file);
@@ -616,6 +616,34 @@ async function applyTemplate(item) {
     toast(t('template.loadFailed', { message: localizeError(err) }), 'error', 6000);
   }
 }
+
+/**
+ * 另存为模板（V0.0.13）：把正在编辑的树写进 templates/<name>.json。
+ *
+ * 服务端**拒绝覆盖同名模板**（templateExists）—— 改名留给用户在提示里重试，
+ * 工具绝不替用户决定「旧的那套可以丢」。
+ */
+async function saveAsTemplate() {
+  const { root } = store.get();
+  const name = window.prompt(t('template.savePrompt'), root.name || '');
+  if (name === null) return;
+  const trimmed = name.trim();
+  if (!trimmed) {
+    toast(t('template.nameEmpty'), 'warn');
+    return;
+  }
+  try {
+    const res = await api.saveTemplate({ name: trimmed, tree: treePayload(root) });
+    const saved = res.name || trimmed;
+    setStatus(t('template.saved', { name: saved }));
+    toast(t('template.saved', { name: saved }), 'info');
+    await loadTemplateList();   // 新模板要立刻出现在列表里，否则用户以为没生效
+  } catch (err) {
+    toast(t('template.saveFailed', { message: localizeError(err) }), 'error', 6000);
+  }
+}
+
+el('btnSaveTemplate').addEventListener('click', saveAsTemplate);
 
 /* 语言切换后刷新动态文案（静态文案由 applyStatic 在 setLocale 内处理） */
 document.addEventListener('qmlocalechange', () => {

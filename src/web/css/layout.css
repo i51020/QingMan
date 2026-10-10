@@ -82,6 +82,22 @@
 
 /* ---------- 左栏：模板列表（V0.0.11） ---------- */
 
+/* 标题与「另存为模板」同一行：标题是 h3 自带上下 margin，用 flex 对齐基线 */
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.panel-head .panel-sub { margin-bottom: 0; }
+
+/* 侧栏窄，常规按钮 padding 会把模板名挤到换行 */
+.btn-mini {
+  padding: 2px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .tpl-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 
 .tpl-item {

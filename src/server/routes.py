@@ -209,6 +209,91 @@ def load_template(name: str) -> Dict[str, Any]:
         "description": doc.get("description") or "",
         "tree": doc["tree"],
         "stats": {"dirs": dirs, "files": files},
+        # 老模板没有该字段，一律视为当前版本（读取容忍缺失，写入必带 —— §P2 第 7 项）
+        "schemaVersion": doc.get("schemaVersion", config.TEMPLATE_SCHEMA_VERSION),
+    }
+
+
+def save_template(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """把一棵目录树另存为模板文件 `templates/<name>.json`（V0.0.13）。
+
+    与 `generate()` 的关键差别：这里的落盘路径**不由用户给出** —— 恒定拼在
+    `TEMPLATES_DIR` 之下，用户输入只有模板名，且必须过文件名白名单，
+    因此不存在路径穿越面。仍保留 `is_within` 复核，防符号链接等绕过。
+
+    **同名一律拒写**：静默覆盖会毁掉既有模板，改名是用户该做的决定
+    （与落盘规则 R7/R8「已存在即跳过、永不删除」同一套取舍）。
+
+    写入时必带 `schemaVersion` —— 只读阶段可以没有版本戳，一旦开始写就必须有，
+    否则日后无法区分新旧格式（§P2 第 7 项）。
+    """
+    raw_name = payload.get("name")
+    name = raw_name.strip() if isinstance(raw_name, str) else ""
+    if not name:
+        raise TreeError("templateNameEmpty")
+
+    # 用户可能顺手带上 .json：剥掉再统一补回，避免 `X.json.json`
+    stem = name[:-5] if name.lower().endswith(".json") else name
+    stem = stem.strip()
+    if not stem:
+        raise TreeError("templateNameEmpty")
+    if len(stem) > config.TEMPLATE_NAME_MAX:
+        raise TreeError("templateNameTooLong", name=name)
+    filename = stem + ".json"
+    if not TEMPLATE_NAME.match(filename):
+        raise TreeError("templateNameInvalid", name=name)
+
+    tree = payload.get("tree")
+    if not isinstance(tree, dict):
+        raise TreeError("templateTreeMissing")
+
+    dirs, files = dtree_core.count_tree(tree)
+    total = dirs + files
+    if total > config.MAX_NODES:
+        raise TreeError(
+            "templateTooManyNodes",
+            dirs=dirs, files=files, total=total, limit=config.MAX_NODES,
+        )
+
+    description = payload.get("description")
+    description = description.strip() if isinstance(description, str) else ""
+
+    base = config.resolve_path(config.TEMPLATES_DIR)
+    path = config.resolve_path(base / filename)
+    if not config.is_within(path, base):
+        raise TreeError("templateNameInvalid", name=name)
+    if path.exists():
+        raise TreeError("templateExists", name=name)
+
+    body = json.dumps({
+        "schemaVersion": config.TEMPLATE_SCHEMA_VERSION,
+        "name": stem,
+        "description": description,
+        "updated": datetime.now().astimezone().strftime("%Y-%m-%d"),
+        "tree": tree,
+    }, ensure_ascii=False, indent=2) + "\n"
+    size = len(body.encode("utf-8"))
+    if size > config.TEMPLATE_MAX_BYTES:
+        raise TreeError("templateTooLarge", limit=config.TEMPLATE_MAX_BYTES, actual=size)
+
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(path.name + ".tmp")
+        # 显式 newline="\n"：默认在 Windows 下会写成 CRLF，破坏跨平台字节一致（§编码基线）
+        with tmp.open("w", encoding="utf-8", newline="\n") as fh:
+            fh.write(body)
+        os.replace(tmp, path)   # 原子替换，避免中断留下半截文件
+    except OSError:
+        # 不把 OSError 原文拼进错误码：那会在英文界面里混排 Python 异常原文
+        raise TreeError("templateWriteFailed", name=name)
+
+    return {
+        "ok": True,
+        "file": filename,
+        "name": stem,
+        "path": str(path),
+        "bytes": size,
+        "stats": {"dirs": dirs, "files": files},
         "schemaVersion": config.TEMPLATE_SCHEMA_VERSION,
     }
 

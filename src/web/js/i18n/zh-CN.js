@@ -80,6 +80,14 @@ export const dict = {
   'template.loaded': '已载入模板「{name}」',
   'template.loadFailed': '模板载入失败：{message}',
 
+  /* 另存为模板（V0.0.13） */
+  'template.saveAs': '另存为模板',
+  'template.saveAsTip': '把正在编辑的目录树保存成一套新模板',
+  'template.savePrompt': '模板名称',
+  'template.nameEmpty': '模板名称不能为空',
+  'template.saved': '已保存模板「{name}」',
+  'template.saveFailed': '模板保存失败：{message}',
+
   /* ---------- 后端错误码 → 本地化文案 ----------
    * 键名固定为 `err.<code>`，占位符必须与 src/shared/error-codes.json 逐条一致，
    * 由 tools/verify.py 的「错误码本地化闭包」与「占位符一致性」两道守卫把关。
@@ -130,6 +138,14 @@ export const dict = {
   'err.templateNotFound': '模板不存在：{name}',
   'err.templateBadJson': '模板文件结构非法：{name}',
   'err.templateReadFailed': '读取模板失败：{name}（{message}）',
+  'err.templateNameEmpty': '模板名不能为空',
+  'err.templateNameInvalid': '模板名不合法：{name}（仅允许中英文、数字、下划线、连字符）',
+  'err.templateNameTooLong': '模板名过长（上限 60 字符）：{name}',
+  'err.templateTreeMissing': '缺少目录树数据 tree',
+  'err.templateTooManyNodes': '模板规模超限：目录 {dirs} + 文件 {files} = {total}，上限 {limit}',
+  'err.templateTooLarge': '模板过大，上限 {limit} 字节（当前 {actual}）',
+  'err.templateExists': '同名模板已存在：{name}（不会覆盖，请改名后重试）',
+  'err.templateWriteFailed': '模板写入失败：{name}（磁盘不可写或文件被占用）',
 
   /* 错误码徽标：技术排查用的稳定标识，与本地化文案并列展示 */
   'err.codeLabel': '错误码：{code}',
@@ -255,7 +271,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.12',
+  'help.versionFallback': 'V0.0.13',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',
@@ -277,7 +293,7 @@ export const dict = {
   'help.quickStart.5': '确认结果无误后取消勾选，点「一键生成」真实落盘',
 
   'help.ops.title': '界面说明',
-  'help.ops.sidebar': '左栏「模板工作区」——列出 templates/ 下的模板，点击即载入；下方为骨架自检清单',
+  'help.ops.sidebar': '左栏「模板工作区」——列出 templates/ 下的模板，点击即载入；标题右侧的「另存为模板」把当前目录树存成一套新模板（**同名不会被覆盖**）；下方为骨架自检清单',
   'help.ops.center': '中栏「目录树工作区」——顶部是生成参数与工具栏，主体是目录树',
   'help.ops.genBar': '参数区左上角可点开／收起：收起后只留一行摘要（目标位置 · 根名 · 演练或写盘），当前设定仍一眼可见',
   'help.ops.inspector': '右栏「属性工作区」——选中节点的名称、类型、路径、深度与统计；下方显示生成结果',

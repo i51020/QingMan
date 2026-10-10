@@ -43,5 +43,13 @@
   "shortcutFailed": "快捷方式生成失败：{message}",
   "templateNotFound": "模板不存在：{name}",
   "templateBadJson": "模板文件结构非法：{name}",
-  "templateReadFailed": "读取模板失败：{name}（{message}）"
+  "templateReadFailed": "读取模板失败：{name}（{message}）",
+  "templateNameEmpty": "模板名不能为空",
+  "templateNameInvalid": "模板名不合法：{name}（仅允许中英文、数字、下划线、连字符）",
+  "templateNameTooLong": "模板名过长（上限 60 字符）：{name}",
+  "templateTreeMissing": "缺少目录树数据 tree",
+  "templateTooManyNodes": "模板规模超限：目录 {dirs} + 文件 {files} = {total}，上限 {limit}",
+  "templateTooLarge": "模板过大，上限 {limit} 字节（当前 {actual}）",
+  "templateExists": "同名模板已存在：{name}（不会覆盖，请改名后重试）",
+  "templateWriteFailed": "模板写入失败：{name}（磁盘不可写或文件被占用）"
 }

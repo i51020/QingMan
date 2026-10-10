@@ -692,6 +692,87 @@ def main() -> int:
         check(True, "默认皮肤不可缺省 §P0-3 L5",
               "i18n/index.js 已接线出厂默认皮肤，未选过时装载默认皮肤而非裸色")
 
+    # 7j. 模板保存契约（§P2 第 7 项 · V0.0.13「另存为模板」）
+    #     背景：模板库长期只读，顶层一直没有 schemaVersion；一旦开始**写**模板，
+    #     就必须带上版本戳 —— 否则日后无法区分新旧格式（这是 §P2 第 7 项当时留的重议条件）。
+    #     判据两端：① 写入必带 schemaVersion；② 读取容忍缺失（老模板无该字段，视为 v1）。
+    #     判据只认「save_template 函数体里真的写了 schemaVersion」—— 用 ast 取函数体，
+    #     否则 `list_templates` 里的同名字面量会让守卫在删掉写入后照样通过（反向实证抓到过）。
+    tpl_anchors = (
+        ("src/server/app.py", "routes.save_template(payload)"),
+        ("src/server/config.py", "TEMPLATE_MAX_BYTES"),
+        ("src/web/js/core/api.js", "saveTemplate"),
+    )
+    tpl_absent: list[str] = []
+    for rel, token in tpl_anchors:
+        target = root / rel
+        if not target.is_file() or token not in target.read_text(encoding="utf-8"):
+            tpl_absent.append(f"{rel}:{token}")
+
+    routes_py = root / "src/server/routes.py"
+    bodies: dict[str, str] = {}
+    funcs: dict[str, ast.FunctionDef] = {}
+    if not routes_py.is_file():
+        tpl_absent.append("routes.py:未读到")
+    else:
+        rtext = routes_py.read_text(encoding="utf-8")
+        rlines = rtext.splitlines()
+        try:
+            rtree = ast.parse(rtext)
+        except SyntaxError:
+            tpl_absent.append("routes.py:无法解析")
+            rtree = None
+        if rtree is not None:
+            for node in ast.walk(rtree):
+                if isinstance(node, ast.FunctionDef) and node.name in ("save_template", "load_template"):
+                    funcs[node.name] = node
+                    bodies[node.name] = "\n".join(
+                        rlines[node.lineno - 1:(node.end_lineno or node.lineno)])
+    for fn in ("save_template", "load_template"):
+        if fn not in bodies:
+            tpl_absent.append(f"routes.py:缺少 {fn}")
+
+    def dict_key_sets(node: ast.FunctionDef | None) -> list[set[str]]:
+        """函数体内每个字典字面量的**常量键集合**。"""
+        out: list[set[str]] = []
+        if node is None:
+            return out
+        for sub in ast.walk(node):
+            if isinstance(sub, ast.Dict):
+                out.append({k.value for k in sub.keys
+                            if isinstance(k, ast.Constant) and isinstance(k.value, str)})
+        return out
+
+    # 落盘载荷 = 同时含 tree 与 schemaVersion 的那个字典。
+    # 只查「有没有 schemaVersion 字样」不够 —— 返回值里也有同名字段，
+    # 删掉写入照样蒙混过关（反向实证抓到过）。
+    payload_ok = any({"schemaVersion", "tree"} <= keys
+                     for keys in dict_key_sets(funcs.get("save_template")))
+    if not payload_ok:
+        tpl_absent.append("save_template 落盘载荷未带 schemaVersion")
+    if 'get("schemaVersion"' not in bodies.get("load_template", ""):
+        tpl_absent.append("load_template 未容忍 schemaVersion 缺失")
+    if "templateExists" not in bodies.get("save_template", ""):
+        tpl_absent.append("save_template 未拒绝覆盖同名")
+    codes_file = root / "src/shared/error-codes.json"
+    try:
+        tpl_codes = json.loads(codes_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        tpl_codes = {}
+    for code in ("templateNameEmpty", "templateExists", "templateTooManyNodes",
+                 "templateTooLarge", "templateWriteFailed"):
+        if code not in tpl_codes:
+            tpl_absent.append(f"error-codes.json:{code}")
+    try:
+        tpl_schema = json.loads((root / "src/shared/schema.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        tpl_schema = {}
+    if not isinstance(tpl_schema.get("template"), dict) or "schemaVersion" not in tpl_schema["template"]:
+        tpl_absent.append("schema.json:template.schemaVersion")
+    check(not tpl_absent, "模板保存契约 §P2 第 7 项",
+          f"缺失：{', '.join(tpl_absent)}" if tpl_absent
+          else "写入带 schemaVersion / 读取容忍缺失 / 拒绝覆盖同名 / 规模与体积上限 齐备")
+
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
     if handoff_file.is_file():

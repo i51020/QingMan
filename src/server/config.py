@@ -78,8 +78,14 @@ START_BAT = PROJECT_DIR / "start.bat"
 TEMPLATES_DIR = PROJECT_DIR / "templates"
 
 # 模板文件的格式版本。现有 17 套模板**顶层无版本字段**，一律视为 v1。
-# 读取时容忍缺失；日后若结构不兼容变更，须同时引入 `schemaVersion` 字段（§P2 第 7 项）。
+# 读取时容忍缺失（用 `doc.get("schemaVersion", 1)`）；自 V0.0.13 起「另存为模板」会写入该字段
+# —— 一旦开始写模板就必须带上版本戳，否则日后无法区分新旧格式（§P2 第 7 项）。
 TEMPLATE_SCHEMA_VERSION = 1
+
+# 另存为模板时的上限：模板名 60 字符（留出 `.json` 与文件系统 255 字节余量）、
+# 单文件 2 MB。二者都在服务端判定，前端提示不具约束力。
+TEMPLATE_NAME_MAX = _env_int("QM_TEMPLATE_NAME_MAX", 60)
+TEMPLATE_MAX_BYTES = _env_int("QM_TEMPLATE_MAX_BYTES", 2 * 1024 * 1024)
 
 # ---------- 编辑态持久化（N2） ----------
 

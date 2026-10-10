@@ -2,7 +2,8 @@
   "$comment": "青蔓 QingMan · 前后端共享数据契约。前端、后端、CLI 均以本文件为准。",
   "version": "V0.0.2",
   "template": {
-    "$comment": "模板文件格式，与 templates/*.json 一致",
+    "$comment": "模板文件格式，与 templates/*.json 一致。schemaVersion 自 V0.0.13「另存为模板」起写入；既有 17 套模板无该字段，读取时一律视为 1（§P2 第 7 项）",
+    "schemaVersion": 1,
     "name": "模板名（中文）",
     "description": "中文说明",
     "updated": "YYYY-MM-DD",
@@ -11,6 +12,22 @@
       "文件名.md": "文件内容"
     },
     "rule": "值为 {} 对象 → 目录；值为字符串 → 文件（字符串即文件内容）"
+  },
+  "templateSaveRequest": {
+    "$comment": "POST /api/templates 请求体（V0.0.13 另存为模板）",
+    "name": "模板名（不含 .json；仅中英文、数字、下划线、连字符，上限 60 字符）",
+    "description": "中文说明（选填）",
+    "tree": {}
+  },
+  "templateSaveResponse": {
+    "$comment": "POST /api/templates 响应。同名模板已存在时返回 templateExists，绝不覆盖",
+    "ok": true,
+    "file": "名称.json",
+    "name": "模板名",
+    "path": "模板文件绝对路径",
+    "bytes": 0,
+    "stats": { "dirs": 0, "files": 0 },
+    "schemaVersion": 1
   },
   "generateRequest": {
     "$comment": "POST /api/generate 请求体",

@@ -47,6 +47,48 @@
 
 ---
 
+## V0.0.13 — 2026-10-10
+
+**主题**：模板「另存为模板」—— 模板库由只读变为可写，并按 §P2 第 7 项引入 `schemaVersion`。
+
+> **立项依据**：V0.0.11 接入 17 套模板后，左栏**只能读不能写** —— 用户编辑出来的目录树没有沉淀路径。而 §P2 第 7 项留的重议条件正是「青蔓开始写模板时」，本版本即触发点。
+
+### 变更（`src/`）
+
+- **后端新增 `POST /api/templates`**
+  - 落盘载荷由 `save_template()` **单点构造**：`schemaVersion` / `name` / `description` / `updated` / `tree`
+  - **写入必带 `schemaVersion`（=1），读取仍容忍缺失** —— 17 套老模板一个字不动，`load_template()` 用 `doc.get("schemaVersion", 1)` 兜底。只读路径零迁移成本（§P2 第 7 项重议裁定）
+  - **同名一律拒写**（`templateExists`）：静默覆盖会毁掉既有模板，改名是用户该做的决定，与落盘规则 R7/R8 同一取舍
+  - **安全**：落盘路径**不由用户给出**，恒定拼在 `templates/` 之下；用户输入只有模板名，先过文件名白名单（不含路径分隔符），再 `is_within` 复核 —— 与 `generate()` 不同，此处没有路径穿越面
+  - 原子写（tmp + `os.replace`）+ 显式 `newline="\n"`（§编码基线）
+  - 上限：模板名 60 字符、规模复用 `MAX_NODES`（500）、体积 2 MB —— 全在服务端判定
+- **前端**
+  - 左栏「模板列表」标题行新增**「另存为模板」**按钮（`#btnSaveTemplate`）；`window.prompt` 取名（默认带出当前根节点名），成功后**立刻刷新列表**，否则用户会以为没生效
+  - `api.saveTemplate()` 复用既有 `X-QingMan` 写操作防护头；缺头由服务端 403 `missingGuardHeader`
+- **错误码新增 8 条**：`templateNameEmpty` / `templateNameInvalid` / `templateNameTooLong` / `templateTreeMissing` / `templateTooManyNodes` / `templateTooLarge` / `templateExists` / `templateWriteFailed`，中英 `err.*` 齐备
+  - **有意不含 `{message}`**：避免像既有 5 条那样在英文界面里混排 Python 异常原文
+- **契约**：`schema.json` 的 `template` 段补 `schemaVersion`，并新增 `templateSaveRequest` / `templateSaveResponse`
+
+### 变更（`tools/` 与测试）
+
+- `verify.py` 新增守卫**「模板保存契约 §P2 第 7 项」**（63 → 64 项）
+  - 判据钉在三处：**落盘载荷同时含 `tree` 与 `schemaVersion`**（用 AST 取 `save_template` 函数体）、拒覆盖同名、读取容忍缺失
+  - **反向实证 3 组**：删掉 `do_POST` 分发 → FAIL；写入不带版本戳 → FAIL；去掉拒覆盖 → FAIL
+  - 首版判据被 `list_templates` 返回体里的同名字面量蒙混（删掉写入仍 PASS），已改为 AST 定位函数体 —— 与 V0.0.12「auto 档」守卫同类教训
+- `tests/test_routes.py` 新增 **7 条**（套件 80 → 87）：往返含版本戳、`.json` 后缀不叠加、同名拒写且原文件未被改写、非法名、超长名、非法 `tree`、规模超限
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| 主线 `verify.py` | 64 项 0 失败 |
+| `unittest` | 87 OK |
+| `smoke.py` | 17 项 0 失败 |
+| HTTP 层探针（沙盒） | 20 项 0 失败：缺防护头 403 / 保存 200 / 落盘含 `schemaVersion` / 落盘为 LF / 同名 400 `templateExists` 且**原文件未被改写** / 非法名 400 / 列表含新模板 / 8 条 `err.*` 中英齐备 |
+| 守卫反向实证 | 3 组均正确 FAIL → 还原后 PASS |
+
+---
+
 ## V0.0.11 — 2026-10-10
 
 **主题**：模板工作区接入 —— 左栏从「只有自检清单」变成真正能载入 17 套模板。

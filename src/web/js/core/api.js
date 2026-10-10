@@ -95,4 +95,15 @@ export const api = {
   loadTemplate(name) {
     return request('/api/templates/' + encodeURIComponent(name), { method: 'GET' });
   },
+
+  /**
+   * 另存为模板：把当前目录树写进 templates/<name>.json（V0.0.13）。
+   * 服务端**拒绝覆盖同名模板**（返回 templateExists），由调用方提示改名。
+   */
+  saveTemplate(payload) {
+    return request('/api/templates', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
 };

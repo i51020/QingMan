@@ -42,7 +42,11 @@
           <span data-i18n="sidebar.noteLine2"></span><code>templates/</code>
         </p>
         <div class="panel-block">
-          <h3 class="panel-sub" data-i18n="template.listTitle"></h3>
+          <div class="panel-head">
+            <h3 class="panel-sub" data-i18n="template.listTitle"></h3>
+            <button type="button" class="btn btn-ghost btn-mini" id="btnSaveTemplate"
+                    data-i18n="template.saveAs" data-i18n-title="template.saveAsTip"></button>
+          </div>
           <!-- items are rendered by main.js from the backend templates/ data -->
           <ul class="tpl-list" id="templateList"></ul>
         </div>

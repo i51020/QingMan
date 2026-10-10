@@ -71,6 +71,14 @@ export const dict = {
   'template.loaded': 'Loaded template "{name}"',
   'template.loadFailed': 'Failed to load template: {message}',
 
+  /* Save as template (V0.0.13) */
+  'template.saveAs': 'Save as template',
+  'template.saveAsTip': 'Save the tree you are editing as a new template',
+  'template.savePrompt': 'Template name',
+  'template.nameEmpty': 'Template name cannot be empty',
+  'template.saved': 'Saved template "{name}"',
+  'template.saveFailed': 'Failed to save template: {message}',
+
   /* ---------- Backend error codes -> localized text ----------
    * Keys are fixed as `err.<code>`; placeholders must match
    * src/shared/error-codes.json entry by entry, enforced by the
@@ -124,6 +132,14 @@ export const dict = {
   'err.templateNotFound': 'Template not found: {name}',
   'err.templateBadJson': 'Malformed template file: {name}',
   'err.templateReadFailed': 'Failed to read template: {name} ({message})',
+  'err.templateNameEmpty': 'Template name cannot be empty',
+  'err.templateNameInvalid': 'Invalid template name: {name} (letters, digits, underscore and hyphen only)',
+  'err.templateNameTooLong': 'Template name too long (max 60 characters): {name}',
+  'err.templateTreeMissing': 'Missing directory tree data: tree',
+  'err.templateTooManyNodes': 'Template too large: {dirs} dirs + {files} files = {total}, limit {limit}',
+  'err.templateTooLarge': 'Template file too large, limit {limit} bytes (current {actual})',
+  'err.templateExists': 'A template with the same name already exists: {name} (not overwritten, please rename and retry)',
+  'err.templateWriteFailed': 'Failed to write template: {name} (disk not writable or file in use)',
 
   /* Error-code badge: a stable identifier for troubleshooting, shown alongside the localized text */
   'err.codeLabel': 'Error code: {code}',
@@ -249,7 +265,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.12',
+  'help.versionFallback': 'V0.0.13',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',
@@ -271,7 +287,7 @@ export const dict = {
   'help.quickStart.5': 'When satisfied, uncheck "Dry run" and click "Generate" to write to disk',
 
   'help.ops.title': 'Interface',
-  'help.ops.sidebar': 'Left "Template Workspace" — lists templates from templates/; click to load. Below is the self-check list',
+  'help.ops.sidebar': 'Left "Template Workspace" — lists templates from templates/; click to load. "Save as template" beside the heading stores the current tree as a new template (**existing names are never overwritten**). Below is the self-check list',
   'help.ops.center': 'Center "Tree Workspace" — generation options and toolbar at the top, directory tree below',
   'help.ops.genBar': 'The parameter bar can be expanded/collapsed: collapsed it shows one summary line (target · root · dry/write)',
   'help.ops.inspector': 'Right "Property Workspace" — selected node name, type, path, depth and stats; generation result below',
