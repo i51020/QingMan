@@ -29,8 +29,9 @@ export const dict = {
   'topbar.save.saved': '已保存',
   'topbar.save.savedAt': '已保存 {at}',
   'topbar.save.error': '保存失败',
-  'topbar.backendOn': '后端已连接',
-  'topbar.backendOff': '后端未连接',
+  'topbar.backend.connecting': '连接中…',
+  'topbar.backend.ready': '服务就绪',
+  'topbar.backend.offline': '服务不可用',
   'topbar.help': '帮助',
   'topbar.helpTip': '使用说明（新标签打开）',
   'topbar.support': '支持',
@@ -64,11 +65,6 @@ export const dict = {
   'sidebar.title': '模板工作区',
   'sidebar.noteLine1': '选一套模板一键载入，或在中间自行编辑目录树。',
   'sidebar.noteLine2': '模板库位置：',
-  'sidebar.checkTitle': '骨架自检',
-  'check.modules': 'ES 模块化加载',
-  'check.backend': '本地后端连通',
-  'check.model': '目录树数据模型',
-  'check.write': '真实落盘能力',
 
   /* 模板列表（V0.0.11） */
   'template.listTitle': '模板列表',
@@ -275,7 +271,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.15',
+  'help.versionFallback': 'V0.0.16',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',

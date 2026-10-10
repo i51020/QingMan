@@ -7,6 +7,38 @@
 
 ---
 
+## V0.0.16 — 2026-10-10
+
+**主题**：服务状态三态 + 左栏自检迁移 —— 启动自检从常驻左栏收敛为顶栏一个「服务状态」chip。
+
+> **立项依据**：左栏 `checklist` 的 4 项自检（modules / backend / model / write）是**一次性诊断
+> 信息**，其中 modules/model 启动即恒真、backend 顶栏已体现、write 生成后才反馈 —— 信息密度低
+> 却常驻左栏。故把自检收敛为顶栏「服务状态」三态，左栏只留模板工作区。
+
+### 变更（`src/`）
+
+- **前端**
+  - `index.html`：移除左栏 `#checklist` 块（「骨架自检」标题 + 4 项清单）；`chipBackend` 初始态改为 `connecting`
+  - `main.js`：`markCheck` / `failCheck` 删除，改为 `setServiceState(state)` 三态 —— `connecting`（连接中·灰）/ `ready`（服务就绪·绿）/ `offline`（服务不可用·红），复用现有 `chip-ghost` / `chip-ok` / `chip-bad` 视觉，不新造
+  - `boot()` 收敛：探测前 `connecting`、`health()` 成功 `ready`、失败 `offline`；`write` 自检并入生成结果（`statusBar` 已反馈）、`modules`/`model` 并入 `ready` 态
+  - `qmlocalechange` 用 `setServiceState(serviceState)` 刷新 chip 文案（语言切换后同步）
+- **i18n**：删 `sidebar.checkTitle` + `check.modules/backend/model/write` + `topbar.backendOn/Off`（7 键），新增 `topbar.backend.connecting/ready/offline`（3 键）
+- **CSS**：删 `.checklist` 整套死代码（layout.css）
+
+### 变更（`tools/`）
+
+- `verify.py`：`REQUIRED_IDS` 移除 `checklist`；新增守卫**「服务状态三态」**（66 → 67 项），判据三端：左栏清单已移除 / 顶栏三态接线（`SERVICE_CHIP_CLASS` + `setServiceState`）/ 三态取词键齐备 —— 防「删了清单却忘了接线三态」或反向回归
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| 主线 `verify.py` | 67 项 0 失败 |
+| `unittest` | 106 OK |
+| `smoke.py` | 17 项 0 失败 |
+
+---
+
 ## V0.0.15 — 2026-10-10
 
 **主题**：桌面快捷方式图标「皮肤联动」—— 图标配色跟随当前皮肤，换肤即变色。

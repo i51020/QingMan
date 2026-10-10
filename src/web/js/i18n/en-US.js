@@ -20,8 +20,9 @@ export const dict = {
   'topbar.save.saved': 'Saved',
   'topbar.save.savedAt': 'Saved {at}',
   'topbar.save.error': 'Save failed',
-  'topbar.backendOn': 'Backend connected',
-  'topbar.backendOff': 'Backend offline',
+  'topbar.backend.connecting': 'Connecting…',
+  'topbar.backend.ready': 'Service ready',
+  'topbar.backend.offline': 'Service unavailable',
   'topbar.help': 'Help',
   'topbar.helpTip': 'Open usage guide in a new tab',
   'topbar.support': 'Support',
@@ -55,11 +56,6 @@ export const dict = {
   'sidebar.title': 'Template Workspace',
   'sidebar.noteLine1': 'Load a template in one click, or edit the tree yourself in the center.',
   'sidebar.noteLine2': 'Template library location:',
-  'sidebar.checkTitle': 'Self-check',
-  'check.modules': 'ES module loading',
-  'check.backend': 'Local backend connectivity',
-  'check.model': 'Directory tree data model',
-  'check.write': 'Real disk write capability',
 
   /* Template list (V0.0.11) */
   'template.listTitle': 'Templates',
@@ -269,7 +265,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.15',
+  'help.versionFallback': 'V0.0.16',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

@@ -27,7 +27,7 @@
           <select id="skinSelect"></select>
         </label>
         <span class="chip chip-ghost" id="chipSave" data-i18n="topbar.save.idle" data-i18n-title="topbar.saveTip"></span>
-        <span class="chip chip-ghost" id="chipBackend" data-i18n="topbar.backendOff"></span>
+        <span class="chip chip-ghost" id="chipBackend" data-i18n="topbar.backend.connecting"></span>
         <button type="button" class="btn btn-ghost" id="btnSupport" data-i18n="topbar.support" data-i18n-title="topbar.supportTip"></button>
         <button type="button" class="btn btn-ghost" id="btnHelp" data-i18n="topbar.help" data-i18n-title="topbar.helpTip"></button>
       </div>
@@ -49,15 +49,6 @@
           </div>
           <!-- items are rendered by main.js from the backend templates/ data -->
           <ul class="tpl-list" id="templateList"></ul>
-        </div>
-        <div class="panel-block">
-          <h3 class="panel-sub" data-i18n="sidebar.checkTitle"></h3>
-          <ul class="checklist" id="checklist">
-            <li data-check="modules" data-i18n="check.modules"></li>
-            <li data-check="backend" data-i18n="check.backend"></li>
-            <li data-check="model" data-i18n="check.model"></li>
-            <li data-check="write" data-i18n="check.write"></li>
-          </ul>
         </div>
       </aside>
 

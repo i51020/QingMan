@@ -56,7 +56,7 @@ PAIRED_TAGS = (
 REQUIRED_IDS = (
     "topbar", "chipSave", "chipBackend", "btnHelp", "btnSupport", "btnLogo",
     "langSelect", "skinSelect",
-    "sidebar", "checklist", "templateList",
+    "sidebar", "templateList",
     "center", "genBar", "inRoot", "inTarget", "inDryRun",
     "toolbar", "btnAddChild", "btnRename", "btnDelete",
     "btnUndo", "btnRedo",
@@ -868,6 +868,30 @@ def main() -> int:
     check(not icon_bad, "快捷方式图标契约 V0.0.15",
           f"缺失：{', '.join(icon_bad)}" if icon_bad
           else "IconLocation / 落盘串联 / validate_ico / 缓存刷新 / 错误码 齐备")
+
+    # 7m. 服务状态三态（V0.0.16：左栏自检收敛为顶栏「服务状态」三态）
+    #     判据三端：① 左栏 checklist 已移除（页面不再有该清单元素）；
+    #     ② 顶栏接线三态（SERVICE_CHIP_CLASS + setServiceState）；
+    #     ③ 三态取词键齐备。防「删了清单却忘了接线三态」或反向回归。
+    svc_bad: list[str] = []
+    idx_html = root / "src/web/index.html"
+    ihtml = idx_html.read_text(encoding="utf-8") if idx_html.is_file() else ""
+    if 'id="checklist"' in ihtml:
+        svc_bad.append("index.html 仍含 checklist")
+    mjs = root / "src/web/js/main.js"
+    mtext = mjs.read_text(encoding="utf-8") if mjs.is_file() else ""
+    for token in ("SERVICE_CHIP_CLASS", "setServiceState"):
+        if token not in mtext:
+            svc_bad.append(f"main.js:{token}")
+    for name in ("zh-CN.js", "en-US.js"):
+        p = root / "src/web/js/i18n" / name
+        t = p.read_text(encoding="utf-8") if p.is_file() else ""
+        for k in ("topbar.backend.connecting", "topbar.backend.ready", "topbar.backend.offline"):
+            if k not in t:
+                svc_bad.append(f"{name}:{k}")
+    check(not svc_bad, "服务状态三态 V0.0.16",
+          f"缺失：{', '.join(svc_bad)}" if svc_bad
+          else "左栏清单已移除 / 顶栏三态接线 / 三态取词键齐备")
 
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"

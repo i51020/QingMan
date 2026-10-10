@@ -61,25 +61,6 @@
 }
 .panel-block { margin-top: 16px; }
 
-.checklist { list-style: none; margin: 0; padding: 0; }
-.checklist li {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 0;
-  color: var(--qm-text-dim);
-  font-size: 12px;
-}
-.checklist li::before {
-  content: "○";
-  color: var(--qm-text-dim);
-  font-size: 11px;
-}
-.checklist li.is-ok { color: var(--qm-accent-ink); }
-.checklist li.is-ok::before { content: "●"; color: var(--qm-accent); }
-.checklist li.is-bad { color: var(--qm-danger); }
-.checklist li.is-bad::before { content: "●"; color: var(--qm-danger); }
-
 /* ---------- 左栏：模板列表（V0.0.11） ---------- */
 
 /* 标题与「另存为模板」同一行：标题是 h3 自带上下 margin，用 flex 对齐基线 */

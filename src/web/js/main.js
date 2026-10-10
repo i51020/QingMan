@@ -417,7 +417,6 @@ el('btnGenerate').addEventListener('click', async () => {
   try {
     const result = await api.generate(treePayload(root), { target, root: rootName, dryRun });
     inspector.showResult(result);
-    markCheck('write', !dryRun);
     setStatus(t(dryRun ? 'status.dryDone' : 'status.genDone', {
       dirs: result.createdDirs.length,
       files: result.createdFiles.length,
@@ -514,39 +513,35 @@ function setStatus(text) {
   el('statusText').textContent = text;
 }
 
-/* ---------- 自检 ---------- */
+/* ---------- 服务状态（V0.0.16：左栏自检收敛为顶栏服务状态三态） ---------- */
 
-function markCheck(key, ok) {
-  const item = document.querySelector(`#checklist li[data-check="${key}"]`);
-  if (!item) return;
-  item.classList.toggle('is-ok', !!ok);
-  item.classList.remove('is-bad');
-}
+const SERVICE_CHIP_CLASS = {
+  connecting: 'chip-ghost',
+  ready: 'chip-ok',
+  offline: 'chip-bad',
+};
 
-function failCheck(key) {
-  const item = document.querySelector(`#checklist li[data-check="${key}"]`);
-  if (!item) return;
-  item.classList.remove('is-ok');
-  item.classList.add('is-bad');
+let serviceState = 'connecting';
+
+/** 设置顶栏「服务状态」chip 的三态：connecting / ready / offline。 */
+function setServiceState(state) {
+  serviceState = state;
+  const chip = el('chipBackend');
+  if (!chip) return;
+  chip.className = 'chip ' + (SERVICE_CHIP_CLASS[state] || '');
+  chip.textContent = t('topbar.backend.' + state);
 }
 
 async function boot() {
-  markCheck('modules', true);
-  markCheck('model', !!store.get().root);
+  setServiceState('connecting');
 
   try {
     const info = await api.health();
     store.set({ version: info.version, connected: true });
-    el('chipBackend').textContent = t('topbar.backendOn');
-    el('chipBackend').classList.remove('chip-ghost');
-    el('chipBackend').classList.add('chip-ok');
-    markCheck('backend', true);
+    setServiceState('ready');
     setStatus(t('status.readyWith', { nameZh: info.nameZh, app: info.app }));
   } catch (err) {
-    failCheck('backend');
-    failCheck('write');
-    el('chipBackend').textContent = t('topbar.backendOff');
-    el('chipBackend').classList.add('chip-bad');
+    setServiceState('offline');
     setStatus(t('status.backendOffHint'));
     toast(t('toast.backendOff', { message: localizeError(err) }), 'error', 6000);
     return;
@@ -662,8 +657,7 @@ document.addEventListener('qmlocalechange', () => {
   renderSaveChip();
   renderGenBar();
   render();
-  const { connected } = store.get();
-  if (connected) el('chipBackend').textContent = t('topbar.backendOn');
+  setServiceState(serviceState);   // 服务状态 chip 文案随语言刷新
 });
 
 /* 换肤后重传启动图标（V0.0.15）：事件由 applySkin 在样式表 onload 后派发，
@@ -679,6 +673,4 @@ applyStatic(document);
 initTopbar();
 initGenBar();
 render();
-markCheck('modules', true);
-markCheck('model', true);
 boot();
