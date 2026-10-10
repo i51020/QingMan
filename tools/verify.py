@@ -64,7 +64,7 @@ REQUIRED_IDS = (
     "treeCanvas", "statusText", "statusCount",
     "inspector", "propName", "propType", "propPath", "propDirs", "propFiles", "propDepth",
     "propNote", "btnCopyName", "btnCopyPath", "btnCopyNote",
-    "genResult", "toastHost",
+    "genResult", "toastHost", "ctxMenu",
 )
 
 REQUIRED_FILES = (
@@ -965,6 +965,63 @@ def main() -> int:
     check(not split_bad, "帮助支持拆两页 V0.0.18",
           f"缺失：{', '.join(split_bad)}" if split_bad
           else "help 无 support 分节 / support 页接线 / about 表互链 齐备")
+
+    # 7p. 树交互增强（V0.0.19）：拖拽移动 + 右键菜单 + Delete/F2 快捷键
+    #     判据：① 模型层 moveNode 带防环与同名拦截（AST 钉函数体，防字面量蒙混）；
+    #     ② 视图层接线 dragstart/dragover/drop/contextmenu；③ main.js 有 canMove 前置校验
+    #     （保证 pushHistory 快照在改动前）+ 菜单动作复用 doAddChild/doRename/doDelete；
+    #     ④ Delete / F2 键位在 keydown 内接线；⑤ 键位表已登记两键；⑥ 右键菜单容器存在。
+    interact_bad: list[str] = []
+    tm19 = root / "src/web/js/modules/tree-model.js"
+    t19 = tm19.read_text(encoding="utf-8") if tm19.is_file() else ""
+    m = re.search(r"export function moveNode\(.*?\n\}", t19, flags=re.S)
+    if not m:
+        interact_bad.append("tree-model.js:缺 moveNode")
+    else:
+        body = m.group(0)
+        if "canMove" not in body:
+            interact_bad.append("moveNode 未复用 canMove（校验单一来源）")
+    m = re.search(r"export function canMove\(.*?\n\}", t19, flags=re.S)
+    if not m:
+        interact_bad.append("tree-model.js:缺 canMove")
+    else:
+        body = m.group(0)
+        for token, why in (("isSelfOrDescendant", "缺防环"), ("hasSiblingName", "缺同名拦截")):
+            if token not in body:
+                interact_bad.append(f"canMove {why}")
+    tv = root / "src/web/js/ui/tree-view.js"
+    v19 = tv.read_text(encoding="utf-8") if tv.is_file() else ""
+    for token in ("'dragstart'", "'dragover'", "'drop'", "'contextmenu'", "draggable"):
+        if token not in v19:
+            interact_bad.append(f"tree-view.js 缺 {token}")
+    cm = root / "src/web/js/ui/ctx-menu.js"
+    if not cm.is_file():
+        interact_bad.append("缺 ui/ctx-menu.js")
+    mjs19 = root / "src/web/js/main.js"
+    m19 = mjs19.read_text(encoding="utf-8") if mjs19.is_file() else ""
+    for token, why in (
+        ("canMove(", "缺拖拽前置校验"),
+        ("moveNode(", "缺移动接线"),
+        ("createContextMenu", "缺右键菜单接线"),
+        ("doAddChild", "缺菜单复用的新建函数"),
+        ("event.key === 'Delete'", "缺 Delete 键接线"),
+        ("event.key === 'F2'", "缺 F2 键接线"),
+    ):
+        if token not in m19:
+            interact_bad.append(why)
+    for name in ("zh-CN.js", "en-US.js"):
+        p = root / "src/web/js/i18n" / name
+        text = p.read_text(encoding="utf-8") if p.is_file() else ""
+        for k in ("help.kbd.delete", "help.kbd.rename", "tree.copyPath", "status.moved"):
+            if k not in text:
+                interact_bad.append(f"{name}:{k}")
+    idx19 = root / "src/web/index.html"
+    i19 = idx19.read_text(encoding="utf-8") if idx19.is_file() else ""
+    if 'id="ctxMenu"' not in i19:
+        interact_bad.append("index.html 缺 ctxMenu 容器")
+    check(not interact_bad, "树交互增强 V0.0.19",
+          f"缺失：{', '.join(interact_bad)}" if interact_bad
+          else "moveNode 防环/同名 / 拖拽与右键接线 / Delete-F2 键位与登记 齐备")
 
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"

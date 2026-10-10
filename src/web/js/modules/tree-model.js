@@ -125,6 +125,49 @@ export function addChild(parent, node) {
   return true;
 }
 
+/**
+ * 节点是否在 target 的子树内（含相等）。
+ * 拖拽防环用：把目录移进它自己的子孙里会形成环，必须拦截。
+ */
+export function isSelfOrDescendant(node, id) {
+  if (!node || node.id === id) return true;
+  if (!isDir(node)) return false;
+  return node.children.some((child) => isSelfOrDescendant(child, id));
+}
+
+/**
+ * 移动合法性检查（不改数据）。让调用方能在**入撤销栈之前**判定，
+ * 保证 pushHistory 快照的是改动前的状态。
+ * @returns {true | 'notDir' | 'cycle' | 'exists' | 'root'}
+ */
+export function canMove(root, id, targetDirId) {
+  if (!root || id === root.id) return 'root';
+  const node = findNode(root, id);
+  if (!node) return 'root';
+  const target = findNode(root, targetDirId);
+  if (!target || !isDir(target)) return 'notDir';
+  if (isSelfOrDescendant(node, targetDirId)) return 'cycle';
+  if (hasSiblingName(target, node.name, id)) return 'exists';
+  if (!findParent(root, id)) return 'root';
+  return true;
+}
+
+/**
+ * 把 id 节点移动到 targetDir 下（V0.0.19 拖拽）。
+ * 拦截四类非法移动：目标不是目录 / 移入自身或子孙（防环）/ 目标目录已有同名 / 根节点不可移动。
+ * 纯数据操作，撤销栈由调用方管理（与重命名/删除同路）。
+ * @returns {true | 'notDir' | 'cycle' | 'exists' | 'root'}
+ */
+export function moveNode(root, id, targetDirId) {
+  const check = canMove(root, id, targetDirId);
+  if (check !== true) return check;
+  const node = findNode(root, id);
+  const target = findNode(root, targetDirId);
+  removeNode(root, id);
+  addChild(target, node);
+  return true;
+}
+
 export function renameNode(root, id, name) {
   const node = findNode(root, id);
   if (!node || root.id === id) return false;

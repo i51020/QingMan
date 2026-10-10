@@ -14,15 +14,16 @@ import {
 } from './i18n/index.js';
 import {
   createDir, createFile, findNode, findParent, addChild,
-  renameNode, removeNode, countTree, treePayload,
+  renameNode, removeNode, moveNode, canMove, countTree, treePayload,
   hasSiblingName, reserveIds, assertUniqueIds,
   toDocumentNode, fromDocumentNode, resetIdRegistry, fromNestedTree,
-  adoptTemplateNote, normalizeNote,
+  adoptTemplateNote, normalizeNote, isDir, pathOf,
 } from './modules/tree-model.js';
 import { createTreeView } from './ui/tree-view.js';
 import { createInspector } from './ui/inspector.js';
 import { createSkinPicker } from './ui/skin-picker.js';
 import { createLangPicker } from './ui/lang-picker.js';
+import { createContextMenu } from './ui/ctx-menu.js';
 import { toast } from './ui/toast.js';
 import { copyText } from './ui/inspector.js';
 import { renderLaunchIcon, ensureLaunchIcon } from './ui/launch-icon.js';
@@ -174,7 +175,58 @@ const treeView = createTreeView(el('treeCanvas'), {
   onSelect(id) {
     store.set({ selectedId: id });
   },
+  // V0.0.19 拖拽：把 id 节点移到 targetDirId 下（模型层拦截非目录/成环/同名/根）
+  onMove(id, targetDirId) {
+    const root = store.get().root;
+    const check = canMove(root, id, targetDirId);
+    if (check !== true) {
+      const keys = {
+        notDir: 'toast.moveNotDir',
+        cycle: 'toast.moveCycle',
+        exists: 'toast.siblingExists',
+        root: 'toast.moveRoot',
+      };
+      const node = findNode(root, id);
+      toast(t(keys[check] || 'toast.moveNotDir', { name: node ? node.name : '' }), 'warn');
+      return;
+    }
+    const node = findNode(root, id);
+    const target = findNode(root, targetDirId);
+    const name = node ? node.name : '';
+    const to = target ? target.name : '';
+    pushHistory();           // 先快照改动前状态，再落改动
+    moveNode(root, id, targetDirId);
+    treeView.expandAll();    // 目标目录展开，移进去立即可见
+    store.set({ selectedId: id });
+    setStatus(t('status.moved', { name, to }));
+    markDirty();
+  },
+  // V0.0.19 右键：选中并弹菜单；菜单项与工具栏同一组动作函数
+  onContext(id, x, y) {
+    store.set({ selectedId: id });
+    openTreeContextMenu(id, x, y);
+  },
 });
+
+/* ---------- 右键菜单（V0.0.19）：动作与工具栏同函数，菜单只管收集与弹出 ---------- */
+
+const ctxMenu = createContextMenu();
+
+function openTreeContextMenu(id, x, y) {
+  const root = store.get().root;
+  const node = findNode(root, id);
+  if (!node) return;
+  const isRoot = id === root.id;
+  ctxMenu.showAt(x, y, [
+    { label: t('tree.addChild'), disabled: !isDir(node), action: () => doAddChild(id) },
+    { label: t('tree.rename'), disabled: isRoot, action: () => doRename(id) },
+    { label: t('tree.delete'), danger: true, disabled: isRoot, action: () => doDelete(id) },
+    {
+      label: t('tree.copyPath'),
+      action: () => copyWithToast(pathOf(root, id) || node.name, 'toast.copied', 'toast.copyFailed'),
+    },
+  ]);
+}
 
 const inspector = createInspector({
   name: el('propName'),
@@ -317,9 +369,12 @@ function selectedId() {
   return store.get().selectedId;
 }
 
-el('btnAddChild').addEventListener('click', () => {
+/* 三个树操作提取为具名函数：工具栏按钮与右键菜单共用同一实现（V0.0.19）。
+   id 缺省用当前选中，右键菜单显式传入被右键节点。 */
+
+function doAddChild(id = selectedId()) {
   const root = store.get().root;
-  const node = findNode(root, selectedId());
+  const node = findNode(root, id);
   if (!node || node.type !== 'dir') {
     toast(t('toast.selectDirFirst'), 'warn');
     return;
@@ -341,11 +396,10 @@ el('btnAddChild').addEventListener('click', () => {
   store.set({ selectedId: child.id });
   setStatus(t('status.addedDir', { name: trimmed }));
   markDirty();
-});
+}
 
-el('btnRename').addEventListener('click', () => {
+function doRename(id = selectedId()) {
   const root = store.get().root;
-  const id = selectedId();
   if (id === root.id) {
     toast(t('toast.rootRenameBlocked'), 'warn');
     return;
@@ -370,11 +424,10 @@ el('btnRename').addEventListener('click', () => {
   store.set({});
   setStatus(t('status.renamed', { name: trimmed }));
   markDirty();
-});
+}
 
-el('btnDelete').addEventListener('click', () => {
+function doDelete(id = selectedId()) {
   const root = store.get().root;
-  const id = selectedId();
   if (id === root.id) {
     toast(t('toast.rootDeleteBlocked'), 'warn');
     return;
@@ -388,7 +441,11 @@ el('btnDelete').addEventListener('click', () => {
   store.set({ selectedId: parent ? parent.id : root.id });
   setStatus(t('status.deleted', { name: node.name }));
   markDirty();
-});
+}
+
+el('btnAddChild').addEventListener('click', () => doAddChild());
+el('btnRename').addEventListener('click', () => doRename());
+el('btnDelete').addEventListener('click', () => doDelete());
 
 el('btnExpandAll').addEventListener('click', () => {
   treeView.expandAll();
@@ -510,14 +567,29 @@ el('btnCopyNote').addEventListener('click', () => {
 el('btnUndo').addEventListener('click', undo);
 el('btnRedo').addEventListener('click', redo);
 
-/* Ctrl/Cmd + S 立即保存；Ctrl/Cmd + Z 撤销；Ctrl/Cmd + Y / Ctrl/Cmd + Shift + Z 重做。
-   在输入框内时保留原生撤销行为，不拦截。 */
+/* Ctrl/Cmd + S 立即保存；Ctrl/Cmd + Z 撤销；Ctrl/Cmd + Y / Ctrl/Cmd + Shift + Z 重做；
+   Delete 删除选中节点；F2 重命名选中节点。
+   在输入框内时保留原生行为，不拦截（typing 守卫）。 */
 document.addEventListener('keydown', (event) => {
+  const tag = (event.target.tagName || '').toLowerCase();
+  const typing = tag === 'input' || tag === 'textarea' || event.target.isContentEditable;
+
+  if (event.key === 'Delete') {
+    if (typing) return;
+    event.preventDefault();
+    doDelete();
+    return;
+  }
+  if (event.key === 'F2') {
+    if (typing) return;
+    event.preventDefault();
+    doRename();
+    return;
+  }
+
   const mod = event.ctrlKey || event.metaKey;
   if (!mod || event.altKey) return;
   const key = String(event.key).toLowerCase();
-  const tag = (event.target.tagName || '').toLowerCase();
-  const typing = tag === 'input' || tag === 'textarea' || event.target.isContentEditable;
 
   if (key === 's') {
     event.preventDefault();

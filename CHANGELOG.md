@@ -7,6 +7,59 @@
 
 ---
 
+## V0.0.19 — 2026-10-10
+
+**主题**：树交互增强 —— 拖拽移动节点 + 右键快捷菜单 + `Delete` / `F2` 快捷键。
+
+> **立项依据**：三栏编辑器此前对目录树只有「工具栏按钮 + 单击选中」两条交互路径；
+> 移动节点必须「删除重建」，重命名/删除要先把鼠标移到中栏工具栏。本轮补齐三种**就地操作**，
+> 让树本身成为完整操作面（拖拽=移动，右键=上下文菜单，键位=键盘流）。
+
+### 变更（`src/`）
+
+- **数据模型**（`tree-model.js`）
+  - 新增 `isSelfOrDescendant(node, id)`：判断节点是否在目标子树内（防环基础）
+  - 新增 `canMove(root, id, targetDirId)`：**不改数据**的合法性检查，返回 `true | 'notDir' | 'cycle' | 'exists' | 'root'` —— 让调用方能在**入撤销栈之前**判定
+  - 新增 `moveNode(root, id, targetDirId)`：复用 `canMove`（校验单一来源），通过则从原父移除、挂到目标目录下；纯数据操作，撤销栈由调用方管理
+- **树视图**（`tree-view.js`）
+  - 节点行 `draggable`（根节点除外）；`dragstart` / `dragover` / `drop` / `dragleave` 全接线，目录行作落点并高亮
+  - `contextmenu` 事件回传 `onContext(id, x, y)`；新回调 `onMove(id, targetDirId)`
+  - 视图内重渲染改用 `currentSelectedId` 快照，避免折叠/拖拽时闭包取旧值
+- **右键菜单**（新增 `ui/ctx-menu.js` + `index.html` `#ctxMenu`）
+  - `showAt(x, y, items)` 收集菜单项并由调用方注入动作 —— **菜单本身零业务逻辑**
+  - 视口边缘翻转防溢出；`Escape` / 点击外部 / 窗口失焦关闭；`↑` / `↓` 键盘导航
+  - 菜单项与工具栏**共用同一组动作函数**（`doAddChild` / `doRename` / `doDelete` 由内联处理器提取为具名函数）
+- **主入口**（`main.js`）
+  - 拖拽：`canMove` 前置校验 → `pushHistory()` → `moveNode()` → 展开目标目录 → 状态提示（**顺序保证撤销快照是改动前状态**）
+  - 右键：先选中被右键节点再弹菜单；根节点禁用「重命名 / 删除」、非目录禁用「新建子节点」
+  - 键位：`Delete` 删除、`F2` 重命名（**在 typing 守卫之后**，输入框/textarea 内不拦截）
+- **样式**（`layout.css`）：新增 `.is-drop-target`（落点高亮，只用既有变量）与 `.ctx-menu` / `.ctx-item`（面板质感复用 `--qm-surface` / `--qm-line` / `--qm-r-sm` / 阴影 token）
+- **i18n**：新增 9 键（`tree.copyPath` + `status.moved` + `toast.moveNotDir/moveCycle/moveRoot` + `help.kbd.delete/rename` + `help.tree.6/tree.7`），中英对齐；帮助页键位表同步登记 `Delete` / `F2`
+- **后端零改动**（纯前端交互）
+
+### 变更（`tools/` 与测试）
+
+- `verify.py`：71 → **72 项**（`REQUIRED_IDS` 补 `ctxMenu`；新增守卫**「树交互增强」**：`moveNode` 复用 `canMove` / `canMove` 带防环与同名拦截（AST 钉函数体）/ 视图层五事件接线 / `main.js` 前置校验与三具名函数 / 两键位接线 / 取词键齐备 / 菜单容器存在）
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| 主线 `verify.py` | **72 项 0 失败** |
+| `unittest` | **107 OK** |
+| `smoke.py` | **17 项 0 失败** |
+| Node 模型层实证（`_sandbox/qm_move_20261010/`，直接加载产品源码） | **25 项 0 失败**：四类拦截（根/非目录/环/同名）/ 非法移动零改动 / 合法移动父子关系与计数 / id 唯一性保持 / 往返移动 id 不变 / 序列化往返保留 / 整树移动子树完整 / `isSelfOrDescendant` 边界 / 同名大小写不敏感 |
+| 浏览器 E2E 静态断言（Edge headless 同源） | **26 项 0 失败**：`ctx-menu.js` 导出 / 拖拽与右键接线 / `main.js` 前置校验与具名函数 / 键位接线 / 模型三导出 / CSS 类 / 菜单容器位置 / 中英新键齐备 / 四页 200 |
+| 浏览器 E2E 行为（iframe 载入真实页面派发事件） | **13 项 0 失败**：树已渲染 / 根不可拖其余可拖 / 右键菜单显示 4 项且文案非空 / 根上重命名删除禁用 / 菜单不溢出视口 / `Escape` 关闭 / 子节点重命名删除可用 |
+
+### 已知边界
+
+- 拖拽用于 **HTML5 DnD**，触摸设备无原生支持（桌面优先，与 V0.0.18 后裁定的 Windows 优先一致）
+- 右键菜单为**自定义菜单**，仅在树节点行内拦截；树空白处仍弹浏览器原生菜单
+- `Delete` / `F2` 在输入框内不生效（保留原生编辑行为）
+
+---
+
 ## V0.0.18 — 2026-10-10
 
 **主题**：帮助/支持拆两页 —— 「支持与赞赏」从帮助页分节独立为 `support.html`，帮助页瘦身、入口直达。

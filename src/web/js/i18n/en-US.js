@@ -179,6 +179,7 @@ export const dict = {
   'tree.newDirDefault': 'New directory',
   'tree.renamePrompt': 'Rename',
   'tree.deleteConfirm': 'Delete "{name}" and all its children?',
+  'tree.copyPath': 'Copy path',
 
   /* ---------- Right: property workspace ---------- */
   'inspector.title': 'Property Workspace',
@@ -210,6 +211,7 @@ export const dict = {
   'status.addedDir': 'Added directory "{name}"',
   'status.renamed': 'Renamed to "{name}"',
   'status.deleted': 'Deleted "{name}"',
+  'status.moved': 'Moved "{name}" into "{to}"',
   'status.dryRunning': 'Dry running…',
   'status.writing': 'Writing to disk…',
   'status.dryDone': 'Dry run done: {dirs} dirs · {files} files · {existed} existed',
@@ -238,6 +240,9 @@ export const dict = {
   'toast.siblingExists': '"{name}" already exists in this directory',
   'toast.rootRenameBlocked': 'Root name is controlled by "Root folder name"',
   'toast.rootDeleteBlocked': 'Root node cannot be deleted',
+  'toast.moveNotDir': 'Can only move into a directory node',
+  'toast.moveCycle': 'Cannot move a directory into its own subdirectory',
+  'toast.moveRoot': 'Root node cannot be moved',
   'toast.targetRequired': 'Please fill in the target path first',
   'toast.dryDone': 'Dry run complete, no disk changes',
   'toast.generatedTo': 'Generated to {root}',
@@ -276,7 +281,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.18',
+  'help.versionFallback': 'V0.0.19',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',
@@ -309,11 +314,15 @@ export const dict = {
   'help.tree.3': '"Rename" edits the node name; root name is controlled by "Root folder name"',
   'help.tree.4': '"Delete" removes the selected node and its children (with confirmation)',
   'help.tree.5': '"Expand all / Collapse all" toggles all levels',
+  'help.tree.6': 'Drag a node onto a directory to move it there (cannot move into its own subdirectory)',
+  'help.tree.7': 'Right-click a node to open a menu: New child / Rename / Delete / Copy path',
 
   'help.kbd.title': 'Keyboard shortcuts',
   'help.kbd.save': 'Ctrl / Cmd + S — Save immediately (skip debounce)',
   'help.kbd.undo': 'Ctrl / Cmd + Z — Undo the last edit',
   'help.kbd.redo': 'Ctrl / Cmd + Y or Ctrl / Cmd + Shift + Z — Redo',
+  'help.kbd.delete': 'Delete — Delete the selected node (with confirmation, undoable)',
+  'help.kbd.rename': 'F2 — Rename the selected node',
   'help.kbd.pending': 'Additional shortcuts will be finalized once the feature surface stabilizes.',
 
   'help.safety.title': 'Safety',
@@ -353,8 +362,9 @@ export const helpSections = [
   ] },
   { id: 'tree', title: 'help.tree.title', kind: 'ul', items: [
     'help.tree.1', 'help.tree.2', 'help.tree.3', 'help.tree.4', 'help.tree.5',
+    'help.tree.6', 'help.tree.7',
   ] },
-  { id: 'kbd', title: 'help.kbd.title', kind: 'note', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.pending'] },
+  { id: 'kbd', title: 'help.kbd.title', kind: 'note', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.delete', 'help.kbd.rename', 'help.kbd.pending'] },
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [
     'help.safety.1', 'help.safety.2', 'help.safety.3', 'help.safety.4', 'help.safety.5',
   ] },

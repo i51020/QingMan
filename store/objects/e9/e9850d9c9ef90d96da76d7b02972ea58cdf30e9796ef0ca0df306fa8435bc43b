@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="app.title">QingMan</title>
+  <link rel="stylesheet" href="./css/tokens.css">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/layout.css">
+</head>
+<body>
+  <div id="app">
+
+    <header id="topbar">
+      <button type="button" class="brand" id="btnLogo" data-i18n-title="topbar.logoTip">
+        <span class="brand-logo" aria-hidden="true"></span>
+        <span class="brand-mark" data-i18n="app.nameZh"></span>
+        <span class="brand-sub" data-i18n="app.nameEn"></span>
+      </button>
+      <div class="topbar-right">
+        <label class="topbar-select" data-i18n-title="lang.label">
+          <span class="select-label" data-i18n="lang.label"></span>
+          <select id="langSelect"></select>
+        </label>
+        <label class="topbar-select" data-i18n-title="skin.label">
+          <span class="select-label" data-i18n="skin.label"></span>
+          <select id="skinSelect"></select>
+        </label>
+        <span class="chip chip-ghost" id="chipSave" data-i18n="topbar.save.idle" data-i18n-title="topbar.saveTip"></span>
+        <span class="chip chip-ghost" id="chipBackend" data-i18n="topbar.backend.connecting"></span>
+        <button type="button" class="btn btn-ghost" id="btnSupport" data-i18n="topbar.support" data-i18n-title="topbar.supportTip"></button>
+        <button type="button" class="btn btn-ghost" id="btnHelp" data-i18n="topbar.help" data-i18n-title="topbar.helpTip"></button>
+      </div>
+    </header>
+
+    <main id="main">
+
+      <aside id="sidebar">
+        <h2 class="panel-title" data-i18n="sidebar.title"></h2>
+        <p class="hint" id="tplNote">
+          <span data-i18n="sidebar.noteLine1"></span><br>
+          <span data-i18n="sidebar.noteLine2"></span><code>templates/</code>
+        </p>
+        <div class="panel-block">
+          <div class="panel-head">
+            <h3 class="panel-sub" data-i18n="template.listTitle"></h3>
+            <button type="button" class="btn btn-ghost btn-mini" id="btnSaveTemplate"
+                    data-i18n="template.saveAs" data-i18n-title="template.saveAsTip"></button>
+          </div>
+          <!-- items are rendered by main.js from the backend templates/ data -->
+          <ul class="tpl-list" id="templateList"></ul>
+        </div>
+      </aside>
+
+      <section id="center">
+        <header class="center-head">
+          <h2 class="panel-title" data-i18n="tree.title"></h2>
+        </header>
+
+        <div id="genBar">
+          <button type="button" class="genbar-head" id="btnGenToggle"
+                  aria-expanded="true" aria-controls="genFields">
+            <span class="genbar-caret" id="genCaret" aria-hidden="true"></span>
+            <span class="genbar-summary" id="genSummary" data-i18n="gen.summaryEmpty"></span>
+          </button>
+          <div class="genbar-fields" id="genFields">
+            <label class="field">
+              <span data-i18n="gen.rootLabel"></span>
+              <input type="text" id="inRoot" data-i18n-placeholder="gen.rootPlaceholder">
+            </label>
+            <label class="field field-wide">
+              <span data-i18n="gen.targetLabel"></span>
+              <input type="text" id="inTarget" data-i18n-placeholder="gen.targetPlaceholder">
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="inDryRun" checked>
+              <span data-i18n="gen.dryRun"></span>
+            </label>
+          </div>
+        </div>
+
+        <div id="toolbar" class="bar">
+          <button type="button" id="btnUndo" class="btn btn-ghost" data-i18n="tree.undo" disabled></button>
+          <button type="button" id="btnRedo" class="btn btn-ghost" data-i18n="tree.redo" disabled></button>
+          <span class="divider"></span>
+          <button type="button" id="btnAddChild" class="btn" data-i18n="tree.addChild"></button>
+          <button type="button" id="btnRename" class="btn" data-i18n="tree.rename"></button>
+          <button type="button" id="btnDelete" class="btn btn-danger" data-i18n="tree.delete"></button>
+          <span class="divider"></span>
+          <button type="button" id="btnExpandAll" class="btn btn-ghost" data-i18n="tree.expandAll"></button>
+          <button type="button" id="btnCollapseAll" class="btn btn-ghost" data-i18n="tree.collapseAll"></button>
+          <span class="spacer"></span>
+          <button type="button" id="btnGenerate" class="btn btn-primary" data-i18n="gen.button"></button>
+        </div>
+
+        <div id="treeWrap">
+          <div id="treeCanvas" role="tree" data-i18n-aria-label="tree.canvasLabel"></div>
+        </div>
+
+        <footer id="statusBar">
+          <span id="statusText" data-i18n="status.ready"></span>
+          <span id="statusCount" class="status-count"></span>
+        </footer>
+      </section>
+
+      <aside id="inspector">
+        <h2 class="panel-title" data-i18n="inspector.title"></h2>
+        <div class="prop-list">
+          <div class="prop"><span class="prop-key" data-i18n="inspector.name"></span><span class="prop-val" id="propName">—</span><button type="button" class="btn btn-ghost btn-mini" id="btnCopyName" data-i18n="inspector.copy" data-i18n-title="inspector.copyNameTip"></button></div>
+          <div class="prop"><span class="prop-key" data-i18n="inspector.type"></span><span class="prop-val" id="propType">—</span></div>
+          <div class="prop"><span class="prop-key" data-i18n="inspector.path"></span><span class="prop-val prop-mono" id="propPath">—</span><button type="button" class="btn btn-ghost btn-mini" id="btnCopyPath" data-i18n="inspector.copy" data-i18n-title="inspector.copyPathTip"></button></div>
+          <div class="prop"><span class="prop-key" data-i18n="inspector.depth"></span><span class="prop-val" id="propDepth">—</span></div>
+          <div class="prop"><span class="prop-key" data-i18n="inspector.dirs"></span><span class="prop-val" id="propDirs">0</span></div>
+          <div class="prop"><span class="prop-key" data-i18n="inspector.files"></span><span class="prop-val" id="propFiles">0</span></div>
+        </div>
+        <h3 class="panel-sub" data-i18n="inspector.noteTitle"></h3>
+        <textarea id="propNote" rows="6" data-i18n-placeholder="inspector.notePlaceholder" disabled></textarea>
+        <div class="note-actions">
+          <button type="button" class="btn btn-ghost btn-mini" id="btnCopyNote" data-i18n="inspector.copyNote" data-i18n-title="inspector.copyNoteTip"></button>
+        </div>
+        <h3 class="panel-sub" data-i18n="inspector.resultTitle"></h3>
+        <pre class="result" id="genResult" data-i18n="inspector.resultEmpty"></pre>
+      </aside>
+
+    </main>
+  </div>
+
+  <div id="toastHost" class="toast-host" aria-live="polite"></div>
+  <div id="ctxMenu" class="ctx-menu" role="menu" hidden></div>
+
+  <!-- OS locale is injected synchronously by /api/env.js: it must load before the module
+       script, otherwise the first paint would use the browser language and then jump. -->
+  <script src="./api/env.js"></script>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

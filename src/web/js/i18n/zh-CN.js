@@ -185,6 +185,7 @@ export const dict = {
   'tree.newDirDefault': '新建目录',
   'tree.renamePrompt': '重命名',
   'tree.deleteConfirm': '确认删除「{name}」及其全部子节点？',
+  'tree.copyPath': '复制路径',
 
   /* ---------- 右栏：属性工作区 ---------- */
   'inspector.title': '属性工作区',
@@ -216,6 +217,7 @@ export const dict = {
   'status.addedDir': '已新建目录「{name}」',
   'status.renamed': '已重命名为「{name}」',
   'status.deleted': '已删除「{name}」',
+  'status.moved': '已移动「{name}」至「{to}」',
   'status.dryRunning': '演练中…',
   'status.writing': '正在写入磁盘…',
   'status.dryDone': '演练完成：目录 {dirs} · 文件 {files} · 已存在 {existed}',
@@ -244,6 +246,9 @@ export const dict = {
   'toast.siblingExists': '「{name}」已存在于该目录下',
   'toast.rootRenameBlocked': '根节点名称由「根文件夹名」决定，不在此处重命名',
   'toast.rootDeleteBlocked': '根节点不可删除',
+  'toast.moveNotDir': '只能移动到目录节点下',
+  'toast.moveCycle': '不能把目录移到它自己的子目录下',
+  'toast.moveRoot': '根节点不可移动',
   'toast.targetRequired': '请先填写目标位置',
   'toast.dryDone': '演练完成，未写入磁盘',
   'toast.generatedTo': '已生成到 {root}',
@@ -282,7 +287,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.18',
+  'help.versionFallback': 'V0.0.19',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',
@@ -315,11 +320,15 @@ export const dict = {
   'help.tree.3': '「重命名」修改节点名称；根节点名称由「根文件夹名」决定，不在此处改',
   'help.tree.4': '「删除」移除选中节点及其全部子节点（有二次确认）',
   'help.tree.5': '「全部展开 / 全部折叠」批量切换层级',
+  'help.tree.6': '拖拽节点到某个目录上，可把它移动到该目录下（不能移到自己的子目录里）',
+  'help.tree.7': '在节点上单击右键可弹出菜单：新建子节点 / 重命名 / 删除 / 复制路径',
 
   'help.kbd.title': '快捷键',
   'help.kbd.save': 'Ctrl / Cmd + S — 立即保存（跳过防抖，不等自动保存）',
   'help.kbd.undo': 'Ctrl / Cmd + Z — 撤销上一步编辑',
   'help.kbd.redo': 'Ctrl / Cmd + Y 或 Ctrl / Cmd + Shift + Z — 重做',
+  'help.kbd.delete': 'Delete — 删除选中节点（有二次确认，可撤销）',
+  'help.kbd.rename': 'F2 — 重命名选中节点',
   'help.kbd.pending': '其余键位待功能面稳定后统一约定，届时同步本页与《项目手册》。',
 
   'help.safety.title': '安全说明',
@@ -366,8 +375,9 @@ export const helpSections = [
   ] },
   { id: 'tree', title: 'help.tree.title', kind: 'ul', items: [
     'help.tree.1', 'help.tree.2', 'help.tree.3', 'help.tree.4', 'help.tree.5',
+    'help.tree.6', 'help.tree.7',
   ] },
-  { id: 'kbd', title: 'help.kbd.title', kind: 'note', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.pending'] },
+  { id: 'kbd', title: 'help.kbd.title', kind: 'note', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.delete', 'help.kbd.rename', 'help.kbd.pending'] },
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [
     'help.safety.1', 'help.safety.2', 'help.safety.3', 'help.safety.4', 'help.safety.5',
   ] },

@@ -223,6 +223,45 @@
 .tree-children { margin-left: 16px; border-left: 1px dashed var(--qm-line); padding-left: 4px; }
 .tree-children.is-collapsed { display: none; }
 
+/* 拖拽落点高亮（V0.0.19）—— 只用既有变量，不新造视觉语言 */
+.tree-row.is-drop-target {
+  background: var(--qm-accent-soft);
+  outline: 1px dashed var(--qm-accent);
+  outline-offset: -1px;
+}
+
+/* 右键菜单（V0.0.19）—— 面板质感复用 base.css 变量 */
+.ctx-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 160px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--qm-surface);
+  border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-sm);
+  box-shadow: 2px 3px 8px var(--qm-shadow-dark);
+}
+.ctx-item {
+  text-align: left;
+  padding: 6px 10px;
+  border: none;
+  border-radius: var(--qm-r-sm);
+  background: transparent;
+  color: var(--qm-text);
+  font: inherit;
+  cursor: pointer;
+}
+.ctx-item:hover:not(:disabled), .ctx-item:focus-visible {
+  background: var(--qm-accent-soft);
+  color: var(--qm-accent-ink);
+  outline: none;
+}
+.ctx-item.is-danger { color: var(--qm-danger); }
+.ctx-item:disabled { opacity: 0.45; cursor: not-allowed; }
+
 #statusBar {
   flex: 0 0 auto;
   display: flex;
