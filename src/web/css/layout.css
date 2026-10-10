@@ -107,6 +107,34 @@
 .tpl-empty { color: var(--qm-text-dim); font-size: 12px; padding: 4px 0; }
 .tpl-empty.tpl-warn { color: var(--qm-warn); }
 
+/* 模板 CRUD 操作（V0.0.20）：重命名 / 删除 —— hover 或键盘聚焦时才显形，不挤占列表 */
+.tpl-row { position: relative; display: flex; align-items: stretch; }
+.tpl-row .tpl-item { flex: 1 1 auto; }
+.tpl-ops {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 4px;
+  opacity: 0;
+  transition: opacity .12s ease;
+}
+.tpl-row:hover .tpl-ops,
+.tpl-row:focus-within .tpl-ops { opacity: 1; }
+@media (hover: none) { .tpl-ops { opacity: 1; } }
+.tpl-op {
+  flex: 1 1 auto;
+  padding: 2px 6px;
+  border: 1px solid var(--qm-line-soft);
+  border-radius: var(--qm-r-sm);
+  background: var(--qm-surface-2);
+  color: var(--qm-text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tpl-op:hover { color: var(--qm-accent-ink); border-color: var(--qm-accent); background: var(--qm-accent-soft); }
+.tpl-op.is-danger:hover { color: var(--qm-danger); border-color: var(--qm-danger); background: var(--qm-danger-soft); }
+
 /* 中栏 */
 #center { background: var(--qm-surface); padding: 0; overflow: hidden; }
 

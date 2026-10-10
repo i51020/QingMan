@@ -55,5 +55,7 @@
   "templateTooManyNodes": "模板规模超限：目录 {dirs} + 文件 {files} = {total}，上限 {limit}",
   "templateTooLarge": "模板过大，上限 {limit} 字节（当前 {actual}）",
   "templateExists": "同名模板已存在：{name}（不会覆盖，请改名后重试）",
-  "templateWriteFailed": "模板写入失败：{name}（磁盘不可写或文件被占用）"
+  "templateWriteFailed": "模板写入失败：{name}（磁盘不可写或文件被占用）",
+  "templateDeleteFailed": "删除模板失败：{name}（文件被占用或回收站不可写）",
+  "templateRenameFailed": "重命名模板失败：{name}（文件被占用或名称冲突）"
 }

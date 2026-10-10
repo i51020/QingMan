@@ -179,10 +179,11 @@ class Handler(BaseHTTPRequestHandler):
         if not self._guard() or not self._guard_write():
             return
         path = urlparse(self.path).path
-        # POST /api/templates = 另存为模板（V0.0.13）；/api/launch-icon = 皮肤联动图标上传
-        # （V0.0.15）—— 与生成、快捷方式同为写操作
-        if path not in (routes.GENERATE_PATH, routes.SHORTCUT_PATH, routes.TEMPLATES_PATH,
-                        routes.ICON_PATH):
+        # POST /api/templates = 另存为模板（V0.0.13）；/api/templates/<name> = 重命名（V0.0.20）；
+        # /api/launch-icon = 皮肤联动图标上传（V0.0.15）—— 与生成、快捷方式同为写操作
+        is_rename = path.startswith(routes.TEMPLATES_PATH + "/")
+        if not is_rename and path not in (routes.GENERATE_PATH, routes.SHORTCUT_PATH,
+                                          routes.TEMPLATES_PATH, routes.ICON_PATH):
             self._fail(404, "notFound", path=path)
             return
         try:
@@ -199,7 +200,10 @@ class Handler(BaseHTTPRequestHandler):
             self._fail(400, "badJson")
             return
         try:
-            if path == routes.GENERATE_PATH:
+            if is_rename:
+                name = unquote(path[len(routes.TEMPLATES_PATH) + 1:])
+                self._json(200, routes.rename_template(name, payload))
+            elif path == routes.GENERATE_PATH:
                 self._json(200, routes.generate(payload))
             elif path == routes.TEMPLATES_PATH:
                 self._json(200, routes.save_template(payload))
@@ -243,6 +247,28 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, routes.save_editor(payload))
         except TreeError as exc:
             self._fail(400, exc.code, **exc.detail)
+        except OSError as exc:
+            self._fail(500, "ioError", message=str(exc))
+        except Exception as exc:  # noqa: BLE001 - 兜底，避免服务崩溃
+            self._fail(500, "internalError", message=str(exc))
+
+    def do_DELETE(self) -> None:  # noqa: N802
+        """DELETE /api/templates/<name> —— 删除单套模板（V0.0.20，软删除入 .trash）。
+
+        属写操作：与 POST/PUT 同等，要过 `_guard_write()`（防护头）。
+        """
+        if not self._guard() or not self._guard_write():
+            return
+        path = urlparse(self.path).path
+        if not path.startswith(routes.TEMPLATES_PATH + "/"):
+            self._fail(404, "notFound", path=path)
+            return
+        # 文件名经 URL 编码（模板名含中文），先解码再交给路由层过白名单
+        name = unquote(path[len(routes.TEMPLATES_PATH) + 1:])
+        try:
+            self._json(200, routes.delete_template(name))
+        except TreeError as exc:
+            self._fail(404, exc.code, **exc.detail)
         except OSError as exc:
             self._fail(500, "ioError", message=str(exc))
         except Exception as exc:  # noqa: BLE001 - 兜底，避免服务崩溃

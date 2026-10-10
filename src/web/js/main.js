@@ -94,6 +94,11 @@ function initTopbar() {
 const HISTORY_LIMIT = 50;
 let undoStack = [];
 let redoStack = [];
+/** note 编辑会话（V0.0.20）：已为哪个节点入过撤销栈 —— 一次连续编辑只占一格历史，
+ *  否则打一段字就会把 50 步上限全部吃掉（V0.0.17 遗留缺陷）。 */
+let noteHistoryId = null;
+/** 上一次渲染的选中节点：用于在切换选中时结束 note 编辑会话 */
+let lastRenderedSelectedId = null;
 
 function snapshotTree() {
   return toDocumentNode(store.get().root);
@@ -117,6 +122,9 @@ function restoreHistory(doc) {
   const root = fromDocumentNode(doc);
   let selectedId = store.get().selectedId;
   if (!findNode(root, selectedId)) selectedId = root.id;
+  noteHistoryId = null;   // 历史已变，原编辑会话作废（否则撤销后继续打字不入栈）
+  // 同步作废属性栏的编辑暂存：否则 note 输入框仍显示回退前的旧文本（V0.0.20）
+  if (typeof inspector.resetEditing === 'function') inspector.resetEditing();
   store.set({ root, selectedId });
 }
 
@@ -238,10 +246,14 @@ const inspector = createInspector({
   note: el('propNote'),
   result: el('genResult'),
   onNoteChange(id, value) {
-    // note 编辑与重命名同路：入撤销栈（可 Ctrl+Z）、标脏走自动保存
+    // note 编辑：与重命名同路入撤销栈，但**按编辑会话合并**（V0.0.20）——
+    // 同一节点连续输入只在第一次入栈，失焦/切换节点/撤销后重新计一次。
     const node = findNode(store.get().root, id);
     if (!node) return;
-    pushHistory();
+    if (noteHistoryId !== id) {
+      pushHistory();
+      noteHistoryId = id;
+    }
     node.note = normalizeNote(value);
     setStatus(t('status.noteUpdated', { name: node.name }));
     markDirty();
@@ -250,6 +262,11 @@ const inspector = createInspector({
 
 function render() {
   const { root, selectedId } = store.get();
+  // 选中节点切换即结束 note 编辑会话（V0.0.20）：换回来重编辑时重新计一格历史
+  if (selectedId !== lastRenderedSelectedId) {
+    noteHistoryId = null;
+    lastRenderedSelectedId = selectedId;
+  }
   treeView.render(root, selectedId);
   inspector.render(root, selectedId);
   const stats = countTree(root);
@@ -567,6 +584,11 @@ el('btnCopyNote').addEventListener('click', () => {
 el('btnUndo').addEventListener('click', undo);
 el('btnRedo').addEventListener('click', redo);
 
+// note 说明框失焦 = 编辑会话结束（V0.0.20）：下次聚焦重新计一格历史
+el('propNote').addEventListener('blur', () => {
+  noteHistoryId = null;
+});
+
 /* Ctrl/Cmd + S 立即保存；Ctrl/Cmd + Z 撤销；Ctrl/Cmd + Y / Ctrl/Cmd + Shift + Z 重做；
    Delete 删除选中节点；F2 重命名选中节点。
    在输入框内时保留原生行为，不拦截（typing 守卫）。 */
@@ -699,6 +721,7 @@ async function loadTemplateList() {
   host.textContent = '';
   for (const item of items) {
     const li = document.createElement('li');
+    li.className = 'tpl-row';
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'tpl-item';
@@ -711,8 +734,53 @@ async function loadTemplateList() {
     stats.textContent = t('template.stats', { dirs: item.dirs, files: item.files });
     btn.append(name, stats);
     btn.addEventListener('click', () => applyTemplate(item));
-    li.appendChild(btn);
+
+    // V0.0.20：模板 CRUD 补 U/D —— 重命名 / 删除（删除走服务端软删除入 .trash）
+    const ops = document.createElement('span');
+    ops.className = 'tpl-ops';
+    const renameBtn = document.createElement('button');
+    renameBtn.type = 'button';
+    renameBtn.className = 'tpl-op';
+    renameBtn.textContent = t('template.rename');
+    renameBtn.title = t('template.renameTip');
+    renameBtn.addEventListener('click', () => renameTemplateItem(item));
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'tpl-op is-danger';
+    delBtn.textContent = t('template.delete');
+    delBtn.title = t('template.deleteTip');
+    delBtn.addEventListener('click', () => deleteTemplateItem(item));
+    ops.append(renameBtn, delBtn);
+
+    li.append(btn, ops);
     host.appendChild(li);
+  }
+}
+
+/** 重命名模板（V0.0.20）：改文件名 + 文件内 name，服务端拒绝重名。 */
+async function renameTemplateItem(item) {
+  const input = window.prompt(t('template.renamePrompt', { name: item.name }), item.name);
+  if (input === null) return;
+  const next = input.trim();
+  if (!next || next === item.name) return;
+  try {
+    await api.renameTemplate(item.file, next);
+    toast(t('template.renamed', { name: next }), 'ok');
+    await loadTemplateList();
+  } catch (err) {
+    toast(localizeError(err) || t('template.opFailed'), 'warn', 6000);
+  }
+}
+
+/** 删除模板（V0.0.20）：二次确认 → 服务端软删除入 templates/.trash/。 */
+async function deleteTemplateItem(item) {
+  if (!window.confirm(t('template.deleteConfirm', { name: item.name }))) return;
+  try {
+    await api.deleteTemplate(item.file);
+    toast(t('template.deleted', { name: item.name }), 'ok');
+    await loadTemplateList();
+  } catch (err) {
+    toast(localizeError(err) || t('template.opFailed'), 'warn', 6000);
   }
 }
 

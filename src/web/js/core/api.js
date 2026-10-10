@@ -115,4 +115,20 @@ export const api = {
       body: JSON.stringify(payload),
     });
   },
+
+  /**
+   * 重命名模板（V0.0.20）。name 为旧文件名（含中文，需编码）；
+   * 服务端同时改文件名与文件内 name 字段，目标已存在返回 templateExists。
+   */
+  renameTemplate(name, nextName) {
+    return request('/api/templates/' + encodeURIComponent(name), {
+      method: 'POST',
+      body: JSON.stringify({ name: nextName }),
+    });
+  },
+
+  /** 删除模板（V0.0.20，服务端软删除入 templates/.trash/）。 */
+  deleteTemplate(name) {
+    return request('/api/templates/' + encodeURIComponent(name), { method: 'DELETE' });
+  },
 };

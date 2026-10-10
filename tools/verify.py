@@ -1023,6 +1023,68 @@ def main() -> int:
           f"缺失：{', '.join(interact_bad)}" if interact_bad
           else "moveNode 防环/同名 / 拖拽与右键接线 / Delete-F2 键位与登记 齐备")
 
+    # 7q. 模板 CRUD 补全 + note 编辑会话（V0.0.20）
+    #     判据：① 后端 delete_template / rename_template 存在，且删除是**软删除**
+    #     （走 .trash，不真删 —— 项目总原则「只复制不删除」）；② 路径校验复用
+    #     `_template_path_or_raise`（白名单 + is_within 单一来源）；③ app.py 有 do_DELETE
+    #     与重命名子路径分发；④ 前端 api 有 rename/delete 且列表项有操作按钮接线；
+    #     ⑤ note 编辑按**会话**入栈（`noteHistoryId`）而非每次输入；⑥ 错误码登记齐备。
+    crud_bad: list[str] = []
+    rt = root / "src/server/routes.py"
+    rtext = rt.read_text(encoding="utf-8") if rt.is_file() else ""
+    for fn in ("delete_template", "rename_template", "_template_path_or_raise"):
+        if not re.search(rf"def {fn}\(", rtext):
+            crud_bad.append(f"routes.py:缺 {fn}")
+    m = re.search(r"def delete_template\(.*?\n    return", rtext, flags=re.S)
+    if not m:
+        crud_bad.append("routes.py:delete_template 体不可解析")
+    elif not re.search(r"TEMPLATE_TRASH_DIRNAME|trash", m.group(0)):
+        crud_bad.append("delete_template 未走回收站（应软删除）")
+    if re.search(r"\.unlink\(|os\.remove\(", rtext):
+        crud_bad.append("routes.py 出现真删除（unlink/remove），违反「只复制不删除」")
+    ap = root / "src/server/app.py"
+    atext = ap.read_text(encoding="utf-8") if ap.is_file() else ""
+    if "def do_DELETE(" not in atext:
+        crud_bad.append("app.py:缺 do_DELETE")
+    if "routes.rename_template" not in atext:
+        crud_bad.append("app.py:POST 子路径未分发到 rename_template")
+    api = root / "src/web/js/core/api.js"
+    apit = api.read_text(encoding="utf-8") if api.is_file() else ""
+    for token in ("renameTemplate(", "deleteTemplate("):
+        if token not in apit:
+            crud_bad.append(f"api.js:缺 {token}")
+    mjs20 = root / "src/web/js/main.js"
+    m20 = mjs20.read_text(encoding="utf-8") if mjs20.is_file() else ""
+    for token, why in (
+        ("renameTemplateItem", "缺模板重命名接线"),
+        ("deleteTemplateItem", "缺模板删除接线"),
+        ("noteHistoryId", "缺 note 编辑会话（连续输入应只入栈一次）"),
+        ("resetEditing", "缺撤销后属性栏暂存作废（note 框会显示旧文本）"),
+    ):
+        if token not in m20:
+            crud_bad.append(why)
+    # note 会话：pushHistory 必须包在 noteHistoryId 守卫内（否则退化为每键入栈）
+    m = re.search(r"onNoteChange\(id, value\) \{.*?\n  \}", m20, flags=re.S)
+    if not m:
+        crud_bad.append("main.js:onNoteChange 体不可解析")
+    elif not re.search(r"noteHistoryId !== id", m.group(0)):
+        crud_bad.append("onNoteChange 未按会话守卫入栈")
+    codes = root / "src/shared/error-codes.json"
+    ct = codes.read_text(encoding="utf-8") if codes.is_file() else ""
+    for k in ("templateDeleteFailed", "templateRenameFailed"):
+        if k not in ct:
+            crud_bad.append(f"error-codes.json:{k}")
+    for name in ("zh-CN.js", "en-US.js"):
+        p = root / "src/web/js/i18n" / name
+        text = p.read_text(encoding="utf-8") if p.is_file() else ""
+        for k in ("template.rename", "template.delete", "template.renamed", "template.deleted",
+                  "err.templateDeleteFailed", "err.templateRenameFailed"):
+            if k not in text:
+                crud_bad.append(f"{name}:{k}")
+    check(not crud_bad, "模板 CRUD + note 会话 V0.0.20",
+          f"缺失：{', '.join(crud_bad)}" if crud_bad
+          else "模板 删除(软)/重命名 后端-前端贯通 / note 编辑按会话入栈 齐备")
+
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
     if handoff_file.is_file():

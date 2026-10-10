@@ -223,14 +223,9 @@ def load_template(name: str) -> Dict[str, Any]:
 
     安全顺序：**先过文件名白名单**（不含路径分隔符，源头堵死穿越），
     **再校验解析后的绝对路径仍在 `templates/` 之内**（防符号链接等绕过）。
+    该两步已收敛到 `_template_path_or_raise`（删除/重命名共用同一来源）。
     """
-    if not name or not TEMPLATE_NAME.match(name):
-        raise TreeError("templateNotFound", name=str(name))
-
-    base = config.resolve_path(config.TEMPLATES_DIR)
-    path = config.resolve_path(base / name)
-    if not config.is_within(path, base) or not path.is_file():
-        raise TreeError("templateNotFound", name=name)
+    path = _template_path_or_raise(name)
 
     try:
         raw = path.read_text(encoding="utf-8")
@@ -341,6 +336,105 @@ def save_template(payload: Dict[str, Any]) -> Dict[str, Any]:
         "bytes": size,
         "stats": {"dirs": dirs, "files": files},
         "schemaVersion": config.TEMPLATE_SCHEMA_VERSION,
+    }
+
+
+def _template_path_or_raise(name: str) -> "Path":
+    """把模板名解析为 `templates/` 下的真实路径（过白名单 + is_within 复核）。
+
+    与 `load_template` 同一套校验：先过文件名白名单（源头堵死路径穿越），
+    再校验解析后的绝对路径仍在 `templates/` 之内（防符号链接绕过）。
+    """
+    if not name or not TEMPLATE_NAME.match(name):
+        raise TreeError("templateNotFound", name=str(name))
+    base = config.resolve_path(config.TEMPLATES_DIR)
+    path = config.resolve_path(base / name)
+    if not config.is_within(path, base) or not path.is_file():
+        raise TreeError("templateNotFound", name=name)
+    return path
+
+
+def _template_trash_dir() -> "Path":
+    """本次软删除的回收站目录：`templates/.trash/<YYYYMMDD-HHMMSS>/`。"""
+    stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
+    return config.resolve_path(config.TEMPLATES_DIR) / config.TEMPLATE_TRASH_DIRNAME / stamp
+
+
+def delete_template(name: str) -> Dict[str, Any]:
+    """删除单套模板（V0.0.20）—— **软删除**：移入 `templates/.trash/<时间戳>/`。
+
+    不真删的原因：项目总原则「只复制不删除」，且模板是用户资产，误删可人工找回。
+    回收站目录以 `.` 开头且非递归，`list_templates` 的 `glob("*.json")` 扫不到它。
+    """
+    path = _template_path_or_raise(name)
+    trash = _template_trash_dir()
+    try:
+        trash.mkdir(parents=True, exist_ok=True)
+        os.replace(path, trash / name)   # 同盘移动，原子
+    except OSError:
+        raise TreeError("templateDeleteFailed", name=name)
+    return {"ok": True, "file": name, "trashedTo": str(trash / name)}
+
+
+def rename_template(name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """重命名单套模板（V0.0.20）。
+
+    **同时改文件名与文件内 `name` 字段** —— 前者决定 URL，后者决定列表显示名，
+    两者不一致会让用户看到「点了 A 却载入 B」。目标模板名已存在一律拒绝（沿用
+    `templateExists` 拒写取舍）。旧文件移入回收站保底，不直接删除。
+    """
+    path = _template_path_or_raise(name)
+
+    raw_new = payload.get("name")
+    new_name = raw_new.strip() if isinstance(raw_new, str) else ""
+    if not new_name:
+        raise TreeError("templateNameEmpty")
+    stem = new_name[:-5] if new_name.lower().endswith(".json") else new_name
+    stem = stem.strip()
+    if not stem:
+        raise TreeError("templateNameEmpty")
+    if len(stem) > config.TEMPLATE_NAME_MAX:
+        raise TreeError("templateNameTooLong", name=new_name)
+    new_filename = stem + ".json"
+    if not TEMPLATE_NAME.match(new_filename):
+        raise TreeError("templateNameInvalid", name=new_name)
+    if new_filename == name:
+        return {"ok": True, "file": name, "name": path.stem, "unchanged": True}
+
+    base = config.resolve_path(config.TEMPLATES_DIR)
+    new_path = config.resolve_path(base / new_filename)
+    if not config.is_within(new_path, base):
+        raise TreeError("templateNameInvalid", name=new_name)
+    if new_path.exists():
+        raise TreeError("templateExists", name=new_name)
+
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raise TreeError("templateBadJson", name=name)
+    if not isinstance(doc, dict):
+        raise TreeError("templateBadJson", name=name)
+    doc["name"] = stem
+
+    body = json.dumps(doc, ensure_ascii=False, indent=2) + "\n"
+    try:
+        tmp = new_path.with_name(new_path.name + ".tmp")
+        # 显式 newline="\n"：跨平台字节一致（§编码基线）
+        with tmp.open("w", encoding="utf-8", newline="\n") as fh:
+            fh.write(body)
+        os.replace(tmp, new_path)        # 先落新文件（原子）
+        trash = _template_trash_dir()
+        trash.mkdir(parents=True, exist_ok=True)
+        os.replace(path, trash / name)   # 旧文件移入回收站保底，不真删
+    except OSError:
+        raise TreeError("templateRenameFailed", name=name)
+
+    return {
+        "ok": True,
+        "file": new_filename,
+        "name": stem,
+        "path": str(new_path),
+        "bytes": len(body.encode("utf-8")),
     }
 
 

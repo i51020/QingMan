@@ -7,6 +7,47 @@
 
 ---
 
+## V0.0.20 — 2026-10-10
+
+**主题**：note 编辑按会话入栈（修 V0.0.17 撤销栈缺陷）+ 模板 CRUD 补全（删除 / 重命名）。
+
+> **立项依据**：① **重做修复** —— V0.0.17 的 note 编辑每敲一键就 `pushHistory()` 一次，
+> 打一段字即可吃光 50 步撤销栈，且一次 Ctrl+Z 只退回一个字符；② **模板 CRUD** —— 此前只有
+> 读（V0.0.11）与另存为（V0.0.13），缺「删」与「改名」，用户建错模板只能去文件系统手动清。
+
+### 变更（`src/`）
+
+- **note 编辑会话**（`main.js` + `inspector.js`）
+  - 新增 `noteHistoryId`：**同一节点连续编辑只在第一次入撤销栈**，一次 Ctrl+Z 退回编辑前整体状态
+  - 会话终止三条件：**失焦**（`propNote` blur）／**切换选中节点**（`render()` 比对 `lastRenderedSelectedId`）／**撤销重做后**（`restoreHistory`）
+  - `inspector.resetEditing()`：撤销/重做恢复了模型值后**显式作废编辑暂存** —— 否则 render 的防打断光标逻辑会让输入框仍显示回退前旧文本（模型与 UI 脱节）
+- **模板 CRUD**（后端 `routes.py` / `app.py` / `config.py` + 前端 `api.js` / `main.js` / `layout.css`）
+  - `DELETE /api/templates/<name>` → `delete_template`：**软删除**，移入 `templates/.trash/<时间戳>/`（项目总原则「只复制不删除」；`.trash` 以 `.` 开头且非递归，`glob("*.json")` 天然扫不到）
+  - `POST /api/templates/<name>` → `rename_template`：**同时改文件名与文件内 `name` 字段**（否则列表显示名与 URL 脱节）；同名目标拒绝（沿用 `templateExists`）；旧文件移入回收站保底
+  - 路径校验收敛到 `_template_path_or_raise`（白名单 + `is_within` 单一来源，`load_template` 一并复用）
+  - 前端：模板列表项新增「重命名 / 删除」按钮（`.tpl-ops`，hover / 聚焦显形）；删除有二次确认；操作后刷新列表
+  - 错误码新增 `templateDeleteFailed` / `templateRenameFailed`（`error-codes.json` + 中英取词）
+- **i18n**：新增 12 键（`template.rename/renameTip/renamePrompt/renamed/delete/deleteTip/deleteConfirm/deleted/opFailed` + `err.templateDeleteFailed/templateRenameFailed`），中英对齐
+- **守卫**：`verify.py` 72 → **73 项**，新增**「模板 CRUD + note 会话」**（后端删除必走回收站且**禁止 unlink/remove** / 后端—前端贯通 / `onNoteChange` 按会话守卫入栈 / `resetEditing` 齐备 / 错误码登记）
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| 主线 `verify.py` | **73 项 0 失败** |
+| `unittest` | **116 OK**（+9：软删除入回收站 / 删除路径穿越拒 / 重命名改文件名+内层 name / 重命名拒重名 / 同名 noop / 非法名与缺失分支） |
+| `smoke.py` | **17 项 0 失败** |
+| 浏览器 E2E · 模板 CRUD 真实 HTTP 往返（Edge headless 同源） | **13 项 0 失败**：创建→列表可见→重命名→旧名 404 新名 200 且 name 同步→列表换名→DELETE→不可读→不存在 404→路径穿越拒→缺防护头 403→**探针清毕真实模板仍 17 套** |
+| 浏览器 E2E · note 会话与模板 UI（iframe 载入真实页面派发事件） | **15 项 0 失败**：模板行 2 个操作按钮且文案非空 / **连续 3 次输入后一次 Ctrl+Z 即回到编辑前（未停在中间态 ab）** / 静态键与接线齐备 |
+
+### 已知边界
+
+- 软件删除**不真删**：文件留在 `templates/.trash/<时间戳>/`，需人工清理（有意为之，防误删）
+- 重命名只改模板名，不改树内容；「覆盖已有模板」仍不支持（沿用同名拒写，删除+另存即可达成）
+- note 编辑会话按「失焦 / 切节点 / 撤销」切分：**同一节点长时间连续编辑始终只占一格历史**（设计取舍：宁可粒度粗，不可淹没栈）
+
+---
+
 ## V0.0.19 — 2026-10-10
 
 **主题**：树交互增强 —— 拖拽移动节点 + 右键快捷菜单 + `Delete` / `F2` 快捷键。

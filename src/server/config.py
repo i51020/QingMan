@@ -87,6 +87,11 @@ TEMPLATE_SCHEMA_VERSION = 1
 TEMPLATE_NAME_MAX = _env_int("QM_TEMPLATE_NAME_MAX", 60)
 TEMPLATE_MAX_BYTES = _env_int("QM_TEMPLATE_MAX_BYTES", 2 * 1024 * 1024)
 
+# 删除模板时的回收站目录名（V0.0.20）：软删除，落在 `templates/.trash/<时间戳>/` 下。
+# 项目总原则「只复制不删除」—— 用户可能误删，移入回收站可人工找回。
+# 该目录以 `.` 开头且**非递归**，`list_templates` 的 `glob("*.json")` 天然扫不到。
+TEMPLATE_TRASH_DIRNAME = ".trash"
+
 # ---------- 编辑态持久化（N2） ----------
 
 # 编辑态文档落盘位置：项目根 data/editor.json。

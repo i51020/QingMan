@@ -75,6 +75,15 @@ export const dict = {
   'template.nameEmpty': 'Template name cannot be empty',
   'template.saved': 'Saved template "{name}"',
   'template.saveFailed': 'Failed to save template: {message}',
+  'template.rename': 'Rename',
+  'template.renameTip': 'Rename this template (file name and display name)',
+  'template.renamePrompt': 'Rename "{name}" to',
+  'template.renamed': 'Renamed to "{name}"',
+  'template.delete': 'Delete',
+  'template.deleteTip': 'Delete this template (moved to templates/.trash, recoverable)',
+  'template.deleteConfirm': 'Delete template "{name}"? It will be moved to the recycle bin (templates/.trash).',
+  'template.deleted': 'Deleted template "{name}"',
+  'template.opFailed': 'Template operation failed: {message}',
 
   /* ---------- Backend error codes -> localized text ----------
    * Keys are fixed as `err.<code>`; placeholders must match
@@ -141,6 +150,8 @@ export const dict = {
   'err.templateTooLarge': 'Template file too large, limit {limit} bytes (current {actual})',
   'err.templateExists': 'A template with the same name already exists: {name} (not overwritten, please rename and retry)',
   'err.templateWriteFailed': 'Failed to write template: {name} (disk not writable or file in use)',
+  'err.templateDeleteFailed': 'Failed to delete template: {name} (file in use or recycle bin not writable)',
+  'err.templateRenameFailed': 'Failed to rename template: {name} (file in use or name conflict)',
 
   /* Error-code badge: a stable identifier for troubleshooting, shown alongside the localized text */
   'err.codeLabel': 'Error code: {code}',
@@ -281,7 +292,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.19',
+  'help.versionFallback': 'V0.0.20',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

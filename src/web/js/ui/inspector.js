@@ -69,6 +69,15 @@ export function createInspector(refs) {
       refs.result.textContent = t('inspector.genFailed',
         { code: err.code || 'error', message: localizeError(err) });
     },
+
+    /**
+     * 作废「正在编辑」暂存（V0.0.20）。
+     * render 为防打断光标会跳过覆盖 textarea —— 撤销/重做恢复了模型值后，
+     * 必须显式清掉暂存，否则界面仍显示回退前的旧文本（模型与 UI 脱节）。
+     */
+    resetEditing() {
+      editing = { id: null, value: '' };
+    },
   };
 
   function clear() {

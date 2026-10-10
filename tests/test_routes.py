@@ -298,6 +298,87 @@ class TemplateTests(unittest.TestCase):
         with self.assertRaises(TreeError) as ctx:
             routes.save_template({"name": "甲", "tree": {"a": {}, "b": {}}})
         self.assertEqual(ctx.exception.code, "templateTooManyNodes")
+
+    # ---------- V0.0.20 模板 CRUD（删除 / 重命名） ----------
+
+    def test_delete_is_soft_into_trash(self):
+        """删除 = 软删除：文件移入 templates/.trash/<时间戳>/，原位置消失、内容逐字节保留。"""
+        routes.save_template({"name": "待删", "tree": {"a": {}}})
+        raw_before = (self.tmp / "待删.json").read_bytes()
+        res = routes.delete_template("待删.json")
+        self.assertTrue(res["ok"])
+        self.assertFalse((self.tmp / "待删.json").exists())
+        # 回收站里能找到，且内容一致（没被真删）
+        trash = self.tmp / config.TEMPLATE_TRASH_DIRNAME
+        found = list(trash.rglob("待删.json"))
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].read_bytes(), raw_before)
+        # 列表不再包含它，且 .trash 不被 glob 扫到（不递归）
+        self.assertEqual(routes.list_templates()["items"], [])
+
+    def test_delete_missing_is_not_found(self):
+        with self.assertRaises(TreeError) as ctx:
+            routes.delete_template("不存在.json")
+        self.assertEqual(ctx.exception.code, "templateNotFound")
+
+    def test_delete_rejects_traversal(self):
+        for bad in ("../x.json", "sub/x.json", "", None, "x.txt"):
+            with self.assertRaises(TreeError) as ctx:
+                routes.delete_template(bad)
+            self.assertEqual(ctx.exception.code, "templateNotFound", repr(bad))
+
+    def test_rename_moves_file_and_updates_inner_name(self):
+        """重命名必须**同时**改文件名与文件内 name —— 否则列表显示名与 URL 脱节。"""
+        routes.save_template({"name": "旧名", "tree": {"a": {"b": {}}}})
+        res = routes.rename_template("旧名.json", {"name": "新名"})
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["file"], "新名.json")
+        self.assertFalse((self.tmp / "旧名.json").exists())
+        self.assertTrue((self.tmp / "新名.json").is_file())
+        doc = json.loads((self.tmp / "新名.json").read_text(encoding="utf-8"))
+        self.assertEqual(doc["name"], "新名")            # 文件内 name 同步
+        self.assertEqual(doc["tree"], {"a": {"b": {}}})  # 树内容不变
+        # 列表显示新名
+        self.assertEqual([i["name"] for i in routes.list_templates()["items"]], ["新名"])
+        # 旧文件进了回收站（保底，不真删）
+        self.assertEqual(len(list((self.tmp / config.TEMPLATE_TRASH_DIRNAME).rglob("旧名.json"))), 1)
+
+    def test_rename_strips_json_suffix_and_keeps_lf(self):
+        routes.save_template({"name": "甲", "tree": {"a": {}}})
+        routes.rename_template("甲.json", {"name": "乙.json"})
+        self.assertTrue((self.tmp / "乙.json").is_file())
+        self.assertNotIn(b"\r", (self.tmp / "乙.json").read_bytes())
+
+    def test_rename_refuses_existing_target(self):
+        routes.save_template({"name": "甲", "tree": {"a": {}}})
+        routes.save_template({"name": "乙", "tree": {"b": {}}})
+        with self.assertRaises(TreeError) as ctx:
+            routes.rename_template("甲.json", {"name": "乙"})
+        self.assertEqual(ctx.exception.code, "templateExists")
+        # 两边都原样保留，没有被破坏
+        self.assertEqual(json.loads((self.tmp / "甲.json").read_text(encoding="utf-8"))["tree"], {"a": {}})
+        self.assertEqual(json.loads((self.tmp / "乙.json").read_text(encoding="utf-8"))["tree"], {"b": {}})
+
+    def test_rename_same_name_is_noop(self):
+        routes.save_template({"name": "甲", "tree": {"a": {}}})
+        res = routes.rename_template("甲.json", {"name": "甲"})
+        self.assertTrue(res["ok"])
+        self.assertTrue(res.get("unchanged"))
+        self.assertTrue((self.tmp / "甲.json").is_file())
+
+    def test_rename_rejects_bad_names(self):
+        routes.save_template({"name": "甲", "tree": {"a": {}}})
+        for bad in ("", "   ", "a/b", "../x", "x.txt", None, 123):
+            with self.assertRaises(TreeError) as ctx:
+                routes.rename_template("甲.json", {"name": bad})
+            self.assertIn(ctx.exception.code,
+                          ("templateNameEmpty", "templateNameInvalid"), repr(bad))
+        self.assertTrue((self.tmp / "甲.json").is_file())
+
+    def test_rename_missing_is_not_found(self):
+        with self.assertRaises(TreeError) as ctx:
+            routes.rename_template("无.json", {"name": "x"})
+        self.assertEqual(ctx.exception.code, "templateNotFound")
         self.assertFalse((self.tmp / "甲.json").exists())
 
 

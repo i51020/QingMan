@@ -84,6 +84,15 @@ export const dict = {
   'template.nameEmpty': '模板名称不能为空',
   'template.saved': '已保存模板「{name}」',
   'template.saveFailed': '模板保存失败：{message}',
+  'template.rename': '重命名',
+  'template.renameTip': '重命名这套模板（改文件名与显示名）',
+  'template.renamePrompt': '把「{name}」重命名为',
+  'template.renamed': '已重命名为「{name}」',
+  'template.delete': '删除',
+  'template.deleteTip': '删除这套模板（移入 templates/.trash，可人工找回）',
+  'template.deleteConfirm': '确认删除模板「{name}」？将移入回收站（templates/.trash）。',
+  'template.deleted': '已删除模板「{name}」',
+  'template.opFailed': '模板操作失败：{message}',
 
   /* ---------- 后端错误码 → 本地化文案 ----------
    * 键名固定为 `err.<code>`，占位符必须与 src/shared/error-codes.json 逐条一致，
@@ -147,6 +156,8 @@ export const dict = {
   'err.templateTooLarge': '模板过大，上限 {limit} 字节（当前 {actual}）',
   'err.templateExists': '同名模板已存在：{name}（不会覆盖，请改名后重试）',
   'err.templateWriteFailed': '模板写入失败：{name}（磁盘不可写或文件被占用）',
+  'err.templateDeleteFailed': '删除模板失败：{name}（文件被占用或回收站不可写）',
+  'err.templateRenameFailed': '重命名模板失败：{name}（文件被占用或名称冲突）',
 
   /* 错误码徽标：技术排查用的稳定标识，与本地化文案并列展示 */
   'err.codeLabel': '错误码：{code}',
@@ -287,7 +298,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.19',
+  'help.versionFallback': 'V0.0.20',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',
