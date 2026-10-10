@@ -64,6 +64,10 @@ RESULTS: list[tuple[bool, str, str]] = []
 # 装饰性动作，在无头环境下本就可能失败，**不计入失败**，仅在备注里提示。
 FATAL_CONSOLE = ("Uncaught", "[i18n] missing key", "[QingMan] request failed")
 
+# 探针启动时自报的一条日志 —— 用作「控制台日志通道可用」的**正面控制**（§P2-13）：
+# 收得到它，才证明 `--enable-logging=stderr` 确实在投递；否则「无未捕获异常」的 PASS 不可信。
+SELF_REPORT = "[qm-smoke] probe-boot"
+
 BROWSER_CANDIDATES = (
     r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
     r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
@@ -86,6 +90,7 @@ PROBE_HTML = """<!DOCTYPE html>
 <div id="out">START</div>
 <script>
 var out = document.getElementById('out');
+console.log('[qm-smoke] probe-boot');   /* 正面控制：证明控制台日志通道确实在投递（§P2-13） */
 var m = {};
 var CJK = /[\\u4e00-\\u9fff]/;
 
@@ -215,6 +220,37 @@ def find_browser(explicit: str | None) -> str | None:
     return None
 
 
+def browser_drivable(path: str, timeout: float = 25.0) -> tuple[bool, str]:
+    """前置探测：该可执行文件能否被**无头驱动**（`--dump-dom` 是否产出 DOM）。
+
+    像夸克这类「启动器语义」的 exe，命令行契约不转发 —— `--headless=new --dump-dom`
+    会静默退出、stdout 为空。那属于**环境不支持**，应显式跳过，而非判成
+    「探针完成 FAIL」（把环境问题误读成页面缺陷，§P2-11）。
+    """
+    with tempfile.TemporaryDirectory(prefix="qm_browser_probe_") as prof:
+        try:
+            proc = subprocess.run(
+                [path, "--headless=new", "--disable-gpu", "--no-sandbox", "--no-first-run",
+                 f"--user-data-dir={prof}", "--dump-dom", "about:blank"],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                timeout=timeout)
+        except (OSError, subprocess.SubprocessError) as exc:
+            return False, f"无法启动：{exc}"
+    if not (proc.stdout or "").strip():
+        return False, "headless `--dump-dom` 无任何输出（疑似启动器语义 / 非 Chromium）"
+    return True, ""
+
+
+def sandbox_base() -> Path:
+    """`--keep` / `--sandbox` 缺省时的沙盒父目录（§P2-10：不再硬编码绝对盘符路径）。
+
+    环境变量 `QM_SANDBOX` 优先；否则取**项目根的上两级**下的 `_sandbox/`
+    —— 与历史约定 `D:/Data/WorkBuddy/_sandbox` 等价，但随项目位置自动跟随。
+    """
+    env = os.environ.get("QM_SANDBOX", "").strip()
+    return Path(env) if env else (PROJECT_ROOT.parent.parent / "_sandbox")
+
+
 def wait_health(port: int, seconds: float) -> bool:
     url = f"http://127.0.0.1:{port}/api/health"
     deadline = time.time() + seconds
@@ -241,10 +277,10 @@ def parse_metrics(stdout: str) -> dict[str, str] | None:
 
     锚定到探针的输出容器 —— 脚本源码里也有 `'RESULT '` 这个字面量，
     宽松匹配会连源码一起命中（实测：会把 `RESULT ' + parts.join(...)` 捞进来）。
+    §P2-12：**已去掉宽松兜底分支** —— 只认 `<div id="out">RESULT …</div>`；
+    取不到锚定的结果行即返回 None（宁可 FAIL，也不捞源码字面量假通过）。
     """
     match = re.search(r'<div id="out">RESULT ([^<]*)</div>', stdout)
-    if not match:
-        match = re.search(r"RESULT ([^\n<]*)", stdout)
     if not match:
         return None
     metrics: dict[str, str] = {}
@@ -359,6 +395,19 @@ def main() -> int:
         print("[冒烟·页面] 共 1 项 · 失败 0 项（跳过 1）")
         return 0
 
+    # 前置探测（§P2-11）：`--browser` 指向不可无头驱动的 exe（如夸克启动器）时**跳过**，
+    # 而不是让它走到「探针完成 FAIL」—— 那会把「环境不支持」误判成「页面有缺陷」。
+    drivable, why = browser_drivable(browser)
+    if not drivable:
+        check(True, "浏览器可驱动性", f"已跳过页面级冒烟：{why}")
+        print(f"[冒烟·页面] 浏览器不可无头驱动：{browser}")
+        print(f"[冒烟·页面] 原因：{why}（属环境不支持，非页面缺陷；可用 --browser 换一个）")
+        width = max(len(name) for _ok, name, _note in RESULTS) + 2
+        for ok, name, note in RESULTS:
+            print(f"  [{'PASS' if ok else 'FAIL'}] {name.ljust(width)} {note}")
+        print("[冒烟·页面] 共 1 项 · 失败 0 项（跳过 1）")
+        return 0
+
     if not (SRC_DIR / "server").is_dir():
         print(f"[失败] 未找到服务端：{SRC_DIR / 'server'}")
         return 1
@@ -368,7 +417,7 @@ def main() -> int:
         sandbox.mkdir(parents=True, exist_ok=True)
         cleanup = False
     elif args.keep:
-        sandbox = Path("D:/Data/WorkBuddy/_sandbox") / f"qingman_browser_{time.strftime('%Y%m%d')}"
+        sandbox = sandbox_base() / f"qingman_browser_{time.strftime('%Y%m%d')}"
         sandbox.mkdir(parents=True, exist_ok=True)
         cleanup = False
     else:
@@ -433,9 +482,14 @@ def main() -> int:
             if timed_out:
                 stderr = ""
             console = console_lines(stderr, origin)
+            # 正面控制（§P2-13）：先证「日志通道在投递」，再谈「无未捕获异常」。
+            alive = any(SELF_REPORT in line for line in console)
+            check(alive, "控制台日志通道可用（正面控制）",
+                  "已收到探针自报，日志通道正常" if alive else
+                  "未收到探针自报 —— `--enable-logging` 通道可能失效，「无未捕获异常」判定不可信")
             fatal = [line for line in console if any(tok in line for tok in FATAL_CONSOLE)]
             noisy = [line for line in console
-                     if not any(tok in line for tok in FATAL_CONSOLE)]
+                     if SELF_REPORT not in line and not any(tok in line for tok in FATAL_CONSOLE)]
             check(not fatal, "页面载入无未捕获异常 / 无漏翻",
                   ("；".join(line.split("]", 1)[-1].strip()[:110] for line in fatal[:3])
                    if fatal else

@@ -80,9 +80,9 @@ class ParseMetricsTests(unittest.TestCase):
         stdout = '<html><div id="out">RESULT a=1 | b=two</div></html>'
         self.assertEqual(bs.parse_metrics(stdout), {"a": "1", "b": "two"})
 
-    def test_fallback_when_no_container(self):
-        # 无容器时退回宽松匹配（旧版浏览器 / 结构变动的兜底路径）
-        self.assertEqual(bs.parse_metrics("junk RESULT a=1 | b=2\n"), {"a": "1", "b": "2"})
+    def test_no_container_returns_none(self):
+        # §P2-12：已去掉宽松兜底 —— 取不到锚定容器即判「未取到结果」（宁可 FAIL，不捞源码字面量）
+        self.assertIsNone(bs.parse_metrics("junk RESULT a=1 | b=2\n"))
 
     def test_probe_source_literal_not_mistaken_for_result(self):
         """探针源码里也有 `'RESULT '` 字面量 —— 不能被当成结果行（否则整项假通过）。"""
@@ -198,6 +198,45 @@ class VerifyMetricsTests(unittest.TestCase):
     def test_low_row_count_fails(self):
         metrics = dict(NORMAL, idxRows="1")
         self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_LANG])
+
+
+class SandboxBaseTests(unittest.TestCase):
+    """§P2-10：沙盒父目录不再硬编码绝对盘符路径。"""
+
+    def test_env_var_wins(self):
+        old = os.environ.get("QM_SANDBOX")
+        os.environ["QM_SANDBOX"] = "X:/my/sandbox"
+        try:
+            self.assertEqual(bs.sandbox_base(), Path("X:/my/sandbox"))
+        finally:
+            if old is None:
+                os.environ.pop("QM_SANDBOX", None)
+            else:
+                os.environ["QM_SANDBOX"] = old
+
+    def test_default_follows_project_root(self):
+        old = os.environ.pop("QM_SANDBOX", None)
+        try:
+            self.assertEqual(bs.sandbox_base(), bs.PROJECT_ROOT.parent.parent / "_sandbox")
+        finally:
+            if old is not None:
+                os.environ["QM_SANDBOX"] = old
+
+
+class BrowserDrivableTests(unittest.TestCase):
+    """§P2-11：不可驱动 / 不存在的前置探测须返回「不可驱动 + 原因」。"""
+
+    def test_missing_exe_is_not_drivable(self):
+        ok, why = bs.browser_drivable("Z:/definitely/not/here/quark.exe", timeout=5)
+        self.assertFalse(ok)
+        self.assertTrue(why)
+
+
+class ProbeSelfReportTests(unittest.TestCase):
+    """§P2-13：正面控制必须真的写在探针页里，否则「日志通道可用」永远 FAIL。"""
+
+    def test_probe_emits_self_report_line(self):
+        self.assertIn(bs.SELF_REPORT, bs.PROBE_HTML)
 
 
 if __name__ == "__main__":
