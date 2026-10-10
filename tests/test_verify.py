@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -83,6 +84,25 @@ class FindNodeTests(unittest.TestCase):
         if node is None:
             self.skipTest("本机无 node —— find_node 返回 None 属正确降级")
         self.assertTrue(Path(node).is_file(), f"find_node 返回了不存在的路径：{node}")
+
+
+class ArgParsingTests(unittest.TestCase):
+    """§P2-16：多余位置参数须报错，不得静默忽略。"""
+
+    def _run(self, *args):
+        return subprocess.run(
+            [sys.executable, "-B", str(_TOOLS / "verify.py"), *args],
+            capture_output=True, text=True, encoding="utf-8", errors="replace")
+
+    def test_extra_positional_arg_rejected(self):
+        proc = self._run("root1", "root2")
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("多余的参数", proc.stdout)
+
+    def test_single_arg_not_flagged_as_extra(self):
+        # 只传一个根目录（不存在）→ 应走「目录不存在」，绝非「多余的参数」
+        proc = self._run(str(_TOOLS / "nonexistent_root_xyz"))
+        self.assertNotIn("多余的参数", proc.stdout)
 
 
 if __name__ == "__main__":

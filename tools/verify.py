@@ -192,11 +192,17 @@ def check_fingerprint(root: Path, version: str) -> None:
     需要比对某一具体修订时，改传 `版本@rN` 形式（如 `V0.0.1@r1`）。
     输出三态语义由 check() 的 ok 决定：一致 / 有差异（列出改动·新增·缺失）/ 无法判定。
     """
+    ref = version
     if "@" in version:
         head, _, tag = version.partition("@")
         version = head.strip()
         tag = tag.strip().lstrip("r")
-        rev = int(tag) if tag.isdigit() else None
+        # 非法修订引用须**显式报错**，不得含糊成「下无任何清单」（§P2-3）。
+        if not tag.isdigit() or int(tag) < 1:
+            check(False, f"指纹比对 {ref}",
+                  f"修订引用非法：应为 <版本>@r<N>（N ≥ 1）形式，收到 {ref!r}")
+            return
+        rev = int(tag)
     else:
         rev = latest_revision(root, version)
 
@@ -274,6 +280,11 @@ def main() -> int:
         if not against:
             print("[失败] --against 需要一个版本号，如 --against V0.0.1")
             return 1
+
+    # 只接受「一个根目录」这一个位置参数；多余参数须报错，不得静默忽略（§P2-16）。
+    if len(argv) > 1:
+        print(f"[失败] 多余的参数：{' '.join(argv[1:])}（只接受一个根目录参数）")
+        return 1
 
     root = Path(argv[0]).resolve() if argv else PROJECT_ROOT
     print(f"[校验] 版本根目录：{root}")
@@ -609,6 +620,7 @@ def main() -> int:
 
     # 7d-2. 皮肤注册表与文件一一对应
     skin_errs = []
+    default_cid: str | None = None      # 默认皮肤号，取自注册表 DEFAULT_SKIN_CID（§P2-15）
     skins_dir = root / "src/web/css/skins"
     reg_file = root / "src/web/js/i18n/skins.js"
     if reg_file.is_file():
@@ -628,7 +640,8 @@ def main() -> int:
         if "DEFAULT_SKIN_CID" in reg_text:
             m = re.search(r"DEFAULT_SKIN_CID\s*=\s*(\d+)", reg_text)
             if m:
-                prefix = f"s{m.group(1).zfill(2)}-"
+                default_cid = m.group(1)
+                prefix = f"s{default_cid.zfill(2)}-"
                 if not any(f.startswith(prefix) for f in files):
                     skin_errs.append(f"默认皮肤前缀 {prefix} 未注册")
         else:
@@ -636,8 +649,8 @@ def main() -> int:
     else:
         skin_errs.append("缺少 skins.js")
     def_note = "；".join(skin_errs) if skin_errs else f"{len(cids)} 款皮肤注册表与文件一致"
-    if not skin_errs and cids:
-        def_note += f"，默认 S{int(cids[5] if len(cids) > 5 else cids[0]):02d}"
+    if not skin_errs and cids and default_cid is not None:
+        def_note += f"，默认 S{int(default_cid):02d}"
     check(not skin_errs, "皮肤注册表 §P0-3 L5", def_note)
 
     # 7e. CSS 类名形态：kebab-case，不得含下划线或大写（§P2 第 1 项）
@@ -659,7 +672,10 @@ def main() -> int:
     SRC_TOTAL_LIMIT = 400 * 1024
     SRC_FILE_LIMIT = 64 * 1024
     src_files = [p for p in (root / "src").rglob("*") if p.is_file()]
-    if src_files:
+    if not src_files:
+        # 缺 src/ 必须**显式 FAIL**，而不是静默少产生一项（§P2-14）。
+        check(False, "体积上限 §P2 第 4 项", f"未找到 {root / 'src'} 下任何文件（src/ 缺失？）")
+    else:
         total_bytes = sum(p.stat().st_size for p in src_files)
         oversize = [f"{p.relative_to(root)}（{p.stat().st_size // 1024}K）"
                     for p in src_files if p.stat().st_size > SRC_FILE_LIMIT]
@@ -1375,7 +1391,7 @@ def main() -> int:
             ("qm.lang", "缺默认示例语言断言（P1-2 回归位）"),
             ("new Event('change')", "缺语言切换驱动（未走真实用户路径）"),
             (".tree-name", "缺默认示例节点名采集"),
-            ("\\u4e00", "缺中文名判定"),
+            ("CJK", "缺中文名判定"),   # 稳定标识符锚点（原 "\\u4e00" 依赖三层转义，§P2-18）
             ("copytree", "缺沙盒隔离（会污染真实 data/）"),
             ("_probe_ui.html", "缺同源探针页"),
         )
@@ -1547,9 +1563,13 @@ def main() -> int:
             "tools/smoke.py", "tools/browser_smoke.py",
         ) if not (root / rel).is_file()]
         n_modules = len(sorted((root / "tests").glob("test_*.py")))
-        check(not net_missing, "回归测试网 §P0-2",
-              f"缺失：{', '.join(net_missing)}" if net_missing
-              else f"tests/ {n_modules} 模块 + tools/smoke.py + tools/browser_smoke.py 齐备")
+        # 轻量内容判据（§P2-17）：文件在 ≠ 内含用例；防「空壳测试文件」蒙混过关。
+        hollow = [p.name for p in sorted((root / "tests").glob("test_*.py"))
+                  if "def test_" not in p.read_text(encoding="utf-8")]
+        net_bad = net_missing + [f"{name}（无用例）" for name in hollow]
+        check(not net_bad, "回归测试网 §P0-2",
+              f"缺失/空壳：{', '.join(net_bad)}" if net_bad
+              else f"tests/ {n_modules} 模块（均含用例）+ tools/smoke.py + tools/browser_smoke.py 齐备")
 
     # 10. 与版本清单比对指纹（仅在指定 --against 时启用）
     if against:
