@@ -805,10 +805,12 @@ async function deleteTemplateItem(item) {
 }
 
 /**
- * 另存为模板（V0.0.13）：把正在编辑的树写进 templates/<name>.json。
+ * 另存为模板（V0.0.13；覆盖分支 V0.0.21）：把正在编辑的树写进 templates/<name>.json。
  *
- * 服务端**拒绝覆盖同名模板**（templateExists）—— 改名留给用户在提示里重试，
- * 工具绝不替用户决定「旧的那套可以丢」。
+ * 服务端**默认拒绝覆盖同名模板**（templateExists）—— 改名留给用户在提示里重试。
+ * 若用户愿意覆盖，第二次请求带 `overwrite: true`，**旧模板由后端移入回收站**
+ * （`templates/.trash/`，可人工找回）而非静默丢弃：工具不替用户决定「旧的那套可以丢」，
+ * 但把「丢」的决定权明确交回用户（二次确认）。
  */
 async function saveAsTemplate() {
   const { root } = store.get();
@@ -820,10 +822,19 @@ async function saveAsTemplate() {
     return;
   }
   try {
-    const res = await api.saveTemplate({ name: trimmed, tree: treePayload(root) });
+    let res;
+    try {
+      res = await api.saveTemplate({ name: trimmed, tree: treePayload(root) });
+    } catch (err) {
+      // 同名：默认拒写。用户显式确认「覆盖」后重发（旧模板入回收站，可找回）。
+      if (!err || err.code !== 'templateExists') throw err;
+      if (!window.confirm(t('template.overwriteConfirm', { name: trimmed }))) return;
+      res = await api.saveTemplate({ name: trimmed, tree: treePayload(root), overwrite: true });
+    }
     const saved = res.name || trimmed;
-    setStatus(t('template.saved', { name: saved }));
-    toast(t('template.saved', { name: saved }), 'info');
+    const key = res.overwritten ? 'template.overwritten' : 'template.saved';
+    setStatus(t(key, { name: saved }));
+    toast(t(key, { name: saved }), 'info');
     await loadTemplateList();   // 新模板要立刻出现在列表里，否则用户以为没生效
   } catch (err) {
     toast(t('template.saveFailed', { message: localizeError(err) }), 'error', 6000);

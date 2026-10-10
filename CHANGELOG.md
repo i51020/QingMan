@@ -7,6 +7,44 @@
 
 ---
 
+## V0.0.21 — 2026-10-10
+
+**主题**：模板覆盖写 —— 同名模板由「一律拒写」升级为「**显式确认后可覆盖**」（旧模板先入回收站）。
+
+> **立项依据**：V0.0.13 起「另存为模板」遇同名**一律拒写**（`templateExists`），用户想更新既有模板只能改名或先删除重存。
+> V0.0.21 把「旧的那套丢不丢」的决定权**明确交回用户**：默认行为不变（仍拒写），仅当用户**二次确认**后带
+> `overwrite: true` 才覆盖，且**旧模板先入回收站**（延续项目总原则「只复制不删除」）。
+
+### 变更（`src/`）
+
+- **后端**（`routes.py`）
+  - `save_template` 新增 `overwrite` 判定：**严格 `is True`**（防 `"true"` 等真值字符串被误当开关）；未带该字段时行为与旧版**完全一致**（仍 `raise templateExists`）
+  - 覆盖分支：先把旧文件 `os.replace` 移入 `templates/.trash/<时间戳>/`（复用 `_template_trash_dir`），再原子写新文件 —— 误覆盖可人工找回
+  - 返回值新增 `overwritten` 布尔（新建 / 覆盖一目了然）
+- **前端**（`main.js`）
+  - `saveAsTemplate`：捕获 `templateExists` → `confirm` **二次确认**（文案明示「原模板将移入回收站」）→ 确认后带 `overwrite: true` 重发；成功后按 `overwritten` 分流提示（`template.overwritten` / `template.saved`）
+- **i18n**：新增 2 键（`template.overwriteConfirm` / `template.overwritten`），中英对齐
+- **守卫**：`verify.py` 73 → **74 项**，新增**「模板覆盖写」**（后端 `is True` 严格判定 / 默认仍拒写 / 覆盖前必入回收站 / 返回 `overwritten` / 前端 `templateExists` 捕获与 `overwrite: true` 重发与二次确认 / 两语取词）
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| 主线 `verify.py` | **74 项 0 失败** |
+| `unittest` | **120 OK**（+4：覆盖前旧文件入回收站且逐字节保真 / 缺失或显式 false 仍拒写 / 真值字符串不得开启 / overwrite 但目标不存在则新建不误报） |
+| `smoke.py` | **17 项 0 失败** |
+| **E 盘真实文件系统实证**（直接加载产品源码，非 mock） | **13 项 0 失败**：新建 `overwritten=false` / 同名拒写且内容不污染 / 字符串 `"true"` 不开启 / 覆盖 `overwritten=true` 且内容为新 / `.trash` 旧副本逐字节一致 / 列表非递归扫不到 `.trash` / 覆盖不存在名不误报 / 落盘仍 LF 且带 `schemaVersion` |
+| 浏览器 E2E · 覆盖写真实 HTTP 往返（Edge headless 同源，同步 XHR） | **8 项 0 失败**：新建 `overwritten=false` / 同名拒写 `templateExists` / 拒写后内容仍 v1 / `overwrite=true` 成功 `overwritten=true` / 覆盖后内容 v2 / 字符串 `"true"` 不开启 / 覆盖不存在名新建 / 探针清毕**真实模板仍 17 套** |
+| 前端 JS 语法（Node `--check`） | 8 个改动模块全 OK |
+
+### 已知边界
+
+- 覆盖仍是**软删除**：旧模板留在 `templates/.trash/<时间戳>/`，需人工清理（有意为之）
+- 覆盖判据为**严格 `is True`**：前端必须传布尔 `true`，字符串 `"true"` 不生效（防误触发）
+- **headless Edge 排查备注**：`--dump-dom` 对**含同步 XHR 的页**需配 `--virtual-time-budget` 才稳定取到结果；测试页路径写错（`cd` 未在后台子 shell 生效 → 404）会表现为「恒 pending」，**非脚本缺陷**（本轮据此定位并修复）
+
+---
+
 ## V0.0.20 — 2026-10-10
 
 **主题**：note 编辑按会话入栈（修 V0.0.17 撤销栈缺陷）+ 模板 CRUD 补全（删除 / 重命名）。

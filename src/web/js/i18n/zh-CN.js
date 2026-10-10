@@ -83,6 +83,8 @@ export const dict = {
   'template.savePrompt': '模板名称',
   'template.nameEmpty': '模板名称不能为空',
   'template.saved': '已保存模板「{name}」',
+  'template.overwritten': '已覆盖模板「{name}」',
+  'template.overwriteConfirm': '同名模板「{name}」已存在。覆盖后原模板将移入回收站（templates/.trash，可人工找回）。确认覆盖？',
   'template.saveFailed': '模板保存失败：{message}',
   'template.rename': '重命名',
   'template.renameTip': '重命名这套模板（改文件名与显示名）',
@@ -298,7 +300,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.20',
+  'help.versionFallback': 'V0.0.21',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',

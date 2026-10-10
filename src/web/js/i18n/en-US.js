@@ -74,6 +74,8 @@ export const dict = {
   'template.savePrompt': 'Template name',
   'template.nameEmpty': 'Template name cannot be empty',
   'template.saved': 'Saved template "{name}"',
+  'template.overwritten': 'Overwrote template "{name}"',
+  'template.overwriteConfirm': 'A template named "{name}" already exists. Overwriting moves the previous file to the recycle bin (templates/.trash, recoverable). Overwrite?',
   'template.saveFailed': 'Failed to save template: {message}',
   'template.rename': 'Rename',
   'template.renameTip': 'Rename this template (file name and display name)',
@@ -292,7 +294,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.20',
+  'help.versionFallback': 'V0.0.21',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

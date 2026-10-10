@@ -299,6 +299,53 @@ class TemplateTests(unittest.TestCase):
             routes.save_template({"name": "甲", "tree": {"a": {}, "b": {}}})
         self.assertEqual(ctx.exception.code, "templateTooManyNodes")
 
+    # ---------- V0.0.21 模板覆盖写 ----------
+
+    def test_save_overwrite_moves_old_to_trash_then_writes(self):
+        """overwrite=true：旧模板**先入回收站**（可找回），原位为新内容，返回 overwritten=true。"""
+        routes.save_template({"name": "甲", "tree": {"old": {}}})
+        raw_before = (self.tmp / "甲.json").read_bytes()
+        res = routes.save_template({"name": "甲", "tree": {"new": {}}, "overwrite": True})
+        self.assertTrue(res["ok"])
+        self.assertIs(res["overwritten"], True)
+        # 新内容生效
+        doc = json.loads((self.tmp / "甲.json").read_text(encoding="utf-8"))
+        self.assertEqual(doc["tree"], {"new": {}})
+        # 旧内容逐字节入回收站（延续「只复制不删除」）
+        trash = self.tmp / config.TEMPLATE_TRASH_DIRNAME
+        found = list(trash.rglob("甲.json"))
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].read_bytes(), raw_before)
+
+    def test_save_overwrite_false_or_absent_still_refuses(self):
+        """overwrite 缺失或显式 false → 行为与旧版一致：拒写且原文件原样保留。"""
+        routes.save_template({"name": "甲", "tree": {"a": {}}})
+        for payload in ({"name": "甲", "tree": {"b": {}}},
+                        {"name": "甲", "tree": {"b": {}}, "overwrite": False}):
+            with self.assertRaises(TreeError) as ctx:
+                routes.save_template(payload)
+            self.assertEqual(ctx.exception.code, "templateExists")
+        self.assertEqual(
+            json.loads((self.tmp / "甲.json").read_text(encoding="utf-8"))["tree"], {"a": {}})
+
+    def test_save_overwrite_requires_strict_true(self):
+        """真值字符串 / 数字（"true"、1、"yes"…）**不得**开启覆盖 —— 必须严格 `is True`。"""
+        routes.save_template({"name": "甲", "tree": {"a": {}}})
+        for truthy in ("true", 1, "1", "yes", []):
+            with self.assertRaises(TreeError) as ctx:
+                routes.save_template({"name": "甲", "tree": {"b": {}}, "overwrite": truthy})
+            self.assertEqual(ctx.exception.code, "templateExists", repr(truthy))
+        self.assertEqual(
+            json.loads((self.tmp / "甲.json").read_text(encoding="utf-8"))["tree"], {"a": {}})
+
+    def test_save_overwrite_on_absent_name_just_creates(self):
+        """overwrite=true 但目标不存在 → 正常新建，overwritten=false，且不产生回收站目录。"""
+        res = routes.save_template({"name": "新甲", "tree": {"a": {}}, "overwrite": True})
+        self.assertTrue(res["ok"])
+        self.assertIs(res["overwritten"], False)
+        self.assertTrue((self.tmp / "新甲.json").is_file())
+        self.assertFalse((self.tmp / config.TEMPLATE_TRASH_DIRNAME).exists())
+
     # ---------- V0.0.20 模板 CRUD（删除 / 重命名） ----------
 
     def test_delete_is_soft_into_trash(self):

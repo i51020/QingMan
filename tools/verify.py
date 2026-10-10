@@ -1085,6 +1085,47 @@ def main() -> int:
           f"缺失：{', '.join(crud_bad)}" if crud_bad
           else "模板 删除(软)/重命名 后端-前端贯通 / note 编辑按会话入栈 齐备")
 
+    # 7r. 模板覆盖写（V0.0.21）
+    #     判据：① save_template 以**严格 `is True`** 判定 overwrite（防真值字符串误开）；
+    #     ② **默认仍拒写**（templateExists 保留）；③ 覆盖前旧文件**先入回收站**
+    #     （`_template_trash_dir`，延续「只复制不删除」）；④ 返回值带 overwritten 标记；
+    #     ⑤ 前端 saveAsTemplate 捕获 templateExists → 二次确认 → 带 overwrite 重发；
+    #     ⑥ 两语取词齐备。
+    overwrite_bad: list[str] = []
+    m = re.search(r"def save_template\(.*?\n    return \{", rtext, flags=re.S)
+    if not m:
+        overwrite_bad.append("routes.py:save_template 体不可解析")
+    else:
+        body21 = m.group(0)
+        if 'payload.get("overwrite") is not True' not in body21:
+            overwrite_bad.append("save_template 未严格判定 overwrite（应为 is True）")
+        if "templateExists" not in body21:
+            overwrite_bad.append("save_template 丢了默认拒写（templateExists）")
+        if not re.search(r"templateExists[\s\S]*?_template_trash_dir\(", body21):
+            overwrite_bad.append("覆盖分支未先入回收站（应紧跟 _template_trash_dir）")
+        if "overwritten" not in body21:
+            overwrite_bad.append("save_template 返回缺 overwritten 标记")
+    m = re.search(r"async function saveAsTemplate\(\) \{.*?\n\}", m20, flags=re.S)
+    if not m:
+        overwrite_bad.append("main.js:saveAsTemplate 体不可解析")
+    else:
+        body21 = m.group(0)
+        if "templateExists" not in body21:
+            overwrite_bad.append("saveAsTemplate 未捕获 templateExists")
+        if "overwrite: true" not in body21:
+            overwrite_bad.append("saveAsTemplate 未带 overwrite 重发")
+        if "confirm(" not in body21:
+            overwrite_bad.append("saveAsTemplate 缺二次确认")
+    for name in ("zh-CN.js", "en-US.js"):
+        p = root / "src/web/js/i18n" / name
+        text = p.read_text(encoding="utf-8") if p.is_file() else ""
+        for k in ("template.overwriteConfirm", "template.overwritten"):
+            if k not in text:
+                overwrite_bad.append(f"{name}:{k}")
+    check(not overwrite_bad, "模板覆盖写 V0.0.21",
+          f"缺失：{', '.join(overwrite_bad)}" if overwrite_bad
+          else "overwrite 严格判定 / 默认仍拒写 / 覆盖前入回收站 / 前端二次确认 / 取词 齐备")
+
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
     if handoff_file.is_file():

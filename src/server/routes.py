@@ -262,8 +262,11 @@ def save_template(payload: Dict[str, Any]) -> Dict[str, Any]:
     `TEMPLATES_DIR` 之下，用户输入只有模板名，且必须过文件名白名单，
     因此不存在路径穿越面。仍保留 `is_within` 复核，防符号链接等绕过。
 
-    **同名一律拒写**：静默覆盖会毁掉既有模板，改名是用户该做的决定
-    （与落盘规则 R7/R8「已存在即跳过、永不删除」同一套取舍）。
+    **同名默认仍一律拒写**：静默覆盖会毁掉既有模板，改名是用户该做的决定
+    （与落盘规则 R7/R8「已存在即跳过、永不删除」同一套取舍）。**V0.0.21 起**
+    允许用户在**显式确认**后覆盖：载荷带 `overwrite: true` 时，旧模板先移入
+    `templates/.trash/<时间戳>/` 再写新文件 —— 延续「只复制不删除」，误覆盖可人工找回。
+    未带该字段（或非严格 true）时行为与旧版完全一致。
 
     写入时必带 `schemaVersion` —— 只读阶段可以没有版本戳，一旦开始写就必须有，
     否则日后无法区分新旧格式（§P2 第 7 项）。
@@ -303,8 +306,21 @@ def save_template(payload: Dict[str, Any]) -> Dict[str, Any]:
     path = config.resolve_path(base / filename)
     if not config.is_within(path, base):
         raise TreeError("templateNameInvalid", name=name)
+
+    # 同名处理（V0.0.21）：默认拒写；仅当载荷显式 overwrite=true 时覆盖，
+    # 且旧模板**先入回收站**再写（延续「只复制不删除」；`is True` 严格判定，
+    # 避免 "true" 等真值字符串被误当开关）。
+    overwritten = False
     if path.exists():
-        raise TreeError("templateExists", name=name)
+        if payload.get("overwrite") is not True:
+            raise TreeError("templateExists", name=name)
+        trash = _template_trash_dir()
+        try:
+            trash.mkdir(parents=True, exist_ok=True)
+            os.replace(path, trash / filename)   # 同盘移动，原子；误覆盖可人工找回
+        except OSError:
+            raise TreeError("templateWriteFailed", name=name)
+        overwritten = True
 
     body = json.dumps({
         "schemaVersion": config.TEMPLATE_SCHEMA_VERSION,
@@ -336,6 +352,7 @@ def save_template(payload: Dict[str, Any]) -> Dict[str, Any]:
         "bytes": size,
         "stats": {"dirs": dirs, "files": files},
         "schemaVersion": config.TEMPLATE_SCHEMA_VERSION,
+        "overwritten": overwritten,
     }
 
 
