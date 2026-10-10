@@ -261,5 +261,33 @@ class BuildTreeTests(unittest.TestCase):
         self.assertEqual(data, "第一行\n第二行\n".encode("utf-8"))
 
 
+class ErrorCodesTests(unittest.TestCase):
+    """A-P2-4：`_load_error_codes()` 在**模块顶层**执行 —— 文件非法编码 / 缺失 / 坏 JSON 时
+    须回落空表，**不得**抛异常（否则 `import server` 直接崩、服务起不来）。"""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="qm_errcodes_")
+        self.addCleanup(self.tmp.cleanup)
+        self._orig = config.SHARED_DIR
+        self.addCleanup(setattr, config, "SHARED_DIR", self._orig)
+        config.SHARED_DIR = Path(self.tmp.name)
+
+    def test_bad_encoding_returns_empty_not_raise(self):
+        (Path(self.tmp.name) / "error-codes.json").write_bytes('{"a": "甲"}'.encode("gbk"))
+        self.assertEqual(dtree_core._load_error_codes(), {})
+
+    def test_missing_file_returns_empty(self):
+        self.assertEqual(dtree_core._load_error_codes(), {})
+
+    def test_bad_json_returns_empty(self):
+        (Path(self.tmp.name) / "error-codes.json").write_text("{不是 json", encoding="utf-8")
+        self.assertEqual(dtree_core._load_error_codes(), {})
+
+    def test_ok_file_parsed_and_non_string_filtered(self):
+        (Path(self.tmp.name) / "error-codes.json").write_text(
+            '{"a": "甲", "b": 1}', encoding="utf-8")
+        self.assertEqual(dtree_core._load_error_codes(), {"a": "甲"})   # 非字符串值被滤除
+
+
 if __name__ == "__main__":
     unittest.main()

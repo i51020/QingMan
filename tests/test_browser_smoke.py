@@ -33,6 +33,7 @@ NORMAL = {
     "idxRows": "6",
     "idxCjk": "0",
     "idxSkin": "1",
+    "skinEn": "Paper", "skinZh": "纸张",
     "tplRows": "17",
     "secBefore": "7", "secEn": "7", "secZh": "7",
     "navBefore": "7", "navZh": "7",
@@ -158,7 +159,7 @@ class VerifyMetricsTests(unittest.TestCase):
     def test_normal_all_pass(self):
         results = run_metrics(NORMAL)
         self.assertEqual(failed_names(results), [], "正常指标不应有任何失败项")
-        self.assertEqual(len(results), 7, "verify_metrics 应产生 7 项判定")
+        self.assertEqual(len(results), 8, "verify_metrics 应产生 8 项判定")
 
     def test_p1_1_regression_fails_exactly_section_idempotence(self):
         """P1-1 回归：帮助页切语言累积分节（7 → 14 → 21）→ 恰好那项 FAIL。"""
@@ -192,12 +193,18 @@ class VerifyMetricsTests(unittest.TestCase):
 
     def test_templates_check_skipped_when_not_expected(self):
         results = run_metrics(NORMAL, expect_templates=False)
-        self.assertEqual(len(results), 6, "不期望模板时不应产生模板判定项")
+        self.assertEqual(len(results), 7, "不期望模板时不应产生模板判定项")
         self.assertNotIn("主界面·模板库已接入", [n for _o, n, _x in results])
 
     def test_low_row_count_fails(self):
         metrics = dict(NORMAL, idxRows="1")
         self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_LANG])
+
+    def test_c1_skin_picker_i18n_regression_fails_exactly(self):
+        """C-P2-1 回归：换语言后皮肤下拉未重填（文案前后一致）→ 恰好那项 FAIL。"""
+        metrics = dict(NORMAL, skinZh="Paper")
+        self.assertEqual(failed_names(run_metrics(metrics)),
+                         ["主界面·皮肤下拉随语言刷新"])
 
 
 class SandboxBaseTests(unittest.TestCase):

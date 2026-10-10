@@ -72,14 +72,14 @@ code {
   color: var(--qm-on-accent);
   box-shadow:
     1px 1px 2px var(--qm-shadow-dark),
-    inset .5px .5px 1px rgba(255, 255, 255, .18);
+    inset .5px .5px 1px var(--qm-btn-hi);
 }
 .btn-primary:hover:not(:disabled) {
   background: var(--qm-accent-ink);
   border-color: var(--qm-accent-ink);
   color: var(--qm-on-accent);
 }
-.btn-primary:active:not(:disabled) { box-shadow: inset 1px 1px 3px rgba(0, 0, 0, .25); }
+.btn-primary:active:not(:disabled) { box-shadow: inset 1px 1px 3px var(--qm-btn-lo); }
 
 .btn-ghost {
   background: transparent;

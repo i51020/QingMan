@@ -302,7 +302,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.26',
+  'help.versionFallback': 'V0.0.27',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',

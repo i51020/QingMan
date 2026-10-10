@@ -33,7 +33,9 @@ def newline_for(name: str) -> str:
 def _load_error_codes() -> Dict[str, str]:
     try:
         raw = (config.SHARED_DIR / "error-codes.json").read_text(encoding="utf-8")
-    except OSError:
+    except (OSError, UnicodeDecodeError):
+        # 本函数在**模块顶层**执行（`_ERROR_CODES = _load_error_codes()`）：漏捕编码错误
+        # 会让 `import server` 直接崩、服务起不来（A-P2-4）。同 load_editor 一并扩捕获。
         return {}
     try:
         data = json.loads(raw)

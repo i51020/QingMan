@@ -18,20 +18,30 @@ function luma(hex) {
 }
 
 export function createSkinPicker(selectEl) {
+  if (!selectEl) return;
+
   const sorted = [...SKINS].sort((a, b) => luma(b.swatch[0]) - luma(a.swatch[0]));
 
   /* 皮肤不可缺省：不提供「无皮肤」选项，未选过时由 getSkin() 给出厂默认（§P0-3 L5）。 */
-  for (const skin of sorted) {
-    const opt = document.createElement('option');
-    opt.value = skin.file;
-    opt.textContent = t(skin.label);
-    selectEl.appendChild(opt);
-  }
+  const fill = () => {
+    const saved = getSkin();
+    selectEl.textContent = '';
+    for (const skin of sorted) {
+      const opt = document.createElement('option');
+      opt.value = skin.file;
+      opt.textContent = t(skin.label);
+      selectEl.appendChild(opt);
+    }
+    const fallback = SKINS.find((s) => s.cid === DEFAULT_SKIN_CID)?.file || '';
+    selectEl.value = saved || fallback;
+  };
 
-  const fallback = SKINS.find((s) => s.cid === DEFAULT_SKIN_CID)?.file || '';
-  selectEl.value = getSkin() || fallback;
-
+  fill();
   selectEl.addEventListener('change', () => {
     setSkin(selectEl.value);
   });
+
+  // 皮肤名来自取词键（skin.N）→ 随语言变化；applyStatic() 只管 `data-i18n`，
+  // 管不到这里动态生成的 <option>，故须在语言切换时重填（与 lang-picker 同构，C-P2-1）。
+  document.addEventListener('qmlocalechange', fill);
 }

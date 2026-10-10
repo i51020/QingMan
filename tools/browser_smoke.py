@@ -135,6 +135,19 @@ frame('./index.html', function (doc) {
     m.idxCjk = names(doc).filter(function (s) { return CJK.test(s); }).length;
     m.idxSkin = doc && doc.getElementById('skinLink') ? 1 : 0;
     m.tplRows = doc ? doc.querySelectorAll('#templateList li.tpl-row').length : -1;
+    /* C-P2-1 回归位：皮肤名是取词键（skin.N）→ 换语言须重填 <option>。
+       走真实用户路径：页面自己的语言下拉 change → setLocale → qmlocalechange → skin-picker.fill()。 */
+    var lsel = doc ? doc.getElementById('langSelect') : null;
+    var ssel = doc ? doc.getElementById('skinSelect') : null;
+    m.hasSkinSel = ssel ? 1 : 0;
+    if (lsel && ssel && ssel.options.length) {
+      m.skinEn = ssel.options[0].textContent;
+      lsel.value = 'zh-CN';
+      lsel.dispatchEvent(new Event('change'));
+      m.skinZh = ssel.options[0].textContent;
+      lsel.value = 'en-US';   /* 复位，避免影响阶段 2 的初始语言 */
+      lsel.dispatchEvent(new Event('change'));
+    }
   } catch (e) { m.err1 = String(e && e.message ? e.message : e); }
   phase2();
 });
@@ -342,6 +355,14 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
 
     check(as_int(metrics.get("idxSkin")) == 1, "主界面·皮肤样式表已装载",
           f"skinLink={'有' if as_int(metrics.get('idxSkin')) == 1 else '无'}")
+
+    skin_en = metrics.get("skinEn", "")
+    skin_zh = metrics.get("skinZh", "")
+    skin_i18n_ok = bool(skin_en and skin_zh and skin_en != skin_zh
+                        and re.search(r"[\u4e00-\u9fff]", skin_zh or ""))
+    check(skin_i18n_ok, "主界面·皮肤下拉随语言刷新",
+          f"en={skin_en!r} → zh={skin_zh!r}"
+          + ("" if skin_i18n_ok else "（C-P2-1 回归：换语言后皮肤名未重填）"))
 
     if expect_templates:
         tpl = as_int(metrics.get("tplRows"))

@@ -185,6 +185,21 @@ def strip_comments(text: str, kind: str) -> str:
     return text
 
 
+# 组件 CSS 的「裸色值」判据：须覆盖**所有**字面量色值写法 —— 只查 `#hex` 会让
+# `rgb()/rgba()/hsl()/hsla()` 逃逸（D-P2-1：base.css 的 2 处裸 rgba 即由此漏过）。
+# 按「函数名 + 左括号」判定，与具体数值无关，故不会误伤 `var(--qm-*)`。
+RAW_COLOR_LIKE = re.compile(r"#[0-9a-fA-F]{3,8}\b|(?:rgb|rgba|hsl|hsla)\s*\(", re.I)
+
+
+def raw_color_hits(body: str) -> list[str]:
+    """返回 CSS 文本中出现的**字面量色值**（`#hex` / `rgb()` / `rgba()` / `hsl()` / `hsla()`）。
+
+    §P0-3 L4：组件 CSS 不得写裸色值，唯一允许字面量的地方是 `tokens.css`。
+    承担判定职责，故提为模块级函数以便单测（§P2 第 19 项裁定）。
+    """
+    return RAW_COLOR_LIKE.findall(body)
+
+
 def check_fingerprint(root: Path, version: str) -> None:
     """与 versions/<版本>/ 的**最高修订**清单逐文件比对 SHA-256。
 
@@ -552,14 +567,13 @@ def main() -> int:
     check(not lang_bad, "语言策略（跟随系统）",
           lang_bad if lang_bad else "auto 一档 + BCP 47 降级匹配 + 跨页同步 齐备")
 
-    # 7c. 组件 CSS 只允许 var(--qm-*)（§P0-3 L4）
-    HEX_LIKE = re.compile(r"#[0-9a-fA-F]{3,8}\b")
+    # 7c. 组件 CSS 只允许 var(--qm-*)（§P0-3 L4）；判据见 raw_color_hits（覆盖 #hex 与 rgb()/rgba()/hsl()）
     raw_color = []
     for css in sorted((root / "src/web/css").glob("*.css")):
         if css.name == "tokens.css":
             continue   # 变量的唯一来源，字面量只能写在这里
-        for m in HEX_LIKE.finditer(strip_comments(css.read_text(encoding="utf-8"), "css")):
-            raw_color.append(f"{css.name}:{m.group(0)}")
+        for hit in raw_color_hits(strip_comments(css.read_text(encoding="utf-8"), "css")):
+            raw_color.append(f"{css.name}:{hit}")
     check(not raw_color, "组件 CSS 无裸色值 §P0-3 L4",
           f"发现 {len(raw_color)} 处：{', '.join(raw_color[:4])}" if raw_color
           else "组件样式全部经 var(--qm-*) 取色")

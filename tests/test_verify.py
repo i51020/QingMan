@@ -43,6 +43,24 @@ class NodeVersionKeyTests(unittest.TestCase):
         self.assertEqual(verify.node_version_key(".locks"), ())
 
 
+class RawColorHitsTests(unittest.TestCase):
+    """D-P2-1：「组件 CSS 无裸色值」判据须覆盖 rgb()/rgba()/hsl()/hsla()，不能只认 #hex。"""
+
+    def test_detects_hex(self):
+        self.assertIn("#1e2732", verify.raw_color_hits("color: #1e2732;"))
+
+    def test_detects_rgb_and_rgba(self):
+        self.assertTrue(verify.raw_color_hits("box-shadow: inset 1px 1px 3px rgba(0, 0, 0, .25);"))
+        self.assertTrue(verify.raw_color_hits("background: rgb(1 2 3);"))
+
+    def test_detects_hsl(self):
+        self.assertTrue(verify.raw_color_hits("color: hsl(120 50% 50%);"))
+
+    def test_ignores_var_reference(self):
+        self.assertEqual(
+            verify.raw_color_hits("color: var(--qm-text); box-shadow: var(--qm-inset);"), [])
+
+
 class IterManagedNodesTests(unittest.TestCase):
 
     def setUp(self):

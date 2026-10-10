@@ -158,7 +158,7 @@ QingMan/
 python tools/verify.py .                      # 交付校验（静态）
 python -m unittest discover -s tests          # 单元测试
 python tools/smoke.py                         # 端到端冒烟（HTTP 层；起真实服务 + 沙盒目录，测完即清）
-python tools/browser_smoke.py                 # 页面级冒烟（无头浏览器 10 项；未装浏览器则跳过）
+python tools/browser_smoke.py                 # 页面级冒烟（无头浏览器 11 项；未装浏览器则跳过）
 ```
 
 四项全过才算完成。单元测试可用 `QM_SRC=<版本根>/src` 指向**预览版**，这样落地前就能过全部门禁。

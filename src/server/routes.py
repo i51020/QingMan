@@ -126,7 +126,9 @@ def load_editor() -> Dict[str, Any]:
 
     try:
         raw = path.read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
+        # UnicodeDecodeError 属 ValueError，**不是** OSError：用户用别的编码编辑过
+        # editor.json 时会抛它，只捕 OSError 会漏 → 冒泡到 do_GET 裸崩（A-P2-1）。
         raise TreeError("editorReadFailed", message=str(exc))
 
     if not raw.strip():
@@ -304,7 +306,8 @@ def load_template(name: str) -> Dict[str, Any]:
 
     try:
         raw = path.read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
+        # 同 load_editor：非法 UTF-8 抛 UnicodeDecodeError（ValueError 族），须一并捕获。
         raise TreeError("templateReadFailed", name=name, message=str(exc))
     try:
         doc = json.loads(raw)

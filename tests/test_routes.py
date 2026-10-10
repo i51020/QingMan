@@ -149,6 +149,15 @@ class EditorRoundTripTests(unittest.TestCase):
             routes.load_editor()
         self.assertEqual(ctx.exception.code, "editorCorrupt")
 
+    def test_bad_encoding_raises_not_crashes(self):
+        """A-P2-1：editor.json 为**非法 UTF-8**（用户用别的编码编辑过）时，须抛
+        TreeError(editorReadFailed) 优雅报错 —— **不得**漏 UnicodeDecodeError 冒泡裸崩。"""
+        self.editor.parent.mkdir(parents=True, exist_ok=True)
+        self.editor.write_bytes('{"root": {"name": "测试"}}'.encode("gbk"))
+        with self.assertRaises(TreeError) as ctx:
+            routes.load_editor()
+        self.assertEqual(ctx.exception.code, "editorReadFailed")
+
     def test_note_field_tolerated_and_preserved(self):
         """V0.0.17：节点 note 字段可选 —— 有则原样保存，无则不报错。"""
         doc = {"root": {"type": "dir", "id": "d1", "name": "根", "note": "根说明", "children": [

@@ -139,38 +139,41 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         if not self._guard():
             return
-        path = urlparse(self.path).path
-        if path == routes.HEALTH_PATH:
-            self._json(200, routes.health())
-            return
-        if path == routes.ENV_PATH:
-            # 同步注入 OS 语言的小脚本：普通 <script src> 加载，早于 module 脚本执行，
-            # 因此首屏就能按系统语言渲染，不会先画一遍再跳变（V0.0.14）
-            body = routes.env_script().encode("utf-8")
-            self._send(200, body, "text/javascript; charset=utf-8")
-            return
-        if path == routes.EDITOR_PATH:
-            try:
-                self._json(200, routes.load_editor())
-            except TreeError as exc:
-                self._fail(400, exc.code, **exc.detail)
-            except OSError as exc:
-                self._fail(500, "ioError", message=str(exc))
-            return
-        if path == routes.TEMPLATES_PATH:
-            self._json(200, routes.list_templates())
-            return
-        if path.startswith(routes.TEMPLATES_PATH + "/"):
-            # 文件名经 URL 编码（模板名含中文），先解码再交给路由层过白名单
-            name = unquote(path[len(routes.TEMPLATES_PATH) + 1:])
-            try:
-                self._json(200, routes.load_template(name))
-            except TreeError as exc:
-                self._fail(404, exc.code, **exc.detail)
-            except OSError as exc:
-                self._fail(500, "ioError", message=str(exc))
-            return
-        self._serve_static(path)
+        try:
+            path = urlparse(self.path).path
+            if path == routes.HEALTH_PATH:
+                self._json(200, routes.health())
+                return
+            if path == routes.ENV_PATH:
+                # 同步注入 OS 语言的小脚本：普通 <script src> 加载，早于 module 脚本执行，
+                # 因此首屏就能按系统语言渲染，不会先画一遍再跳变（V0.0.14）
+                body = routes.env_script().encode("utf-8")
+                self._send(200, body, "text/javascript; charset=utf-8")
+                return
+            if path == routes.EDITOR_PATH:
+                try:
+                    self._json(200, routes.load_editor())
+                except TreeError as exc:
+                    self._fail(400, exc.code, **exc.detail)
+                except OSError as exc:
+                    self._fail(500, "ioError", message=str(exc))
+                return
+            if path == routes.TEMPLATES_PATH:
+                self._json(200, routes.list_templates())
+                return
+            if path.startswith(routes.TEMPLATES_PATH + "/"):
+                # 文件名经 URL 编码（模板名含中文），先解码再交给路由层过白名单
+                name = unquote(path[len(routes.TEMPLATES_PATH) + 1:])
+                try:
+                    self._json(200, routes.load_template(name))
+                except TreeError as exc:
+                    self._fail(404, exc.code, **exc.detail)
+                except OSError as exc:
+                    self._fail(500, "ioError", message=str(exc))
+                return
+            self._serve_static(path)
+        except Exception as exc:  # noqa: BLE001 - 兜底，避免服务崩溃（对齐 do_POST）
+            self._fail(500, "internalError", message=str(exc))
 
     def do_HEAD(self) -> None:  # noqa: N802
         self.do_GET()

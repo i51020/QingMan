@@ -7,6 +7,44 @@
 
 ---
 
+## V0.0.27 — 2026-10-11
+
+**主题**：`src/` 审查**批 1** 整改（《审查报告_src_20261011》§五 **第一档 + 第二档**）—— 4 项 P2 修复。本版起**真正改 `src/`**，故 **升 patch 版 `V0.0.26` → `V0.0.27`**。
+
+| # | 文件 | 项 | 处置 |
+|---|---|---|---|
+| 1 | `src/server/routes.py` | **A-P2-1** | `load_editor` / `load_template` 捕获由 `except OSError` → **`except (OSError, UnicodeDecodeError)`**：非法 UTF-8 的 `editor.json` / 模板不再漏网裸崩，改为 `TreeError(editorReadFailed / templateReadFailed)` 优雅报错 |
+| 2 | `src/server/app.py` | **A-P2-1（侧）** | `do_GET` 整体加 `except Exception` 兜底（**对齐 `do_POST`**）—— 任何漏网异常回落 500 JSON，不再裸崩请求线程 |
+| 3 | `src/server/dtree_core.py` | **A-P2-4** | `_load_error_codes()` 同扩捕获（该函数在**模块顶层**执行）：`error-codes.json` 非法编码时回落空表，`import server` 不再崩 |
+| 4 | `tools/verify.py` + `src/web/css/{tokens,base}.css` | **D-P2-1** | 「组件 CSS 无裸色值」判据由「**仅 `#hex`**」扩为「`#hex` ∪ `rgb()/rgba()/hsl()/hsla()`」，并**提为模块级函数 `raw_color_hits()`**（承担判定职责 → 可单测）；`base.css` 2 处裸 `rgba()` 改走**新增 token** `--qm-btn-hi` / `--qm-btn-lo`（**同值搬迁 → 零视觉变更**） |
+| 5 | `src/web/js/ui/skin-picker.js` | **C-P2-1** | 抽出 `fill()` 并注册 `qmlocalechange`（**与 `lang-picker` 同构** + 补 `if (!selectEl) return`）→ 换语言后皮肤下拉文案刷新 |
+| 6 | `src/web/js/i18n/{zh-CN,en-US}.js` + `src/shared/schema.json` | **升版例行动作** | `help.versionFallback` 与契约 `version` 同步至 `V0.0.27` |
+
+**反向验证（全部真实运行，非推演）**：
+
+| 项 | 手法 | 结果 |
+|---|---|---|
+| A-P2-1 | 副本注入（捕获退回 `except OSError`）→ 跑 `EditorRoundTripTests.test_bad_encoding_raises_not_crashes` | **FAILED (errors=1)** |
+| A-P2-4 | 副本注入（同）→ 跑 `ErrorCodesTests.test_bad_encoding_returns_empty_not_raise` | **FAILED (errors=1)** |
+| D-P2-1 | ① 副本注入裸 `rgba` → `verify`「组件 CSS 无裸色值」**FAIL**（基线 PASS）；**旧判据**对同一文件命中为空 → **漏网成因坐实**；② 判据退回 `#hex` → `RawColorHitsTests` **FAILED (failures=2)** | 双向实证 |
+| C-P2-1 | 副本停用 `qmlocalechange` 注册 → 跑 `browser_smoke` | **恰该项 FAIL**（浏览器实测 `en='Moonlight Prologue · Pen Gray' → zh=同值`），**页面断言 10 → 11 项** |
+
+**新增测试（+10，`unittest` 222 → 232 OK）**：`test_routes.py` **+1**（A-P2-1）· `test_dtree_core.py` **+4**（A-P2-4：非法编码 / 缺文件 / 坏 JSON / 正常解析）· `test_verify.py` **+4**（`raw_color_hits`：`#hex` / `rgb`·`rgba` / `hsl` / 不误伤 `var()`）· `test_browser_smoke.py` **+1**（C-P2-1 回归位；`verify_metrics` 判定数 7 → 8）。
+
+| 项 | 结果 |
+|---|---|
+| `verify.py .` | **82/0** |
+| `verify.py . --against V0.0.27` | **84/0**（指纹一致） |
+| `unittest` | **Ran 232 tests · OK** |
+| `smoke.py` | **17/0** |
+| `browser_smoke.py` | **11/0** |
+
+**性质**：改 `src/` + 交付契约 → **升 patch 版 `V0.0.26` → `V0.0.27`**；含 store 快照（`V0.0.27@r1` → 同步版本戳后 `@r2`）与 git tag。
+
+> **教训（同《错误笔记》§三.41）**：升版顺序须为 **bump → 同步版本兜底值 / 契约版本戳 → store commit**。本次先 `commit` 后同步，令 `V0.0.27@r1` 装的是**旧版本戳**，须补 `@r2` 修正。
+
+---
+
 ## `src/` 前后端逐行审查（不升版 · 只读）— 2026-10-11
 
 **主题**：产出《`docs/审查报告_src_20261011.md`》—— 对 `src/`（**6655 行**）的**首次逐行审查**，分 **A 后端 / B 前端核心 / C 前端 UI+i18n / D CSS+HTML** 四批。**全程只读，未改动任何源码。**
