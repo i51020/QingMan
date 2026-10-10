@@ -7,7 +7,8 @@
 
 import { helpSections as helpSectionsZh } from './i18n/zh-CN.js';
 import { helpSections as helpSectionsEn } from './i18n/en-US.js';
-import { t, applyStatic, initPrefs, getLocale } from './i18n/index.js';
+import { t, applyStatic, initPrefs, getLocale, watchLocale } from './i18n/index.js';
+import { createLangPicker } from './ui/lang-picker.js';
 import { api } from './core/api.js';
 
 const el = (id) => document.getElementById(id);
@@ -156,8 +157,18 @@ function scrollToHash() {
 
 /* ---------- 启动 ---------- */
 
+/* 语言切换后重渲染：正文按语种取自不同数组（helpSectionsZh / helpSectionsEn），
+ * 静态壳（标题、返回按钮提示）由 applyShell 处理。 */
+document.addEventListener('qmlocalechange', () => {
+  applyShell();
+  renderSections();
+  paint();
+});
+
 async function boot() {
   initPrefs();                   // 先恢复语言/皮肤偏好，再填文案
+  watchLocale();                 // 主界面改语言时，已打开的帮助页随之切换
+  createLangPicker(el('helpLangSelect'));
   applyShell();
   renderSections();
   scrollToHash();

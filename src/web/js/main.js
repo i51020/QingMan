@@ -7,9 +7,10 @@
 
 import { createStore } from './core/store.js';
 import { api } from './core/api.js';
+import { localizeError, describeError } from './core/errors.js';
 import {
-  t, applyStatic, initPrefs, getLocale, setLocale, has,
-  getGenBarState, setGenBarState, SUPPORTED_LOCALES,
+  t, applyStatic, initPrefs, watchLocale,
+  getGenBarState, setGenBarState,
 } from './i18n/index.js';
 import {
   createDir, createFile, findNode, findParent, addChild,
@@ -20,6 +21,7 @@ import {
 import { createTreeView } from './ui/tree-view.js';
 import { createInspector } from './ui/inspector.js';
 import { createSkinPicker } from './ui/skin-picker.js';
+import { createLangPicker } from './ui/lang-picker.js';
 import { toast } from './ui/toast.js';
 
 const el = (id) => document.getElementById(id);
@@ -73,15 +75,7 @@ function setGenBarCollapsed(next) {
 /* ---------- 顶栏：语言 / 皮肤 / 支持 ---------- */
 
 function initTopbar() {
-  const langSel = el('langSelect');
-  for (const code of SUPPORTED_LOCALES) {
-    const opt = document.createElement('option');
-    opt.value = code;
-    opt.textContent = t(`lang.${code.replace('-', '')}`);
-    langSel.appendChild(opt);
-  }
-  langSel.value = getLocale();
-  langSel.addEventListener('change', () => setLocale(langSel.value));
+  createLangPicker(el('langSelect'));
 
   createSkinPicker(el('skinSelect'));
 
@@ -276,7 +270,7 @@ async function saveNow() {
     store.set({ saveState: 'saved', savedAt: at });
   } catch (err) {
     store.set({ saveState: 'error' });
-    toast(t('toast.saveFailed', { message: err.message }), 'error', 6000);
+    toast(t('toast.saveFailed', { message: localizeError(err) }), 'error', 6000);
   }
 }
 
@@ -299,7 +293,7 @@ async function restoreDocument() {
     }
     saveNow();
   } catch (err) {
-    toast(t('toast.restoreFailed', { message: err.message }), 'warn', 6000);
+    toast(t('toast.restoreFailed', { message: localizeError(err) }), 'warn', 6000);
   }
 }
 
@@ -431,8 +425,8 @@ el('btnGenerate').addEventListener('click', async () => {
     toast(dryRun ? t('toast.dryDone') : t('toast.generatedTo', { root: result.root }), 'info');
   } catch (err) {
     inspector.showError(err);
-    setStatus(t('status.genFailed', { message: err.message }));
-    toast(err.message, 'error', 5000);
+    setStatus(t('status.genFailed', { message: localizeError(err) }));
+    toast(describeError(err), 'error', 5000);
   } finally {
     btn.disabled = false;
   }
@@ -460,7 +454,7 @@ async function createShortcut() {
       toast(t('shortcut.done'), 'info');
     }
   } catch (err) {
-    toast(t('shortcut.failed', { message: err.message }), 'error');
+    toast(t('shortcut.failed', { message: localizeError(err) }), 'error');
   }
 }
 
@@ -542,7 +536,7 @@ async function boot() {
     el('chipBackend').textContent = t('topbar.backendOff');
     el('chipBackend').classList.add('chip-bad');
     setStatus(t('status.backendOffHint'));
-    toast(t('toast.backendOff', { message: err.message }), 'error', 6000);
+    toast(t('toast.backendOff', { message: localizeError(err) }), 'error', 6000);
     return;
   }
 
@@ -555,15 +549,7 @@ async function boot() {
 
 /* ---------- 模板库（V0.0.11） ---------- */
 
-/**
- * 后端错误码 → 取词键。
- * 未登记的错误码**回退为后端原文**，与既有行为一致（存量错误码仍是中文）。
- */
-function localizeError(err) {
-  const key = 'err.' + (err && err.code ? err.code : '');
-  if (has(key)) return t(key, (err && err.detail) || {});
-  return err && err.message ? err.message : '';
-}
+/* 错误本地化已迁至 ./core/errors.js（V0.0.12）：主界面与帮助页共用同一套 `err.<code>` 取词。 */
 
 function renderTemplateState(text, kind) {
   const host = el('templateList');
@@ -642,6 +628,7 @@ document.addEventListener('qmlocalechange', () => {
 
 /* 启动顺序：先恢复偏好并填静态文案，再渲染动态内容 —— 否则 applyStatic 会覆盖状态栏等动态字段 */
 initPrefs();
+watchLocale();          // 另一页面（帮助页）改语言时，本页随之切换
 applyStatic(document);
 initTopbar();
 initGenBar();

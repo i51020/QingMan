@@ -4,6 +4,7 @@
  */
 
 import { isDir, pathOf, depthOf, countTree } from '../modules/tree-model.js';
+import { localizeError } from '../core/errors.js';
 import { t } from '../i18n/index.js';
 
 export function createInspector(refs) {
@@ -35,7 +36,7 @@ export function createInspector(refs) {
 
     showError(err) {
       refs.result.textContent = t('inspector.genFailed',
-        { code: err.code || 'error', message: err.message });
+        { code: err.code || 'error', message: localizeError(err) });
     },
   };
 

@@ -30,6 +30,7 @@ export const dict = {
 
   /* ---------- Language & skin ---------- */
   'lang.label': 'Language',
+  'lang.auto': 'Follow system',
   'lang.zhCN': '中文',
   'lang.enUS': 'English',
 
@@ -70,10 +71,64 @@ export const dict = {
   'template.loaded': 'Loaded template "{name}"',
   'template.loadFailed': 'Failed to load template: {message}',
 
-  /* Template API error codes -> localized text (backend text is the fallback) */
+  /* ---------- Backend error codes -> localized text ----------
+   * Keys are fixed as `err.<code>`; placeholders must match
+   * src/shared/error-codes.json entry by entry, enforced by the
+   * "error-code localization closure" and "placeholder consistency"
+   * guards in tools/verify.py. Unregistered codes fall back to the
+   * backend text. The 5 entries containing {message} carry a Python
+   * exception string that cannot be translated - mixed language there
+   * is expected.
+   */
+  'err.segmentNotString': 'Directory name must be a string',
+  'err.segmentEmpty': 'Directory name cannot be empty',
+  'err.segmentTooLong': 'Directory name too long (limit 120 characters): {name}',
+  'err.segmentDot': 'Directory name cannot be . or .. : {name}',
+  'err.segmentIllegalChar': 'Directory name contains an illegal character: {name}',
+  'err.segmentReserved': 'Directory name is a reserved system name: {name}',
+  'err.segmentInvalid': '"{name}" is not a valid directory name ({reason})',
+  'err.treeMissing': 'Missing directory tree data: tree',
+  'err.targetMissing': 'Missing target location: target',
+  'err.targetInvalid': 'Target location is not a valid path: {target} ({reason})',
+  'err.targetTooShallow': 'Target location must be at least two levels deep; a drive root is not allowed: {target}',
+  'err.targetBlocked': 'Target location is inside a protected directory and was rejected: {target} ({reason})',
+  'err.targetReserved': 'Target location points to QingMan itself or its parent and was rejected: {target} ({reason})',
+  'err.tooManyNodes': 'Tree too large: {dirs} directories + {files} files = {total}, limit {limit}',
+  'err.pathConflict': 'A file with the same name already exists at the target path; cannot create a directory: {path}',
+  'err.badJson': 'Request body is not a valid JSON object',
+  'err.badPath': 'Invalid access path',
+  'err.notFound': 'Endpoint does not exist: {path}',
+  'err.bodyTooLarge': 'Request body too large, limit {limit} bytes',
+  'err.ioError': 'Disk write failed: {message}',
+  'err.internalError': 'Internal server error: {message}',
+  'err.hostRejected': 'Request host is not allowed: {host}',
+  'err.originRejected': 'Request origin is not allowed: {origin}',
+  'err.missingGuardHeader': 'Missing guard request header {header}',
+  'err.methodNotAllowed': 'Method not allowed: {method}',
+  'err.editorRootMissing': 'Editor document is missing the root node',
+  'err.editorRootNotDir': 'The root of the editor document must be a directory node',
+  'err.editorNodeNotObject': 'Editor node must be an object: {path}',
+  'err.editorNodeBadType': 'Editor node type must be dir or file: {path}',
+  'err.editorNodeBadName': 'Editor node name must be a non-empty string: {path}',
+  'err.editorNodeBadId': 'Editor node id must be a non-empty string: {path}',
+  'err.editorNodeBadContent': 'Editor file node content must be a string: {path}',
+  'err.editorNodeBadChildren': 'Editor directory node children must be an array: {path}',
+  'err.editorIdDuplicated': 'Editor document has a duplicate id: {id} (first seen at {first}, again at {again})',
+  'err.editorSiblingDuplicated': 'Duplicate node name at the same level: {name} ({path})',
+  'err.editorTooLarge': 'Editor document too large, limit {limit} bytes (current {actual})',
+  'err.editorTooManyNodes': 'Editor document has too many nodes, limit {limit}',
+  'err.editorReadFailed': 'Failed to read the editor document: {message}',
+  'err.editorCorrupt': 'Editor document is corrupt and cannot be parsed: {path}',
+  'err.shortcutTargetMissing': 'Startup file does not exist: {target}',
+  'err.shortcutFailed': 'Failed to create the shortcut: {message}',
   'err.templateNotFound': 'Template not found: {name}',
   'err.templateBadJson': 'Malformed template file: {name}',
   'err.templateReadFailed': 'Failed to read template: {name} ({message})',
+
+  /* Error-code badge: a stable identifier for troubleshooting, shown alongside the localized text */
+  'err.codeLabel': 'Error code: {code}',
+  /* Not a backend code: raised by the frontend on HTTP-level failure, but shares the err.* prefix so it localizes the same way */
+  'err.httpError': 'Request failed (HTTP {status})',
 
   /* ---------- Center: generation parameters ---------- */
   'gen.rootLabel': 'Root folder name',
@@ -194,7 +249,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.11',
+  'help.versionFallback': 'V0.0.12',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

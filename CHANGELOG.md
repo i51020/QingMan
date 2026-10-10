@@ -7,6 +7,46 @@
 
 ---
 
+## V0.0.12 — 2026-10-10
+
+**主题**：错误消息随语言切换 —— 后端错误码全量登记 `err.<code>`，并给语言加上「跟随系统」档。
+
+> **立项依据**：`src/shared/error-codes.json` 的 45 条错误码**全部是中文**，英文界面下弹中文错误（V0.0.11 只本地化了新增的 3 个模板错误码）。同时 `initPrefs()` **只读 `qm.lang`、无则硬兜底 `zh-CN`**，没有任何系统探测。
+
+### 变更（`src/`）
+
+- **错误消息本地化**
+  - 后端零改动：`_fail()` 本就返回结构化 `{ok, code, message, detail}`，`detail` 的键恰好就是占位符名，前端按 `err.<code>` 重新成句即可
+  - 新增 `src/web/js/core/errors.js`：`localizeError()` / `errorCode()` / `describeError()`，主界面与帮助页共用
+  - **44 个错误码全部登记**中英译文（此前仅 3 个）；未登记的码回退后端原文，存量行为不破坏
+  - **8 处 catch 全量接线**：`main.js` 6 处 `err.message` → `localizeError(err)`（其中生成失败处改用 `describeError()` 带错误码徽标），`inspector.js` 1 处同步
+  - **暴露错误码**：错误提示追加「错误码：xxx」徽标，`api.js` 抛错时 `console.warn` 留痕 —— 技术排查用稳定标识，不依赖文案搜索
+- **语言策略**
+  - `qm.lang` 新增 `'auto'`（跟随系统），且是下拉里**显式可见的一档** —— 否则用户手动选过一次就永久失去回到自动的路径
+  - **BCP 47 降级匹配** `matchLocale()`：逐级剥离子标签，最后按主语言子标签兜底。`zh-Hant-TW` → `zh-CN`、`en-GB` → `en-US`（精确匹配会让繁体用户落到英文界面）
+  - 新增 `src/web/js/ui/lang-picker.js`，主界面与帮助页共用
+  - 帮助页新增语言下拉；`watchLocale()` 监听 `storage` 事件实现跨页面实时同步
+- **不可翻译项的固有边界**：`ioError` / `internalError` / `editorReadFailed` / `shortcutFailed` / `templateReadFailed` 5 条含 `{message}`，其值来自 Python `str(exc)`，英文界面下会与系统原文混排 —— 属预期，枚举 errno 自建映射代价过大
+
+### 变更（`tools/`）
+
+- `verify.py` 新增两道守卫（共 61 → 63 项）
+  - **错误码本地化闭包**：44 个码必须在两份取词表齐备，且占位符集合三方（原文 / 中文 / 英文）完全一致
+  - **语言策略**：`auto` 一档 + 降级匹配 + 跨页同步齐备
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| 主线 `verify.py` | **63 项 0 失败** |
+| `unittest` | 80 OK |
+| `smoke.py` | 17 项 0 失败 |
+| Node 实证 · 降级匹配 | 26 项 0 失败（含 `zh-Hant-TW`→`zh-CN`、`en-GB`→`en-US`、无 navigator 不崩） |
+| Node 实证 · 错误跟随语言 | 17 项 0 失败（中英切换、未登记码回退、无 code 边界） |
+| **守卫反向实证** | 缺键 → FAIL；占位符不一致 → FAIL；去掉 auto 档 → FAIL（首版判据被 `labelOf()` 残留引用蒙混，已收紧为检查选项列表） |
+
+---
+
 ## V0.0.11 — 2026-10-10
 
 **主题**：模板工作区接入 —— 左栏从「只有自检清单」变成真正能载入 17 套模板。

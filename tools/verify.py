@@ -422,6 +422,69 @@ def main() -> int:
     check(not align_bad, "中英取词键对齐 §P0-3 L1",
           align_bad if align_bad else "中英键集一致")
 
+    # 7b-4. 错误码本地化闭包 + 占位符一致性（§P0-3 L1）
+    # 后端返回结构化 {code, detail}，前端按 `err.<code>` 重新成句 —— 因此每个
+    # 错误码都必须在两份取词表里有对应键，且占位符集合三方（原文/中文/英文）
+    # 完全一致。否则切到英文后要么占位符原样残留，要么整条回退中文。
+    codes_file = root / "src/shared/error-codes.json"
+    need = []
+    err_bad = ""
+    if codes_file.is_file() and zh_file.is_file() and en_file.is_file():
+        try:
+            codes = json.loads(codes_file.read_text(encoding="utf-8"))
+        except ValueError:
+            codes = {}
+        ERR_KV = re.compile(r"'err\.([A-Za-z0-9]+)':\s*'((?:[^'\\]|\\.)*)'")
+        zh_err = {m.group(1): m.group(2)
+                  for m in ERR_KV.finditer(zh_file.read_text(encoding="utf-8"))}
+        en_err = {m.group(1): m.group(2)
+                  for m in ERR_KV.finditer(en_file.read_text(encoding="utf-8"))}
+        need = [c for c in codes if c != "ok"]
+
+        def ph(text):
+            return sorted(set(re.findall(r"\{(\w+)\}", text)))
+
+        miss_zh = [c for c in need if c not in zh_err]
+        miss_en = [c for c in need if c not in en_err]
+        ph_bad = []
+        for c in need:
+            base = ph(str(codes.get(c, "")))
+            if c in zh_err and ph(zh_err[c]) != base:
+                ph_bad.append(f"{c} zh{ph(zh_err[c])}≠{base}")
+            if c in en_err and ph(en_err[c]) != base:
+                ph_bad.append(f"{c} en{ph(en_err[c])}≠{base}")
+            if c in zh_err and c in en_err and ph(zh_err[c]) != ph(en_err[c]):
+                ph_bad.append(f"{c} zh≠en")
+        if miss_zh or miss_en:
+            err_bad = f"缺键 zh {len(miss_zh)} / en {len(miss_en)}：{', '.join((miss_zh + miss_en)[:3])}"
+        elif ph_bad:
+            err_bad = f"占位符不一致 {len(ph_bad)} 处：{', '.join(ph_bad[:3])}"
+    elif not codes_file.is_file():
+        err_bad = "缺少 error-codes.json"
+    check(not err_bad, "错误码本地化闭包",
+          err_bad if err_bad else f"{len(need)} 个错误码中英齐备且占位符一致")
+
+    # 7b-5. 语言策略：跟随系统必须是显式可选的一档，且具备降级匹配与跨页同步
+    i18n_file = root / "src/web/js/i18n/index.js"
+    picker_file = root / "src/web/js/ui/lang-picker.js"
+    lang_bad = ""
+    if not i18n_file.is_file():
+        lang_bad = "缺少 i18n/index.js"
+    else:
+        body = i18n_file.read_text(encoding="utf-8")
+        for token in ("AUTO_LOCALE", "matchLocale", "resolveLocale", "watchLocale"):
+            if token not in body:
+                lang_bad = lang_bad or f"i18n/index.js 缺少 {token}"
+    if not lang_bad:
+        if not picker_file.is_file():
+            lang_bad = "缺少 ui/lang-picker.js"
+        elif not re.search(r"\[\s*AUTO_LOCALE\b", picker_file.read_text(encoding="utf-8")):
+            # 判据必须落在「选项列表里真的有 auto 这一档」，而非「文件里出现过 AUTO_LOCALE」——
+            # 后者会被 labelOf() 之类的残留引用蒙混过关（反向实证场景 c 抓到过这个漏洞）
+            lang_bad = "lang-picker.js 未把「跟随系统」列为独立一档"
+    check(not lang_bad, "语言策略（跟随系统）",
+          lang_bad if lang_bad else "auto 一档 + BCP 47 降级匹配 + 跨页同步 齐备")
+
     # 7c. 组件 CSS 只允许 var(--qm-*)（§P0-3 L4）
     HEX_LIKE = re.compile(r"#[0-9a-fA-F]{3,8}\b")
     raw_color = []

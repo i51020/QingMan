@@ -39,6 +39,7 @@ export const dict = {
 
   /* ---------- 语言与皮肤 ---------- */
   'lang.label': '语言',
+  'lang.auto': '跟随系统',
   'lang.zhCN': '中文',
   'lang.enUS': 'English',
 
@@ -79,10 +80,61 @@ export const dict = {
   'template.loaded': '已载入模板「{name}」',
   'template.loadFailed': '模板载入失败：{message}',
 
-  /* 模板接口错误码 → 本地化文案（后端原文为兜底） */
+  /* ---------- 后端错误码 → 本地化文案 ----------
+   * 键名固定为 `err.<code>`，占位符必须与 src/shared/error-codes.json 逐条一致，
+   * 由 tools/verify.py 的「错误码本地化闭包」与「占位符一致性」两道守卫把关。
+   * 未登记的码回退后端原文（与既有行为一致）。
+   * 含 {message} 的 5 条，其值来自 Python 异常原文，无法翻译 —— 英文界面下混排属预期。
+   */
+  'err.segmentNotString': '目录名必须是字符串',
+  'err.segmentEmpty': '目录名不能为空',
+  'err.segmentTooLong': '目录名过长（上限 120 字符）：{name}',
+  'err.segmentDot': '目录名不能是 . 或 .. ：{name}',
+  'err.segmentIllegalChar': '目录名含非法字符：{name}',
+  'err.segmentReserved': '目录名是系统保留名：{name}',
+  'err.segmentInvalid': '「{name}」不是合法目录名（{reason}）',
+  'err.treeMissing': '缺少目录树数据 tree',
+  'err.targetMissing': '缺少目标位置 target',
+  'err.targetInvalid': '目标位置不是合法路径：{target}（{reason}）',
+  'err.targetTooShallow': '目标位置至少需两级目录，不能是盘符根：{target}',
+  'err.targetBlocked': '目标位置位于受保护目录内，已拒绝：{target}（{reason}）',
+  'err.targetReserved': '目标位置指向青蔓自身或其上级目录，已拒绝：{target}（{reason}）',
+  'err.tooManyNodes': '目录规模超限：目录 {dirs} + 文件 {files} = {total}，上限 {limit}',
+  'err.pathConflict': '目标路径已存在同名文件，无法建为目录：{path}',
+  'err.badJson': '请求体不是合法 JSON 对象',
+  'err.badPath': '访问路径不合法',
+  'err.notFound': '接口不存在：{path}',
+  'err.bodyTooLarge': '请求体过大，上限 {limit} 字节',
+  'err.ioError': '磁盘写入失败：{message}',
+  'err.internalError': '服务内部错误：{message}',
+  'err.hostRejected': '调用来源主机不被允许：{host}',
+  'err.originRejected': '调用来源不被允许：{origin}',
+  'err.missingGuardHeader': '缺少防护请求头 {header}',
+  'err.methodNotAllowed': '请求方法不被允许：{method}',
+  'err.editorRootMissing': '编辑态文档缺少 root 节点',
+  'err.editorRootNotDir': '编辑态文档的 root 必须是目录节点',
+  'err.editorNodeNotObject': '编辑态节点必须是对象：{path}',
+  'err.editorNodeBadType': '编辑态节点 type 必须为 dir 或 file：{path}',
+  'err.editorNodeBadName': '编辑态节点 name 必须为非空字符串：{path}',
+  'err.editorNodeBadId': '编辑态节点 id 必须为非空字符串：{path}',
+  'err.editorNodeBadContent': '编辑态文件节点 content 必须是字符串：{path}',
+  'err.editorNodeBadChildren': '编辑态目录节点 children 必须是数组：{path}',
+  'err.editorIdDuplicated': '编辑态文档存在重复 id：{id}（先出现在 {first}，再次出现在 {again}）',
+  'err.editorSiblingDuplicated': '同一层存在重名节点：{name}（{path}）',
+  'err.editorTooLarge': '编辑态文档过大，上限 {limit} 字节（当前 {actual}）',
+  'err.editorTooManyNodes': '编辑态文档节点过多，上限 {limit} 个',
+  'err.editorReadFailed': '读取编辑态文档失败：{message}',
+  'err.editorCorrupt': '编辑态文档已损坏，无法解析：{path}',
+  'err.shortcutTargetMissing': '启动文件不存在：{target}',
+  'err.shortcutFailed': '快捷方式生成失败：{message}',
   'err.templateNotFound': '模板不存在：{name}',
   'err.templateBadJson': '模板文件结构非法：{name}',
   'err.templateReadFailed': '读取模板失败：{name}（{message}）',
+
+  /* 错误码徽标：技术排查用的稳定标识，与本地化文案并列展示 */
+  'err.codeLabel': '错误码：{code}',
+  /* 非后端错误码：HTTP 层失败时前端自行造的码，同样走 err.* 前缀以便本地化 */
+  'err.httpError': '请求失败（HTTP {status}）',
 
   /* ---------- 中栏：生成参数 ---------- */
   'gen.rootLabel': '根文件夹名',
@@ -203,7 +255,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.11',
+  'help.versionFallback': 'V0.0.12',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',

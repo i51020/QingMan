@@ -19,12 +19,79 @@ const DICTIONARIES = { 'zh-CN': zhCN, 'en-US': enUS };
 
 export const SUPPORTED_LOCALES = Object.freeze(Object.keys(DICTIONARIES));
 export const DEFAULT_LOCALE = 'zh-CN';
+/** 「跟随系统」的偏好值。它不是语种，需经 `resolveLocale()` 解析成实际语种。 */
+export const AUTO_LOCALE = 'auto';
 export const LOCALE_KEY = 'qm.lang';
 export const SKIN_KEY = 'qm.skin';
 export const GENBAR_KEY = 'qm.genBar';
 
 let locale = DEFAULT_LOCALE;
 let dict = DICTIONARIES[locale];
+
+/* ---------- 语种探测与匹配（BCP 47 降级） ---------- */
+
+/**
+ * 系统/浏览器给出的语种偏好列表。
+ * 浏览器语境下拿不到真正的 OS 语言，只能拿到浏览器语言偏好；
+ * 而 Edge / Chrome 默认继承 OS 显示语言，故该列表在默认配置下即等于系统语言。
+ */
+function systemLocales() {
+  if (typeof navigator === 'undefined') return [];
+  if (Array.isArray(navigator.languages) && navigator.languages.length) {
+    return navigator.languages.slice();
+  }
+  return navigator.language ? [navigator.language] : [];
+}
+
+/**
+ * 单个语种标签的匹配。
+ *
+ * 采用 **BCP 47 降级链**，而非精确匹配 —— 精确匹配会让 `zh-Hant-TW` 落空后
+ * 直接回退默认语种，导致繁体用户看到英文界面。
+ *
+ * 顺序：① 逐级剥离子标签做精确匹配（`zh-hant-tw` → `zh-hant` → `zh`）；
+ * ② 仍不中则按 **主语言子标签** 匹配（`zh` → `zh-CN`，`en` → `en-US`）。
+ *
+ * @param {string} tag 任意语种标签，大小写与 `-`/`_` 分隔符均兼容
+ * @returns {string|null} 命中的已登记语种；无命中返回 null
+ */
+export function matchLocale(tag) {
+  const parts = String(tag || '').toLowerCase().split(/[-_]/).filter(Boolean);
+  if (!parts.length) return null;
+  for (let i = parts.length; i > 0; i -= 1) {
+    const candidate = parts.slice(0, i).join('-');
+    const hit = SUPPORTED_LOCALES.find((s) => s.toLowerCase() === candidate);
+    if (hit) return hit;
+  }
+  const primary = parts[0];
+  return SUPPORTED_LOCALES.find((s) => s.toLowerCase().split('-')[0] === primary) || null;
+}
+
+/** 在一串偏好里挑第一个能命中的语种；全不命中返回 null。 */
+export function lookupLocale(preferred) {
+  const list = Array.isArray(preferred) ? preferred : (preferred ? [preferred] : []);
+  for (const tag of list) {
+    const hit = matchLocale(tag);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/**
+ * 偏好值 → 实际语种。
+ * 显式语种直接用；`auto`（或空）走系统探测；探测无命中落到 `DEFAULT_LOCALE`。
+ */
+export function resolveLocale(pref) {
+  if (pref && pref !== AUTO_LOCALE && DICTIONARIES[pref]) return pref;
+  return lookupLocale(systemLocales()) || DEFAULT_LOCALE;
+}
+
+/** 只改内存与 `<html lang>`，不写盘、不刷 DOM。 */
+function applyLocale(next) {
+  locale = next;
+  dict = DICTIONARIES[next];
+  if (typeof document !== 'undefined') document.documentElement.lang = next;
+}
 
 /* ---------- 偏好存取 ---------- */
 
@@ -55,18 +122,51 @@ export function getLocale() {
   return locale;
 }
 
-/** 切换语言。未登记的语种返回 false，不做任何改动；成功时刷新全部静态文案并广播事件。 */
+/**
+ * 切换语言。可接受具体语种或 `AUTO_LOCALE`（跟随系统）。
+ * 未登记的语种返回 false，不做任何改动；成功时刷新全部静态文案并广播事件。
+ */
 export function setLocale(next) {
-  if (!DICTIONARIES[next]) return false;
-  locale = next;
-  dict = DICTIONARIES[next];
+  if (next !== AUTO_LOCALE && !DICTIONARIES[next]) return false;
+  const resolved = resolveLocale(next);
   writePref(LOCALE_KEY, next);
+  applyLocale(resolved);
   if (typeof document !== 'undefined') {
-    document.documentElement.lang = next;
     applyStatic(document);
-    document.dispatchEvent(new CustomEvent('qmlocalechange', { detail: { locale: next } }));
+    document.dispatchEvent(new CustomEvent('qmlocalechange', { detail: { locale: resolved } }));
   }
   return true;
+}
+
+/** 用户显式选过的偏好值（可能是 `auto`）。未选过也返回 `auto` —— 即出厂默认就是跟随系统。 */
+export function getLocalePreference() {
+  const saved = readPref(LOCALE_KEY);
+  return saved && (saved === AUTO_LOCALE || DICTIONARIES[saved]) ? saved : AUTO_LOCALE;
+}
+
+/** 是否显式选过语言（用于区分「出厂默认」与「用户选的同一档」）。 */
+export function hasLocalePref() {
+  const saved = readPref(LOCALE_KEY);
+  return Boolean(saved && (saved === AUTO_LOCALE || DICTIONARIES[saved]));
+}
+
+/**
+ * 跨页面同步：另一标签页改了 `qm.lang` 时，本页随之切换。
+ * 主界面与帮助页是两个独立页面，共享 localStorage 但各自持有内存态，
+ * 不监听 `storage` 就会出现「主界面切了语言、已打开的帮助页还是旧语言」。
+ */
+export function watchLocale() {
+  if (typeof window === 'undefined') return;
+  window.addEventListener('storage', (event) => {
+    if (event.key !== LOCALE_KEY) return;
+    const resolved = resolveLocale(event.newValue || AUTO_LOCALE);
+    if (resolved === locale) return;
+    applyLocale(resolved);
+    if (typeof document !== 'undefined') {
+      applyStatic(document);
+      document.dispatchEvent(new CustomEvent('qmlocalechange', { detail: { locale: resolved } }));
+    }
+  });
 }
 
 /** 该键是否已有译文。 */
@@ -181,12 +281,7 @@ export function setGenBarState(state) {
 
 /** 启动时恢复已保存的语言与皮肤。**必须在填充任何文案之前调用**。 */
 export function initPrefs() {
-  const saved = readPref(LOCALE_KEY);
-  if (saved && DICTIONARIES[saved]) {
-    locale = saved;
-    dict = DICTIONARIES[saved];
-  }
-  if (typeof document !== 'undefined') document.documentElement.lang = locale;
+  applyLocale(resolveLocale(getLocalePreference()));
   applySkin();
   return locale;
 }

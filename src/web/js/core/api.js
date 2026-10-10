@@ -33,10 +33,13 @@ async function request(path, options = {}) {
   }
 
   if (!res.ok || payload.ok === false) {
-    const detail = payload && payload.message ? payload.message : `HTTP ${res.status}`;
-    const error = new Error(detail);
+    const fallback = `HTTP ${res.status}`;
+    const error = new Error(payload && payload.message ? payload.message : fallback);
     error.code = payload && payload.code ? payload.code : 'httpError';
-    error.detail = payload && payload.detail ? payload.detail : {};
+    // status 一并入 detail：本地化时 err.httpError 的 {status} 才有值可填
+    error.detail = { ...(payload && payload.detail ? payload.detail : {}), status: res.status };
+    // 控制台留痕：错误码是稳定标识，便于技术排查（界面上另有徽标）
+    console.warn('[QingMan] request failed:', error.code, error.detail);
     throw error;
   }
   return payload;
