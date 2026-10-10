@@ -101,6 +101,24 @@ EDITOR_FILE = DATA_DIR / "editor.json"
 MAX_EDITOR_BYTES = _env_int("QM_MAX_EDITOR_BYTES", 8 * 1024 * 1024)
 MAX_EDITOR_NODES = _env_int("QM_MAX_EDITOR_NODES", 20000)
 
+# 编辑态**轮转备份**（V0.0.26）
+#
+# `save_editor` 是「写 `.tmp` → `os.replace` 原子替换」，**替换即覆盖上一版**；
+# `load_editor` 只在**文件损坏**时保护，防不住「合法但错误」的覆盖
+# —— 用户一次误操作 + 一次保存，上一版就永久消失。
+# 故每次落盘前，把**当前**文档复制一份到 `data/.bak/editor-<时间戳>.json`，
+# 只保留最近 N 份。
+#
+# 超出的旧备份**不真删**，而是移入 `data/.bak/.trash/<时间戳>/`（**软删除**）——
+# 项目总原则「只复制不删除」是全项目硬不变量（`verify.py` 7q 守卫禁止
+# `routes.py` 出现 `unlink`/`remove`），与 `templates/.trash/` 同一体例，可人工找回。
+#
+# 备份是**增强**：失败**不阻断保存**，只在响应里回报（见 `routes._backup_editor`）。
+EDITOR_BACKUP_DIR = DATA_DIR / ".bak"
+EDITOR_BACKUP_KEEP = _env_int("QM_EDITOR_BACKUP_KEEP", 5)
+# 轮转淘汰下来的旧备份的去处（软删除），延续 `TEMPLATE_TRASH_DIRNAME` 体例
+EDITOR_BACKUP_TRASH_DIRNAME = ".trash"
+
 # ---------- 桌面快捷方式图标（V0.0.15） ----------
 #
 # 皮肤联动的启动图标：前端按当前皮肤配色用 canvas 绘制多尺寸 ICO，

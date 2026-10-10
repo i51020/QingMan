@@ -1490,7 +1490,9 @@ def main() -> int:
 
     anchors = (
         ("src/server/config.py", "EDITOR_FILE"),
+        ("src/server/config.py", "EDITOR_BACKUP_KEEP"),   # V0.0.26 轮转备份
         ("src/server/routes.py", "EDITOR_PATH"),
+        ("src/server/routes.py", "_backup_editor"),       # V0.0.26 轮转备份
         ("src/server/app.py", "do_PUT"),
         ("src/web/js/core/api.js", "saveDoc"),
     )

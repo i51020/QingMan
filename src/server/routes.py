@@ -11,6 +11,7 @@ import binascii
 import json
 import os
 import re
+import shutil
 import struct
 import subprocess
 import tempfile
@@ -143,8 +144,79 @@ def load_editor() -> Dict[str, Any]:
     return {"ok": True, "doc": doc, "path": str(path), "stats": stats}
 
 
+# 备份文件名里的时间戳：定宽、可排序、无冒号（跨平台安全）。
+# 带**微秒**（`%f`）：名字全局单调 → 裁剪用「名字序 = 时间序」才成立。
+# ⚠ 只到秒是不够的：同一秒内的多份备份靠后缀区分，而一旦某份被裁掉、其名字被
+# **后一次保存重新占用**，新文件就排到了后缀文件的**前面**，会被当成最旧立刻裁掉
+# —— 实测发生过「最新一份刚写就被删」。微秒级下名字不会复用，问题从根上消失。
+_EDITOR_BACKUP_STAMP = "%Y%m%d-%H%M%S-%f"
+_EDITOR_BACKUP_GLOB = "editor-*.json"
+# 回收站子目录名用秒级戳即可（同秒内多次轮转共用一个目录，避免碎目录）
+_EDITOR_BACKUP_TRASH_STAMP = "%Y%m%d-%H%M%S"
+
+
+def _prune_editor_backups(bak_dir: Path) -> int:
+    """把超出上限的旧备份**移入** `data/.bak/.trash/<时间戳>/`，返回迁移份数。
+
+    **软删除，不真删** —— 项目总原则「只复制不删除」是全项目硬不变量
+    （`verify.py` 7q 守卫禁止 `routes.py` 出现 `unlink`/`remove`），
+    与 `templates/.trash/` 同一体例，误清可人工找回。
+
+    `editor-<17 位定宽时间戳>.json` ⇒ **名字序即时间序**，无需解析时间戳。
+    同微秒冲突的后缀用 `_NNN`（`_`(0x5F) > `.`(0x2E)，排在无后缀之后，与创建序一致）；
+    补零到 3 位以免 `_2 > _10` 的字典序陷阱。**不可**改用 `-NNN`：`-`(0x2D) < `.`，
+    会让后缀文件排到无后缀之前，淘汰的就是最新那份。
+    """
+    keep = max(config.EDITOR_BACKUP_KEEP, 1)
+    files = sorted(bak_dir.glob(_EDITOR_BACKUP_GLOB))   # 非递归：.trash/ 内的不会被扫到
+    excess = files[:-keep] if len(files) > keep else []
+    if not excess:
+        return 0
+
+    trash = (bak_dir / config.EDITOR_BACKUP_TRASH_DIRNAME
+             / datetime.now().strftime(_EDITOR_BACKUP_TRASH_STAMP))
+    moved = 0
+    for old in excess:
+        try:
+            trash.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(old), str(trash / old.name))
+            moved += 1
+        except OSError:
+            pass
+    return moved
+
+
+def _backup_editor(path: Path) -> Dict[str, Any]:
+    """把**当前**（即将被覆盖的那一版）编辑态文档轮转为一份带时间戳的备份。
+
+    **绝不抛出**：备份是增强，不得因它失败而阻断保存（主契约是「存得下」）。
+    返回 `{"ok": bool, "file": str | None, "pruned": int}`；`file=None` 表示此前无文档可备。
+    """
+    if not path.is_file():
+        return {"ok": True, "file": None, "pruned": 0}
+
+    bak_dir = config.EDITOR_BACKUP_DIR
+    try:
+        bak_dir.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now().strftime(_EDITOR_BACKUP_STAMP)
+        target = bak_dir / f"editor-{stamp}.json"
+        seq = 2
+        while target.exists():      # 同微秒（时钟精度不足时）兜底，不互相覆盖
+            target = bak_dir / f"editor-{stamp}_{seq:03d}.json"
+            seq += 1
+        shutil.copy2(path, target)
+    except OSError as exc:
+        return {"ok": False, "file": None, "pruned": 0, "reason": str(exc)}
+
+    return {"ok": True, "file": target.name, "pruned": _prune_editor_backups(bak_dir)}
+
+
 def save_editor(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """校验并**原子写入**编辑态文档。非法内容一律拒写。"""
+    """校验并**原子写入**编辑态文档。非法内容一律拒写。
+
+    落盘前先把**上一版**轮转进 `data/.bak/`（保留最近 `EDITOR_BACKUP_KEEP` 份）——
+    原子替换会覆盖上一版，而「合法但错误」的覆盖是 `load_editor` 的损坏保护挡不住的。
+    """
     doc = payload.get("doc")
     if not isinstance(doc, dict):
         raise TreeError("editorRootMissing")
@@ -163,6 +235,8 @@ def save_editor(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     path = config.EDITOR_FILE
     path.parent.mkdir(parents=True, exist_ok=True)
+    # 顺序不可颠倒：必须**先备份上一版、再替换**；颠倒则备份到的已是新内容
+    backup = _backup_editor(path)
     tmp = path.with_name(path.name + ".tmp")
     # 显式 newline="\n"：默认 newline=None 在 Windows 下会写成 CRLF，
     # 使返回的 bytes 与磁盘实际字节不符，且破坏跨平台字节一致性（§编码基线）。
@@ -176,6 +250,7 @@ def save_editor(payload: Dict[str, Any]) -> Dict[str, Any]:
         "savedAt": saved["savedAt"],
         "bytes": size,
         "stats": stats,
+        "backup": backup,
     }
 
 

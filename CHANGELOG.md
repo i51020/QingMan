@@ -7,6 +7,47 @@
 
 ---
 
+## V0.0.26 — 2026-10-10
+
+**主题**：编辑态**轮转备份** —— `save_editor` 落盘前把**上一版**轮转进 `data/.bak/`，保留最近 5 份。源自《审查报告_工具链_20261010》§七 第 6 条（「第 3 步」）。
+
+**动机**：`save_editor` 是「写 `.tmp` → `os.replace` 原子替换」，**替换即覆盖上一版**；`load_editor` 只在**文件损坏**时保护，**挡不住「合法但错误」的覆盖** —— 用户一次误操作 + 一次自动保存（防抖 800ms），上一版即永久消失。这是编辑态唯一的**不可逆**路径。
+
+### 变更
+
+| # | 位置 | 内容 |
+|---|---|---|
+| 1 | `src/server/config.py` | 新增 `EDITOR_BACKUP_DIR`（`data/.bak`）/ `EDITOR_BACKUP_KEEP`（可用 `QM_EDITOR_BACKUP_KEEP` 覆盖，默认 **5**）/ `EDITOR_BACKUP_TRASH_DIRNAME`（`.trash`） |
+| 2 | `src/server/routes.py` | 新增 `_backup_editor()` / `_prune_editor_backups()`；`save_editor` 在**体积检查之后、原子替换之前**调用 —— 顺序不可颠倒（颠倒则备份到的是新内容）。响应新增 `backup: {ok, file, pruned[, reason]}` |
+| 3 | `src/shared/schema.json` | `version` → `V0.0.26`（守卫 9a 要求 == `VERSION`）；`editorResponse` 补 `backup` 字段；`editorDocument` 注明轮转位置 |
+| 4 | `src/web/js/i18n/{zh-CN,en-US}.js` | `help.versionFallback` → `V0.0.26`（守卫 7h 要求 == `VERSION`） |
+| 5 | `tools/verify.py` | 「编辑态接口与错误码」锚点补 `EDITOR_BACKUP_KEEP` / `_backup_editor`（守卫计数不变，仍 **82**） |
+
+### 设计取舍
+
+1. **备份放 `data/` 而非 `store/`**：`store/` 是**可交付版本**的对象池（只覆盖 `src/** + start.bat + VERSION`），编辑态是**用户内容**，两者不同域。
+2. **软删除，不真删**：超限旧备份**移入 `data/.bak/.trash/<时间戳>/`**，而非 `unlink`。原因有二 —— ① 项目总原则「只复制不删除」是**全项目硬不变量**，`verify.py` 7q 守卫**明令禁止 `routes.py` 出现 `unlink`/`remove`**；② 与 `templates/.trash/` 同一体例，误清可人工找回。
+3. **失败不阻断保存**：备份是**增强**，主契约是「存得下」；备份失败（磁盘不可写等）时保存照常成功，仅在响应 `backup.ok=false` + `reason` 回报，**不静默**。
+4. **文件名带微秒**（`editor-YYYYMMDD-HHMMSS-%f.json`）：裁剪依托「名字序 = 时间序」，**秒级不够** —— 见下「踩坑」。
+
+### 踩坑（本轮实测抓到，已修）
+
+**「按名字序裁剪」在秒级时间戳下会删掉最新那份**：同秒内多份备份靠 `_NNN` 后缀区分，而一旦某份被裁掉、**其名字被后一次保存重新占用**，新文件就排到了后缀文件的**前面**，于是「保留最近 N 份」把**刚写的那份**当成最旧淘汰（实测：第 6 次保存后，`.bak/` 里最新的是**第 4 版**）。
+**修法**：时间戳带**微秒**（`%f`）→ 名字**全局单调**，不再复用。同微秒兜底后缀用 `_NNN`（`_`(0x5F) > `.`(0x2E)，与创建序一致），**不可**用 `-NNN`（`-`(0x2D) < `.`，方向相反）。已固化为回归用例 `test_prune_never_drops_the_newest`。
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| 单元测试 | 新增 `tests/test_routes.py::EditorBackupTests`（**13 项**：首次无备份 / 备份=**上一版**逐字节 / 被拒保存不留备份 / 上限裁最旧 / 软删除进 `.trash` / 名字序=时间序 / 同微秒不覆盖 / **裁剪不丢最新** / 失败不阻断 / 保持 LF / 报告迁移数）→ `unittest` 185 → **198 OK** |
+| 反向验证 | 临时副本把时间戳改回**秒级** → `test_prune_never_drops_the_newest` **精确 FAIL**（`'editor-20261010-233000.json' not found in ['…_002','…_003']`）；主线同用例 **OK** |
+| 四件套 | verify **82/0** · unittest **198 OK** · smoke **17/0** · browser_smoke **9/9**（版本徽标 `V0.0.26`） |
+| 守卫 | `verify` 7q「routes.py 不得真删」**通过**（淘汰走 `shutil.move`，非 `unlink`）；9a 契约版本戳、7h 版本兜底一致均通过 |
+
+**性质**：改 `src/` + 交付契约 → **升 patch 版 `V0.0.25` → `V0.0.26`**；含 store 快照与 git tag。
+
+---
+
 ## 工具链整改（不升版）— 2026-10-10
 
 **主题**：`tools/` 工具链逐行审查（《审查报告_工具链_20261010》）后的 **第 2 步**，逐子步推进：

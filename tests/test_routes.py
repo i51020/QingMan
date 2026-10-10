@@ -12,6 +12,7 @@ import re
 import sys
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 from unittest import mock
 
@@ -103,6 +104,11 @@ class EditorRoundTripTests(unittest.TestCase):
         self._orig = config.EDITOR_FILE
         config.EDITOR_FILE = self.editor
         self.addCleanup(setattr, config, "EDITOR_FILE", self._orig)
+        # V0.0.26：保存会轮转备份到 EDITOR_BACKUP_DIR —— 必须一并隔离，
+        # 否则测试会往**主线真实** data/.bak/ 里写文件（污染仓库）
+        self._orig_bak = config.EDITOR_BACKUP_DIR
+        config.EDITOR_BACKUP_DIR = Path(self.tmp.name) / "data" / ".bak"
+        self.addCleanup(setattr, config, "EDITOR_BACKUP_DIR", self._orig_bak)
 
     def _doc(self):
         return {"schemaVersion": 1, "root": {
@@ -155,6 +161,200 @@ class EditorRoundTripTests(unittest.TestCase):
         # 老文档（无 note）依旧可存
         res2 = routes.save_editor({"doc": self._doc()})
         self.assertTrue(res2["ok"])
+
+
+class EditorBackupTests(unittest.TestCase):
+    """V0.0.26：编辑态**轮转备份**（保存前把上一版复制进 `data/.bak/`，保留最近 N 份）。
+
+    `save_editor` 是原子替换（`os.replace`）—— 替换即覆盖上一版，而 `load_editor`
+    的损坏保护挡不住「合法但错误」的覆盖。本类锁死备份的四件事：
+    ① 只在**有上一版**时才备；② 备的是**上一版**内容（不是新版）；③ 上限裁掉最旧的；
+    ④ **备份失败不阻断保存**。
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="qm_editorbak_")
+        self.addCleanup(self.tmp.cleanup)
+        self.data = Path(self.tmp.name) / "data"
+        self.editor = self.data / "editor.json"
+        self.bak = self.data / ".bak"
+        self._of = config.EDITOR_FILE
+        self._ob = config.EDITOR_BACKUP_DIR
+        self._ok = config.EDITOR_BACKUP_KEEP
+        config.EDITOR_FILE = self.editor
+        config.EDITOR_BACKUP_DIR = self.bak
+        config.EDITOR_BACKUP_KEEP = 5
+        self.addCleanup(setattr, config, "EDITOR_FILE", self._of)
+        self.addCleanup(setattr, config, "EDITOR_BACKUP_DIR", self._ob)
+        self.addCleanup(setattr, config, "EDITOR_BACKUP_KEEP", self._ok)
+
+    def _doc(self, name):
+        return {"schemaVersion": 1, "root": {
+            "type": "dir", "id": "d1", "name": name, "children": [
+                {"type": "file", "id": "f1", "name": "a.md", "content": "hi"},
+            ]}}
+
+    def _root_name(self, path):
+        return json.loads(path.read_text(encoding="utf-8"))["root"]["name"]
+
+    def _bak_files(self):
+        return sorted(self.bak.glob("editor-*.json"))
+
+    # ---------- 基本语义 ----------
+
+    def test_first_save_creates_no_backup(self):
+        res = routes.save_editor({"doc": self._doc("根1")})
+        self.assertTrue(res["ok"])
+        self.assertIn("backup", res, "响应必须带 backup 字段（契约 schema.json）")
+        self.assertIsNone(res["backup"]["file"], "此前无文档，不应产生备份")
+        self.assertFalse(self.bak.exists(), "无上一版时不应建 .bak 目录")
+
+    def test_backup_holds_previous_version_not_new(self):
+        routes.save_editor({"doc": self._doc("第一版")})
+        res = routes.save_editor({"doc": self._doc("第二版")})
+        self.assertTrue(res["backup"]["ok"])
+        files = self._bak_files()
+        self.assertEqual(len(files), 1)
+        self.assertEqual(self._root_name(files[0]), "第一版",
+                         "备份必须是**上一版**（顺序颠倒就备成了新版）")
+        self.assertEqual(self._root_name(self.editor), "第二版")
+
+    def test_backup_is_byte_exact_copy(self):
+        routes.save_editor({"doc": self._doc("v1")})
+        before = self.editor.read_bytes()
+        routes.save_editor({"doc": self._doc("v2")})
+        self.assertEqual(self._bak_files()[0].read_bytes(), before,
+                         "备份必须是上一版的**逐字节**副本")
+
+    def test_rejected_save_leaves_no_backup(self):
+        """备份发生在**校验 + 体积检查之后** —— 被拒的保存不得留下备份。"""
+        routes.save_editor({"doc": self._doc("v1")})
+        bad = {"root": {"type": "dir", "id": "d1", "name": "根", "children": [
+            {"type": "file", "id": "dup", "name": "a", "content": ""},
+            {"type": "file", "id": "dup", "name": "b", "content": ""},
+        ]}}
+        with self.assertRaises(TreeError):
+            routes.save_editor({"doc": bad})
+        self.assertEqual(self._bak_files(), [], "非法文档被拒时不应产生备份")
+
+    # ---------- 轮转上限 ----------
+
+    def test_keep_limit_prunes_oldest(self):
+        config.EDITOR_BACKUP_KEEP = 3
+        for i in range(1, 7):
+            routes.save_editor({"doc": self._doc("根%d" % i)})
+        files = self._bak_files()
+        self.assertEqual(len(files), 3, "保留份数必须被裁到上限")
+        self.assertEqual([self._root_name(p) for p in files], ["根3", "根4", "根5"],
+                         "留下的必须是**最近**三版；裁错方向会留下最旧的")
+
+    def test_keep_one(self):
+        config.EDITOR_BACKUP_KEEP = 1
+        for i in range(1, 5):
+            routes.save_editor({"doc": self._doc("根%d" % i)})
+        files = self._bak_files()
+        self.assertEqual(len(files), 1)
+        self.assertEqual(self._root_name(files[0]), "根3")
+
+    def test_pruned_backups_go_to_trash_not_deleted(self):
+        """超限旧备份必须**移入** `.bak/.trash/`（软删除）。
+
+        项目总原则「只复制不删除」是硬不变量 —— `verify.py` 7q 守卫禁止 `routes.py`
+        出现 `unlink`/`remove`；轮转淘汰走 `templates/.trash/` 同一体例。
+        """
+        config.EDITOR_BACKUP_KEEP = 1
+        for i in range(1, 5):
+            routes.save_editor({"doc": self._doc("根%d" % i)})
+        trashed = sorted((self.bak / ".trash").glob("*/editor-*.json"))
+        self.assertEqual([self._root_name(p) for p in trashed], ["根1", "根2"],
+                         "被淘汰的两版应完整保存在 .trash/ 下，而非被真删")
+        self.assertEqual([self._root_name(p) for p in self._bak_files()], ["根3"])
+
+    def test_prune_reports_moved_count(self):
+        config.EDITOR_BACKUP_KEEP = 2
+        for i in range(1, 5):
+            routes.save_editor({"doc": self._doc("根%d" % i)})
+        # 第 4 次保存时 .bak/ 将有 3 份 → 淘汰 1 份
+        res = routes.save_editor({"doc": self._doc("根5")})
+        self.assertGreaterEqual(res["backup"]["pruned"], 1)
+
+    # ---------- 命名与排序（锁死本轮修掉的排序缺陷）----------
+
+    def test_name_order_matches_chronology(self):
+        """定宽名（含微秒）+ `_NNN` 后缀 ⇒ 名字序 == 时间序。
+
+        反例（旧实现）：后缀用 `-NNN` 时 ASCII `-`(0x2D) < `.`(0x2E)，
+        `editor-X-2.json` 会排到 `editor-X.json` **之前** —— 名字序反了，
+        「保留最近 N 份」割掉的就是**最新**那份。
+        """
+        names = [
+            "editor-20261010-233000-000001.json",
+            "editor-20261010-233000-000002.json",
+            "editor-20261010-233000-000002_002.json",
+            "editor-20261010-233001-000000.json",
+            "editor-20261010-233001-000000_002.json",
+        ]
+        self.assertEqual(sorted(names), names)
+
+    def test_same_microsecond_collision_does_not_overwrite(self):
+        self.data.mkdir(parents=True, exist_ok=True)
+        self.editor.write_text("{}", encoding="utf-8")
+        frozen = datetime(2026, 10, 10, 23, 30, 0)   # %f == 000000
+
+        class _FrozenDatetime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return frozen
+
+        with mock.patch.object(routes, "datetime", _FrozenDatetime):
+            names = [routes._backup_editor(self.editor)["file"] for _ in range(3)]
+        self.assertEqual(names, ["editor-20261010-233000-000000.json",
+                                 "editor-20261010-233000-000000_002.json",
+                                 "editor-20261010-233000-000000_003.json"])
+        self.assertEqual(sorted(p.name for p in self._bak_files()), names,
+                         "同微秒内多次备份：既不互相覆盖，名字序也仍是创建序")
+
+    def test_prune_never_drops_the_newest(self):
+        """回归：真实缺陷 —— 被裁掉的名字若被**后一次**备份复用，它会按名字序排到
+        前面，于是「保留最近 N 份」把刚写的**最新**那份裁掉（实测：最新备份刚写就被删）。
+        微秒时间戳使名字不再复用；本用例用递增微秒复现该序列并锁死这条不变量。
+        """
+        config.EDITOR_BACKUP_KEEP = 2
+        counter = [0]
+
+        class _SeqDatetime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                counter[0] += 1
+                return datetime(2026, 10, 10, 23, 30, 0, counter[0])
+
+        self.data.mkdir(parents=True, exist_ok=True)
+        self.editor.write_text("{}", encoding="utf-8")
+        with mock.patch.object(routes, "datetime", _SeqDatetime):
+            for _ in range(6):
+                newest = routes._backup_editor(self.editor)["file"]
+                files = [p.name for p in self._bak_files()]
+                self.assertIn(newest, files, "刚写的备份不得被同一次裁剪删掉")
+                self.assertLessEqual(len(files), 2, "裁剪必须收敛到上限")
+
+    # ---------- 失败不阻断保存 ----------
+
+    def test_backup_failure_does_not_block_save(self):
+        blocker = self.data / "blocker"
+        self.data.mkdir(parents=True, exist_ok=True)
+        blocker.write_text("x", encoding="utf-8")
+        routes.save_editor({"doc": self._doc("根1")})     # 先造出「上一版」
+        config.EDITOR_BACKUP_DIR = blocker / "sub"        # 父路径是文件 → mkdir 必失败
+        res = routes.save_editor({"doc": self._doc("根2")})
+        self.assertTrue(res["ok"], "备份失败**不得**阻断保存（主契约是「存得下」）")
+        self.assertFalse(res["backup"]["ok"])
+        self.assertIn("reason", res["backup"], "失败须回报原因，不得静默")
+        self.assertEqual(self._root_name(self.editor), "根2", "文档仍须落盘")
+
+    def test_backup_keeps_editor_json_lf(self):
+        routes.save_editor({"doc": self._doc("v1")})
+        routes.save_editor({"doc": self._doc("v2")})
+        self.assertNotIn(b"\r", self._bak_files()[0].read_bytes(), "备份须保持 LF")
 
 
 class TemplateTests(unittest.TestCase):

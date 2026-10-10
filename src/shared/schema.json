@@ -1,6 +1,6 @@
 {
   "$comment": "青蔓 QingMan · 前后端共享数据契约。前端、后端、CLI 均以本文件为准。",
-  "version": "V0.0.25",
+  "version": "V0.0.26",
   "template": {
     "$comment": "模板文件格式，与 templates/*.json 一致。schemaVersion 自 V0.0.13「另存为模板」起写入；既有 17 套模板无该字段，读取时一律视为 1（§P2 第 7 项）",
     "schemaVersion": 1,
@@ -91,7 +91,7 @@
     "content": "…（仅 type=file）"
   },
   "editorDocument": {
-    "$comment": "编辑态文档。GET /api/editor 返回、PUT /api/editor 接收；落盘于项目根 data/editor.json（不入 git）",
+    "$comment": "编辑态文档。GET /api/editor 返回、PUT /api/editor 接收；落盘于项目根 data/editor.json（不入 git）。V0.0.26 起每次保存前把上一版轮转进 data/.bak/（保留最近 5 份，多出的软删除到 data/.bak/.trash/）",
     "schemaVersion": 1,
     "savedAt": "YYYY-MM-DDTHH:mm:ss+08:00",
     "root": {
@@ -112,6 +112,13 @@
     "stats": {
       "dirs": 0,
       "files": 0
+    },
+    "backup": {
+      "$comment": "仅 PUT（V0.0.26）。落盘前把**上一版**轮转进 data/.bak/editor-<时间戳>.json（保留最近 QM_EDITOR_BACKUP_KEEP 份，默认 5；超出的移入 data/.bak/.trash/<时间戳>/ **软删除**，不真删）的结果；备份是增强，失败**不影响保存本身**",
+      "ok": true,
+      "file": "editor-YYYYMMDD-HHMMSS.json | null（此前无文档可备时为 null）",
+      "pruned": 0,
+      "reason": "仅 backup.ok=false 时出现：失败原因（磁盘不可写等）"
     }
   }
 }
