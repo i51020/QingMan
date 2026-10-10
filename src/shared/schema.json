@@ -1,6 +1,6 @@
 {
   "$comment": "青蔓 QingMan · 前后端共享数据契约。前端、后端、CLI 均以本文件为准。",
-  "version": "V0.0.2",
+  "version": "V0.0.17",
   "template": {
     "$comment": "模板文件格式，与 templates/*.json 一致。schemaVersion 自 V0.0.13「另存为模板」起写入；既有 17 套模板无该字段，读取时一律视为 1（§P2 第 7 项）",
     "schemaVersion": 1,
@@ -53,10 +53,11 @@
     "detail": {}
   },
   "editorNode": {
-    "$comment": "编辑态节点。目录有 children、无 content；文件有 content、无 children。id 全树唯一，前缀 d=目录 / f=文件",
+    "$comment": "编辑态节点。目录有 children、无 content；文件有 content、无 children。id 全树唯一，前缀 d=目录 / f=文件。note 自 V0.0.17 起为可选字段（老文档缺失视为空串）",
     "id": "d<时间基36><计数36> | f<时间基36><计数36>",
     "type": "dir | file",
     "name": "节点名（单段，不含路径分隔符）",
+    "note": "节点说明（可选，纯文本；编辑态元数据，随文档持久化，不参与 /api/generate 落盘）",
     "children": ["…（仅 type=dir；同层名称不得重复，大小写不敏感）"],
     "content": "…（仅 type=file）"
   },

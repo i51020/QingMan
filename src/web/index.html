@@ -106,12 +106,17 @@
       <aside id="inspector">
         <h2 class="panel-title" data-i18n="inspector.title"></h2>
         <div class="prop-list">
-          <div class="prop"><span class="prop-key" data-i18n="inspector.name"></span><span class="prop-val" id="propName">—</span></div>
+          <div class="prop"><span class="prop-key" data-i18n="inspector.name"></span><span class="prop-val" id="propName">—</span><button type="button" class="btn btn-ghost btn-mini" id="btnCopyName" data-i18n="inspector.copy" data-i18n-title="inspector.copyNameTip"></button></div>
           <div class="prop"><span class="prop-key" data-i18n="inspector.type"></span><span class="prop-val" id="propType">—</span></div>
-          <div class="prop"><span class="prop-key" data-i18n="inspector.path"></span><span class="prop-val prop-mono" id="propPath">—</span></div>
+          <div class="prop"><span class="prop-key" data-i18n="inspector.path"></span><span class="prop-val prop-mono" id="propPath">—</span><button type="button" class="btn btn-ghost btn-mini" id="btnCopyPath" data-i18n="inspector.copy" data-i18n-title="inspector.copyPathTip"></button></div>
           <div class="prop"><span class="prop-key" data-i18n="inspector.depth"></span><span class="prop-val" id="propDepth">—</span></div>
           <div class="prop"><span class="prop-key" data-i18n="inspector.dirs"></span><span class="prop-val" id="propDirs">0</span></div>
           <div class="prop"><span class="prop-key" data-i18n="inspector.files"></span><span class="prop-val" id="propFiles">0</span></div>
+        </div>
+        <h3 class="panel-sub" data-i18n="inspector.noteTitle"></h3>
+        <textarea id="propNote" rows="6" data-i18n-placeholder="inspector.notePlaceholder" disabled></textarea>
+        <div class="note-actions">
+          <button type="button" class="btn btn-ghost btn-mini" id="btnCopyNote" data-i18n="inspector.copyNote" data-i18n-title="inspector.copyNoteTip"></button>
         </div>
         <h3 class="panel-sub" data-i18n="inspector.resultTitle"></h3>
         <pre class="result" id="genResult" data-i18n="inspector.resultEmpty"></pre>

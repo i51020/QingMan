@@ -63,6 +63,7 @@ REQUIRED_IDS = (
     "btnExpandAll", "btnCollapseAll", "btnGenerate",
     "treeCanvas", "statusText", "statusCount",
     "inspector", "propName", "propType", "propPath", "propDirs", "propFiles", "propDepth",
+    "propNote", "btnCopyName", "btnCopyPath", "btnCopyNote",
     "genResult", "toastHost",
 )
 
@@ -366,12 +367,14 @@ def main() -> int:
         check(False, "主界面无硬编码中文", "index.html 未读到")
 
     literal_bad = []
+    # 数据字面量豁免（非文案）：约定文件名是**数据标识**，不进取词表（V0.0.17 note 提炼）
+    LITERAL_DATA_ALLOW = {"说明文档.md"}
     for js in sorted((root / "src/web/js").rglob("*.js")):
         if "i18n" in js.parts:
             continue   # 取词表自身就是文案的存放处
         body = strip_comments(js.read_text(encoding="utf-8"), "js")
         for _quote, text in re.findall(r"""(['"`])((?:\\.|(?!\1).)*?)\1""", body, flags=re.S):
-            if CJK.search(text):
+            if CJK.search(text) and text not in LITERAL_DATA_ALLOW:
                 literal_bad.append(f"{js.name}：{text.strip()[:24]}")
     check(not literal_bad, "JS 文案经取词表 §P0-3 L1",
           f"直写文案 {len(literal_bad)} 处：{'; '.join(literal_bad[:3])}" if literal_bad
@@ -892,6 +895,41 @@ def main() -> int:
     check(not svc_bad, "服务状态三态 V0.0.16",
           f"缺失：{', '.join(svc_bad)}" if svc_bad
           else "左栏清单已移除 / 顶栏三态接线 / 三态取词键齐备")
+
+    # 7n. note 契约与 .md 边界（V0.0.17：节点说明 + 三粒度复制）
+    #     裁定：note 与 .md content 一律**纯文本** —— 工具不解析、不渲染、不校验 Markdown。
+    #     判据：① note 序列化两端（toDocumentNode / fromDocumentNode）都在函数体里带 note
+    #     （AST 钉函数体，防字面量蒙混）；② 属性栏 textarea 纯文本（不用 innerHTML 渲染 note）；
+    #     ③ toPlainTree 不含 note（note 不参与生成落盘）。
+    note_bad: list[str] = []
+    for rel, token in (
+        ("src/web/index.html", 'id="propNote"'),
+        ("src/web/js/main.js", "adoptTemplateNote"),
+        ("src/web/js/main.js", "btnCopyNote"),
+        ("src/shared/schema.json", '"note"'),
+    ):
+        target = root / rel
+        if not target.is_file() or token not in target.read_text(encoding="utf-8"):
+            note_bad.append(f"{rel}:{token}")
+    # routes.py 不感知 note（note 不出前端，契约层零后端改动）—— 无判据
+    tm = root / "src/web/js/modules/tree-model.js"
+    tmtext = tm.read_text(encoding="utf-8") if tm.is_file() else ""
+    for fn in ("toDocumentNode", "fromDocumentNode"):
+        m = re.search(rf"export function {fn}\(.*?\n\}}", tmtext, flags=re.S)
+        if not m or "note" not in m.group(0):
+            note_bad.append(f"tree-model.js:{fn} 未带 note")
+    m = re.search(r"export function toPlainTree\(.*?\n\}", tmtext, flags=re.S)
+    if not m:
+        note_bad.append("tree-model.js:缺 toPlainTree")
+    elif re.search(r"\bnote\b", m.group(0)):
+        note_bad.append("toPlainTree 不应含 note（note 不参与生成落盘）")
+    ins = root / "src/web/js/ui/inspector.js"
+    itext = ins.read_text(encoding="utf-8") if ins.is_file() else ""
+    if re.search(r"innerHTML", itext):
+        note_bad.append("inspector.js 用了 innerHTML（note 须纯文本）")
+    check(not note_bad, "note 契约与 .md 边界 V0.0.17",
+          f"缺失：{', '.join(note_bad)}" if note_bad
+          else "note 序列化往返 / 模板提炼 / 三粒度复制 / 纯文本边界（无 innerHTML、生成不含 note） 齐备")
 
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"

@@ -65,6 +65,7 @@ export const dict = {
   'template.stats': '{dirs} dirs · {files} files',
   'template.loadConfirm': 'Load template "{name}"? The tree you are editing will be replaced (undoable).',
   'template.loaded': 'Loaded template "{name}"',
+  'template.noteAdopted': ' (note adopted from {file})',
   'template.loadFailed': 'Failed to load template: {message}',
 
   /* Save as template (V0.0.13) */
@@ -192,6 +193,13 @@ export const dict = {
   'inspector.resultTitle': 'Generation result',
   'inspector.resultEmpty': 'Not generated yet',
   'inspector.genFailed': 'Generation failed\n{code}: {message}',
+  'inspector.noteTitle': 'Note',
+  'inspector.notePlaceholder': 'Write a note for this node (plain text)…',
+  'inspector.copy': 'Copy',
+  'inspector.copyNameTip': 'Copy node name',
+  'inspector.copyPathTip': 'Copy node path',
+  'inspector.copyNote': 'Copy note',
+  'inspector.copyNoteTip': 'Copy node note',
 
   /* ---------- Status bar ---------- */
   'status.ready': 'Ready',
@@ -206,6 +214,7 @@ export const dict = {
   'status.writing': 'Writing to disk…',
   'status.dryDone': 'Dry run done: {dirs} dirs · {files} files · {existed} existed',
   'status.genDone': 'Generation done: {dirs} dirs · {files} files · {existed} existed',
+  'status.noteUpdated': 'Note of "{name}" updated',
   'status.genFailed': 'Generation failed: {message}',
   'status.backendOffHint': 'Backend offline, please launch via start.bat',
 
@@ -232,6 +241,8 @@ export const dict = {
   'toast.targetRequired': 'Please fill in the target path first',
   'toast.dryDone': 'Dry run complete, no disk changes',
   'toast.generatedTo': 'Generated to {root}',
+  'toast.copied': 'Copied to clipboard',
+  'toast.copyFailed': 'Copy failed (clipboard not granted)',
   'toast.saveFailed': 'Save failed: {message}',
   'toast.dupIdBlocked': 'Duplicate ids detected ({ids}), save blocked',
   'toast.docDupId': 'Document contains duplicate ids: {ids}',
@@ -265,7 +276,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.16',
+  'help.versionFallback': 'V0.0.17',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

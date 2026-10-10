@@ -243,6 +243,24 @@
 .prop-val { flex: 1 1 auto; word-break: break-all; }
 .prop-mono { font-size: 11px; color: var(--qm-text-dim); }
 
+/* 节点说明（V0.0.17）：纯文本编辑，随选中节点切换；禁用态（未选中）置灰 */
+#propNote {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 72px;
+  padding: 6px 8px;
+  border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-sm);
+  background: var(--qm-surface-2);
+  color: var(--qm-text);
+  font: 12px/1.6 var(--qm-font);
+  box-shadow: var(--qm-inset);
+}
+#propNote:focus { outline: 2px solid var(--qm-accent-soft); border-color: var(--qm-accent); }
+#propNote:disabled { color: var(--qm-text-dim); }
+.note-actions { display: flex; justify-content: flex-end; margin-top: 4px; }
+
 .result {
   margin: 0;
   padding: 8px;

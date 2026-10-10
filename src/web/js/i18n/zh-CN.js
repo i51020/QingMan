@@ -74,6 +74,7 @@ export const dict = {
   'template.stats': '{dirs} 目录 · {files} 文件',
   'template.loadConfirm': '载入模板「{name}」？当前编辑的目录树将被替换（可用撤销恢复）。',
   'template.loaded': '已载入模板「{name}」',
+  'template.noteAdopted': '（说明取自 {file}）',
   'template.loadFailed': '模板载入失败：{message}',
 
   /* 另存为模板（V0.0.13） */
@@ -198,6 +199,13 @@ export const dict = {
   'inspector.resultTitle': '生成结果',
   'inspector.resultEmpty': '尚未生成',
   'inspector.genFailed': '生成失败\n{code}：{message}',
+  'inspector.noteTitle': '说明',
+  'inspector.notePlaceholder': '为该节点写一段说明（纯文本）…',
+  'inspector.copy': '复制',
+  'inspector.copyNameTip': '复制节点名称',
+  'inspector.copyPathTip': '复制节点路径',
+  'inspector.copyNote': '复制说明',
+  'inspector.copyNoteTip': '复制节点说明',
 
   /* ---------- 状态栏 ---------- */
   'status.ready': '就绪',
@@ -212,6 +220,7 @@ export const dict = {
   'status.writing': '正在写入磁盘…',
   'status.dryDone': '演练完成：目录 {dirs} · 文件 {files} · 已存在 {existed}',
   'status.genDone': '生成完成：目录 {dirs} · 文件 {files} · 已存在 {existed}',
+  'status.noteUpdated': '已更新「{name}」的说明',
   'status.genFailed': '生成失败：{message}',
   'status.backendOffHint': '后端未连接，请通过 start.bat 启动',
 
@@ -238,6 +247,8 @@ export const dict = {
   'toast.targetRequired': '请先填写目标位置',
   'toast.dryDone': '演练完成，未写入磁盘',
   'toast.generatedTo': '已生成到 {root}',
+  'toast.copied': '已复制到剪贴板',
+  'toast.copyFailed': '复制失败（浏览器未授权剪贴板）',
   'toast.saveFailed': '保存失败：{message}',
   'toast.dupIdBlocked': '检测到重复 id（{ids}），已阻止保存',
   'toast.docDupId': '文档存在重复 id：{ids}',
@@ -271,7 +282,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.16',
+  'help.versionFallback': 'V0.0.17',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',

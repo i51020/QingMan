@@ -17,12 +17,14 @@ import {
   renameNode, removeNode, countTree, treePayload,
   hasSiblingName, reserveIds, assertUniqueIds,
   toDocumentNode, fromDocumentNode, resetIdRegistry, fromNestedTree,
+  adoptTemplateNote, normalizeNote,
 } from './modules/tree-model.js';
 import { createTreeView } from './ui/tree-view.js';
 import { createInspector } from './ui/inspector.js';
 import { createSkinPicker } from './ui/skin-picker.js';
 import { createLangPicker } from './ui/lang-picker.js';
 import { toast } from './ui/toast.js';
+import { copyText } from './ui/inspector.js';
 import { renderLaunchIcon, ensureLaunchIcon } from './ui/launch-icon.js';
 
 const el = (id) => document.getElementById(id);
@@ -180,7 +182,17 @@ const inspector = createInspector({
   dirs: el('propDirs'),
   files: el('propFiles'),
   depth: el('propDepth'),
+  note: el('propNote'),
   result: el('genResult'),
+  onNoteChange(id, value) {
+    // note 编辑与重命名同路：入撤销栈（可 Ctrl+Z）、标脏走自动保存
+    const node = findNode(store.get().root, id);
+    if (!node) return;
+    pushHistory();
+    node.note = normalizeNote(value);
+    setStatus(t('status.noteUpdated', { name: node.name }));
+    markDirty();
+  },
 });
 
 function render() {
@@ -471,6 +483,29 @@ async function createShortcut() {
 
 el('btnLogo').addEventListener('click', createShortcut);
 
+/* ---------- 属性栏：三粒度复制（V0.0.17） ---------- */
+
+async function copyWithToast(text, okKey, failKey) {
+  const ok = await copyText(text);
+  toast(ok ? t(okKey) : t(failKey), ok ? 'info' : 'error');
+}
+
+el('btnCopyName').addEventListener('click', () => {
+  const node = findNode(store.get().root, selectedId());
+  if (node) copyWithToast(node.name, 'toast.copied', 'toast.copyFailed');
+});
+
+el('btnCopyPath').addEventListener('click', () => {
+  const node = findNode(store.get().root, selectedId());
+  if (node) copyWithToast(el('propPath').textContent, 'toast.copied', 'toast.copyFailed');
+});
+
+el('btnCopyNote').addEventListener('click', () => {
+  const node = findNode(store.get().root, selectedId());
+  if (!node) return;
+  copyWithToast(normalizeNote(node.note), 'toast.copied', 'toast.copyFailed');
+});
+
 el('btnUndo').addEventListener('click', undo);
 el('btnRedo').addEventListener('click', redo);
 
@@ -616,8 +651,12 @@ async function loadTemplateList() {
     // 模板是「嵌套字典」格式（目录=对象、文件=内容），与编辑态文档不同 —— 走 fromNestedTree 转换，
     // id 由前端按既有规则补发。根节点名取模板的 name。
     const root = fromNestedTree(res.tree, res.name || item.name);
+    // 模板说明提炼（V0.0.17）：根 note 为空时取「说明文档.md」（兜底首个 *.md）填入 ——
+    // 独立副本：原 .md 文件保留不动，编辑 note 不回写
+    const noteFrom = adoptTemplateNote(root);
     store.set({ root, selectedId: root.id });
-    setStatus(t('template.loaded', { name: res.name || item.name }));
+    setStatus(t('template.loaded', { name: res.name || item.name })
+      + (noteFrom ? t('template.noteAdopted', { file: noteFrom }) : ''));
     markDirty();
   } catch (err) {
     toast(t('template.loadFailed', { message: localizeError(err) }), 'error', 6000);

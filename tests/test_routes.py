@@ -142,6 +142,19 @@ class EditorRoundTripTests(unittest.TestCase):
             routes.load_editor()
         self.assertEqual(ctx.exception.code, "editorCorrupt")
 
+    def test_note_field_tolerated_and_preserved(self):
+        """V0.0.17：节点 note 字段可选 —— 有则原样保存，无则不报错。"""
+        doc = {"root": {"type": "dir", "id": "d1", "name": "根", "note": "根说明", "children": [
+            {"type": "file", "id": "f1", "name": "a.md", "content": "hi"},
+        ]}}
+        res = routes.save_editor({"doc": doc})
+        self.assertTrue(res["ok"])
+        loaded = routes.load_editor()["doc"]
+        self.assertEqual(loaded["root"]["note"], "根说明")
+        # 老文档（无 note）依旧可存
+        res2 = routes.save_editor({"doc": self._doc()})
+        self.assertTrue(res2["ok"])
+
 
 class TemplateTests(unittest.TestCase):
     """V0.0.11 模板库接口。

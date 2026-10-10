@@ -7,6 +7,51 @@
 
 ---
 
+## V0.0.17 — 2026-10-10
+
+**主题**：属性栏 note 编辑 + 三粒度复制 + .md 纯文本边界 —— 节点可写说明，随文档持久化。
+
+> **立项依据**：多轮只读分析锁定的决策落地 —— 保留 `.md`（B）、模板载入自动填 `说明文档.md`
+> 到根 note、根说明为独立副本不回写（X）、工具不解析/渲染/校验 Markdown（纯文本边界）。
+
+### 变更（`src/`）
+
+- **数据模型**（`tree-model.js`）
+  - 节点增加可选 `note` 字段（string；`normalizeNote` 把非字符串归空串，老文档缺失视为空 —— **schemaVersion 不升**）
+  - `toDocumentNode` / `fromDocumentNode` 双端带 note（编辑态持久化往返保留）
+  - **`toPlainTree` 不含 note** —— note 是编辑态元数据，不参与 `/api/generate` 落盘
+  - 新增 `adoptTemplateNote(root)`：根 note 为空时取根下 `说明文档.md`（兜底首个 `*.md`）的 content 填入 —— **独立副本**，原 .md 保留不动；已有 note 不覆盖；纯函数便于单测
+- **属性栏**（`inspector.js` + `index.html` + `layout.css`）
+  - 「说明」`textarea`（纯文本编辑，随选中节点切换；未选中禁用）—— 编辑与重命名同路：入撤销栈（可 Ctrl+Z）→ `markDirty()` 自动保存
+  - 三粒度复制按钮：**复制名称** / **复制路径** / **复制说明**（`navigator.clipboard` 优先，`execCommand` 降级）
+- **i18n**：新增 10 键（`inspector.noteTitle/notePlaceholder/copy/copyNameTip/copyPathTip/copyNote/copyNoteTip` + `status.noteUpdated` + `template.noteAdopted` + `toast.copied/copyFailed`）
+- **后端零改动**：`validate_document` 对未知字段本就宽容（note 随文档原样保存）；错误码零新增
+- **schema.json**：`editorNode` 增加 `note` 描述，版本标注 V0.0.17
+
+### 变更（`tools/` 与测试）
+
+- `verify.py`：`REQUIRED_IDS` 补 `propNote` / `btnCopyName` / `btnCopyPath` / `btnCopyNote`；新增守卫**「note 契约与 .md 边界」**（67 → 68 项）：序列化两端带 note（正则钉函数体）/ `toPlainTree` 不含 note / `inspector.js` 无 `innerHTML`（纯文本边界）/ 模板提炼与复制按钮接线齐备
+- 「JS 文案经取词表」守卫新增**数据字面量豁免**：`说明文档.md` 是约定文件名（数据标识非文案）
+- `tests/test_routes.py` 新增 note 测试（+1）：含 note 文档保存往返 + 老文档（无 note）依旧可存
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| 主线 `verify.py` | 68 项 0 失败 |
+| `unittest` | 107 OK |
+| `smoke.py` | 17 项 0 失败 |
+| Node note 实证（E 盘） | 12 项 0 失败：normalizeNote 容忍 / 提炼命中「说明文档.md」优先 / 独立副本 / 已有 note 不覆盖 / 无 md → null / 序列化往返保留 / 老文档兼容 / id 唯一性 / toPlainTree 不含 note |
+| 浏览器 E2E（Edge headless · 同源驱动真实页面） | 17 项 0 失败：主页含 propNote/btnCopyNote、无 checklist；模型导出与函数体判据；inspector 无 innerHTML；main.js 三按钮接线；**真实 PUT/GET /api/editor 含 note 文档往返**（测后已清理恢复） |
+
+### 已知边界
+
+- note 不参与生成落盘（`/api/generate` 的树里没有说明）—— 说明属于编辑态元数据；若日后要生成 README 类文件，另行立项
+- 模板提炼只看**根的直接子层**；深层 .md 不提炼
+- 复制走 `navigator.clipboard`（127.0.0.1 安全上下文可用）；`execCommand` 降级在现代浏览器已弃用，仅兜底
+
+---
+
 ## V0.0.16 — 2026-10-10
 
 **主题**：服务状态三态 + 左栏自检迁移 —— 启动自检从常驻左栏收敛为顶栏一个「服务状态」chip。

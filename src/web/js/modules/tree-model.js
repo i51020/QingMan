@@ -2,13 +2,22 @@
  * 青蔓 QingMan · 目录树数据模型
  * 纯数据操作，不碰 DOM、不碰网络。
  *
- * 内存节点结构：{ id, type:'dir'|'file', name, children:[], content? }
+ * 内存节点结构：{ id, type:'dir'|'file', name, children:[], content?, note? }
+ *
+ * note（V0.0.17）：节点说明，纯文本编辑态元数据 —— 随文档持久化，
+ * 但**不参与** /api/generate 落盘（`toPlainTree` 只取 name/content）。
+ * 工具不解析、不渲染、不校验 Markdown 语法（.md 边界裁定）。
  *
  * 说明：本模块会取词（§P0-3 L1）—— 抛出的错误消息面向用户，统一来自取词表。
  * 取词模块不在顶层触碰 DOM / localStorage，故此处导入不会破坏「纯数据」定位。
  */
 
 import { t } from '../i18n/index.js';
+
+/** 规范化 note：非字符串一律归空串（老文档缺失 / 脏数据容忍）。 */
+export function normalizeNote(value) {
+  return typeof value === 'string' ? value : '';
+}
 
 /* ---------- id 分配：唯一性靠判定，不靠概率 ---------- */
 
@@ -197,10 +206,17 @@ export function toDocumentNode(node) {
       id: node.id,
       type: 'dir',
       name: node.name,
+      note: normalizeNote(node.note),
       children: node.children.map(toDocumentNode),
     };
   }
-  return { id: node.id, type: 'file', name: node.name, content: node.content || '' };
+  return {
+    id: node.id,
+    type: 'file',
+    name: node.name,
+    note: normalizeNote(node.note),
+    content: node.content || '',
+  };
 }
 
 /**
@@ -230,6 +246,7 @@ export function fromDocumentNode(raw, path = '$') {
       id,
       type: 'dir',
       name: raw.name,
+      note: normalizeNote(raw.note),
       children: children.map((child, i) => fromDocumentNode(child, `${path}.children[${i}]`)),
     };
   }
@@ -237,6 +254,7 @@ export function fromDocumentNode(raw, path = '$') {
     id,
     type: 'file',
     name: raw.name,
+    note: normalizeNote(raw.note),
     content: typeof raw.content === 'string' ? raw.content : '',
   };
 }
@@ -295,4 +313,24 @@ export function fromNestedTree(nested, rootName = '') {
   };
   build(nested, root);
   return root;
+}
+
+/* ---------- 模板说明提炼（V0.0.17） ---------- */
+
+/**
+ * 从根节点直接子层提炼模板说明 → 填入根 note（裁定：独立副本，不回写）。
+ *
+ * 查找顺序：**`说明文档.md`**（约定名，16/17 套模板含它）→ 兜底**首个 `*.md`**。
+ * 命中即取其 content 填根 `note`（原 .md 文件**保留不动**，编辑 note 不回写）；
+ * 根已有 note 时不覆盖 —— 模板说明只填「空白」。找不到返回 null。
+ *
+ * 纯函数（只改 node.note 字段，不碰 DOM），便于单测。
+ */
+export function adoptTemplateNote(root) {
+  if (!isDir(root) || normalizeNote(root.note)) return null;
+  const doc = root.children.find((c) => !isDir(c) && c.name === '说明文档.md')
+    || root.children.find((c) => !isDir(c) && c.name.toLowerCase().endsWith('.md'));
+  if (!doc) return null;
+  root.note = doc.content || '';
+  return doc.name;
 }
