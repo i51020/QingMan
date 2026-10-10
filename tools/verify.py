@@ -24,13 +24,17 @@
   9. 编辑态持久化契约（§P0-7）：schema.json 的 editorDocument/editorNode + 接口标识 + 错误码
  9a. 共享契约版本戳（V0.0.23）：schema.json 的 version 必须等于 VERSION（防契约漂移）
  9b. 落盘安全边界（§P0-1）：config 黑名单 / dtree_core.check_target / routes 接线 / 错误码
- 9c. 回归测试网（§P0-2）：tests/ 全部 test_*.py + tools/smoke.py（仅项目根，预览目录跳过）
+ 9c. 回归测试网（§P0-2）：tests/ 全部 test_*.py + tools/smoke.py + tools/browser_smoke.py
+     （仅项目根，预览目录跳过）
  7s. 请求体上限一致性（V0.0.22）：MAX_BODY_BYTES ≥ 各业务上限（编辑态/模板/图标），
      否则业务错误码 editorTooLarge / templateTooLarge 不可达
  7t. 帮助页分节渲染幂等（V0.0.22）：renderSections 必须清空容器，语言切换不得累积
  7u. 默认示例取词前置（V0.0.22）：initPrefs() 必须早于 defaultRoot()（否则固化出厂语言）
  7v. P3 整洁与健壮性（V0.0.24）：currentId 声明顺序 / 图标指纹持久化 /
      canMove missing / 模板失败回滚 / import 合并 / pathConflictDir 对称
+ 7w. 浏览器冒烟覆盖（V0.0.25）：tools/browser_smoke.py 必须仍然锚定
+     未捕获异常判定 / 漏翻判定 / 帮助页分节幂等 / 默认示例语言 / 沙盒隔离
+     —— 防止这条「页面跑起来才现形」的守卫被削成空壳（§P0-2 T7）
  10. 指纹比对（--against <版本>）：与该版本**最高修订**清单逐文件比对 SHA-256
 退出码：0 全部通过；1 存在失败项。
 """
@@ -1316,6 +1320,36 @@ def main() -> int:
           else "currentId 顺序 / 图标指纹持久化 / canMove missing / 模板回滚 / import 合并 / "
                "pathConflictDir 对称 齐备")
 
+    # 7w. 浏览器冒烟脚本的断言覆盖（V0.0.25，§P0-2 T7）
+    #     背景：P1-1（帮助页切语言累积加分节）与 P1-2（默认示例固化出厂语言）当时
+    #     verify / unittest / smoke **三项全绿** —— 它们只在页面真跑起来时才现形。
+    #     `tools/browser_smoke.py` 把这类缺陷变成常态守卫；这里静态锚定它的关键断言，
+    #     防止日后有人把断言削成空壳（守卫的守卫）。
+    bsmoke_p = root / "tools/browser_smoke.py"
+    b_bad: list[str] = []
+    if not bsmoke_p.is_file():
+        b_bad.append("缺 tools/browser_smoke.py")
+    else:
+        btext = bsmoke_p.read_text(encoding="utf-8")
+        anchors_bsmoke = (
+            ("--enable-logging=stderr", "未开浏览器控制台日志（捕获不到未捕获异常）"),
+            ("Uncaught", "缺未捕获异常判定"),
+            ("[i18n] missing key", "缺漏翻判定"),
+            (".help-section", "缺帮助页分节断言（P1-1 回归位）"),
+            ("qm.lang", "缺默认示例语言断言（P1-2 回归位）"),
+            ("new Event('change')", "缺语言切换驱动（未走真实用户路径）"),
+            (".tree-name", "缺默认示例节点名采集"),
+            ("\\u4e00", "缺中文名判定"),
+            ("copytree", "缺沙盒隔离（会污染真实 data/）"),
+            ("_probe_ui.html", "缺同源探针页"),
+        )
+        for token, why in anchors_bsmoke:
+            if token not in btext:
+                b_bad.append(why)
+    check(not b_bad, "浏览器冒烟覆盖 V0.0.25",
+          f"缺失：{', '.join(b_bad)}" if b_bad
+          else "控制台异常 / 漏翻 / 分节幂等 / 默认示例语言 / 切换驱动 / 沙盒隔离 齐备")
+
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
     if handoff_file.is_file():
@@ -1438,12 +1472,12 @@ def main() -> int:
             "tests/test_dtree_core.py", "tests/test_routes.py",
             "tests/test_config.py", "tests/test_launch_icon.py",
             "tests/test_store.py", "tests/test_versioning.py",
-            "tools/smoke.py",
+            "tools/smoke.py", "tools/browser_smoke.py",
         ) if not (root / rel).is_file()]
         n_modules = len(sorted((root / "tests").glob("test_*.py")))
         check(not net_missing, "回归测试网 §P0-2",
               f"缺失：{', '.join(net_missing)}" if net_missing
-              else f"tests/ {n_modules} 模块 + tools/smoke.py 齐备")
+              else f"tests/ {n_modules} 模块 + tools/smoke.py + tools/browser_smoke.py 齐备")
 
     # 10. 与版本清单比对指纹（仅在指定 --against 时启用）
     if against:

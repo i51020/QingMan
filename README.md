@@ -82,7 +82,7 @@ QingMan/
 │  ├─ test_launch_icon.py  皮肤联动图标上传校验（PNG-in-ICO）
 │  ├─ test_store.py        manifest_digest 改名可检出 / parse_ref / 修订链
 │  └─ test_versioning.py   bump 三语义（minor 重置 PATCH、major 重置 MINOR+PATCH）
-├─ tools/               工具链：store / verify / versioning / release / promote / handoff / smoke
+├─ tools/               工具链：store / verify / versioning / release / promote / handoff / smoke / browser_smoke
 ├─ legacy/              历史归档，命名 `<对象>-<日期>/`，只增不删
 │  ├─ tools-20261009/    改造前的工具备份
 │  └─ preview-20261009/  旧编号预览版 V0.01 全量归档（22 文件，git 保留重命名历史）
@@ -138,7 +138,7 @@ QingMan/
 | 步骤 | 命令 | 说明 |
 |---|---|---|
 | 1. 预览开发 | `python tools/release.py bump --kind patch`，再建 `preview/V<版本>/` | **先升版再建副本** —— 预览副本也含 `VERSION`。试错保护来自**主线仍停在上一版**；**副本不进索引**（§P1-7 生效后），清空按 `git ls-files preview/V<版本>` 二分：**非空** → `git rm -r`；**为空** → `git clean -fd`（**不要 `git add`**）。详见 §P1-7「清空细则」 |
-| 2. 交付校验 | `python tools/verify.py preview/V<版本>` | 主线 **77 项**、预览目录 **74 项**（预览无 `docs/`，少「接续说明实况段」与「源码 § 引用可解析」两项；另无 `tests/`，再少「回归测试网」一项 —— 共少 3；带 `--against` 另加 2 项），不通过不落地 |
+| 2. 交付校验 | `python tools/verify.py preview/V<版本>` | 主线 **80 项**、预览目录 **77 项**（预览无 `docs/`，少「接续说明实况段」与「源码 § 引用可解析」两项；另无 `tests/`，再少「回归测试网」一项 —— 共少 3；带 `--against` 另加 2 项），不通过不落地 |
 | 3. 落地主线 | `python tools/promote.py --from preview/V<版本> --force` | 单向：预览 → 主线，只复制不删除（主线非空时需 `--force`） |
 | 4. 提交版本 | `python tools/store.py commit --note "说明"` | 写入 blob 池 + 生成清单（同版本则追加修订） |
 | 5. 升级版本号 | 见第 1 步 | 本步实际在**第 1 步之前**就要做（版本号须先升）；此处保留编号只为与 §P0-6 修订机制对照 |
@@ -147,15 +147,18 @@ QingMan/
 
 **⚠️ 版本号与 `store.py commit` 的配套顺序**：`commit` 打的是**「此刻盘上的 `src/`」+「此刻的 `VERSION`」**这个组合，两者必须已配套。若先把 `VERSION` 升到新版**却尚未落地**，此时执行 `release.py snapshot`（= `store.py commit`）会把**上一版的代码**装进**新版本的清单**。落地前请用 `python tools/verify.py . --against <上一版>` 先确认主线仍等于上一版基线（见 `docs/错误笔记.md` §三.18）。
 
-**改 `src/` 后必跑三件套（§P0-2 T5）**：
+**改 `src/` 后必跑四件套（§P0-2 T5，V0.0.25 起）**：
 
 ```bash
-python tools/verify.py .                      # 交付校验
+python tools/verify.py .                      # 交付校验（静态）
 python -m unittest discover -s tests          # 单元测试
-python tools/smoke.py                         # 端到端冒烟（起真实服务 + 沙盒目录，测完即清）
+python tools/smoke.py                         # 端到端冒烟（HTTP 层；起真实服务 + 沙盒目录，测完即清）
+python tools/browser_smoke.py                 # 页面级冒烟（无头浏览器 9 项；未装浏览器则跳过）
 ```
 
-三项全过才算完成。单元测试可用 `QM_SRC=<版本根>/src` 指向**预览版**，这样落地前就能过全部门禁。
+四项全过才算完成。单元测试可用 `QM_SRC=<版本根>/src` 指向**预览版**，这样落地前就能过全部门禁。
+
+> `browser_smoke.py` 覆盖「**只有页面跑起来才现形**」的那一类缺陷（页面无未捕获异常·无漏翻、帮助页分节渲染幂等、默认示例随语言、支持页完好）—— 这类问题在 `verify` / `unittest` / `smoke` 三项全绿时依然会漏网。它自动探测 Edge/Chrome，可在沙盒内跑（`--keep` 保留现场、`--browser PATH` 指定浏览器）。见 `docs/项目约定.md` §P0-2 T7。
 
 ## 编辑态持久化
 
