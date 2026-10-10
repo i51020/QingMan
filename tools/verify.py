@@ -122,6 +122,12 @@ CJK = re.compile(r"[\u4e00-\u9fff]")
 BINARY_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico",
                    ".woff", ".woff2", ".ttf", ".otf", ".eot"}
 
+# 换行一致性守卫的扫描范围 = **纳入版本控制的文本文件全集**（含 versions/**/MANIFEST*.json）。
+# 排除运行时与派生内容：data/（运行时数据，见 §P0-7）、store/（对象库 blob 副本）、.git/。
+# 曾因只扫 src/ 而漏检 versions/ 下全部 29 份清单 —— 见《审查报告_工具链_20261010》§P1-1。
+EOL_EXCLUDE_TOP = {"data", "store", ".git"}
+EOL_EXCLUDE_DIRNAMES = {"__pycache__", ".trash"}
+
 # 源码 § 引用守卫：`§<标签>` 的标签语法（ASCII 编号如 P0-1，或纯中文名如 编码基线）。
 # 契约：引用**必须紧贴书写**（`§P0-1`）—— `§` 后带空白视为散文（"§ 引用…"），不参与校验；
 # 否则中文散文会被误当成编号（实证：`_sandbox/srcref_probe_20261009/`）。
@@ -342,23 +348,33 @@ def main() -> int:
     check(not py_bad, "Python 语法", "; ".join(py_bad) if py_bad else f"{len(py_files)} 个文件通过")
 
     # 6b. 换行一致性（§编码基线：start.bat 用 CRLF，其余纳入版本控制的文本文件用 LF）
+    #     扫描范围＝版本控制的文本文件全集（含 versions/ 清单）；排除运行时/派生目录
+    #     （见 EOL_EXCLUDE_TOP）。start.bat 例外：须纯 CRLF 供 cmd.exe。
     #     本项目以 SHA-256 指纹校验内容，字节随平台漂移会直接造成指纹失配，故必须把关。
-    eol_bad = []
-    for f in sorted((root / "src").rglob("*")):
-        if not f.is_file() or f.suffix.lower() in BINARY_SUFFIXES:
-            continue
-        if b"\r" in f.read_bytes():
-            eol_bad.append(f"{f.relative_to(root).as_posix()}(含 CR)")
-    vf = root / "VERSION"
-    if vf.is_file() and b"\r" in vf.read_bytes():
-        eol_bad.append("VERSION(应为 LF)")
+    eol_bad: list[str] = []
+    stack = [root]
+    while stack:
+        cur = stack.pop()
+        for entry in cur.iterdir():
+            if entry.relative_to(root).parts[0] in EOL_EXCLUDE_TOP:
+                continue
+            if entry.is_dir():
+                if entry.name not in EOL_EXCLUDE_DIRNAMES:
+                    stack.append(entry)
+                continue
+            if not entry.is_file():
+                continue
+            if entry.suffix.lower() in BINARY_SUFFIXES or entry.name == "start.bat":
+                continue
+            if b"\r" in entry.read_bytes():
+                eol_bad.append(f"{entry.relative_to(root).as_posix()}(含 CR)")
     bat = root / "start.bat"
     if bat.is_file():
         b = bat.read_bytes()
         if not (b"\r\n" in b and b.replace(b"\r\n", b"").count(b"\n") == 0):
             eol_bad.append("start.bat(应为纯 CRLF)")
     check(not eol_bad, "换行一致性",
-          "; ".join(eol_bad) if eol_bad else "src/ 与 VERSION = LF，start.bat = CRLF")
+          "; ".join(eol_bad) if eol_bad else "版本控制文本 = LF，start.bat = CRLF")
 
     # 7. 帮助/支持页不得硬编码中文（§P0-3 L1：文案必须经取词表，页面只留 data-i18n 键名）
     cjk_pages: list[str] = []

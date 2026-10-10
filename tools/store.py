@@ -226,9 +226,11 @@ def do_commit(root: Path, source: Path, note: str, alias: str) -> int:
         "digest": digest,
         "files": files_map,
     }
-    (dest / filename).write_text(
-        json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    # 落盘换行固定为 LF：`Path.write_text` 默认 newline=None，Windows 上会把 \n 译成
+    # CRLF，使清单字节随平台漂移（§编码基线：纳入版本控制的文本文件一律 LF）。
+    # 这里曾是全项目**唯一**漏写 newline 的写盘点 —— 见《审查报告_工具链_20261010》§P1-1。
+    with (dest / filename).open("w", encoding="utf-8", newline="\n") as fh:
+        fh.write(json.dumps(meta, ensure_ascii=False, indent=2))
 
     label = f"{version}" if rev == 1 else f"{version}@r{rev}"
     print(f"[提交] {label} → {dest / filename}")

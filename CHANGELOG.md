@@ -7,6 +7,38 @@
 
 ---
 
+## 工具链整改（不升版）— 2026-10-10
+
+**主题**：`tools/` 工具链逐行审查（《审查报告_工具链_20261010》）后的 **第 2 步 · 2.1** ——
+修掉「**守卫自身的盲区**」：`verify` 的「换行一致性」只扫 `src/`，而全项目唯一含 CR 的目录
+恰是 `versions/`（**29 份 MANIFEST 全部 CRLF**）。
+
+> **性质**：只改 `tools/`（+ 归一 `versions/` 清单字节），**不升版**（`VERSION` 仍 `V0.0.25`）。
+> `store.py` 的版本清单只覆盖 `src/** + VERSION + start.bat`，**不含 `tools/`** → 本轮**无 store 修订**，
+> 回退点为 **git commit**。
+
+### 修复
+
+- **P1-1 根因**：`tools/store.py` 的 MANIFEST 写盘点补 `newline="\n"`（此前是全项目**唯一**漏写处，
+  Windows 下落盘为 CRLF）。隔离实证：`do_commit` → MANIFEST **0 CR**（修复前 **15**）。
+- **P1-1 守卫**：`tools/verify.py`「换行一致性」扫描范围由 `src/ + VERSION + start.bat` 扩为
+  **纳入版本控制的文本文件全集**（含 `versions/**/MANIFEST*.json`）；排除 `data/`（运行时数据）、
+  `store/`（对象库）、`.git/`、`__pycache__/`、`.trash/`；`start.bat` 仍单列要求纯 CRLF。
+- **历史归一**：`versions/**/MANIFEST*.json` **29 份** CRLF → LF，逐份断言 `json.loads` **语义不变**。
+
+### 验证
+
+| 门禁 | 结果 |
+|---|---|
+| 反向验证（扩范围后 · 归一前） | 「换行一致性」**FAIL**，精确点名 **29 份**清单（此前完全漏检） |
+| `verify.py` | **80 项 / 失败 0** |
+| `unittest` | **130 OK** |
+| `smoke.py` | **17 项 / 失败 0** |
+| `browser_smoke.py` | **9 / 9** |
+| 隔离实证 | `store.do_commit` → MANIFEST **0 CR** |
+
+---
+
 ## V0.0.25 — 2026-10-10
 
 **主题**：全项目架构与逻辑审查的**最后一步** —— 把「**只有页面跑起来才现形**」的一类缺陷
