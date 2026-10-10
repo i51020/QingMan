@@ -12,8 +12,8 @@
 设计约束（对应 docs/项目约定.md §P1-6）：
   * 只重写 `<!-- HANDOFF:BEGIN` 与 `<!-- HANDOFF:END -->` 之间的内容；
     锚点段与意图段属手工区，工具**绝不触碰**。标记缺失即报错，不代猜。
-  * 实况段只收录**稳定的盘上数据**（VERSION / 清单链 / 修订 tag / 文件数 / 时间线首条），
-    **不含当前时刻、也不含 git HEAD** —— 否则每次提交都会让本段自锁过期。
+  * 实况段只收录**稳定的盘上数据**（VERSION / 清单链 / 版本 tag 与修订 tag / 文件数 /
+    时间线首条），**不含当前时刻、也不含 git HEAD** —— 否则每次提交都会让本段自锁过期。
     因此可幂等比对（`--check`）。
   * 复用 `tools/store.py` 的接口，不重复实现；不依赖任何第三方包。
 """
@@ -39,6 +39,11 @@ END = "<!-- HANDOFF:END -->"
 _BLOCK = re.compile(r"(<!-- HANDOFF:BEGIN[^\n]*\n)(.*?)(<!-- HANDOFF:END -->)", re.S)
 
 GIT_TIMEOUT = 20
+
+# tag 形态：版本 tag = `V<x>.<y>.<z>`；修订 tag = `V<x>.<y>.<z>-r<n>`（§P0-6）
+_VERSION_TAG = re.compile(r"^V\d+\.\d+\.\d+$")
+_REV_TAG = re.compile(r"^V\d+\.\d+\.\d+-r\d+$")
+TAG_SHOW = 5  # 实况段里列出的「最近 N 个版本 tag」
 
 
 # ---------- 基础 ----------
@@ -87,15 +92,40 @@ def count_git_files(root: Path) -> int | None:
     return len(out.splitlines()) if out is not None else None
 
 
+def _version_key(tag: str) -> tuple[int, int, int]:
+    """`V0.0.25` → (0, 0, 25)；`V0.0.1-r2` → (0, 0, 1)。用于按版本号排序。"""
+    core = tag.split("-r", 1)[0].lstrip("V")
+    a, b, c = (int(p) for p in core.split("."))
+    return (a, b, c)
+
+
+def split_tags(root: Path) -> tuple[list[str], list[str]]:
+    """把 git tag 分成（版本 tag 升序, 修订 tag 升序）。
+
+    旧实现只列 `git tag -l "V*-r*"`（修订 tag），**版本 tag 全部缺席** —— 接续包会
+    误导接手方以为项目最新 tag 停在 `V0.0.1-r3`（《审查报告_工具链_20261010》§P1-3a）。
+    """
+    raw = git(root, "tag", "-l", "V*") or ""
+    names = [t.strip() for t in raw.splitlines() if t.strip()]
+    version_tags = sorted((t for t in names if _VERSION_TAG.match(t)), key=_version_key)
+    rev_tags = sorted((t for t in names if _REV_TAG.match(t)),
+                      key=lambda t: (_version_key(t), int(t.rsplit("-r", 1)[1])))
+    return version_tags, rev_tags
+
+
 def timeline_latest(root: Path) -> str | None:
-    """docs/任务进度.md 时间线（倒序）的首条：日期 + 时间 + 标题。"""
+    """docs/任务进度.md 时间线（倒序）的首条：日期 + 时间 + 标题。
+
+    日期正则**不得**要求整行只有日期 —— 标题形如 `### 2026-10-10（续十五）` 带后缀，
+    原实现用 `\\s*$` 收尾会匹配失败，致日期恒显示 `(未标日期)`（§P1-3b）。
+    """
     f = root / "docs" / "任务进度.md"
     if not f.is_file():
         return None
     date: str | None = None
     for raw in f.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
-        m = re.match(r"^###\s+(\d{4}-\d{2}-\d{2})\s*$", line)
+        m = re.match(r"^###\s+(\d{4}-\d{2}-\d{2})", line)
         if m:
             date = m.group(1)
             continue
@@ -143,7 +173,6 @@ def render_live(root: Path) -> str:
     out.append("")
 
     dirty = git(root, "status", "--porcelain")
-    tags = git(root, "tag", "-l", "V*-r*")
     if dirty is None:
         out.append("**过程历史（git）**：未初始化仓库或 git 不可用")
     else:
@@ -152,8 +181,16 @@ def render_live(root: Path) -> str:
         state = "工作区干净" if not others else f"工作区有 {len(others)} 处未提交改动"
         out.append(f"**过程历史（git）**：{state}　·　过程历史看 `git log --oneline`")
         out.append("")
-        tag_text = "`" + "` `".join(tags.splitlines()) + "`" if tags else "（无）"
-        out.append(f"**修订 tag**：{tag_text}")
+        # 版本 tag 与修订 tag **分列**：旧实现只列 `V*-r*`，版本 tag 全部缺席（§P1-3a）
+        version_tags, rev_tags = split_tags(root)
+        if version_tags:
+            shown = version_tags[-TAG_SHOW:]
+            tag_text = "`" + "` `".join(shown) + "`"
+            out.append(f"**版本 tag**：最近 {len(shown)} 个：{tag_text}　·　共 {len(version_tags)} 个")
+        else:
+            out.append("**版本 tag**：（无）")
+        rev_text = "`" + "` `".join(rev_tags) + "`" if rev_tags else "（无）"
+        out.append(f"**修订 tag**：{rev_text}")
     out.append("")
 
     tracked = len(store.collect_files(root))

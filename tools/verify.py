@@ -21,7 +21,9 @@
      帮助页键位小节必须登记至少一条**具体键位**，不得只留「待定 / 留空」占位
  8. 接续说明实况段与盘上一致（§P1-6 H4；文件未建立则跳过）
  8b. 源码 § 引用可解析（《错误笔记》§三.22；约定文档不在则跳过）
-  9. 编辑态持久化契约（§P0-7）：schema.json 的 editorDocument/editorNode + 接口标识 + 错误码
+ 8c. 实况段两处渲染失真（不升版，§P1-3）：版本 tag 行必须列出真实版本 tag；
+     时间线最新日期必须解析成功（不得为「未标日期」）
+ 9. 编辑态持久化契约（§P0-7）：schema.json 的 editorDocument/editorNode + 接口标识 + 错误码
  9a. 共享契约版本戳（V0.0.23）：schema.json 的 version 必须等于 VERSION（防契约漂移）
  9b. 落盘安全边界（§P0-1）：config 黑名单 / dtree_core.check_target / routes 接线 / 错误码
  9c. 回归测试网（§P0-2）：tests/ 全部 test_*.py + tools/smoke.py + tools/browser_smoke.py
@@ -1370,10 +1372,42 @@ def main() -> int:
     handoff_file = root / "docs/接续说明.md"
     if handoff_file.is_file():
         try:
-            from handoff import render_live, replace_block
+            from handoff import git as hgit, render_live, replace_block, split_tags
             raw = handoff_file.read_text(encoding="utf-8")
-            same = replace_block(raw, render_live(root)) == raw
+            body = render_live(root)
+            same = replace_block(raw, body) == raw
             check(same, "接续说明实况段", "与盘上一致" if same else "已过期，运行 python tools/handoff.py")
+
+            # 8c. 实况段两处渲染失真守卫（不升版，2026-10-10；源自《审查报告_工具链_20261010》§P1-3）
+            #     自洽检查（上一项）只能证「未过期」，证不了「内容正确」—— 这两项补上。
+            #     P1-3a：旧实现只用 `git tag -l "V*-r*"` → 版本 tag 全部缺席，
+            #            接手方会误以为最新 tag 停在 V0.0.1-r3；
+            #     P1-3b：日期正则不容忍 `（续十五）` 后缀 → 「时间线最新」日期恒为 (未标日期)。
+            if hgit(root, "rev-parse", "--is-inside-work-tree") is not None:
+                # git 不可用（如无 .git 的副本）时渲染器本就降级为「未初始化仓库」——不误报
+                tag_line = next((ln for ln in body.splitlines() if ln.startswith("**版本 tag**")), "")
+                vtags, _rtags = split_tags(root)
+                ver_file8 = root / "VERSION"
+                cur_ver = ver_file8.read_text(encoding="utf-8").strip() if ver_file8.is_file() else ""
+                if cur_ver and cur_ver in vtags:
+                    # 当前版本已打 tag：必须出现在行内（正常发布后的稳态）
+                    tag_ok = f"`{cur_ver}`" in tag_line
+                    tag_why = f"版本 tag 行漏列当前 {cur_ver}"
+                else:
+                    # 当前版本尚未打 tag（发布流中途：bump 后、git tag 前）——
+                    # 此时不要求含 VERSION，否则会在**合法的中间态**产生假红；
+                    # 但仍必须至少列出一个形态合法的版本 tag（正是旧实现的缺陷所在）。
+                    tag_ok = bool(re.search(r"V\d+\.\d+\.\d+", tag_line))
+                    tag_why = "版本 tag 行无任何版本 tag（旧实现只列 V*-r* 的回潮）"
+                check(tag_ok, "实况段·版本 tag 行",
+                      f"{len(vtags)} 个版本 tag，最新 {vtags[-1]}" if tag_ok and vtags else tag_why)
+
+            tl_line = next((ln for ln in body.splitlines() if ln.startswith("**时间线最新**")), "")
+            if tl_line:
+                # 正则已能容忍 `### 2026-10-10（续十五）` 这类带后缀标题（§P1-3b）
+                check("(未标日期)" not in tl_line, "实况段·时间线日期",
+                      tl_line.split("：", 1)[-1][:40] if "(未标日期)" not in tl_line
+                      else f"日期未解析：{tl_line}")
         except (ValueError, OSError, UnicodeDecodeError) as exc:
             check(False, "接续说明实况段", f"无法生成：{exc}")
 
