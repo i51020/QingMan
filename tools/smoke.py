@@ -9,6 +9,8 @@
 退出码：0 全部通过；1 存在失败项。
 约定：
   * 全程在沙盒目录内进行（§P0-2 T6），默认 `D:\\Data\\WorkBuddy\\_sandbox\\qingman_smoke_<日期>\\`，测完即清。
+  * 复用 `--sandbox` / `--keep` 指定的沙盒时，运行前先清掉**本脚本上次留下的产物**（仅 `生成结果` / `big`），
+    使工具本身**幂等**：同一沙盒连跑两次结论一致（§项目约定 §P2 第 17 项「工具间一致性」）。
   * 只读地使用真实 `src/`（不复制、不改动）；仅 `/api/editor` 的写接口不在本冒烟范围内
     （其单元测试在临时目录内进行，见 tests/test_routes.py）。
 """
@@ -195,6 +197,20 @@ def main() -> int:
     else:
         sandbox = Path(tempfile.mkdtemp(prefix="qm_smoke_"))
         cleanup = True
+
+    # 复用同一沙盒（--sandbox / --keep）时，先清掉**本脚本自己**上次留下的产物
+    # （只看这几个已知名字，不动沙盒里其它内容）。不清的话第 7 项 `dryRun` 断言
+    # `not target.exists()` 恒为 False → 第二次起必然误报 FAIL。
+    # 体例与 `browser_smoke.py` 一致（§项目约定 §P2 第 17 项「工具间一致性」）。
+    stale = [name for name in ("生成结果", "big") if (sandbox / name).exists()]
+    if stale:
+        print(f"[冒烟] 复用沙盒，清理上次产物：{', '.join(stale)}")
+        for name in stale:
+            victim = sandbox / name
+            if victim.is_dir():
+                shutil.rmtree(victim, ignore_errors=True)
+            else:
+                victim.unlink()
 
     port = args.port or free_port()
     env = dict(os.environ, QM_PORT=str(port), QM_OPEN_BROWSER="0", PYTHONDONTWRITEBYTECODE="1")
