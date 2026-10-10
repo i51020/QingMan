@@ -174,7 +174,15 @@ def render_live(root: Path) -> str:
     else:
         # 忽略接续说明自身 —— 它由本工具写入，若计入会让状态自锁
         others = [ln for ln in dirty.splitlines() if HANDOFF_REL not in ln]
-        state = "工作区干净" if not others else f"工作区有 {len(others)} 处未提交改动"
+        # §P2-19：把「未提交改动」细分为「已修改（跟踪文件）/ 未跟踪（新文件）」，
+        # 让构成透明（原先一律混计，接手方读不出到底是哪种）。
+        modified = [ln for ln in others if not ln.startswith("??")]
+        untracked = [ln for ln in others if ln.startswith("??")]
+        if not others:
+            state = "工作区干净"
+        else:
+            state = (f"工作区有 {len(others)} 处未提交改动"
+                     f"（已修改 {len(modified)} / 未跟踪 {len(untracked)}）")
         out.append(f"**过程历史（git）**：{state}　·　过程历史看 `git log --oneline`")
         out.append("")
         # 版本 tag 与修订 tag **分列**：旧实现只列 `V*-r*`，版本 tag 全部缺席（§P1-3a）

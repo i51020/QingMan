@@ -46,6 +46,16 @@ def free_port() -> int:
         return s.getsockname()[1]
 
 
+def sandbox_base() -> Path:
+    """`--keep` 沙盒的父目录（§P2-10：不再硬编码绝对盘符路径）。
+
+    与 `tools/browser_smoke.py` 的 `sandbox_base` 同构（§P2 第 17 项「工具间一致性」）：
+    `QM_SANDBOX` 环境变量优先；否则取**项目根的上两级**下的 `_sandbox/`。
+    """
+    env = os.environ.get("QM_SANDBOX", "").strip()
+    return Path(env) if env else (PROJECT_ROOT.parent.parent / "_sandbox")
+
+
 class Client:
     """极简 HTTP 客户端：直接控制请求行，避免被 urllib 规范化掉路径穿越用例。"""
 
@@ -191,7 +201,7 @@ def main() -> int:
         sandbox.mkdir(parents=True, exist_ok=True)
         cleanup = False
     elif args.keep:
-        sandbox = Path("D:/Data/WorkBuddy/_sandbox") / f"qingman_smoke_{time.strftime('%Y%m%d')}"
+        sandbox = sandbox_base() / f"qingman_smoke_{time.strftime('%Y%m%d')}"
         sandbox.mkdir(parents=True, exist_ok=True)
         cleanup = False
     else:

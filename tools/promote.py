@@ -24,6 +24,10 @@ DEFAULT_ROOT = TOOLS_DIR.parent
 
 COPY_DIRS = ("src",)
 COPY_FILES = ("start.bat",)
+# `list_files`（「主线非空」判据）额外纳入 VERSION（§P2-7）：原先只算 src/ + start.bat，
+# 一个只含 VERSION 的主线会被误判为「空」而放行。注意 VERSION 的**写盘**仍由下方
+# 显式 newline="\n" 的代码单独负责（不在 COPY_FILES 内），故此处只影响判据、不影响复制。
+PRESENCE_FILES = ("start.bat", "VERSION")
 IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc")
 
 
@@ -50,7 +54,7 @@ def list_files(base: Path) -> set[str]:
             for f in target.rglob("*"):
                 if f.is_file() and "__pycache__" not in f.parts:
                     out.add(str(f.relative_to(base)).replace("\\", "/"))
-    for item in COPY_FILES:
+    for item in PRESENCE_FILES:
         if (base / item).is_file():
             out.add(item)
     return out

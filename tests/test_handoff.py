@@ -229,6 +229,30 @@ class RenderLiveTests(unittest.TestCase):
         self.assertEqual(handoff.render_live(self.tmp), self.body,
                          "同一盘上状态必须渲染出逐字节相同的实况段（可幂等比对）")
 
+    def _process_line(self) -> str:
+        return next((ln for ln in handoff.render_live(self.tmp).splitlines()
+                     if ln.startswith("**过程历史")), "")
+
+    def test_clean_tree_reports_clean(self):
+        git(self.tmp, "add", "-A")
+        git(self.tmp, "-c", "user.email=t@example.com", "-c", "user.name=t",
+            "commit", "-q", "-m", "all")
+        line = self._process_line()
+        self.assertIn("工作区干净", line)
+        self.assertNotIn("未跟踪", line)
+
+    def test_dirty_state_splits_modified_and_untracked(self):
+        # §P2-19：既有未跟踪（setUp 写的 VERSION/docs 未提交），再制造一个「已修改」
+        write(self.tmp / "tracked.txt", "a\n")
+        git(self.tmp, "add", "tracked.txt")
+        git(self.tmp, "-c", "user.email=t@example.com", "-c", "user.name=t",
+            "commit", "-q", "-m", "add tracked")
+        write(self.tmp / "tracked.txt", "b\n")            # 已修改（跟踪文件）
+        line = self._process_line()
+        self.assertIn("未提交改动", line)
+        self.assertIn("已修改", line)
+        self.assertIn("未跟踪", line)
+
 
 if __name__ == "__main__":
     unittest.main()
