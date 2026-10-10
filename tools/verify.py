@@ -1024,7 +1024,9 @@ def main() -> int:
     h18 = hj.read_text(encoding="utf-8") if hj.is_file() else ""
     if "./support.html" not in h18:
         split_bad.append("help.js 缺 about 表跳转链接")
-    if re.search(r"kind:\s*'support'", root.joinpath("src/web/js/i18n/zh-CN.js").read_text(encoding="utf-8")):
+    zc18 = root / "src/web/js/i18n/zh-CN.js"
+    z18 = zc18.read_text(encoding="utf-8") if zc18.is_file() else ""
+    if re.search(r"kind:\s*'support'", z18):
         split_bad.append("zh-CN.js 仍注册 support 渲染分支")
     check(not split_bad, "帮助支持拆两页 V0.0.18",
           f"缺失：{', '.join(split_bad)}" if split_bad
