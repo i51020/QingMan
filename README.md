@@ -4,8 +4,9 @@
 
 - 中文名：**青蔓**
 - 英文名：**QingMan**
-- 当前版本：**V0.0.6**
+- 当前版本：**V0.0.23**
 - 运行环境：Windows 10/11 + Python 3.8+，完全离线，仅监听 `127.0.0.1`
+- 实测环境：**Windows 11**（鼠标 + 键盘）。触屏与其他操作系统**未验证**，故不做针对性适配
 
 ## 快速开始
 
@@ -14,7 +15,7 @@
 start.bat
 ```
 
-脚本会自动定位 `src/`、用 `python -m server` 启动后端、扫描 8765–8775 端口、打开浏览器。
+脚本会自动定位 `src/`、优先用 `py -3`（回退 `python`）启动后端、扫描 8765–8775 端口、打开浏览器。
 
 手动启动（等价）：
 
@@ -33,58 +34,84 @@ python -m server
 
 > **提升浏览器下限的规则**：一旦引入任一 **ES2022+** API（如 `Object.groupBy` / `toSorted` / `findLast`），必须把上表下限提升到该 API 的首次支持版本，并同步 `docs/项目约定.md` §P2 第 2 项。
 
-**快捷键**：`Ctrl / Cmd + S` 立即保存目录树（跳过 800ms 防抖）。本版仅此一项，其余键位未设。
+**快捷键**：`Ctrl / Cmd + S` 立即保存目录树（跳过 800ms 防抖）· `Delete` 删除选中节点 · `F2` 重命名选中节点。完整键位表见帮助页（键位小节由校验守卫把关，引入新键位即强制登记）。
 
 ## 目录结构
 
 ```
 QingMan/
-├─ VERSION              版本号唯一来源（内容：V0.0.6）
+├─ VERSION              版本号唯一来源（内容：V0.0.23）
 ├─ CHANGELOG.md         版本记录
 ├─ start.bat            启动入口
 ├─ README.md            本文件
 ├─ src/                 主线源码（"当前版本"，只在确认后改动）
-│  ├─ web/              前端：index.html（主界面）+ help.html（帮助页）+ css/ + js/ + assets/
-│  │  ├─ assets/        品牌资源：logo.svg（顶栏标记，经 CSS mask 着色）
+│  ├─ web/              前端：index.html（主界面）+ help.html（帮助页）+ support.html（支持页）+ css/ + js/ + assets/
+│  │  ├─ assets/        品牌资源：logo.svg（顶栏标记，经 CSS mask 着色）+ sponsor-wechat.png（赞赏码）
 │  │  ├─ css/
 │  │  │  ├─ tokens.css  设计变量唯一来源（**唯一允许出现裸色值的文件**）
-│  │  │  ├─ base.css    基础元素 + 品牌区（两页共用）
+│  │  │  ├─ base.css    基础元素 + 品牌区（三页共用）
 │  │  │  ├─ layout.css  主界面布局
-│  │  │  ├─ help.css    帮助页布局
-│  │  │  └─ skins/      皮肤契约与皮肤文件（皮肤 = 一组变量覆盖，组件不感知皮肤 → §P0-3 L5）
+│  │  │  ├─ help.css    帮助页 / 支持页布局
+│  │  │  └─ skins/      皮肤契约（README.md）+ 15 款皮肤文件（皮肤 = 一组变量覆盖，组件不感知皮肤 → §P0-3 L5）
 │  │  └─ js/
-│  │     ├─ i18n/       取词层：index.js（运行时 t() / applyStatic() / applySkin()）+ zh-CN.js（136 键取词表）
-│  │     └─ …           其余模块文案一律走 t()，**不得直写中文**（§P0-3 L1）
+│  │     ├─ main.js     主界面装配层：状态 → 视图 → 交互绑定 → 编辑态自动保存 → 自检
+│  │     ├─ help.js     帮助页渲染层：填充占位 → 渲染分节（幂等）→ 取后端版本
+│  │     ├─ support.js  支持页渲染层
+│  │     ├─ i18n/       取词层：index.js 运行时（t() / applyStatic() / setLocale() / applySkin() / initPrefs() / watchLocale()）
+│  │     │              + zh-CN.js / en-US.js 取词表（各 **296 键**，双语键集零差异）+ skins.js 皮肤注册表
+│  │     ├─ core/       bus.js 事件总线 · store.js 状态仓库 · api.js 后端调用唯一入口（其余模块禁用 fetch）· errors.js 错误码本地化
+│  │     ├─ modules/    tree-model.js 数据模型：增删改查 / 统计 / id 唯一性 / 文档序列化（纯数据，不碰 DOM 与网络）
+│  │     └─ ui/         tree-view.js 目录树 · inspector.js 属性面板 · ctx-menu.js 右键菜单 · toast.js 轻提示
+│  │                    lang-picker.js 语言选择 · skin-picker.js 皮肤选择 · launch-icon.js 皮肤联动图标
 │  ├─ server/           后端：Python 标准库，零第三方依赖
 │  └─ shared/           前后端共享契约：schema.json / error-codes.json
 ├─ data/                运行时数据：editor.json（编辑态文档；**不进 git**，见 §P0-7）
 ├─ store/               内容寻址仓库
 │  ├─ objects/          blob 池：路径 = 内容的 SHA-256，跨版本自动去重
 │  └─ .trash/           checkout 时多余文件的回收区（不真删）
-├─ versions/            版本清单（**只增不改**）
-│  ├─ V0.0.6/           MANIFEST.json（基线 r1，当前版本）
-│  ├─ V0.0.5/           MANIFEST.json
-│  ├─ V0.0.4/           MANIFEST.json
-│  ├─ V0.0.3/           MANIFEST.json（基线 r1）+ MANIFEST-r<N>.json（同版本修订）
-│  ├─ V0.0.2/           MANIFEST.json
+├─ versions/            版本清单（**只增不改**，V0.0.1 … V0.0.23 每版一目录）
+│  ├─ V0.0.23/          MANIFEST.json（基线 r1，当前版本）＋ 必要的 MANIFEST-r<N>.json
 │  └─ V0.0.1/           MANIFEST.json（基线 r1）+ MANIFEST-r<N>.json（同版本修订）
 ├─ preview/             试运行区（**只服务单次开发**：`promote` 后即清空，不跨版本保留 —— §P1-7）
 │  └─ README.md         用途与规则说明（占位，使目录保留在 git 跟踪内）
-├─ templates/           17 套中文目录树模板（内容资产）
+├─ templates/           17 套中文目录树模板（内容资产）+ .trash/（软删除回收区）
 ├─ tests/               回归测试网（标准库 unittest，零第三方依赖 —— §P0-2）
 │  ├─ test_dtree_core.py   切分 / 统计 / 文档校验 / check_target(R1–R5) / build_tree(R6–R8)
-│  ├─ test_routes.py       生成守卫 / 写入 / 编辑态往返 / 健康
+│  ├─ test_routes.py       生成守卫 / 写入 / 编辑态往返 / 健康 / 模板 CRUD 与覆盖写
+│  ├─ test_config.py       体积上限分层自洽 / 路径与开关派生
+│  ├─ test_launch_icon.py  皮肤联动图标上传校验（PNG-in-ICO）
 │  ├─ test_store.py        manifest_digest 改名可检出 / parse_ref / 修订链
 │  └─ test_versioning.py   bump 三语义（minor 重置 PATCH、major 重置 MINOR+PATCH）
 ├─ tools/               工具链：store / verify / versioning / release / promote / handoff / smoke
 ├─ legacy/              历史归档，命名 `<对象>-<日期>/`，只增不删
 │  ├─ tools-20261009/    改造前的工具备份
 │  └─ preview-20261009/  旧编号预览版 V0.01 全量归档（22 文件，git 保留重命名历史）
-├─ docs/                项目手册 / 项目约定 / 任务进度 / 错误笔记 / 接续说明
+├─ docs/                项目手册 / 项目约定 / 任务进度 / 错误笔记 / 接续说明 / 审查报告
 ├─ .git/                过程历史仓库（git，覆盖全项目）
 ├─ .gitattributes       `* -text` —— 禁止换行转换，保护 SHA-256 指纹
 └─ .gitignore           忽略 __pycache__ / store/.trash/ / data/ / 编辑器垃圾
 ```
+
+## 目录树操作
+
+| 操作 | 方式 |
+|---|---|
+| 新建子项 / 重命名 / 删除 | 工具栏按钮，或节点**右键菜单**（同一套具名函数，两处共用） |
+| 移动节点 | 拖拽节点到目标目录（根节点不可拖）。移动前先过 `canMove()` 校验：不改数据的判断，返回 `true / notDir / cycle / exists / root` —— 自环、目标已存在、拖到根均被拦下 |
+| 删除 / 重命名快捷键 | `Delete` 删除选中节点 · `F2` 重命名选中节点（输入态自动让位，不抢键） |
+| 撤销 / 重做 | 每步操作入栈（上限 50）。**note 编辑按会话合并**：一次连续编辑只占一格历史，失焦 / 切选中即并为一步 —— 避免逐字符吃光栈 |
+
+## 模板库
+
+模板 = 一棵可复用的目录树（`templates/<名称>.json`，嵌套字典：目录 = `{}`，文件 = 字符串内容）。
+
+| 操作 | 说明 |
+|---|---|
+| 另存为模板 | 把当前树存为命名模板。**同名默认拒写**（返回 `templateExists`）；用户**显式确认**后带 `overwrite:true` 才覆盖，且旧模板先入 `templates/.trash/<时间戳>/` 再写新文件 |
+| 重命名 | `POST /api/templates/<名称>`：**同时改文件名与文件内 `name` 字段**（两者不一致会让「点了 A 却载入 B」）。旧文件移入回收站保底 |
+| 删除 | `DELETE /api/templates/<名称>`：**软删除**，移入 `templates/.trash/<时间戳>/`，不真删 |
+
+> 模板目录 `templates/` **不在版本交付清单内**，故 `list_templates()` 在目录缺失时返回 `available=false` + 空列表（**不报错**）—— 否则预览副本一启动就满屏红。
 
 ## 任务进度
 
@@ -111,7 +138,7 @@ QingMan/
 | 步骤 | 命令 | 说明 |
 |---|---|---|
 | 1. 预览开发 | `python tools/release.py bump --kind patch`，再建 `preview/V<版本>/` | **先升版再建副本** —— 预览副本也含 `VERSION`。试错保护来自**主线仍停在上一版**；**副本不进索引**（§P1-7 生效后），清空按 `git ls-files preview/V<版本>` 二分：**非空** → `git rm -r`；**为空** → `git clean -fd`（**不要 `git add`**）。详见 §P1-7「清空细则」 |
-| 2. 交付校验 | `python tools/verify.py preview/V<版本>` | 主线 **52 项**、预览目录 **49 项**（预览无 `docs/`，少「接续说明实况段」与「源码 § 引用可解析」两项；另无 `tests/`，再少「回归测试网」一项 —— 共少 3；带 `--against` 另加 2 项），不通过不落地 |
+| 2. 交付校验 | `python tools/verify.py preview/V<版本>` | 主线 **77 项**、预览目录 **74 项**（预览无 `docs/`，少「接续说明实况段」与「源码 § 引用可解析」两项；另无 `tests/`，再少「回归测试网」一项 —— 共少 3；带 `--against` 另加 2 项），不通过不落地 |
 | 3. 落地主线 | `python tools/promote.py --from preview/V<版本> --force` | 单向：预览 → 主线，只复制不删除（主线非空时需 `--force`） |
 | 4. 提交版本 | `python tools/store.py commit --note "说明"` | 写入 blob 池 + 生成清单（同版本则追加修订） |
 | 5. 升级版本号 | 见第 1 步 | 本步实际在**第 1 步之前**就要做（版本号须先升）；此处保留编号只为与 §P0-6 修订机制对照 |
@@ -140,19 +167,19 @@ python tools/smoke.py                         # 端到端冒烟（起真实服�
 
 ## 界面文案与皮肤（§P0-3）
 
-**文案零直写**：界面上的每一句中文都来自 `src/web/js/i18n/zh-CN.js` 的取词表（**144 键**），代码里通过 `t(key)` 取；HTML 用 `data-i18n` / `data-i18n-title` / `data-i18n-placeholder` / `data-i18n-aria-label` 属性声明键名，加载时由 `applyStatic()` 统一填充。**后续加 `en-US.js` 即在 `DICTIONARIES` 注册即可切换**，无需改任何组件。
+**文案零直写**：界面上的每一句中文都来自 `src/web/js/i18n/zh-CN.js` 的取词表（**296 键**），代码里通过 `t(key)` 取；HTML 用 `data-i18n` / `data-i18n-title` / `data-i18n-placeholder` / `data-i18n-aria-label` 属性声明键名，加载时由 `applyStatic()` 统一填充。**英文取词表 `en-US.js` 已内置，键集与中文零差异** —— 在 `DICTIONARIES` 注册即可切换，无需改任何组件。
 
 | 约定 | 内容 |
 |---|---|
 | key 命名 | `<模块>.<元素>.<语义>`，如 `inspector.title`、`tree.menu.delete`、`toast.saved` |
-| 取词运行时 | `src/web/js/i18n/index.js`：`t()` / `applyStatic()` / `setLocale()` / `applySkin()` / `initPrefs()` |
+| 取词运行时 | `src/web/js/i18n/index.js`：`t()` / `applyStatic()` / `setLocale()` / `applySkin()` / `initPrefs()` / `watchLocale()` |
 | 颜色 | 组件 CSS **只允许 `var(--qm-*)`**，禁止裸色值；新增变量先在 `tokens.css` 定义（**唯一允许写色值的文件**） |
-| 皮肤 | 皮肤 = **一组变量覆盖文件** `src/web/css/skins/<name>.css`，经 `applySkin()` 注入 `<link id="skinLink">`。**组件 CSS 不得感知皮肤**（不写 `.skin-dark .btn` 这类选择器） |
+| 皮肤 | 皮肤 = **一组变量覆盖文件** `src/web/css/skins/<name>.css`（已内置 **15 款**），经 `applySkin()` 注入 `<link id="skinLink">`。**组件 CSS 不得感知皮肤**（不写 `.skin-dark .btn` 这类选择器） |
 | 偏好 | `localStorage` 的 `qm.lang` / `qm.skin` / `qm.genBar`；启动顺序 `initPrefs()` → `applyStatic()` → `initGenBar()` → `render()` |
 | ⚠️ 新增偏好键 | 必须声明在 `i18n/index.js`（**导出常量**），不能写在别的模块里 —— 「取词键闭包」检查会排除 `i18n/` 目录，而把 JS 里任何 `a.b` 形式的字面量都当成取词键，写在别处会被误判为"漏翻" |
 | SVG 着色 | 一律 ① CSS `mask` 取形状 或 ② 内联 `currentColor`。**禁止 `<img src="*.svg">`** —— `<img>` 中的 SVG 是独立文档，`currentColor` 不继承 |
 
-以上七条外加 L7/L8，由 `verify.py` 的 7 项守卫（§P0-3 系列）逐条把关。
+以上七条外加 L7/L8，由 `verify.py` 的 **11 项守卫**（§P0-3 系列）逐条把关。
 
 ## 中栏：生成参数区可折叠
 
@@ -181,7 +208,7 @@ python tools/smoke.py                         # 端到端冒烟（起真实服�
 - `versions/<版本>/MANIFEST.json` —— 版本**基线**（修订 r1）：「路径 → 指纹」映射 + 元数据（时间 / 父版本 / 说明 / 清单摘要）
 - `versions/<版本>/MANIFEST-r<N>.json` —— 同版本**后续修订**（r2、r3…），任何已有清单都不覆盖
 
-实测数据：`V0.0.1@r3` → `V0.0.2` 的 26 个文件里**新增 11 个 blob、复用 15 个**（对象池 35 → 46）；`V0.0.2` → `V0.0.3` 的 27 个文件里**新增 6 个 blob、复用 21 个**；`V0.0.4` → `V0.0.5` 的 29 个文件里**新增 13 个 blob、复用 16 个**；`V0.0.5` → `V0.0.6` 的 29 个文件里**新增 6 个 blob、复用 23 个**。
+早期实测数据（去重效果）：`V0.0.1@r3` → `V0.0.2` 的 26 个文件里**新增 11 个 blob、复用 15 个**（对象池 35 → 46）；`V0.0.2` → `V0.0.3` 的 27 个文件里**新增 6 个 blob、复用 21 个**；`V0.0.4` → `V0.0.5` 的 29 个文件里**新增 13 个 blob、复用 16 个**；`V0.0.5` → `V0.0.6` 的 29 个文件里**新增 6 个 blob、复用 23 个**。最新版本的实际去重数可在 `python tools/store.py log` 与对应 `MANIFEST.json` 中查看。
 
 | 命令 | 作用 |
 |---|---|
@@ -194,9 +221,9 @@ python tools/smoke.py                         # 端到端冒烟（起真实服�
 ## 回退
 
 ```bash
-python tools/store.py checkout V0.0.6         # 取当前版本（= 该版本最高修订）
+python tools/store.py checkout V0.0.23        # 取当前版本（= 该版本最高修订）
 python tools/store.py checkout V0.0.1@r1      # 精确回退到某个修订
-python tools/verify.py . --against V0.0.6     # 与当前版本清单比对
+python tools/verify.py . --against V0.0.23    # 与当前版本清单比对
 ```
 
 回退时「当前有、目标版本没有」的文件，会先复制进 `store/.trash/<时间戳>/` 并**逐字节校验**，通过后才移除原文件 —— 全程不真删。

@@ -85,27 +85,6 @@ function buildAbout() {
   return box;
 }
 
-function buildSupport() {
-  const box = document.createElement('div');
-  box.className = 'help-support';
-
-  const figure = document.createElement('figure');
-  figure.className = 'help-qr';
-  const img = document.createElement('img');
-  img.src = './assets/sponsor-wechat.png';
-  img.alt = t('help.support.qrAlt');
-  const figcaption = document.createElement('figcaption');
-  figcaption.textContent = t('help.support.wechat');
-  figure.append(img, figcaption);
-
-  const thanks = document.createElement('p');
-  thanks.className = 'help-thanks';
-  thanks.textContent = t('help.support.thanks');
-
-  box.append(figure, thanks);
-  return box;
-}
-
 function buildSection(section) {
   const wrap = document.createElement('section');
   wrap.className = 'help-section';
@@ -116,9 +95,11 @@ function buildSection(section) {
   title.textContent = t(section.title);
   wrap.appendChild(title);
 
+  // 分节正文只有两种形态：about（动态信息表）与列表（ol/ul/note）。
+  // 「支持」自 V0.0.18 拆为独立页 support.html 后，本页已无 support 分节
+  // —— 原先的 buildSupport 分支随之成为死代码，于 V0.0.23 移除。
   let body;
   if (section.kind === 'about') body = buildAbout();
-  else if (section.kind === 'support') body = buildSupport();
   else body = buildList(section);
   wrap.appendChild(body);
   return wrap;

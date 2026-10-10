@@ -22,8 +22,9 @@
  8. 接续说明实况段与盘上一致（§P1-6 H4；文件未建立则跳过）
  8b. 源码 § 引用可解析（《错误笔记》§三.22；约定文档不在则跳过）
   9. 编辑态持久化契约（§P0-7）：schema.json 的 editorDocument/editorNode + 接口标识 + 错误码
+ 9a. 共享契约版本戳（V0.0.23）：schema.json 的 version 必须等于 VERSION（防契约漂移）
  9b. 落盘安全边界（§P0-1）：config 黑名单 / dtree_core.check_target / routes 接线 / 错误码
- 9c. 回归测试网（§P0-2）：tests/ 四模块 + tools/smoke.py（仅项目根，预览目录跳过）
+ 9c. 回归测试网（§P0-2）：tests/ 全部 test_*.py + tools/smoke.py（仅项目根，预览目录跳过）
  7s. 请求体上限一致性（V0.0.22）：MAX_BODY_BYTES ≥ 各业务上限（编辑态/模板/图标），
      否则业务错误码 editorTooLarge / templateTooLarge 不可达
  7t. 帮助页分节渲染幂等（V0.0.22）：renderSections 必须清空容器，语言切换不得累积
@@ -1248,6 +1249,28 @@ def main() -> int:
             contract_note = "schema.json 无法解析"
     check(contract_ok, "编辑态契约", contract_note)
 
+    # 9a. 共享契约版本戳必须与 VERSION 同步（防「契约漂移」—— 全项目审查 P2-1）。
+    # schema.json 是对外数据契约，其 version 应随版本推进同步；停在旧版即漂移。
+    ver_file = root / "VERSION"
+    contract_ver: str | None = None
+    if schema_file.is_file():
+        try:
+            _s = json.loads(schema_file.read_text(encoding="utf-8"))
+            _v = _s.get("version") if isinstance(_s, dict) else None
+            contract_ver = _v if isinstance(_v, str) else None
+        except ValueError:
+            contract_ver = None
+    if not ver_file.is_file():
+        check(True, "共享契约版本戳", "无 VERSION 文件（预览目录），跳过")
+    elif contract_ver is None:
+        check(False, "共享契约版本戳", "schema.json 缺 version 字段或无法解析")
+    else:
+        cur_ver = ver_file.read_text(encoding="utf-8").strip()
+        same_ver = contract_ver == cur_ver
+        check(same_ver, "共享契约版本戳",
+              (f"schema.json version={contract_ver} 与 VERSION 一致" if same_ver
+               else f"漂移：schema.json version={contract_ver} ≠ VERSION {cur_ver}（须同步）"))
+
     anchors = (
         ("src/server/config.py", "EDITOR_FILE"),
         ("src/server/routes.py", "EDITOR_PATH"),
@@ -1304,6 +1327,7 @@ def main() -> int:
     if (root / "tests").is_dir():
         net_missing = [rel for rel in (
             "tests/test_dtree_core.py", "tests/test_routes.py",
+            "tests/test_config.py", "tests/test_launch_icon.py",
             "tests/test_store.py", "tests/test_versioning.py",
             "tools/smoke.py",
         ) if not (root / rel).is_file()]

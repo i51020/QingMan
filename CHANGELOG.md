@@ -7,6 +7,69 @@
 
 ---
 
+## V0.0.23 — 2026-10-10
+
+**主题**：全项目架构与逻辑审查的 **P2 收口** —— 契约 / 文档漂移订正 + 两处误报与死码修正（修正后**无行为回归**，`verify` 反而由 77 增至 78 项）。
+
+> **立项依据**：用户「采纳建议，分步，依次执行」（第 2 步）。来源见 `docs/审查报告_架构与逻辑_20261010.md` §P2。
+> **用户环境**：Windows 11 本机，仅**鼠标 + 键盘**；触屏与其他 OS **无法验证** —— 故该类改动在本环境**不做**（不实证不交付）。
+
+### 变更（`src/` 与 `start.bat`）
+
+- **共享契约版本戳同步**（`shared/schema.json`）
+  - `version` 由 `V0.0.17` 改为与 `VERSION` 同步（此前停在 V0.0.17，**契约漂移 6 个版本**）
+  - 补 `templateSaveRequest.overwrite`（严格 `true` 才覆盖）、`templateSaveResponse.overwritten`；
+    订正陈旧注释「同名模板已存在时返回 templateExists，**绝不覆盖**」→ 明示 `overwrite:true` 时覆盖
+  - 补 `templateListResponse` / `templateRenameRequest` / `templateRenameResponse` / `templateDeleteResponse`
+    —— 模板 5 类接口此前在契约中**完全缺席**
+- **帮助页死代码清理**（`web/js/help.js`）
+  - 删 `buildSupport()` 及其 `kind === 'support'` 分支。该分节自 V0.0.18 拆为独立页 `support.html`
+    后已无任何消费者（`helpSections` 实况 7 节：ol/ul/ul/note/ul/about/ul，**无 support**）
+  - `.help-support` / `.help-qr` / `.help-thanks` CSS **保留** —— `support.js` 仍在用
+- **启动脚本解释器判定修正**（`start.bat`）
+  - 原第 11 行无条件用 `python -V` 判定 → `py -3` 可用但 `python` 不在 PATH 时**误报**「未检测到 Python 3.8+」；
+    改为判定**已选定**的 `%PY%`（`py -3` 失败才回退 `python`），并把注释由 `::` 改 `rem`（批处理内更稳）
+
+### 文档订正（不进版本清单，随 `src/` 同版交付）
+
+- **`README.md`**：`V0.0.6` → `V0.0.23`；目录树补 8 个缺失模块 + `support.html` + `sponsor-wechat.png`；
+  键数 `136/144` → **296**；校验项 `52/49` → **77/74**；测试模块 `4` → **6**；皮肤 **15 款**；
+  新增「**目录树操作**」「**模板库**」两节；快捷键补 `Delete` / `F2`；§P0-3 守卫 `7` → **11**；回退示例版本号对齐
+- **`docs/项目手册.md`**：同源订正 —— 版本 / 模块树 / §五 接口表（补 `/api/env.js` `/api/templates`(GET·POST·POST\<name\>·DELETE)
+  `/api/shortcut` `/api/launch-icon`）/ §六 环境变量（`6` → **12**，含上限分层自洽说明）/ 键数 **296** / 校验项 **77·74**；
+  §三 补「**实测环境：Windows 11，鼠标 + 键盘；触屏与其他 OS 未验证**」
+
+### 守卫（`tools/verify.py` 77 → **78 项**）
+
+- **共享契约版本戳**：`schema.json` 的 `version` 必须等于 `VERSION`（缺 `VERSION` 的预览目录跳过）
+- 「回归测试网」必需文件清单补 `tests/test_config.py` / `tests/test_launch_icon.py`（防新模块失去保护）
+- 文档头部校验清单同步（补 9a；「四模块」措辞改为「全部 `test_*.py`」）
+
+### 测试
+
+- **无新增** —— 本轮为契约 / 文档 / 死码 / 误报修正；`unittest` 维持 **127 OK**
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| 主线 `verify.py` | **78 项 0 失败**（+1：共享契约版本戳） |
+| `unittest` | **127 OK** |
+| `smoke.py` | **17 项 0 失败**（服务读到版本 = `V0.0.23`） |
+| `schema.json` JSON 合法性 | 顶层 15 键解析通过，`version=V0.0.23` 与 `VERSION` 一致 |
+| **无头 Edge 实证 · 帮助页** | 渲染 **7 分节** + 导航 **7 项**；版本徽标取到后端实测值 `V0.0.23` |
+| **无头 Edge 实证 · 支持页** | `.help-qr` ×1、`.help-thanks` ×1、赞赏码 `sponsor-wechat.png` 就位（`buildSupport` 移出帮助页后支持页仍正常） |
+| 隔离 | 实证在 `_sandbox/qm_p2_probe_20261010/` 副本内起服务，**测后即删**；`data/editor.json` mtime 未变、真实模板仍 **17 套**、`git status` 仅列预期 10 个改动文件 |
+
+### 已知边界
+
+- `help.support.lead` 等少量取词键在帮助页拆页后已无消费者 —— **保留不删**（键闭包守卫只查「引用 ⊆ 字典」，
+  多余键无害；删键反而有漏改风险）。同类清理留待「取词表瘦身」专项
+- `docs/项目约定.md` 中的 **L2/L3 条目**（"实测 116 个引用键 ⊆ 144 键（V0.0.6）"、"zh-CN.js 为唯一取词表（136 键）"）
+  属**带版本时间戳的决策记录**，**非现状断言** —— 故**不改写**，保留其历史原貌（现状以本 CHANGELOG 与 README / 手册为准）
+
+---
+
 ## V0.0.22 — 2026-10-10
 
 **主题**：全项目架构与逻辑审查的 **P1 修复** —— 三处「静态守卫覆盖不到」的真实缺陷。

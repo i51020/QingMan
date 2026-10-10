@@ -8,7 +8,9 @@ if not exist "%SRCDIR%\server\__main__.py" goto :noapp
 
 set "PY=py -3"
 py -3 -V >nul 2>nul || set "PY=python"
-python -V >nul 2>nul || goto :nopy
+rem 判定「已选定」的解释器，而不是无条件要求 python 在 PATH ——
+rem 否则 py -3 可用、python 不在 PATH 时会被误报「未检测到 Python」
+%PY% -V >nul 2>nul || goto :nopy
 
 echo [青蔓 QingMan] 正在启动本地服务...
 pushd "%SRCDIR%"
