@@ -47,6 +47,50 @@
 
 ---
 
+## V0.0.14 — 2026-10-10
+
+**主题**：「跟随系统」跟的是**操作系统语言**，不再是浏览器语言。
+
+> **立项依据**：V0.0.12 的「跟随系统」取的是 `navigator.languages` —— 那是**浏览器**的语言偏好，可以
+> 被单独改写（安装时选了别的语言、或用户在浏览器设置里调过），与「系统显示语言」不是一回事。
+> 浏览器默认继承 OS 语言只是**巧合**，一旦被改过就再也对不上。真值只能问 OS。
+
+### 变更（`src/`）
+
+- **后端取真值**
+  - `routes.os_locale()`：Windows 走 `GetUserDefaultLocaleName()`（Vista+，直接返回 `zh-CN` 形态的 BCP 47 标签）；非 Windows 或调用失败一律返回**空串** —— 探测失败不得改变既有行为
+  - `health()` 增加 `osLocale` 字段：OS 语言与浏览器语言不一致时，看这一项就知道前端采信了谁
+- **同步注入，杜绝语言闪烁**
+  - 新增 `GET /api/env.js`：返回一行 `window.__QM_OS_LOCALE__ = "zh-CN";`
+  - **为什么不是接口**：语言必须在**首屏渲染之前**定下来。走 `fetch` 会让界面先按浏览器语言画一遍、拿到结果再跳变
+  - `<script src="./api/env.js">` 是**普通脚本**，执行早于 module 脚本（`type="module"` 天生 defer），故取值零延迟；主界面与帮助页均已接线
+  - 产物恒为 ASCII 且经 `json.dumps` 转义 —— 无注入面
+- **前端优先级链**：`显式选择` → **`window.__QM_OS_LOCALE__`** → `navigator.languages` → BCP 47 降级匹配 → `zh-CN`
+  - 浏览器语言退居**兜底**：仅在 OS 值取不到（非 Windows / 脚本未加载）时生效，且仍走 V0.0.12 的降级链
+
+### 变更（`tools/` 与测试）
+
+- `verify.py` 新增守卫**「OS 语言注入（跟随系统）」**（64 → 65 项），判据三处：后端真值来源、`env.js` **早于** module 脚本、`systemLocales()` 内 OS 语言**排在** `navigator` 之前
+  - **反向实证 2 组**：去掉 `env.js` → FAIL；把 `navigator` 挪到 `osLocale()` 之前 → FAIL
+- `tests/test_routes.py` 新增 `OsLocaleTests`（**3 条**，套件 87 → 90）：值为 BCP 47 或空串、脚本形态可 JSON 解析且纯 ASCII、取不到时写空串而非拼进异常
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| 主线 `verify.py` | 65 项 0 失败 |
+| `unittest` | 90 OK |
+| `smoke.py` | 17 项 0 失败 |
+| Node 实证 · 优先级链 | 11 项 0 失败：OS 覆盖浏览器 / OS 空回落浏览器 / OS 不受支持继续看浏览器 / `zh-Hant-TW` 降级 / 全无落默认 / 显式选择压过 OS / 无该字段静默回落 / 无 `window` 不抛错 / 两个页面 `env.js` 顺序 |
+| HTTP 层探针（沙盒） | 9 项 0 失败：`/api/env.js` 200 + `text/javascript` + 纯 ASCII + **本机真值 `zh-CN`**、`health.osLocale` 一致、`index.html` 顺序正确 |
+| 守卫反向实证 | 2 组均正确 FAIL → 还原后 PASS |
+
+### 已知边界
+
+- 非 Windows 平台 `os_locale()` 返回空串 → 行为与 V0.0.12 完全一致（回落浏览器语言）。青蔓当前只面向 Windows，真值通道在 macOS / Linux 上尚未接通
+
+---
+
 ## V0.0.13 — 2026-10-10
 
 **主题**：模板「另存为模板」—— 模板库由只读变为可写，并按 §P2 第 7 项引入 `schemaVersion`。

@@ -773,6 +773,43 @@ def main() -> int:
           f"缺失：{', '.join(tpl_absent)}" if tpl_absent
           else "写入带 schemaVersion / 读取容忍缺失 / 拒绝覆盖同名 / 规模与体积上限 齐备")
 
+    # 7k. OS 语言注入（V0.0.14：「跟随系统」跟的是**操作系统语言**，不是浏览器语言）
+    #     ① 浏览器语言可被单独改写，不等于系统显示语言 —— 真值只能问 OS；
+    #     ② 必须**同步注入**（`<script src>` 早于 module 脚本），否则首屏会先按浏览器
+    #        语言画一遍、拿到结果后再跳变（语言闪烁）。两处缺一即失去意义。
+    os_bad: list[str] = []
+    routes_py = root / "src/server/routes.py"
+    rtext2 = routes_py.read_text(encoding="utf-8") if routes_py.is_file() else ""
+    for token in ("def env_script", "GetUserDefaultLocaleName"):
+        if token not in rtext2:
+            os_bad.append(f"routes.py:{token}")
+    app_py = root / "src/server/app.py"
+    if not app_py.is_file() or "routes.ENV_PATH" not in app_py.read_text(encoding="utf-8"):
+        os_bad.append("app.py:routes.ENV_PATH")
+    i18n_js = root / "src/web/js/i18n/index.js"
+    itext = i18n_js.read_text(encoding="utf-8") if i18n_js.is_file() else ""
+    if "__QM_OS_LOCALE__" not in itext:
+        os_bad.append("i18n/index.js:__QM_OS_LOCALE__")
+    if m := re.search(r"function systemLocales\(\).*?\n\}", itext, flags=re.S):
+        body = m.group(0)
+        i_os, i_nav = body.find("osLocale()"), body.find("navigator")
+        if i_os < 0 or i_nav < 0 or i_os > i_nav:
+            os_bad.append("systemLocales 未让 OS 语言优先于浏览器语言")
+    else:
+        os_bad.append("i18n/index.js:缺 systemLocales")
+    for page in ("src/web/index.html", "src/web/help.html"):
+        page_file = root / page
+        text = page_file.read_text(encoding="utf-8") if page_file.is_file() else ""
+        i_env, i_mod = text.find("./api/env.js"), text.find('type="module"')
+        name = Path(page).name
+        if i_env < 0:
+            os_bad.append(f"{name}:未引入 env.js")
+        elif i_mod < 0 or i_env > i_mod:
+            os_bad.append(f"{name}:env.js 未早于 module 脚本")
+    check(not os_bad, "OS 语言注入（跟随系统）",
+          f"缺失：{', '.join(os_bad)}" if os_bad
+          else "后端取 OS 语言 + env.js 同步注入 + OS 优先于浏览器 齐备")
+
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
     if handoff_file.is_file():

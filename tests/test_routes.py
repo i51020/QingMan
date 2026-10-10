@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -285,6 +286,34 @@ class TemplateTests(unittest.TestCase):
             routes.save_template({"name": "甲", "tree": {"a": {}, "b": {}}})
         self.assertEqual(ctx.exception.code, "templateTooManyNodes")
         self.assertFalse((self.tmp / "甲.json").exists())
+
+
+class OsLocaleTests(unittest.TestCase):
+    """V0.0.14「跟随系统」= 真 OS 语言，经 /api/env.js 同步注入前端。"""
+
+    BCP47 = re.compile(r"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$")
+
+    def test_os_locale_is_string_or_empty(self):
+        value = routes.os_locale()
+        self.assertIsInstance(value, str)
+        if value:
+            self.assertTrue(self.BCP47.match(value), value)
+
+    def test_env_script_shape(self):
+        """产物必须是**可解析的 JS 赋值**，且值恒为 JSON 字符串字面量。"""
+        script = routes.env_script()
+        m = re.match(r'^window\.__QM_OS_LOCALE__ = (".*");\n$', script)
+        self.assertIsNotNone(script and m, repr(script))
+        self.assertIsInstance(json.loads(m.group(1)), str)
+        self.assertEqual(json.loads(m.group(1)), routes.os_locale())
+        self.assertTrue(script.isascii(), "注入脚本必须是纯 ASCII")
+
+    def test_env_script_safe_when_locale_unavailable(self):
+        """取不到 OS 语言时返回空串，而不是把异常或未定义拼进脚本。"""
+        old = routes.os_locale
+        routes.os_locale = lambda: ""
+        self.addCleanup(setattr, routes, "os_locale", old)
+        self.assertEqual(routes.env_script(), 'window.__QM_OS_LOCALE__ = "";\n')
 
 
 class HealthTests(unittest.TestCase):

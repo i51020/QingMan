@@ -24,6 +24,10 @@ HEALTH_PATH = "/api/health"
 EDITOR_PATH = "/api/editor"
 SHORTCUT_PATH = "/api/shortcut"
 TEMPLATES_PATH = "/api/templates"
+# 「跟随系统」要跟的是 **操作系统语言**，不是浏览器语言（V0.0.14）。
+# 浏览器语言可被单独改写（装浏览器时选了英文、或用户手动调过），
+# 与「系统显示语言」不是一回事 —— 故由后端取真值，再经本端点同步注入前端。
+ENV_PATH = "/api/env.js"
 
 # 编辑态文档结构版本；结构不兼容变更时递增（见 src/shared/schema.json）
 EDITOR_SCHEMA_VERSION = 1
@@ -39,7 +43,45 @@ def health() -> Dict[str, Any]:
         "app": config.APP_NAME_EN,
         "nameZh": config.APP_NAME_ZH,
         "version": config.read_version(),
+        # 便于诊断：OS 语言与浏览器语言不一致时，看这一项就知道前端会采信谁
+        "osLocale": os_locale(),
     }
+
+
+def os_locale() -> str:
+    """操作系统 UI 语言的 BCP 47 标签（如 `zh-CN` / `en-US`）；取不到返回空串。
+
+    浏览器只暴露**自己的**语言偏好（`navigator.languages`），它可以被单独改写
+    （安装时选了别的语言、或用户在设置里调过），并不等于系统显示语言。
+    真值只能问 OS：Windows 用 `GetUserDefaultLocaleName`（Vista+，返回 `zh-CN` 形态）。
+
+    取不到（非 Windows、API 缺失、调用失败）一律返回空串 —— 调用方据此回落到
+    浏览器语言，绝不因为探测失败就改变既有行为。
+    """
+    if os.name != "nt":
+        return ""
+    try:
+        import ctypes
+
+        buf = ctypes.create_unicode_buffer(85)
+        # LOCALE_NAME_MAX_LENGTH = 85
+        if ctypes.windll.kernel32.GetUserDefaultLocaleName(buf, len(buf)):
+            return (buf.value or "").strip()
+    except (OSError, AttributeError, ValueError):
+        return ""
+    return ""
+
+
+def env_script() -> str:
+    """一段**同步**注入 OS 语言的小脚本（响应 `GET /api/env.js`）。
+
+    为什么不是接口：语言必须在**首屏渲染之前**定下来。若走 `fetch('/api/health')`
+    这类异步接口，界面会先按浏览器语言画一遍、拿到结果后再跳变 —— 即语言闪烁。
+    用普通 `<script src>` 同步加载，执行时机早于 module 脚本，取值零延迟。
+
+    内容恒为 ASCII（BCP 47 标签），仍用 json.dumps 转义，杜绝注入面。
+    """
+    return "window.__QM_OS_LOCALE__ = " + json.dumps(os_locale()) + ";\n"
 
 
 def generate(payload: Dict[str, Any]) -> Dict[str, Any]:

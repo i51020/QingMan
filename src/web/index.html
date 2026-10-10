@@ -131,6 +131,9 @@
 
   <div id="toastHost" class="toast-host" aria-live="polite"></div>
 
+  <!-- OS locale is injected synchronously by /api/env.js: it must load before the module
+       script, otherwise the first paint would use the browser language and then jump. -->
+  <script src="./api/env.js"></script>
   <script type="module" src="./js/main.js"></script>
 </body>
 </html>

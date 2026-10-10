@@ -31,16 +31,36 @@ let dict = DICTIONARIES[locale];
 /* ---------- 语种探测与匹配（BCP 47 降级） ---------- */
 
 /**
- * 系统/浏览器给出的语种偏好列表。
- * 浏览器语境下拿不到真正的 OS 语言，只能拿到浏览器语言偏好；
- * 而 Edge / Chrome 默认继承 OS 显示语言，故该列表在默认配置下即等于系统语言。
+ * 操作系统语言（V0.0.14）。
+ *
+ * 值由后端 `GET /api/env.js` **同步注入**（`<script src>` 早于 module 脚本执行），
+ * 因此首屏即可拿到，不存在「先按浏览器语言画一遍再跳变」的闪烁。
+ * 取不到（非 Windows / 脚本未加载）返回空串 —— 调用方据此回落到浏览器语言。
+ */
+function osLocale() {
+  if (typeof window === 'undefined') return '';
+  const value = window.__QM_OS_LOCALE__;
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+/**
+ * 语种偏好列表，**OS 语言优先于浏览器语言**。
+ *
+ * 顺序即优先级：`window.__QM_OS_LOCALE__` → `navigator.languages`。
+ * 浏览器语言可被单独改写（安装时选了英文、或用户在设置里调过），
+ * 只有 OS 语言才是「跟随系统」的本意；浏览器语言退居其次，仅在取不到 OS 值时兜底。
  */
 function systemLocales() {
-  if (typeof navigator === 'undefined') return [];
-  if (Array.isArray(navigator.languages) && navigator.languages.length) {
-    return navigator.languages.slice();
+  const list = [];
+  const os = osLocale();
+  if (os) list.push(os);
+  if (typeof navigator !== 'undefined') {
+    if (Array.isArray(navigator.languages) && navigator.languages.length) {
+      return list.concat(navigator.languages.slice());
+    }
+    if (navigator.language) return list.concat([navigator.language]);
   }
-  return navigator.language ? [navigator.language] : [];
+  return list;
 }
 
 /**

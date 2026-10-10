@@ -143,6 +143,12 @@ class Handler(BaseHTTPRequestHandler):
         if path == routes.HEALTH_PATH:
             self._json(200, routes.health())
             return
+        if path == routes.ENV_PATH:
+            # 同步注入 OS 语言的小脚本：普通 <script src> 加载，早于 module 脚本执行，
+            # 因此首屏就能按系统语言渲染，不会先画一遍再跳变（V0.0.14）
+            body = routes.env_script().encode("utf-8")
+            self._send(200, body, "text/javascript; charset=utf-8")
+            return
         if path == routes.EDITOR_PATH:
             try:
                 self._json(200, routes.load_editor())
