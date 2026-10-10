@@ -166,6 +166,11 @@ function defaultRoot() {
   return root;
 }
 
+// 偏好必须在默认示例**取词之前**恢复（V0.0.22）：defaultRoot() 用 t('sample.*') 取名，
+// 若此时仍是出厂 zh-CN，英文环境的首屏示例会是中文名，且随后被 restoreDocument()
+// 的 saveNow() 永久落盘 —— 语言探测结果形同虚设。initPrefs 只碰 localStorage 与
+// document.head，module 脚本在文档解析后执行，此处调用安全。
+initPrefs();
 const rootNode = defaultRoot();
 
 const store = createStore({
@@ -857,8 +862,8 @@ document.addEventListener('qmskinchange', () => {
   ensureLaunchIcon();
 });
 
-/* 启动顺序：先恢复偏好并填静态文案，再渲染动态内容 —— 否则 applyStatic 会覆盖状态栏等动态字段 */
-initPrefs();
+/* 启动顺序：偏好**已在模块顶部**恢复（须早于默认示例取词，见上方 defaultRoot 处注释）；
+   此处补齐静态文案与动态内容 —— 否则 applyStatic 会覆盖状态栏等动态字段 */
 watchLocale();          // 另一页面（帮助页）改语言时，本页随之切换
 applyStatic(document);
 initTopbar();

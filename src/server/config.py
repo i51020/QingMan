@@ -42,9 +42,6 @@ HOST = os.environ.get("QM_HOST", "127.0.0.1").strip() or "127.0.0.1"
 PORT_START = _env_int("QM_PORT", 8765)
 PORT_END = _env_int("QM_PORT_END", PORT_START + 10)
 
-# 请求体上限（防止超大 POST），单位：字节
-MAX_BODY_BYTES = _env_int("QM_MAX_BODY", 256 * 1024)
-
 # 启动后是否自动打开浏览器（自动化测试可用 QM_OPEN_BROWSER=0 关闭）
 OPEN_BROWSER = _env_flag("QM_OPEN_BROWSER", True)
 
@@ -114,6 +111,21 @@ ICON_DIR = DATA_DIR
 ICON_FILE = DATA_DIR / "qm-launch.ico"
 # 多尺寸 PNG-in-ICO（16/32/48/256）上限：256px PNG 约 20-60K，留足余量
 MAX_ICON_BYTES = _env_int("QM_MAX_ICON_BYTES", 256 * 1024)
+
+# ---------- 请求体传输上限（V0.0.22 修正：必须 ≥ 业务上限） ----------
+#
+# `app.py._read_body()` 用本值先拦下所有请求体，**早于**各业务检查
+# （`save_editor` 的 `MAX_EDITOR_BYTES`、`save_template` 的 `TEMPLATE_MAX_BYTES`、
+# `save_launch_icon` 的 `MAX_ICON_BYTES`）。若本值低于业务上限，业务层的
+# `editorTooLarge` / `templateTooLarge` / `iconTooLarge` **永远不可达** ——
+# 用户只会收到误导性的 413 `bodyTooLarge`（旧值固定 256KB，低于编辑态 8MB 与模板 2MB）。
+#
+# 因此本值**从业务上限派生**，并留「组帧余量」：JSON 外层开销，加上图标以 base64
+# 传输的 4/3 膨胀（用 2× 覆盖）。`QM_MAX_BODY` 只能**抬高**该值 —— 调低会重新制造
+# 上述不一致，故此处 `max()` 兜底。一致性由 `tools/verify.py`「请求体上限一致性」守卫把关。
+BUSINESS_MAX_BYTES = max(MAX_EDITOR_BYTES, TEMPLATE_MAX_BYTES, 2 * MAX_ICON_BYTES)
+BODY_OVERHEAD = 256 * 1024
+MAX_BODY_BYTES = max(BUSINESS_MAX_BYTES, _env_int("QM_MAX_BODY", BUSINESS_MAX_BYTES + BODY_OVERHEAD))
 
 # ---------- 落盘安全边界（§P0-1） ----------
 #

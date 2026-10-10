@@ -129,6 +129,11 @@ function renderSections() {
   const nav = el('helpNavList');
   if (!host || !nav) return;
 
+  // 渲染前先清空（V0.0.22 修正）：语言切换会**再次**调用本函数，只 append 会让
+  // 分节与导航成倍累积（实测 7 → 14 → 21）。清空使本函数幂等 —— 与 support.js 一致。
+  host.textContent = '';
+  nav.textContent = '';
+
   for (const section of currentHelpSections()) {
     host.appendChild(buildSection(section));
 

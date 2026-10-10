@@ -24,6 +24,10 @@
   9. 编辑态持久化契约（§P0-7）：schema.json 的 editorDocument/editorNode + 接口标识 + 错误码
  9b. 落盘安全边界（§P0-1）：config 黑名单 / dtree_core.check_target / routes 接线 / 错误码
  9c. 回归测试网（§P0-2）：tests/ 四模块 + tools/smoke.py（仅项目根，预览目录跳过）
+ 7s. 请求体上限一致性（V0.0.22）：MAX_BODY_BYTES ≥ 各业务上限（编辑态/模板/图标），
+     否则业务错误码 editorTooLarge / templateTooLarge 不可达
+ 7t. 帮助页分节渲染幂等（V0.0.22）：renderSections 必须清空容器，语言切换不得累积
+ 7u. 默认示例取词前置（V0.0.22）：initPrefs() 必须早于 defaultRoot()（否则固化出厂语言）
  10. 指纹比对（--against <版本>）：与该版本**最高修订**清单逐文件比对 SHA-256
 退出码：0 全部通过；1 存在失败项。
 """
@@ -32,6 +36,7 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -1126,6 +1131,81 @@ def main() -> int:
           f"缺失：{', '.join(overwrite_bad)}" if overwrite_bad
           else "overwrite 严格判定 / 默认仍拒写 / 覆盖前入回收站 / 前端二次确认 / 取词 齐备")
 
+    # 7s. 请求体传输上限 ≥ 业务上限（V0.0.22）
+    #     背景：`_read_body()` 用 MAX_BODY_BYTES 先拦下所有请求体，早于各业务检查。
+    #     该值曾固定 256KB，低于编辑态 8MB / 模板 2MB —— 业务层 editorTooLarge /
+    #     templateTooLarge 永远不可达，用户只拿到误导性的 413 bodyTooLarge。
+    #     判据：**实测导入** config（子进程 -B 免写 __pycache__），比对数值关系。
+    body_bad = ""
+    body_note = ""
+    if not (root / "src/server/config.py").is_file():
+        body_bad = "缺少 config.py"
+    else:
+        probe = ("import sys;sys.path.insert(0,'src');from server import config as c;"
+                 "print(c.MAX_BODY_BYTES,c.MAX_EDITOR_BYTES,c.TEMPLATE_MAX_BYTES,c.MAX_ICON_BYTES)")
+        env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+        proc = subprocess.run([sys.executable, "-B", "-c", probe], cwd=str(root), env=env,
+                              capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if proc.returncode != 0:
+            tail = (proc.stderr or "").strip().splitlines()
+            body_bad = "无法导入 config：" + (tail[-1] if tail else "未知错误")
+        else:
+            try:
+                body, editor, tpl, icon = (int(x) for x in proc.stdout.split()[:4])
+            except ValueError:
+                body_bad = f"输出无法解析：{proc.stdout.strip()[:60]}"
+            else:
+                need = max(editor, tpl, icon)
+                if body < need:
+                    body_bad = (f"传输上限 {body} < 业务上限 {need}"
+                                f"（编辑态 {editor} / 模板 {tpl} / 图标 {icon}）"
+                                " —— 大请求会在 _read_body 被 413 拦下，业务错误码不可达")
+                else:
+                    body_note = (f"传输 {body} ≥ 业务 {need}"
+                                 f"（编辑态 {editor} / 模板 {tpl} / 图标 {icon}），业务上限可达")
+    check(not body_bad, "请求体上限一致性 V0.0.22", body_bad or body_note)
+
+    # 7t. 帮助页分节渲染幂等（V0.0.22）
+    #     背景：`renderSections()` 只 appendChild、从不清空；语言切换监听每次都调它，
+    #     分节与导航成倍累积（无头 Edge 实测 7 → 14 → 21）。判据：函数体内必须有清空语句。
+    help_bad = ""
+    hj_file = root / "src/web/js/help.js"
+    if not hj_file.is_file():
+        help_bad = "缺少 help.js"
+    else:
+        htext = hj_file.read_text(encoding="utf-8")
+        m = re.search(r"function renderSections\(\)\s*\{(.*?)\n\}", htext, flags=re.S)
+        if not m:
+            help_bad = "help.js:renderSections 体不可解析"
+        else:
+            fbody = m.group(1)
+            clears = (re.search(r"\.textContent\s*=\s*(?:''|\"\")", fbody)
+                      or re.search(r"\.(?:replaceChildren|innerHTML)\s*=\s*(?:''|\"\"|\w*\()", fbody)
+                      or "removeChild" in fbody)
+            if not clears:
+                help_bad = "renderSections 未清空容器 —— 语言切换会令分节成倍累积"
+    check(not help_bad, "帮助页分节渲染幂等 V0.0.22",
+          help_bad or "renderSections 渲染前清空，语言切换后分节数不累积")
+
+    # 7u. 默认示例取词早于偏好恢复（V0.0.22）
+    #     背景：`defaultRoot()` 跑在模块顶层，早于底部的 `initPrefs()` —— 此时 i18n 仍是
+    #     出厂 zh-CN，英文环境首屏示例为中文名，且随即被 saveNow() 永久落盘。
+    #     判据：`const rootNode = defaultRoot()` 之前必须已调用 `initPrefs()`。
+    pref_bad = ""
+    mjs22 = root / "src/web/js/main.js"
+    m22 = mjs22.read_text(encoding="utf-8") if mjs22.is_file() else ""
+    if not m22:
+        pref_bad = "缺少 main.js"
+    else:
+        anchor = re.search(r"const rootNode\s*=\s*defaultRoot\(\)", m22)
+        if not anchor:
+            pref_bad = "main.js:未找到 defaultRoot() 调用点"
+        elif "initPrefs()" not in m22[:anchor.start()]:
+            pref_bad = ("defaultRoot() 早于 initPrefs() —— 默认示例取到的是出厂语言，"
+                        "且会被落盘固化")
+    check(not pref_bad, "默认示例取词前置 V0.0.22",
+          pref_bad or "initPrefs() 已在 defaultRoot() 之前调用，默认示例随语言")
+
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
     if handoff_file.is_file():
@@ -1227,9 +1307,10 @@ def main() -> int:
             "tests/test_store.py", "tests/test_versioning.py",
             "tools/smoke.py",
         ) if not (root / rel).is_file()]
+        n_modules = len(sorted((root / "tests").glob("test_*.py")))
         check(not net_missing, "回归测试网 §P0-2",
               f"缺失：{', '.join(net_missing)}" if net_missing
-              else "tests/ 四模块 + tools/smoke.py 齐备")
+              else f"tests/ {n_modules} 模块 + tools/smoke.py 齐备")
 
     # 10. 与版本清单比对指纹（仅在指定 --against 时启用）
     if against:

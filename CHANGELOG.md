@@ -7,6 +7,64 @@
 
 ---
 
+## V0.0.22 — 2026-10-10
+
+**主题**：全项目架构与逻辑审查的 **P1 修复** —— 三处「静态守卫覆盖不到」的真实缺陷。
+
+> **立项依据**：2026-10-10 全项目架构/逻辑审查（`docs/审查报告_架构与逻辑_20261010.md`）。
+> 审查基线 verify **74/0** · unittest **120 OK** · smoke **17/0** **三绿** —— 恰恰说明下列三处
+> 缺陷都在既有静态守卫的**覆盖范围之外**，由逐行静态阅读 + 无头浏览器实证 / 量化计算确认。
+
+### 变更（`src/`）
+
+- **帮助页分节幂等**（`web/js/help.js`）
+  - `renderSections()` 渲染前**清空** `#helpSections` 与 `#helpNavList`。此前只 `appendChild`、从不清空，
+    而 `qmlocalechange` 监听**每次切换语言都调它** → 分节与导航成倍累积（无头 Edge 实测 **7 → 14 → 21**）
+- **默认示例随语言**（`web/js/main.js`）
+  - `initPrefs()` 提到**模块顶部**、早于 `defaultRoot()`。此前 `defaultRoot()` 跑在模块顶层，此刻 i18n
+    仍是出厂 `zh-CN` → 英文环境首屏示例为中文名，且随即被 `restoreDocument()` 的 `saveNow()` **永久落盘**，
+    语言探测（V0.0.14 真 OS 语言）形同虚设
+- **体积上限两层自洽**（`server/config.py`）
+  - `MAX_BODY_BYTES` 由固定 `256KB` 改为**从业务上限派生**：`BUSINESS_MAX_BYTES = max(编辑态 8MB,
+    模板 2MB, 2×图标)`，另留 256KB 组帧余量；`QM_MAX_BODY` 只能**抬高**该值（`max()` 兜底）
+  - 此前 `_read_body()` 用 256KB 先于各业务检查拦下请求体 → `editorTooLarge` / `templateTooLarge` /
+    `iconTooLarge` **永远不可达**，用户只拿到误导性的 413 `bodyTooLarge`
+
+### 守卫（`tools/verify.py` 74 → **77 项**）
+
+- **请求体上限一致性 V0.0.22**：子进程实测导入 `config`（`-B` 免写 `__pycache__`），断言
+  `MAX_BODY_BYTES ≥ max(各业务上限)`
+- **帮助页分节渲染幂等 V0.0.22**：`renderSections` 函数体内必须含清空语句
+- **默认示例取词前置 V0.0.22**：`initPrefs()` 必须早于 `defaultRoot()` 调用点
+- 「回归测试网」note 改为**按实际 `test_*.py` 计数**（防「四模块」这类会随新增模块漂移的硬编码）
+
+### 测试
+
+- `tests/` 新增 **`test_config.py`**（6 项，子进程导入 `config`，支持 `QM_SRC`）→ `unittest` **120 → 127 OK**
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| 主线 `verify.py` | **77 项 0 失败**（+3：三条 V0.0.22 守卫） |
+| `unittest` | **127 OK**（+7：新增 `test_config.py`） |
+| `smoke.py` | **17 项 0 失败** |
+| **无头 Edge 实证 · 帮助页分节幂等** | `BEFORE sec=7 nav=7` → `en-US 7/7` → `zh-CN 7/7`（**修复前实测 7 → 14 → 21**） |
+| **无头 Edge 实证 · 英文环境默认示例** | `HTML_LANG=en-US` → 示例名**全英文**：`QingMan Sample Project / Materials / Raw / Tidied / Output / README.md`（修复前为中文名） |
+| **配置上限实测** | 传输 `8,650,752` ≥ 业务 `8,388,608`（编辑态 8MB / 模板 2MB / 图标 256KB），业务错误码**可达** |
+| 隔离 | 全过程在 `_sandbox` 副本内起服务，**测后即删**；`data/editor.json` mtime 未变、真实模板仍 **17 套** |
+
+### 已知边界
+
+- 默认示例的取词只发生在**首次生成时**（`defaultRoot()`）；一旦落盘，示例名属**用户数据**，
+  随后切换语言**不再**改名（有意为之）
+- `QM_MAX_BODY` 只能**抬高**传输上限，**不能**低于业务上限（防两层不一致复现）
+- 本轮仅修 P1 三项；审查报告的 **P2**（契约/文档漂移：`schema.json` version 停在 V0.0.17、`README.md`
+  与 `docs/项目手册.md` 停在 V0.0.6、`start.bat` 的 Python 探测、`help.js` 死代码）、**P3** 清理，
+  以及「无头浏览器冒烟」守卫**留待后续步骤**
+
+---
+
 ## V0.0.21 — 2026-10-10
 
 **主题**：模板覆盖写 —— 同名模板由「一律拒写」升级为「**显式确认后可覆盖**」（旧模板先入回收站）。
