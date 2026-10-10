@@ -211,6 +211,8 @@ def build_tree(tree: Any, base: Path, dry_run: bool = False) -> Dict[str, Any]:
     R6：规模超限由服务端直接拒绝（dry_run 同样拦截 —— 上限针对的是「计划规模」本身）。
     R7：目录已存在 → 复用；文件已存在 → 跳过、不覆盖、不比对内容，计入 existed。
     R8：全程只新建，**绝不删除**任何既有文件或目录。
+    P3-13：同名但**类型相反**（树要目录/磁盘是文件、树要文件/磁盘是目录）一律报错，
+    不再对后者静默跳过 —— 避免用户误以为文件已生成。
     """
     if not isinstance(tree, dict):
         raise TreeError("treeMissing")
@@ -244,6 +246,10 @@ def build_tree(tree: Any, base: Path, dry_run: bool = False) -> Dict[str, Any]:
                 walk(value, target)
             else:
                 if target.exists():
+                    # P3-13：与「要建目录、磁盘是文件」对称 —— 要建文件、磁盘同名是目录
+                    # 同样报错，而不是静默计入 existed 让用户误以为已生成。
+                    if target.is_dir():
+                        raise TreeError("pathConflictDir", path=str(target))
                     existed.append(str(target))
                     continue
                 if not dry_run:

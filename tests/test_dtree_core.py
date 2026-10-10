@@ -225,6 +225,16 @@ class BuildTreeTests(unittest.TestCase):
             dtree_core.build_tree({"dup": {}}, self.base, dry_run=False)
         self.assertEqual(ctx.exception.code, "pathConflict")
 
+    def test_dir_conflict_for_file_target(self):
+        """P3-13：类型冲突必须**对称** —— 树要建文件、磁盘同名是目录，也要报错而非静默跳过。"""
+        self.base.mkdir(parents=True, exist_ok=True)
+        (self.base / "dup").mkdir()          # 磁盘上是目录
+        with self.assertRaises(TreeError) as ctx:
+            dtree_core.build_tree({"dup": "内容"}, self.base, dry_run=False)
+        self.assertEqual(ctx.exception.code, "pathConflictDir")
+        # 既有目录不得被改写或删除（R8）
+        self.assertTrue((self.base / "dup").is_dir())
+
     def test_never_deletes(self):
         self.base.mkdir(parents=True, exist_ok=True)
         bystander = self.base / "既有文件.md"

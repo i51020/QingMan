@@ -15,6 +15,7 @@
   "targetReserved": "目标位置指向青蔓自身或其上级目录，已拒绝：{target}（{reason}）",
   "tooManyNodes": "目录规模超限：目录 {dirs} + 文件 {files} = {total}，上限 {limit}",
   "pathConflict": "目标路径已存在同名文件，无法建为目录：{path}",
+  "pathConflictDir": "目标路径已存在同名目录，无法建为文件：{path}",
   "badJson": "请求体不是合法 JSON 对象",
   "badPath": "访问路径不合法",
   "notFound": "接口不存在：{path}",

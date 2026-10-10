@@ -117,6 +117,7 @@ export const dict = {
   'err.targetReserved': '目标位置指向青蔓自身或其上级目录，已拒绝：{target}（{reason}）',
   'err.tooManyNodes': '目录规模超限：目录 {dirs} + 文件 {files} = {total}，上限 {limit}',
   'err.pathConflict': '目标路径已存在同名文件，无法建为目录：{path}',
+  'err.pathConflictDir': '目标路径已存在同名目录，无法建为文件：{path}',
   'err.badJson': '请求体不是合法 JSON 对象',
   'err.badPath': '访问路径不合法',
   'err.notFound': '接口不存在：{path}',
@@ -259,6 +260,7 @@ export const dict = {
   'toast.siblingExists': '「{name}」已存在于该目录下',
   'toast.rootRenameBlocked': '根节点名称由「根文件夹名」决定，不在此处重命名',
   'toast.rootDeleteBlocked': '根节点不可删除',
+  'toast.moveMissing': '要移动的节点已不存在',
   'toast.moveNotDir': '只能移动到目录节点下',
   'toast.moveCycle': '不能把目录移到它自己的子目录下',
   'toast.moveRoot': '根节点不可移动',
@@ -300,7 +302,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.23',
+  'help.versionFallback': 'V0.0.24',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',

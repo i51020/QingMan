@@ -20,12 +20,11 @@ import {
   adoptTemplateNote, normalizeNote, isDir, pathOf,
 } from './modules/tree-model.js';
 import { createTreeView } from './ui/tree-view.js';
-import { createInspector } from './ui/inspector.js';
+import { createInspector, copyText } from './ui/inspector.js';
 import { createSkinPicker } from './ui/skin-picker.js';
 import { createLangPicker } from './ui/lang-picker.js';
 import { createContextMenu } from './ui/ctx-menu.js';
 import { toast } from './ui/toast.js';
-import { copyText } from './ui/inspector.js';
 import { renderLaunchIcon, ensureLaunchIcon } from './ui/launch-icon.js';
 
 const el = (id) => document.getElementById(id);
@@ -194,6 +193,7 @@ const treeView = createTreeView(el('treeCanvas'), {
     const check = canMove(root, id, targetDirId);
     if (check !== true) {
       const keys = {
+        missing: 'toast.moveMissing',
         notDir: 'toast.moveNotDir',
         cycle: 'toast.moveCycle',
         exists: 'toast.siblingExists',
@@ -789,7 +789,7 @@ async function deleteTemplateItem(item) {
   }
 }
 
- async function applyTemplate(item) {
+async function applyTemplate(item) {
   if (!window.confirm(t('template.loadConfirm', { name: item.name }))) return;
   try {
     const res = await api.loadTemplate(item.file);

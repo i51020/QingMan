@@ -307,10 +307,24 @@ def save_template(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not config.is_within(path, base):
         raise TreeError("templateNameInvalid", name=name)
 
+    body = json.dumps({
+        "schemaVersion": config.TEMPLATE_SCHEMA_VERSION,
+        "name": stem,
+        "description": description,
+        "updated": datetime.now().astimezone().strftime("%Y-%m-%d"),
+        "tree": tree,
+    }, ensure_ascii=False, indent=2) + "\n"
+    size = len(body.encode("utf-8"))
+    # 体积检查**必须在覆盖旧文件之前**（P3-11）：否则超限抛错时旧模板已入回收站，
+    # 原位置凭空消失，形成半完成态。
+    if size > config.TEMPLATE_MAX_BYTES:
+        raise TreeError("templateTooLarge", limit=config.TEMPLATE_MAX_BYTES, actual=size)
+
     # 同名处理（V0.0.21）：默认拒写；仅当载荷显式 overwrite=true 时覆盖，
     # 且旧模板**先入回收站**再写（延续「只复制不删除」；`is True` 严格判定，
     # 避免 "true" 等真值字符串被误当开关）。
     overwritten = False
+    trashed_old = None
     if path.exists():
         if payload.get("overwrite") is not True:
             raise TreeError("templateExists", name=name)
@@ -320,18 +334,8 @@ def save_template(payload: Dict[str, Any]) -> Dict[str, Any]:
             os.replace(path, trash / filename)   # 同盘移动，原子；误覆盖可人工找回
         except OSError:
             raise TreeError("templateWriteFailed", name=name)
+        trashed_old = trash / filename
         overwritten = True
-
-    body = json.dumps({
-        "schemaVersion": config.TEMPLATE_SCHEMA_VERSION,
-        "name": stem,
-        "description": description,
-        "updated": datetime.now().astimezone().strftime("%Y-%m-%d"),
-        "tree": tree,
-    }, ensure_ascii=False, indent=2) + "\n"
-    size = len(body.encode("utf-8"))
-    if size > config.TEMPLATE_MAX_BYTES:
-        raise TreeError("templateTooLarge", limit=config.TEMPLATE_MAX_BYTES, actual=size)
 
     try:
         base.mkdir(parents=True, exist_ok=True)
@@ -341,6 +345,13 @@ def save_template(payload: Dict[str, Any]) -> Dict[str, Any]:
             fh.write(body)
         os.replace(tmp, path)   # 原子替换，避免中断留下半截文件
     except OSError:
+        # P3-11 写失败回滚：旧模板已入回收站时把它移回原位，免得「覆盖失败 → 模板消失」。
+        # 回滚本身再失败也不抛新错 —— 旧文件仍在 .trash，可人工找回。
+        if trashed_old is not None:
+            try:
+                os.replace(trashed_old, path)
+            except OSError:
+                pass
         # 不把 OSError 原文拼进错误码：那会在英文界面里混排 Python 异常原文
         raise TreeError("templateWriteFailed", name=name)
 
@@ -434,16 +445,24 @@ def rename_template(name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     doc["name"] = stem
 
     body = json.dumps(doc, ensure_ascii=False, indent=2) + "\n"
+    trash = _template_trash_dir()
     try:
         tmp = new_path.with_name(new_path.name + ".tmp")
         # 显式 newline="\n"：跨平台字节一致（§编码基线）
         with tmp.open("w", encoding="utf-8", newline="\n") as fh:
             fh.write(body)
-        os.replace(tmp, new_path)        # 先落新文件（原子）
-        trash = _template_trash_dir()
+        os.replace(tmp, new_path)        # ① 先落新文件（原子）
         trash.mkdir(parents=True, exist_ok=True)
-        os.replace(path, trash / name)   # 旧文件移入回收站保底，不真删
+        os.replace(path, trash / name)   # ② 旧文件移入回收站保底，不真删
     except OSError:
+        # P3-11 回滚：新文件已落而旧文件入回收站失败 → 把新文件也移入回收站，
+        # 恢复「原位置只有旧文件」的状态（避免新旧并存）。仍不真删（只复制不删除）。
+        try:
+            if new_path.is_file():
+                trash.mkdir(parents=True, exist_ok=True)
+                os.replace(new_path, trash / new_filename)
+        except OSError:
+            pass
         raise TreeError("templateRenameFailed", name=name)
 
     return {

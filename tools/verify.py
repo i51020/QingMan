@@ -29,6 +29,8 @@
      否则业务错误码 editorTooLarge / templateTooLarge 不可达
  7t. 帮助页分节渲染幂等（V0.0.22）：renderSections 必须清空容器，语言切换不得累积
  7u. 默认示例取词前置（V0.0.22）：initPrefs() 必须早于 defaultRoot()（否则固化出厂语言）
+ 7v. P3 整洁与健壮性（V0.0.24）：currentId 声明顺序 / 图标指纹持久化 /
+     canMove missing / 模板失败回滚 / import 合并 / pathConflictDir 对称
  10. 指纹比对（--against <版本>）：与该版本**最高修订**清单逐文件比对 SHA-256
 退出码：0 全部通过；1 存在失败项。
 """
@@ -1206,6 +1208,113 @@ def main() -> int:
                         "且会被落盘固化")
     check(not pref_bad, "默认示例取词前置 V0.0.22",
           pref_bad or "initPrefs() 已在 defaultRoot() 之前调用，默认示例随语言")
+
+    # 7v. P3 代码整洁与健壮性（V0.0.24，全项目审查 P3-8 ~ P3-13）
+    #     判据逐条：
+    #     ① P3-8  inspector.js：`let currentId` 必须声明在 input 监听器**之前**（顺序反直觉易踩坑）；
+    #     ② P3-9  launch-icon.js：上传指纹**持久化**（readPref/writePref + ICON_KEY），
+    #             不再用模块级变量（页面重载即归零 → 每次开页白传一次图标）；
+    #     ③ P3-10 tree-model.js：canMove 对「节点不存在」返回 'missing'（不再是语义混淆的 'root'），
+    #             且 main.js 有对应提示键 + 双语取词齐备；
+    #     ④ P3-11 routes.py：save_template 体积检查**在覆盖之前**、写失败回滚旧件；rename 亦有回滚；
+    #     ⑤ P3-12 main.js：inspector 只有**一条** import（含 createInspector 与 copyText）、
+    #             顶层 `async function` 不残留行首空格；
+    #     ⑥ P3-13 dtree_core.py + 契约：`pathConflictDir` 对称报错 + 错误码三处齐备。
+    p3_bad: list[str] = []
+
+    insp_p3 = root / "src/web/js/ui/inspector.js"
+    if insp_p3.is_file():
+        itext_p3 = insp_p3.read_text(encoding="utf-8")
+        pos_decl = itext_p3.find("let currentId")
+        pos_listener = itext_p3.find("refs.note.addEventListener('input'")
+        if pos_decl < 0:
+            p3_bad.append("inspector.js:缺 currentId 声明")
+        elif pos_listener >= 0 and pos_decl > pos_listener:
+            p3_bad.append("inspector.js:currentId 声明在监听器之后（P3-8 未修）")
+    else:
+        p3_bad.append("缺 inspector.js")
+
+    li = root / "src/web/js/ui/launch-icon.js"
+    if li.is_file():
+        ltext = li.read_text(encoding="utf-8")
+        for token in ("readPref(ICON_KEY)", "writePref(ICON_KEY", "lastUploadedKey"):
+            hit = (token in ltext)
+            if token == "lastUploadedKey":
+                if hit:
+                    p3_bad.append("launch-icon.js 仍用模块级 lastUploadedKey（P3-9 未修）")
+            elif not hit:
+                p3_bad.append(f"launch-icon.js:缺 {token}")
+    else:
+        p3_bad.append("缺 launch-icon.js")
+    i18n_p3 = root / "src/web/js/i18n/index.js"
+    if i18n_p3.is_file():
+        i3 = i18n_p3.read_text(encoding="utf-8")
+        for token in ("export const ICON_KEY", "export function readPref", "export function writePref"):
+            if token not in i3:
+                p3_bad.append(f"i18n/index.js:缺 {token}")
+    else:
+        p3_bad.append("缺 i18n/index.js")
+
+    tm_p3 = root / "src/web/js/modules/tree-model.js"
+    if tm_p3.is_file():
+        m = re.search(r"export function canMove\(.*?\n\}", tm_p3.read_text(encoding="utf-8"), flags=re.S)
+        if not m:
+            p3_bad.append("tree-model.js:canMove 体不可解析")
+        elif "'missing'" not in m.group(0):
+            p3_bad.append("canMove 未对不存在节点返回 'missing'（P3-10 未修）")
+    mjs_p3 = root / "src/web/js/main.js"
+    m3 = mjs_p3.read_text(encoding="utf-8") if mjs_p3.is_file() else ""
+    if "toast.moveMissing" not in m3:
+        p3_bad.append("main.js:缺 toast.moveMissing 映射")
+    if m3.count("from './ui/inspector.js'") != 1:
+        p3_bad.append("main.js:inspector import 未合并为一条（P3-12 未修）")
+    if not re.search(r"^async function applyTemplate\(", m3, flags=re.M):
+        p3_bad.append("main.js:applyTemplate 行首空格未清（或函数缺失）")
+    for name in ("zh-CN.js", "en-US.js"):
+        p = root / "src/web/js/i18n" / name
+        text = p.read_text(encoding="utf-8") if p.is_file() else ""
+        for k in ("toast.moveMissing", "err.pathConflictDir"):
+            if k not in text:
+                p3_bad.append(f"{name}:{k}")
+
+    if rtext:
+        m = re.search(r"def save_template\(.*?\n    return \{", rtext, flags=re.S)
+        if not m:
+            p3_bad.append("routes.py:save_template 体不可解析")
+        else:
+            body_p3 = m.group(0)
+            if "trashed_old" not in body_p3 or "os.replace(trashed_old, path)" not in body_p3:
+                p3_bad.append("save_template 覆盖失败未回滚旧件（P3-11 未修）")
+            # 体积检查必须早于同名覆盖分支（否则超限时旧件已入回收站）
+            pos_size = body_p3.find("templateTooLarge")
+            pos_overwrite = body_p3.find("templateExists")
+            if pos_size < 0 or (pos_overwrite >= 0 and pos_size > pos_overwrite):
+                p3_bad.append("save_template 体积检查未前置到覆盖之前（P3-11 未修）")
+        m = re.search(r"def rename_template\(.*?\n    return \{", rtext, flags=re.S)
+        if not m:
+            p3_bad.append("routes.py:rename_template 体不可解析")
+        elif "templateRenameFailed" not in m.group(0) or (
+                "os.replace(new_path" not in m.group(0) and "trash / new_filename" not in m.group(0)):
+            p3_bad.append("rename_template 旧件入回收站失败未回滚（P3-11 未修）")
+    else:
+        p3_bad.append("缺 routes.py")
+    dtree_p3 = root / "src/server/dtree_core.py"
+    if dtree_p3.is_file():
+        if "pathConflictDir" not in dtree_p3.read_text(encoding="utf-8"):
+            p3_bad.append("dtree_core.py:缺 pathConflictDir 对称报错（P3-13 未修）")
+    else:
+        p3_bad.append("缺 dtree_core.py")
+    codes_p3 = root / "src/shared/error-codes.json"
+    if codes_p3.is_file():
+        try:
+            if "pathConflictDir" not in json.loads(codes_p3.read_text(encoding="utf-8")):
+                p3_bad.append("error-codes.json:缺 pathConflictDir")
+        except ValueError:
+            p3_bad.append("error-codes.json 无法解析")
+    check(not p3_bad, "P3 整洁与健壮性 V0.0.24",
+          f"缺失：{', '.join(p3_bad)}" if p3_bad
+          else "currentId 顺序 / 图标指纹持久化 / canMove missing / 模板回滚 / import 合并 / "
+               "pathConflictDir 对称 齐备")
 
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"

@@ -13,6 +13,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 _HERE = Path(__file__).resolve()
 _SRC = (Path(os.environ["QM_SRC"]).resolve()
@@ -345,6 +346,49 @@ class TemplateTests(unittest.TestCase):
         self.assertIs(res["overwritten"], False)
         self.assertTrue((self.tmp / "新甲.json").is_file())
         self.assertFalse((self.tmp / config.TEMPLATE_TRASH_DIRNAME).exists())
+
+    # ---------- V0.0.24 模板失败回滚（P3-11） ----------
+
+    def test_save_overwrite_write_failure_restores_old(self):
+        """覆盖时写新文件失败 → 回滚：把旧模板从回收站移回原位，原位置不得凭空消失。"""
+        routes.save_template({"name": "甲", "tree": {"old": {}}})
+        original = (self.tmp / "甲.json").read_bytes()
+        real_replace = os.replace
+        calls = {"n": 0}
+
+        def flaky(src, dst):
+            calls["n"] += 1
+            if calls["n"] == 2:          # 第 2 次 = tmp→path 提交新文件，模拟写失败
+                raise OSError("simulated write failure")
+            return real_replace(src, dst)
+
+        with mock.patch("os.replace", side_effect=flaky):
+            with self.assertRaises(TreeError) as ctx:
+                routes.save_template({"name": "甲", "tree": {"new": {}}, "overwrite": True})
+        self.assertEqual(ctx.exception.code, "templateWriteFailed")
+        # 回滚后：原位置仍是旧内容（未因覆盖失败而消失）
+        self.assertTrue((self.tmp / "甲.json").is_file())
+        self.assertEqual((self.tmp / "甲.json").read_bytes(), original)
+
+    def test_rename_old_to_trash_failure_rolls_back(self):
+        """重命名时旧文件入回收站失败 → 回滚：新文件也移入回收站，避免新旧并存。"""
+        routes.save_template({"name": "甲", "tree": {"a": {}}})
+        real_replace = os.replace
+        calls = {"n": 0}
+
+        def flaky(src, dst):
+            calls["n"] += 1
+            if calls["n"] == 2:          # 第 2 次 = 旧文件→回收站，模拟失败
+                raise OSError("simulated trash failure")
+            return real_replace(src, dst)
+
+        with mock.patch("os.replace", side_effect=flaky):
+            with self.assertRaises(TreeError) as ctx:
+                routes.rename_template("甲.json", {"name": "乙"})
+        self.assertEqual(ctx.exception.code, "templateRenameFailed")
+        # 回滚后：原位置仍是旧文件；新名位置不存在（避免新旧两份并存）
+        self.assertTrue((self.tmp / "甲.json").is_file())
+        self.assertFalse((self.tmp / "乙.json").exists())
 
     # ---------- V0.0.20 模板 CRUD（删除 / 重命名） ----------
 

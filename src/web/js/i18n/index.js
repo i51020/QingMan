@@ -8,6 +8,9 @@
  * `qm.lang` / `qm.skin` / `qm.genBar`（§P0-3 L6）。
  * 本模块的 DOM / localStorage 访问全部发生在函数内部 —— 顶层导入是安全的，
  * 因此纯逻辑模块（如 modules/tree-model.js）也可以取词。
+ *
+ * 持久化单一访问点：`readPref` / `writePref` 对外导出，供其他模块（如皮肤联动图标）
+ * 复用同一条带降级的读写路径，**不要在别处直访 `window.localStorage`**。
  */
 
 import { dict as zhCN } from './zh-CN.js';
@@ -24,6 +27,8 @@ export const AUTO_LOCALE = 'auto';
 export const LOCALE_KEY = 'qm.lang';
 export const SKIN_KEY = 'qm.skin';
 export const GENBAR_KEY = 'qm.genBar';
+/** 上次已上传的启动图标配色指纹（P3-9）：持久化后，页面重载不再无条件重传图标。 */
+export const ICON_KEY = 'qm.launchIcon';
 
 let locale = DEFAULT_LOCALE;
 let dict = DICTIONARIES[locale];
@@ -116,7 +121,7 @@ function applyLocale(next) {
 /* ---------- 偏好存取 ---------- */
 
 /** localStorage 在隐私模式 / 沙箱 iframe 下可能抛错，一律降级为「本会话内生效」。 */
-function readPref(key) {
+export function readPref(key) {
   try {
     return window.localStorage.getItem(key);
   } catch (err) {
@@ -124,7 +129,7 @@ function readPref(key) {
   }
 }
 
-function writePref(key, value) {
+export function writePref(key, value) {
   try {
     if (value === null || value === undefined || value === '') {
       window.localStorage.removeItem(key);

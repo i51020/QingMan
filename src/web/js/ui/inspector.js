@@ -14,6 +14,8 @@ import { t } from '../i18n/index.js';
 export function createInspector(refs) {
   /** 正在渲染的节点 id。渲染自身触发 input 事件时用它抑制回环。 */
   let renderingId = null;
+  /** 当前选中节点 id。必须在 input 监听器**之前**声明 —— 监听器引用它（P3-8）。 */
+  let currentId = null;
   /** 编辑中的 note 暂存：node 引用随 store 重渲染可能变化，以 id + 内容判定。 */
   let editing = { id: null, value: '' };
 
@@ -24,8 +26,6 @@ export function createInspector(refs) {
       refs.onNoteChange(currentId, refs.note.value);
     }
   });
-
-  let currentId = null;
 
   return {
     render(root, selectedId) {

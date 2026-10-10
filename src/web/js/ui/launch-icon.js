@@ -13,6 +13,7 @@
  */
 
 import { api } from '../core/api.js';
+import { ICON_KEY, readPref, writePref } from '../i18n/index.js';
 
 /** ICO 收录的边长档位（Windows 桌面常用 + 256 大图）。 */
 const ICON_SIZES = [16, 32, 48, 256];
@@ -204,16 +205,18 @@ export async function renderLaunchIcon() {
   return buildIco(frames);
 }
 
-/** 当前皮肤是否与上次上传的一致（避免每次换语言等无关操作都重传图标）。 */
-let lastUploadedKey = '';
-
-/** 生成并上传启动图标（data/qm-launch.ico）。失败静默 —— 图标是尽力而为的装饰。 */
+/**
+ * 生成并上传启动图标（data/qm-launch.ico）。失败静默 —— 图标是尽力而为的装饰。
+ *
+ * 去重判据 = 当前皮肤色值指纹，**持久化在 localStorage**（P3-9：模块级变量在页面
+ * 重载后归零，会导致每次打开主界面都白传一次图标并写一次盘；持久化后仅换肤才重传）。
+ */
 export async function ensureLaunchIcon() {
   try {
     const colors = readSkinColors();
     const key = [colors.accent, colors.surface, colors.text]
       .map((c) => (c || []).join(',')).join('|');
-    if (!colors.surface || key === lastUploadedKey) return;
+    if (!colors.surface || key === readPref(ICON_KEY)) return;
     const ico = await renderLaunchIcon();
     if (!ico) return;
     let binary = '';
@@ -223,7 +226,7 @@ export async function ensureLaunchIcon() {
     }
     const base64 = btoa(binary);
     await api.saveLaunchIcon({ data: base64 });
-    lastUploadedKey = key;
+    writePref(ICON_KEY, key);
   } catch (err) {
     console.warn('[QingMan] launch icon upload skipped:', err && err.code);
   }

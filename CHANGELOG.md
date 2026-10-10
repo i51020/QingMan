@@ -7,6 +7,63 @@
 
 ---
 
+## V0.0.24 — 2026-10-10
+
+**主题**：全项目架构与逻辑审查的 **P3 收口** —— 6 项整洁与健壮性修正（`verify` 78 → **79** 项，`unittest` 127 → **130** OK）。
+
+> **立项依据**：用户「采纳建议，分步，依次执行」（第 3 步）。来源见 `docs/审查报告_架构与逻辑_20261010.md` §P3-8 ~ §P3-13。
+> **用户环境**：Windows 11 本机，仅**鼠标 + 键盘**；触屏与其他 OS **无法验证** —— 同类改动不做。
+
+### 变更（`src/`）
+
+- **P3-8 属性面板变量声明顺序**（`web/js/ui/inspector.js`）
+  - `let currentId` 由 `input` 监听器**之后**上移到**之前**。运行期本无 TDZ 风险（监听器只在其后触发），
+    但顺序反直觉、重构易踩坑
+- **P3-9 启动图标去重改为持久化**（`web/js/ui/launch-icon.js` + `i18n/index.js`）
+  - 原「上次上传指纹」为模块级变量，**页面重载即归零** → 每次打开主界面必 POST 一次 `/api/launch-icon` 并写盘
+  - 改为经 `readPref`/`writePref` 持久化到 `localStorage['qm.launchIcon']`；i18n 运行时新增 `ICON_KEY`
+    并**导出** `readPref` / `writePref`（持久化单一访问点，其他模块不再直访 `window.localStorage`）
+- **P3-10 `canMove` 新增 `missing` 返回值**（`modules/tree-model.js` + `main.js` + 双语）
+  - 节点不存在原返回语义混淆的 `'root'`（会提示成「根节点不可移动」，误导）；改为 `'missing'`，
+    `onMove` 映射表补 `toast.moveMissing`（中英对齐）
+- **P3-11 模板失败回滚**（`server/routes.py`）
+  - `save_template`：体积检查**前移到同名覆盖之前**（原超限时旧模板已入回收站 → 原位凭空消失，半完成态）；
+    写新文件失败时**把旧件从回收站移回原位**
+  - `rename_template`：旧件入回收站失败时**把新文件也移入回收站**，避免新旧并存
+  - 两者均只用 `os.replace`、不真删（延续「只复制不删除」）
+- **P3-12 代码整洁**（`web/js/main.js`）
+  - 合并对 `./ui/inspector.js` 的两条 import（`createInspector` + `copyText`）；
+    清 `applyTemplate` 行首多余空格（报告写 787 行，实测盘上 **792** 行 —— V0.0.22 上移 `initPrefs` 致行号位移）
+- **P3-13 `build_tree` 类型冲突对称**（`server/dtree_core.py` + 契约）
+  - 树要建**文件**、磁盘同名是**目录**时，原**静默计入 `existed`**（用户误以为已生成）；改为与反向情形
+    对称，报错 `pathConflictDir`（新增错误码，`error-codes.json` / 中 / 英三处齐备）
+
+### 守卫与测试
+
+- **`tools/verify.py`**：78 → **79** 项 —— 新增「**P3 整洁与健壮性 V0.0.24**」，逐条钉住：
+  `currentId` 声明顺序 / 图标指纹持久化 / `canMove` missing / 模板回滚（含体积检查前置）/ import 合并 /
+  `pathConflictDir` 对称
+- **`tests/test_routes.py`**：新增 2 项回滚测试（`mock.patch("os.replace")` 定点失败）→ **+2**
+- **`tests/test_dtree_core.py`**：新增 1 项类型对称测试（`pathConflictDir`）→ **+1**
+- `unittest`：127 → **130 OK**
+
+### 验证（全部实测）
+
+| 项 | 结果 |
+|---|---|
+| `verify.py` | **79 项 0 失败** |
+| `unittest` | **130 OK** |
+| `smoke.py` | **17 项 0 失败**（服务读到 `V0.0.24`） |
+| Node 模型层 | `canMove` 七态 **7/7**（含新增 `missing`） |
+| Node 驱动真实模块（P3-9） | 首次 POST **1** 次 → 二次调用 / 模拟重载后均 **1**（不再增）—— **4/4** |
+| 无头 Edge | `index.html` 默认示例 6 行、`ctxMenu` 就位；import 合并后模块装配正常 |
+| 指纹比对 | `V0.0.24@r1` 一致 |
+
+> **注**：P3-8 / P3-12 属结构性整理（无独立运行期签名），由静态守卫钉住；
+> P3-11 回滚由单测（真实临时目录 + mock 定点失败）覆盖；P3-9 由 Node 驱动真实模块实测覆盖。
+
+---
+
 ## V0.0.23 — 2026-10-10
 
 **主题**：全项目架构与逻辑审查的 **P2 收口** —— 契约 / 文档漂移订正 + 两处误报与死码修正（修正后**无行为回归**，`verify` 反而由 77 增至 78 项）。

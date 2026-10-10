@@ -111,6 +111,7 @@ export const dict = {
   'err.targetReserved': 'Target location points to QingMan itself or its parent and was rejected: {target} ({reason})',
   'err.tooManyNodes': 'Tree too large: {dirs} directories + {files} files = {total}, limit {limit}',
   'err.pathConflict': 'A file with the same name already exists at the target path; cannot create a directory: {path}',
+  'err.pathConflictDir': 'A directory with the same name already exists at the target path; cannot create a file: {path}',
   'err.badJson': 'Request body is not a valid JSON object',
   'err.badPath': 'Invalid access path',
   'err.notFound': 'Endpoint does not exist: {path}',
@@ -253,6 +254,7 @@ export const dict = {
   'toast.siblingExists': '"{name}" already exists in this directory',
   'toast.rootRenameBlocked': 'Root name is controlled by "Root folder name"',
   'toast.rootDeleteBlocked': 'Root node cannot be deleted',
+  'toast.moveMissing': 'The node to move no longer exists',
   'toast.moveNotDir': 'Can only move into a directory node',
   'toast.moveCycle': 'Cannot move a directory into its own subdirectory',
   'toast.moveRoot': 'Root node cannot be moved',
@@ -294,7 +296,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.23',
+  'help.versionFallback': 'V0.0.24',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',
