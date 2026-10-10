@@ -7,6 +7,48 @@
 
 ---
 
+## 工具链 P2 整改（组 1~4 · 不升版）— 2026-10-11
+
+**主题**：《审查报告_工具链_20261010》**§四 P2 台账**的逐条裁决与整改 —— 即「第 2 步（工具链整改）」的**收口**。前五子步（2.1~2.5）处理了 **P1** 与三处低成本 P2；本节把**余下 16 项 P2**（`P2-1/2/6` 已于 2.5 修）一次处置完。
+
+**裁决前置（逐条对照盘上源码复核）**：19 项中 **P2-3 现象被证伪** —— 报告称「`--against V0.0.1@rX` 静默回退到最新修订」，实测为 **FAIL「无法判定」**（**安全方向**，未回退），仅残留「文案不精确」，故采纳**文案订正**而非「补默认值」。其余 15 项现象均在，逐项处置。
+
+**分 4 组，每组独立走完「改 → 反向验证 → 四件套 → 提交」闭环**（提交 `7d574d0` / `87fe44d` / `9fbb059` / `d7b7772`，各附一次 handoff 刷新提交）。
+
+| 组 | 文件 | 项 | 处置 |
+|---|---|---|---|
+| **1** | `tools/store.py` | **P2-4 / 5 / 8 / 9** | ① `do_commit` 内层文件级 `digest` 改名 **`blob_digest`**（区别外层清单级 `digest`）；② `do_checkout` 回收目录名加序号（`<stamp>` 冲突则 `<stamp>_02`…）**防同秒撞**；③ `commit --from` 加 `is_within` 复核（`--root` **之内**子目录 → 硬拦；**之外** → 警告，保留「同构树快照」历史正当用法）；④ 抽出**指纹比对单点** `fingerprint_diff(root, recorded)`，供 `handoff` / `verify` 复用 |
+| **2** | `tools/verify.py` | **P2-3 / 14 / 15 / 16 / 17 / 18** | ① 非法修订引用（`@rX` 非 ≥1 整数）**显式报错**（原静默 `rev=None`）；② 缺 `src/` 时**体积上限项显式 FAIL**（原包在 `if src_files:` 内→少一项）；③ 默认皮肤号改 **`DEFAULT_SKIN_CID` 反查**（原硬编码 `cids[5]` 索引猜）；④ **多余位置参数报错**（原静默忽略）；⑤ 回归测试网**加轻量内容判据**（测试文件内须含 `def test_`，空壳计入不全）；⑥ 锚点 `"\\u4e00"` → **`"CJK"`**（原依赖三层转义，极脆） |
+| **3** | `tools/browser_smoke.py` | **P2-10 / 11 / 12 / 13** | ① 新增 `sandbox_base()`（`QM_SANDBOX` 优先，否则 `项目根/../../_sandbox`）**去硬编码盘符**；② 新增前置探测 `browser_drivable()` —— `--browser` 指向**不可驱动/非 Chromium**（如夸克）时**「跳过 + 明确原因」退出 0**（原误判为「页面有缺陷」）；③ `parse_metrics` **去掉宽松兜底正则**（原会捞到探针源码字面量）；④ 探针页加**正面控制** `console.log('[qm-smoke] probe-boot')` + 新增「**控制台日志通道可用**」断言（原通道失效则「无致命」**静默通过**）。**页面断言 9 → 10 项** |
+| **4** | `tools/smoke.py` + `promote.py` + `handoff.py` | **P2-10 侧 / 7 / 19** | ① `smoke.py` 同构补 `sandbox_base()`；② `promote.py` 的 `list_files` 判据由 `COPY_FILES` 改 **`PRESENCE_FILES`（含 `VERSION`）** —— `VERSION` 单存也算「主线非空」（`COPY_FILES` 仍只管复制）；③ `handoff.py` 实况段 git 状态行**细分「已修改 M / 未跟踪 K」**（原把任何未跟踪文件笼统算作「未提交改动」） |
+
+### 新增测试（+24 项，`unittest` 198 → 222 OK）
+
+| 文件 | 增量 | 覆盖 |
+|---|---|---|
+| `tests/test_store.py` | **+7** | `fingerprint_diff`（改/增/缺）/ `is_within` / `commit --from`（root 内拒 / root 外警，子进程实跑）/ `checkout` 回收目录**同秒不撞** |
+| `tests/test_verify.py` | **+2** | 多余位置参数被拒 / 单参数不误判 |
+| `tests/test_browser_smoke.py` | **+4**（26 → 30） | `parse_metrics` **无兜底**（`test_no_container_returns_none`）/ `sandbox_base`（2）/ `browser_drivable`（1）/ 探针**自报行**在场（1） |
+| `tests/test_promote.py` | **新增 6** | `list_files`（核心：**`VERSION` 单存即算非空**）/ 默认源推导 |
+| `tests/test_smoke.py` | **新增 3** | `sandbox_base`（含与 `browser_smoke` **一致**的锁定用例） |
+| `tests/test_handoff.py` | **+2** | 干净树报「工作区干净」/ 脏树**拆分「已修改 / 未跟踪」** |
+
+**关键修正（测试用例自身缺陷，反向验证抓到）**：`test_store.py` 的 P2-5 用例初版用**不同名**文件（`extra_a.py` / `extra_b.py`）—— 即便回收目录撞车也**不互相覆盖**，抓不到缺陷。改为**同一路径 `src/extra.py` 两次不同内容**（首次回收后用户又建同名文件），断言两份回收副本内容分别为 `"A\n"` / `"B\n"`。反向验证确认：注入缺陷后**该用例精确 FAIL**，基线 PASS。
+
+**一处附带发现（未擅自扩大范围）**：反向验证 P2-14 时，在「只含 `tools/`+`tests/`+`VERSION`+`start.bat`」的**最小根**上，`verify.py` **L1027 无守卫 `read_text()`**（读 `src/web/js/i18n/zh-CN.js`，同段 L1018 / L1024 均有 `is_file()` 守卫）→ 缺 `src/` 时**直接 Traceback**，到不了「体积上限」项。故报告 P2-14 的前提「少一项而非 FAIL」**不精确**（实为**先崩溃**）；本轮仍按「缺 `src/` 显式 FAIL」处置该组改动，崩溃点**如实记录、未顺手修**（避免超出本轮裁定范围），留待后续。
+
+### 验证
+
+| 门禁 | 结果 |
+|---|---|
+| 反向验证（逐组注入缺陷） | 组 1 → `test_same_second_checkouts_keep_both_trash_copies` / `test_from_inside_root_is_rejected` **精确 FAIL**；组 2 → P2-14/17/18 三项**精确 FAIL**（全量副本注入）；组 3 → `test_no_container_returns_none` / `test_probe_emits_self_report_line` **精确 FAIL**；组 4 → P2-7/10/19 对应**精确 FAIL**。**P2-3 / P2-16 为现场实测通过**；**P2-11 以夸克实测** → 「跳过 + 明确原因」退出 **0** |
+| 四件套（终态） | verify **82/0**（`--against V0.0.26` **84/0**）· unittest **222 OK** · smoke **17/0** · browser_smoke **10/0** |
+
+> **性质**：只改 `tools/` + `tests/`（+ 文档），**不升版**（`VERSION` 仍 `V0.0.26`）。
+> `tools/` 不在 store 清单范围（清单只覆盖 `src/** + start.bat + VERSION`）→ **无 store 修订**，回退点＝ **git commit**。
+
+---
+
 ## V0.0.26 — 2026-10-10
 
 **主题**：编辑态**轮转备份** —— `save_editor` 落盘前把**上一版**轮转进 `data/.bak/`，保留最近 5 份。源自《审查报告_工具链_20261010》§七 第 6 条（「第 3 步」）。

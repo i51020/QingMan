@@ -75,15 +75,17 @@ QingMan/
 ├─ preview/             试运行区（**只服务单次开发**：`promote` 后即清空，不跨版本保留 —— §P1-7）
 │  └─ README.md         用途与规则说明（占位，使目录保留在 git 跟踪内）
 ├─ templates/           17 套中文目录树模板（内容资产）+ .trash/（软删除回收区）
-├─ tests/               回归测试网（标准库 unittest，零第三方依赖 —— §P0-2）
+├─ tests/               回归测试网（**11 模块**，标准库 unittest，零第三方依赖 —— §P0-2）
 │  ├─ test_dtree_core.py   切分 / 统计 / 文档校验 / check_target(R1–R5) / build_tree(R6–R8)
 │  ├─ test_routes.py       生成守卫 / 写入 / 编辑态往返 / 健康 / 模板 CRUD 与覆盖写
 │  ├─ test_config.py       体积上限分层自洽 / 路径与开关派生
 │  ├─ test_launch_icon.py  皮肤联动图标上传校验（PNG-in-ICO）
-│  ├─ test_store.py        manifest_digest 改名可检出 / parse_ref / 修订链
+│  ├─ test_store.py        manifest_digest 改名可检出 / parse_ref / 修订链 / fingerprint_diff / is_within
 │  ├─ test_versioning.py   bump 三语义（minor 重置 PATCH、major 重置 MINOR+PATCH）
-│  ├─ test_handoff.py      实况段渲染（版本/修订 tag 分列 · 语义版本排序 · 时间线日期解析）
-│  ├─ test_browser_smoke.py 页面冒烟纯函数（指标解析 / 控制台过滤 / verify_metrics 判定）
+│  ├─ test_handoff.py      实况段渲染（版本/修订 tag 分列 · 语义版本排序 · 时间线日期 · git 状态细分）
+│  ├─ test_browser_smoke.py 页面冒烟纯函数（指标解析 / 控制台过滤 / verify_metrics 判定 / sandbox_base）
+│  ├─ test_promote.py      list_files 判据（VERSION 单存即算非空）/ 默认源推导
+│  ├─ test_smoke.py        sandbox_base（与 browser_smoke 一致）
 │  └─ test_verify.py       托管 node 取最新（版本键 · 数字排序 · 跳过无 node.exe 目录）
 ├─ tools/               工具链：store / verify / versioning / release / promote / handoff / smoke / browser_smoke
 ├─ legacy/              历史归档，命名 `<对象>-<日期>/`，只增不删
@@ -156,7 +158,7 @@ QingMan/
 python tools/verify.py .                      # 交付校验（静态）
 python -m unittest discover -s tests          # 单元测试
 python tools/smoke.py                         # 端到端冒烟（HTTP 层；起真实服务 + 沙盒目录，测完即清）
-python tools/browser_smoke.py                 # 页面级冒烟（无头浏览器 9 项；未装浏览器则跳过）
+python tools/browser_smoke.py                 # 页面级冒烟（无头浏览器 10 项；未装浏览器则跳过）
 ```
 
 四项全过才算完成。单元测试可用 `QM_SRC=<版本根>/src` 指向**预览版**，这样落地前就能过全部门禁。
