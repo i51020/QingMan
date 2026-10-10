@@ -18,6 +18,8 @@
   `(未标日期)`；并补两条内容断言（verify 80 → **82**）。
 - **2.4** 补「**守卫的守卫**」：`browser_smoke.py` / `handoff.py` 的判定逻辑此前零单测 →
   新增 `tests/test_browser_smoke.py`（26 项）、`tests/test_handoff.py`（18 项），unittest 130 → **174 OK**。
+- **2.5** 收尾三处顺手项：`verify` 无 node 时文案与行为不一致（说「跳过」实为「失败」）、
+  `find_node` 硬编码 node 版本路径、`release.py` 回退点提示晚于改写 —— 并补 `tests/test_verify.py`。
 
 > **性质**：只改 `tools/`（+ 归一 `versions/` 清单字节），**不升版**（`VERSION` 仍 `V0.0.25`）。
 > `store.py` 的版本清单只覆盖 `src/** + VERSION + start.bat`，**不含 `tools/`** → 本轮**无 store 修订**，
@@ -122,6 +124,28 @@
 |---|---|
 | 新增两模块单跑 | `test_browser_smoke` **26 OK** · `test_handoff` **18 OK** |
 | `unittest` 全量 | 130 → **174 OK** |
+| `verify.py` / `smoke.py` / `browser_smoke.py` | **82/0** · **17/0** · **9/9** |
+
+### 2.5 —— 工具链收尾三处顺手项（P2-1 / P2-2 / P2-6）
+
+| # | 项 | 处置 |
+|---|---|---|
+| **P2-1** | `verify.py` 无 node 时**文案与行为不一致**：文案说「跳过」，行为却是 `check(False, ...)` | **裁定：不做「真跳过」，只把文案改准** —— JS 语法是交付门禁的一项，静默少一项会让「覆盖变薄」看起来和「全过」一样（同《错误笔记》§三.33 的教训）。改为「未找到 node —— JS 语法检查无法执行（本条为必需项）」 |
+| **P2-2** | `find_node()` 硬编码 `versions/22.22.2-6/node.exe` —— 托管运行时一升级即失效 | 改为扫描托管目录下**全部版本**取最新：新增 `node_version_key()` 与 `iter_managed_nodes()`（**按数字比较**，非字典序；跳过无 `node.exe` 的目录，如 `current` / `.locks`） |
+| **P2-6** | `release.py` 的「请先 `store.py commit` 留好回退点」打印在**改写 `VERSION` 之后**（为时已晚） | 提示移到写盘**之前** |
+
+**验证**（均为真实运行）
+
+| 项 | 实证 |
+|---|---|
+| P2-1 | 子进程以 `PATH=""` + `HOME=<空目录>` 运行 `verify` → `[FAIL] JS 语法  未找到 node —— JS 语法检查无法执行（本条为必需项）`，全文**不含**「跳过」 |
+| P2-2 | 伪造 HOME、托管目录只放 `24.21.0/node.exe` → `find_node()` 返回**该路径**；旧硬编码路径**不存在**（旧实现必然返回死路径） |
+| P2-6 | 临时副本实跑 `release.py bump` → 输出顺序为「`[提示] …留好回退点…`」→「`[升级] V0.0.1 → V0.0.2`」 |
+| 新增测试 | `tests/test_verify.py`（**8 项**：版本键 / 取最新 / 跳过无 `node.exe` 目录 / 空目录降级 / 返回路径必须真实存在）+ `tests/test_versioning.py` **+3**（`do_bump` 写 LF、**提示早于升级**、失败不动文件） |
+
+| 门禁 | 结果 |
+|---|---|
+| `unittest` | 174 → **185 OK** |
 | `verify.py` / `smoke.py` / `browser_smoke.py` | **82/0** · **17/0** · **9/9** |
 
 ---

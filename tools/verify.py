@@ -148,13 +148,34 @@ def check(ok: bool, name: str, note: str = "") -> None:
     results.append((bool(ok), name, note))
 
 
+def node_version_key(name: str) -> tuple[int, ...]:
+    """版本目录名 → 可比较的版本键（`22.22.2-6` → `(22,22,2,6)`；无数字 → `()`）。
+
+    用于「托管 node 取最新」—— 必须按**数字**比较，不能按字典序
+    （字典序会把 `9.x` 排在 `24.x` 之后）。
+    """
+    return tuple(int(x) for x in re.findall(r"\d+", name))
+
+
+def iter_managed_nodes(base: Path) -> list[Path]:
+    """`<base>/<版本>/node.exe` 中真实存在的那些，**按版本从新到旧**排序。
+
+    旧实现硬编码 `versions/22.22.2-6/node.exe` —— 托管运行时一升级即失效（§P2-2）。
+    """
+    if not base.is_dir():
+        return []
+    hits = [d / "node.exe" for d in base.iterdir() if (d / "node.exe").is_file()]
+    return sorted(hits, key=lambda p: node_version_key(p.parent.name), reverse=True)
+
+
 def find_node() -> str | None:
+    """定位 node：先 PATH，再扫描托管目录下的**全部版本**取最新。"""
     for name in ("node", "node.exe"):
         hit = shutil.which(name)
         if hit:
             return hit
-    candidate = Path.home() / ".workbuddy/binaries/node/versions/22.22.2-6/node.exe"
-    return str(candidate) if candidate.is_file() else None
+    managed = iter_managed_nodes(Path.home() / ".workbuddy" / "binaries" / "node" / "versions")
+    return str(managed[0]) if managed else None
 
 
 def strip_comments(text: str, kind: str) -> str:
@@ -313,7 +334,10 @@ def main() -> int:
     node = find_node()
     js_files = sorted((root / "src/web/js").rglob("*.js"))
     if not node:
-        check(False, "JS 语法", "未找到 node，跳过（【待核实】）")
+        # 语义裁定（§P2 第 20 项）：**不做「真跳过」** —— JS 语法是交付门禁的一项，
+        # 静默少一项会让「覆盖变薄」看起来和「全过」一样（同 §三.33 的教训）。
+        # 故保留为失败，只把文案从误导性的「跳过」改为准确表述。
+        check(False, "JS 语法", "未找到 node —— JS 语法检查无法执行（本条为必需项）")
     else:
         bad = []
         with tempfile.TemporaryDirectory() as tmp:
@@ -1523,6 +1547,7 @@ def main() -> int:
             "tests/test_config.py", "tests/test_launch_icon.py",
             "tests/test_store.py", "tests/test_versioning.py",
             "tests/test_browser_smoke.py", "tests/test_handoff.py",
+            "tests/test_verify.py",
             "tools/smoke.py", "tools/browser_smoke.py",
         ) if not (root / rel).is_file()]
         n_modules = len(sorted((root / "tests").glob("test_*.py")))

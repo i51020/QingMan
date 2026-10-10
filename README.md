@@ -83,7 +83,8 @@ QingMan/
 │  ├─ test_store.py        manifest_digest 改名可检出 / parse_ref / 修订链
 │  ├─ test_versioning.py   bump 三语义（minor 重置 PATCH、major 重置 MINOR+PATCH）
 │  ├─ test_handoff.py      实况段渲染（版本/修订 tag 分列 · 语义版本排序 · 时间线日期解析）
-│  └─ test_browser_smoke.py 页面冒烟纯函数（指标解析 / 控制台过滤 / verify_metrics 判定）
+│  ├─ test_browser_smoke.py 页面冒烟纯函数（指标解析 / 控制台过滤 / verify_metrics 判定）
+│  └─ test_verify.py       托管 node 取最新（版本键 · 数字排序 · 跳过无 node.exe 目录）
 ├─ tools/               工具链：store / verify / versioning / release / promote / handoff / smoke / browser_smoke
 ├─ legacy/              历史归档，命名 `<对象>-<日期>/`，只增不删
 │  ├─ tools-20261009/    改造前的工具备份
