@@ -80,6 +80,7 @@ REQUIRED_FILES = (
     "src/shared/error-codes.json",
     "src/web/index.html",
     "src/web/help.html",
+    "src/web/support.html",
     "src/web/assets/logo.svg",
     "src/web/assets/sponsor-wechat.png",
     "src/web/css/tokens.css",
@@ -88,6 +89,7 @@ REQUIRED_FILES = (
     "src/web/css/help.css",
     "src/web/js/main.js",
     "src/web/js/help.js",
+    "src/web/js/support.js",
     "src/web/js/i18n/index.js",
     "src/web/js/i18n/zh-CN.js",
     "src/web/js/i18n/en-US.js",
@@ -346,15 +348,18 @@ def main() -> int:
     check(not eol_bad, "换行一致性",
           "; ".join(eol_bad) if eol_bad else "src/ 与 VERSION = LF，start.bat = CRLF")
 
-    # 7. 帮助页不得硬编码中文（§P0-3 L1：文案必须经取词表，页面只留 data-i18n 键名）
-    help_html = root / "src/web/help.html"
-    if help_html.is_file():
-        text = help_html.read_text(encoding="utf-8")
-        hits = CJK.findall(text)
-        check(not hits, "帮助页无硬编码中文",
-              f"发现 {len(hits)} 处字面量：{''.join(hits[:6])}" if hits else "文案全部走 data-i18n 取词")
-    else:
-        check(False, "帮助页无硬编码中文", "help.html 未读到")
+    # 7. 帮助/支持页不得硬编码中文（§P0-3 L1：文案必须经取词表，页面只留 data-i18n 键名）
+    cjk_pages: list[str] = []
+    for page in ("src/web/help.html", "src/web/support.html"):
+        page_file = root / page
+        if page_file.is_file():
+            hits = CJK.findall(page_file.read_text(encoding="utf-8"))
+            if hits:
+                cjk_pages.append(f"{Path(page).name}:{''.join(hits[:4])}")
+        else:
+            cjk_pages.append(f"{Path(page).name}:未读到")
+    check(not cjk_pages, "帮助支持页无硬编码中文",
+          "；".join(cjk_pages) if cjk_pages else "文案全部走 data-i18n 取词")
 
     # 7b. 文案一律经取词表（§P0-3 L1–L2）：页面只留键名，JS 模块不直写中文串
     idx_html = root / "src/web/index.html"
@@ -389,7 +394,7 @@ def main() -> int:
             r"""['"]([A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+)+)['"]""",
             dict_file.read_text(encoding="utf-8")))
     used_keys: dict[str, str] = {}
-    for page in ("src/web/index.html", "src/web/help.html"):
+    for page in ("src/web/index.html", "src/web/help.html", "src/web/support.html"):
         page_file = root / page
         if not page_file.is_file():
             continue
@@ -800,7 +805,7 @@ def main() -> int:
             os_bad.append("systemLocales 未让 OS 语言优先于浏览器语言")
     else:
         os_bad.append("i18n/index.js:缺 systemLocales")
-    for page in ("src/web/index.html", "src/web/help.html"):
+    for page in ("src/web/index.html", "src/web/help.html", "src/web/support.html"):
         page_file = root / page
         text = page_file.read_text(encoding="utf-8") if page_file.is_file() else ""
         i_env, i_mod = text.find("./api/env.js"), text.find('type="module"')
@@ -930,6 +935,36 @@ def main() -> int:
     check(not note_bad, "note 契约与 .md 边界 V0.0.17",
           f"缺失：{', '.join(note_bad)}" if note_bad
           else "note 序列化往返 / 模板提炼 / 三粒度复制 / 纯文本边界（无 innerHTML、生成不含 note） 齐备")
+
+    # 7o. 帮助/支持拆两页（V0.0.18）：支持=独立页，帮助=纯使用说明
+    #     判据：① helpSections 中英两份都不再含 support 分节；② support.html/js 存在且接线
+    #     （main.js 打开 support.html）；③ 互链齐备（about 表跳转 + 支持页回链）；④ 取词键闭包
+    #     由 7b-2 守卫统一覆盖，此处只查结构。
+    split_bad: list[str] = []
+    for name in ("zh-CN.js", "en-US.js"):
+        p = root / "src/web/js/i18n" / name
+        text = p.read_text(encoding="utf-8") if p.is_file() else ""
+        if re.search(r"\{\s*id:\s*'support'", text):
+            split_bad.append(f"{name}:helpSections 仍含 support 分节")
+        for k in ("support.titleTag", "support.docTitle", "support.back", "support.toHelp",
+                  "help.support.goto"):
+            if k not in text:
+                split_bad.append(f"{name}:{k}")
+    mjs18 = root / "src/web/js/main.js"
+    m18 = mjs18.read_text(encoding="utf-8") if mjs18.is_file() else ""
+    if "./support.html" not in m18:
+        split_bad.append("main.js 未打开 support.html")
+    if "'help.html#support'" in m18:
+        split_bad.append("main.js 仍用旧锚点 #support")
+    hj = root / "src/web/js/help.js"
+    h18 = hj.read_text(encoding="utf-8") if hj.is_file() else ""
+    if "./support.html" not in h18:
+        split_bad.append("help.js 缺 about 表跳转链接")
+    if re.search(r"kind:\s*'support'", root.joinpath("src/web/js/i18n/zh-CN.js").read_text(encoding="utf-8")):
+        split_bad.append("zh-CN.js 仍注册 support 渲染分支")
+    check(not split_bad, "帮助支持拆两页 V0.0.18",
+          f"缺失：{', '.join(split_bad)}" if split_bad
+          else "help 无 support 分节 / support 页接线 / about 表互链 齐备")
 
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"

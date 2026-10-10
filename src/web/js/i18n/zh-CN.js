@@ -282,7 +282,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.17',
+  'help.versionFallback': 'V0.0.18',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',
@@ -334,16 +334,27 @@ export const dict = {
   'help.support.wechat': '微信赞赏码',
   'help.support.qrAlt': '微信赞赏二维码',
   'help.support.thanks': '感谢支持，BUG 佛修。',
+  'help.support.goto': '赞赏与支持',
+  'help.support.gotoTip': '打开支持页（新标签）',
 
   'help.about.title': '版本与关于',
   'help.disclaimer.title': '免责声明',
   'help.disclaimer.1': '本软件免费提供，不保证无缺陷，使用风险由使用者自行承担。',
+
+  /* ---------- 支持页（V0.0.18 拆分） ---------- */
+  'support.titleTag': '· 支持',
+  'support.docTitle': '支持 · 青蔓 QingMan',
+  'support.back': '返回编辑器',
+  'support.toHelp': '使用说明',
+  'support.lead': '青蔓是本地离线免费工具。如果你觉得它有帮助，欢迎自愿投喂支持持续维护。',
 };
 
 /**
  * 帮助页分节结构。
  *   kind: 'ol' 有序列表 ／ 'ul' 无序列表 ／ 'note' 提示型单条 ／ 'about' 动态信息表
  *   title / items 一律是 dict 的键名，不是文案本身。
+ *   V0.0.18 起「支持」拆为独立页（support.html），此处不再含 support 分节；
+ *   about 表内提供跳转链接。
  */
 export const helpSections = [
   { id: 'quickStart', title: 'help.quickStart.title', kind: 'ol', items: [
@@ -360,7 +371,6 @@ export const helpSections = [
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [
     'help.safety.1', 'help.safety.2', 'help.safety.3', 'help.safety.4', 'help.safety.5',
   ] },
-  { id: 'support', title: 'help.support.title', kind: 'support', items: ['help.support.lead'] },
   { id: 'about', title: 'help.about.title', kind: 'about', items: [] },
   { id: 'disclaimer', title: 'help.disclaimer.title', kind: 'ul', items: ['help.disclaimer.1'] },
 ];

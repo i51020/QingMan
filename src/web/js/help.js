@@ -52,6 +52,7 @@ function buildAbout() {
     { label: 'about.version', value: '', cellId: 'aboutVersion' },
     { label: 'about.backend', value: '', cellId: 'aboutBackend' },
     { label: 'about.docs', value: t('about.docsValue') },
+    { label: 'help.support.title', value: '', link: { href: './support.html', text: t('help.support.goto'), tip: t('help.support.gotoTip') } },
   ];
 
   for (const row of rows) {
@@ -59,7 +60,17 @@ function buildAbout() {
     const th = document.createElement('th');
     th.textContent = t(row.label);
     const td = document.createElement('td');
-    td.textContent = row.value;
+    if (row.link) {
+      const a = document.createElement('a');
+      a.href = row.link.href;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.textContent = row.link.text;
+      a.title = row.link.tip;
+      td.appendChild(a);
+    } else {
+      td.textContent = row.value;
+    }
     if (row.cellId) td.id = row.cellId;
     tr.append(th, td);
     table.appendChild(tr);

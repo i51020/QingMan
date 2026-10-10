@@ -276,7 +276,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.17',
+  'help.versionFallback': 'V0.0.18',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',
@@ -328,10 +328,19 @@ export const dict = {
   'help.support.wechat': 'WeChat Tip',
   'help.support.qrAlt': 'WeChat tip QR code',
   'help.support.thanks': 'Thanks for your support — bug fixes are best-effort.',
+  'help.support.goto': 'Tip & Support',
+  'help.support.gotoTip': 'Open the support page (new tab)',
 
   'help.about.title': 'Version & About',
   'help.disclaimer.title': 'Disclaimer',
   'help.disclaimer.1': 'This software is provided free of charge, without warranty of any kind. Use at your own risk.',
+
+  /* ---------- Support page (split in V0.0.18) ---------- */
+  'support.titleTag': '· Support',
+  'support.docTitle': 'Support · QingMan',
+  'support.back': 'Back to Editor',
+  'support.toHelp': 'User Guide',
+  'support.lead': 'QingMan is a free offline tool. If you find it useful, a voluntary tip helps keep it maintained.',
 };
 
 export const helpSections = [
@@ -349,7 +358,6 @@ export const helpSections = [
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [
     'help.safety.1', 'help.safety.2', 'help.safety.3', 'help.safety.4', 'help.safety.5',
   ] },
-  { id: 'support', title: 'help.support.title', kind: 'support', items: ['help.support.lead'] },
   { id: 'about', title: 'help.about.title', kind: 'about', items: [] },
   { id: 'disclaimer', title: 'help.disclaimer.title', kind: 'ul', items: ['help.disclaimer.1'] },
 ];

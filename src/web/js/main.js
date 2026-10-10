@@ -83,7 +83,8 @@ function initTopbar() {
   createSkinPicker(el('skinSelect'));
 
   el('btnSupport').addEventListener('click', () => {
-    window.open('./help.html#support', '_blank', 'noopener');
+    // V0.0.18：支持拆为独立页（赞赏码），帮助页只留使用说明
+    window.open('./support.html', '_blank', 'noopener');
   });
 }
 

@@ -7,6 +7,43 @@
 
 ---
 
+## V0.0.18 — 2026-10-10
+
+**主题**：帮助/支持拆两页 —— 「支持与赞赏」从帮助页分节独立为 `support.html`，帮助页瘦身、入口直达。
+
+> **立项依据**：帮助页承载「使用说明 + 关于 + 支持赞赏」三职责，赞赏码图占比大、
+> 与「查问题」场景无关；拆页后帮助页纯文档检索，赞赏入口一步直达。
+
+### 变更（`src/web/`）
+
+- **新页**：`support.html` + `js/support.js` —— 赞赏码展示页，复用 `base.css`/皮肤/`env.js` 同步语言注入（与 `help.html` 同构）；文案全走 `support.*` 取词键
+- **帮助页**：`helpSections` 删除 `support` 分节（zh/en 同步）；「关于」表新增「支持与赞赏」行，`window.open('./support.html')` 跳转
+- **主界面**：顶栏「支持」按钮 `btnSupport` 由帮助页锚点 `#support` 改为直接开 `support.html`（`main.js`）
+- **i18n**：`help.support.*` 键组迁移为顶级 `support.*`（`titleTag/thanks/toHelp` 等），zh/en 键对齐
+- **后端零改动**（纯前端拆页）
+
+### 变更（`tools/` 与测试）
+
+- `verify.py`：`REQUIRED_FILES` 补 `support.html` / `js/support.js`（68 → 71 项）
+  - 新增守卫**「帮助支持拆两页」**：helpSections 无 `support` 分节 / `main.js` 开 `support.html` 无旧锚点 / about 表含跳转 / `support.js` 文案走取词
+  - 三处页面列表守卫（键闭包 / 无硬编码中文 / env.js 顺序）加入 `support.html`
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| 主线 `verify.py` | 71 项 0 失败 |
+| `unittest` | 107 OK |
+| `smoke.py` | 17 项 0 失败 |
+| 浏览器 E2E（Edge headless · 同源驱动真实页面） | 17 项 0 失败：support.html 三引用齐备无硬编码中文 / support.js 渲染赞赏码且字面量无中文（剥注释同 verify 口径）/ zh-en helpSections 无 support 分节且专属键齐备 / main.js 新入口无旧锚点 / help.js about 表互链 / 两页真实 HTTP 200 |
+
+### 已知边界
+
+- `support.html` 是独立页面（非弹窗），从主界面打开会新开窗口/标签
+- 赞赏码图 `sponsor-wechat.png` 沿用 V0.0.8 引入的资源，未随拆页变更
+
+---
+
 ## V0.0.17 — 2026-10-10
 
 **主题**：属性栏 note 编辑 + 三粒度复制 + .md 纯文本边界 —— 节点可写说明，随文档持久化。
