@@ -1522,6 +1522,7 @@ def main() -> int:
             "tests/test_dtree_core.py", "tests/test_routes.py",
             "tests/test_config.py", "tests/test_launch_icon.py",
             "tests/test_store.py", "tests/test_versioning.py",
+            "tests/test_browser_smoke.py", "tests/test_handoff.py",
             "tools/smoke.py", "tools/browser_smoke.py",
         ) if not (root / rel).is_file()]
         n_modules = len(sorted((root / "tests").glob("test_*.py")))

@@ -16,6 +16,8 @@
 - **2.2** 修掉「**工具间体例不一致**」：`smoke.py` 复用沙盒不清自身产物 → 第二次必报假失败。
 - **2.3** 修掉「**自洽检查证不了内容正确**」：实况段「版本 tag」只列修订 tag、「时间线最新」日期恒为
   `(未标日期)`；并补两条内容断言（verify 80 → **82**）。
+- **2.4** 补「**守卫的守卫**」：`browser_smoke.py` / `handoff.py` 的判定逻辑此前零单测 →
+  新增 `tests/test_browser_smoke.py`（26 项）、`tests/test_handoff.py`（18 项），unittest 130 → **174 OK**。
 
 > **性质**：只改 `tools/`（+ 归一 `versions/` 清单字节），**不升版**（`VERSION` 仍 `V0.0.25`）。
 > `store.py` 的版本清单只覆盖 `src/** + VERSION + start.bat`，**不含 `tools/`** → 本轮**无 store 修订**，
@@ -93,6 +95,34 @@
 | 反向验证·对照组（整项目副本，未注入） | 版本 tag 行 **PASS**（`24 个版本 tag，最新 V0.0.25`）· 时间线日期 **PASS**（`2026-10-10 · 22:16 …`） |
 | 反向验证·注入旧行为 | 两项**精确 FAIL**：`版本 tag 行漏列当前 V0.0.25` / `日期未解析：(未标日期)` |
 | `verify.py` / `unittest` / `smoke.py` / `browser_smoke.py` | **82/0** · **130 OK** · **17/0** · **9/9** |
+
+### 2.4 —— 守卫的守卫缺位（P1-4：判定逻辑补单测）
+
+**问题**：`tools/` 共 8 个脚本，此前**只有 `store` / `versioning` 有单测**。`browser_smoke.py` 的 5 个纯函数
+（`find_browser` / `parse_metrics` / `console_lines` / `as_int` / `verify_metrics`）是 **9 项页面断言的
+全部判定逻辑**，`handoff.py` 的渲染函数是**接续卡内容的唯一来源**，却都**零测试** —— 而 `verify` 对它们
+只做**静态 token 锚定**（防被削成空壳），**不验证判定逻辑本身是否正确**：`verify_metrics` 的阈值
+（`sec_before == sec_en == sec_zh` / `cjk == 0` / `chip == VERSION`）一旦被写坏，静态锚定拦不住。
+
+**处置**
+
+- 新增 `tests/test_browser_smoke.py`（**26 项**）：`as_int` 边界 / `parse_metrics` 容器锚定与
+  「探针源码字面量不得被当成结果行」/ `console_lines` 的 origin 与扩展噪声过滤 / `find_browser` 优先级 /
+  `verify_metrics` 全 PASS 与**回归位**（喂 P1-1 指标 `7→14→21` → **恰好**「分节渲染幂等」FAIL；
+  喂 P1-2 指标 `cjk=6` → **恰好**「默认示例随语言」FAIL）。
+- 新增 `tests/test_handoff.py`（**18 项**）：`_version_key` / `split_tags`（**语义版本排序，非字典序**：
+  `V0.0.10` 必须排在 `V0.0.2` 之后）/ `timeline_latest`（**带 `（续十六）` 后缀的标题必须解析出日期**）/
+  `replace_block`（只改标记之间、缺标记报错）/ `render_live`（版本 tag 行含当前 `VERSION`、修订 tag 行
+  与之分离、时间线日期真实、渲染纯函数）。
+- `tools/verify.py`：「回归测试网 §P0-2」必需清单补两个新测试文件。
+
+**验证**
+
+| 门禁 | 结果 |
+|---|---|
+| 新增两模块单跑 | `test_browser_smoke` **26 OK** · `test_handoff` **18 OK** |
+| `unittest` 全量 | 130 → **174 OK** |
+| `verify.py` / `smoke.py` / `browser_smoke.py` | **82/0** · **17/0** · **9/9** |
 
 ---
 
