@@ -71,13 +71,9 @@ def fingerprint_state(root: Path, version: str, rev: int | None) -> str:
     meta = store.load_manifest(root, version, rev)
     if not meta:
         return "无法判定（未找到清单）"
-    recorded: dict[str, str] = meta.get("files", {})
-    changed = [p for p, d in recorded.items()
-               if (root / p).is_file() and store.sha256_of(root / p) != d.split(":", 1)[-1]]
-    missing = [p for p in recorded if not (root / p).is_file()]
-    current = {p for p, _ in store.collect_files(root)}
-    added = sorted(current - set(recorded))
-    if not (changed or missing or added):
+    # 比对逻辑单点在 store.fingerprint_diff（§P2-9：原先与 verify 各写一份）。
+    changed, added, missing = store.fingerprint_diff(root, meta.get("files", {}))
+    if not (changed or added or missing):
         return "**完全一致**"
     return f"改动 {len(changed)} / 新增 {len(added)} / 缺失 {len(missing)}"
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -145,6 +146,113 @@ class CommitIntegrationTests(unittest.TestCase):
         store.do_commit(self.root, self.root, "首次", "")
         self.assertEqual(store.list_versions(self.root), ["V0.0.1"])
         self.assertEqual(store.do_fsck(self.root), 0)
+
+
+class FingerprintDiffTests(unittest.TestCase):
+    """§P2-9：指纹比对单点（handoff 与 verify 复用同一实现）。"""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="qm_fp_")
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        (self.root / "src").mkdir()
+        (self.root / "src" / "a.py").write_text("A\n", encoding="utf-8")
+
+    def _h(self, rel):
+        return "sha256:" + store.sha256_of(self.root / rel)
+
+    def test_clean_returns_three_empty_lists(self):
+        recorded = {"src/a.py": self._h("src/a.py")}
+        self.assertEqual(store.fingerprint_diff(self.root, recorded), ([], [], []))
+
+    def test_detects_changed_added_missing(self):
+        recorded = {
+            "src/a.py": "sha256:" + "0" * 64,        # 内容不符 → 改动
+            "src/gone.py": "sha256:" + "1" * 64,     # 盘上不存在 → 缺失
+        }
+        (self.root / "src" / "new.py").write_text("N\n", encoding="utf-8")   # 未记录 → 新增
+        changed, added, missing = store.fingerprint_diff(self.root, recorded)
+        self.assertEqual(changed, ["src/a.py"])
+        self.assertEqual(added, ["src/new.py"])
+        self.assertEqual(missing, ["src/gone.py"])
+
+    def test_lists_are_sorted(self):
+        recorded = {"src/z.py": "sha256:" + "0" * 64, "src/a.py": "sha256:" + "0" * 64}
+        for name in ("src/z.py", "src/a.py"):
+            (self.root / name).write_text("x\n", encoding="utf-8")
+        changed, _added, _missing = store.fingerprint_diff(self.root, recorded)
+        self.assertEqual(changed, sorted(changed))
+
+
+class IsWithinTests(unittest.TestCase):
+    """§P2-8 的路径包含判定（对齐 config.is_within 语义）。"""
+
+    def test_equal_below_outside(self):
+        base = Path("/a/b")
+        self.assertTrue(store.is_within(base, base))
+        self.assertTrue(store.is_within(Path("/a/b/c/d"), base))
+        self.assertFalse(store.is_within(Path("/a"), base))
+        self.assertFalse(store.is_within(Path("/a/bc"), base))
+
+
+class FromValidationTests(unittest.TestCase):
+    """§P2-8：--from 指向 root 之内的子目录必须被拦下（清单相对路径会错位）。"""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="qm_from_")
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        (self.root / "src").mkdir()
+        (self.root / "src" / "a.py").write_text("A\n", encoding="utf-8")
+        (self.root / "VERSION").write_text("V0.0.1\n", encoding="utf-8", newline="\n")
+        # 一个「同构子目录」：root/preview/V0.0.1/src/...
+        sub = self.root / "preview" / "V0.0.1" / "src"
+        sub.mkdir(parents=True)
+        (sub / "a.py").write_text("B\n", encoding="utf-8")
+
+    def _run(self, *extra):
+        return subprocess.run(
+            [sys.executable, "-B", str(_TOOLS / "store.py"), "commit",
+             "--root", str(self.root), *extra],
+            capture_output=True, text=True, encoding="utf-8", errors="replace")
+
+    def test_from_inside_root_is_rejected(self):
+        proc = self._run("--from", str(self.root / "preview" / "V0.0.1"))
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("不得指向", proc.stdout)
+        self.assertFalse((self.root / "versions").exists(), "被拦下时不得写清单")
+
+    def test_from_equal_root_is_ok(self):
+        proc = self._run("--from", str(self.root))
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertTrue((self.root / "versions" / "V0.0.1" / "MANIFEST.json").is_file())
+
+
+class CheckoutTrashTests(unittest.TestCase):
+    """§P2-5：同秒两次 checkout 不得让后一次的回收副本覆盖前一次。"""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="qm_trash_")
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        (self.root / "src").mkdir()
+        (self.root / "src" / "a.py").write_text("A\n", encoding="utf-8")
+        (self.root / "VERSION").write_text("V0.0.1\n", encoding="utf-8", newline="\n")
+        store.do_commit(self.root, self.root, "首次", "")
+
+    def test_same_second_checkouts_keep_both_trash_copies(self):
+        # 关键：**同一路径**两次被回收（第一次回收后用户又建了同名文件）——
+        # 若回收目录名撞车，后一次的副本会覆盖前一次，前一次内容永久丢失（§P2-5）。
+        (self.root / "src" / "extra.py").write_text("A\n", encoding="utf-8")
+        store.do_checkout(self.root, "V0.0.1", False)
+        (self.root / "src" / "extra.py").write_text("B\n", encoding="utf-8")
+        store.do_checkout(self.root, "V0.0.1", False)
+        trash = self.root / "store" / ".trash"
+        contents = {p.read_text(encoding="utf-8")
+                    for d in trash.iterdir() if d.is_dir()
+                    for p in d.rglob("extra.py") if p.is_file()}
+        self.assertEqual(contents, {"A\n", "B\n"},
+                         "两次回收副本都须留存，不得互相覆盖")
 
 
 if __name__ == "__main__":

@@ -90,6 +90,33 @@ def manifest_digest(files: dict[str, str]) -> str:
     return h.hexdigest()
 
 
+def fingerprint_diff(root: Path, recorded: dict[str, str]) -> tuple[list[str], list[str], list[str]]:
+    """主线现状 vs 清单记录 →（改动, 新增, 缺失）三个**已排序**的路径列表。
+
+    单一来源：`handoff.fingerprint_state` 与 `verify.check_fingerprint` 原先各写一份
+    同样的「改动/新增/缺失」逻辑（《审查报告_工具链_20261010》§P2-9），此处抽出复用。
+    判据：`recorded` 是清单里的 `{相对路径: "sha256:<hex>"}`。
+    """
+    changed = sorted(p for p, d in recorded.items()
+                     if (root / p).is_file() and sha256_of(root / p) != d.split(":", 1)[-1])
+    missing = sorted(p for p in recorded if not (root / p).is_file())
+    current = {p for p, _ in collect_files(root)}
+    added = sorted(current - set(recorded))
+    return changed, added, missing
+
+
+def is_within(child: Path, parent: Path) -> bool:
+    """child 是否等于 parent 或位于 parent 之下（对齐 `src/server/config.py` 同名函数语义）。
+
+    不用 `Path.is_relative_to`：本项目下限 3.8，该 API 3.9 才有。
+    """
+    try:
+        child.relative_to(parent)
+        return True
+    except ValueError:
+        return False
+
+
 def version_key(v: str) -> tuple[int, int, int]:
     try:
         return versioning.parse(v)
@@ -187,15 +214,17 @@ def do_commit(root: Path, source: Path, note: str, alias: str) -> int:
     new_blobs = reused = 0
     for rel, path in files:
         data = path.read_bytes()
-        digest = hashlib.sha256(data).hexdigest()
-        target = blob_path(root, digest)
+        # 内层＝**文件级** blob 指纹；改名 `blob_digest` 以区别外层清单级 `digest`
+        # （§P2-4：原名两处都叫 `digest`，易误读）。
+        blob_digest = hashlib.sha256(data).hexdigest()
+        target = blob_path(root, blob_digest)
         if target.is_file():
             reused += 1
         else:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
             new_blobs += 1
-        files_map[rel] = "sha256:" + digest
+        files_map[rel] = "sha256:" + blob_digest
 
     digest = "sha256:" + manifest_digest(files_map)
 
@@ -286,7 +315,14 @@ def do_checkout(root: Path, ref: str, dry_run: bool) -> int:
         print("[演练] --dry-run，未写入任何文件")
         return 0
 
-    trash = root / "store" / ".trash" / datetime.now().strftime("%Y%m%d-%H%M%S")
+    # 同秒内连续两次 checkout 会撞同一个回收目录（后一次的副本覆盖前一次）→ 加序号后缀
+    # （§P2-5）。回收区是「只复制不删除」的兜底，撞目录会让前一次的被移出文件丢失副本。
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    trash = root / "store" / ".trash" / stamp
+    seq = 2
+    while trash.exists():
+        trash = root / "store" / ".trash" / f"{stamp}_{seq:02d}"
+        seq += 1
     trashed = blocked = 0
     for rel in stale:
         src = root / rel
@@ -409,6 +445,19 @@ def main() -> int:
     source = Path(opts.source).resolve() if opts.source else root
 
     if opts.action == "commit":
+        # `--from` 复核（§P2-8）：清单里的相对路径以顶层 `src/` `start.bat` `VERSION` 为锚，
+        # 因此 --from 指向 --root **之内的子目录**（如 `--from preview/V0.0.9`）必然错位
+        # —— 会把该子树的 src/ 当成主线的 src/ 记进清单 → 硬拦。
+        # 指向 --root **之外**的同构树快照属合法历史用法（N1→r2），只警告不拦。
+        if source != root:
+            if is_within(source, root):
+                print(f"[失败] --from 不得指向 --root 之内的子目录：{source}")
+                print("        清单相对路径以 root 为锚，子目录会令 manifest 与主线错位；")
+                print("        若要提交同构树快照，请把内容先落回主线，或用 --root 指到该树。")
+                return 1
+            print(f"[警告] --from 不在 --root 之下：{source}")
+            print("        清单相对路径以顶层 src/start.bat/VERSION 为锚，")
+            print("        请确认该目录布局与主线同构，否则 verify --against 会失配。")
         return do_commit(root, source, opts.note, opts.alias)
     if opts.action == "checkout":
         if not opts.args:

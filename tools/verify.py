@@ -58,9 +58,7 @@ PROJECT_ROOT = TOOLS_DIR.parent
 
 sys.path.insert(0, str(TOOLS_DIR))
 sys.dont_write_bytecode = True  # 校验工具不得在项目内留下 __pycache__
-from store import collect_files as collect_tracked  # noqa: E402
-from store import latest_revision, load_manifest, manifest_filename  # noqa: E402
-from store import sha256_of  # noqa: E402
+from store import fingerprint_diff, latest_revision, load_manifest, manifest_filename  # noqa: E402
 
 PAIRED_TAGS = (
     "html", "head", "body", "div", "section", "aside", "header", "footer",
@@ -224,13 +222,9 @@ def check_fingerprint(root: Path, version: str) -> None:
     # 目录名必须与清单内容自洽，防止"快照名与内容不符"
     check(inner == version, f"清单自洽 {label}", f"内容 version={inner or '(空)'}，取自 {manifest.name}")
 
-    changed = [rel for rel, ref in recorded.items()
-               if (root / rel).is_file() and sha256_of(root / rel) != ref.split(":", 1)[-1]]
-    missing = [rel for rel in recorded if not (root / rel).is_file()]
-    current = {rel for rel, _ in collect_tracked(root)}
-    added = sorted(current - set(recorded))
+    changed, added, missing = fingerprint_diff(root, recorded)
 
-    clean = not (changed or missing or added)
+    clean = not (changed or added or missing)
     detail = "完全一致" if clean else f"改动 {len(changed)} / 新增 {len(added)} / 缺失 {len(missing)}"
     check(clean, f"指纹比对 {label}", detail)
     for rel in (changed + added + missing)[:10]:
