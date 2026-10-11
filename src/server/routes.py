@@ -28,6 +28,8 @@ HEALTH_PATH = "/api/health"
 EDITOR_PATH = "/api/editor"
 SHORTCUT_PATH = "/api/shortcut"
 TEMPLATES_PATH = "/api/templates"
+# 用户模板库的「绑定目录」端点（V0.0.35）：GET 读取当前绑定，PUT 设定（写操作）。
+TEMPLATES_DIR_PATH = "/api/templates-dir"
 # 皮肤联动的桌面图标上传（V0.0.15）：前端 canvas 绘制、后端只落盘与接线
 ICON_PATH = "/api/launch-icon"
 # 「跟随系统」要跟的是 **操作系统语言**，不是浏览器语言（V0.0.14）。
@@ -284,9 +286,14 @@ def list_templates() -> Dict[str, Any]:
     返回 `available=False` + 空列表，**不报错**（否则预览版一启动就满屏红）。
     单套模板损坏也只跳过该套，不拖垮整个列表。
     """
-    d = config.TEMPLATES_DIR
-    if not d.is_dir():
-        return {"ok": True, "available": False, "items": [], "path": str(d)}
+    d = config.resolve_path(config.templates_dir())
+    # 绑定目录非法（自绑 / 系统区）或缺失 → 一律「不可用」，既不报错、也不去 glob
+    # 一个本就不该被读的位置（`QM_TEMPLATES_DIR` 可绕过 UI 直接指定目录，这是兜底）。
+    # 用**运行态**判据：默认 `templates/` 是合法运行目录，故 `_templates_dir_reason`。
+    blocked = _templates_dir_reason(d)
+    if blocked or not d.is_dir():
+        return {"ok": True, "available": False, "items": [], "path": str(d),
+                "reason": blocked}
 
     items: list[Dict[str, Any]] = []
     for p in sorted(d.glob("*.json")):
@@ -310,6 +317,7 @@ def list_templates() -> Dict[str, Any]:
     return {
         "ok": True,
         "available": True,
+        "reason": "",
         "items": items,
         "path": str(d),
         "schemaVersion": config.TEMPLATE_SCHEMA_VERSION,
@@ -401,7 +409,7 @@ def save_template(payload: Dict[str, Any]) -> Dict[str, Any]:
     description = payload.get("description")
     description = description.strip() if isinstance(description, str) else ""
 
-    base = config.resolve_path(config.TEMPLATES_DIR)
+    base = _templates_dir_or_raise()
     path = config.resolve_path(base / filename)
     if not config.is_within(path, base):
         raise TreeError("templateNameInvalid", name=name)
@@ -474,7 +482,7 @@ def _template_path_or_raise(name: str) -> "Path":
     """
     if not name or not TEMPLATE_NAME.match(name):
         raise TreeError("templateNotFound", name=str(name))
-    base = config.resolve_path(config.TEMPLATES_DIR)
+    base = _templates_dir_or_raise()
     path = config.resolve_path(base / name)
     if not config.is_within(path, base) or not path.is_file():
         raise TreeError("templateNotFound", name=name)
@@ -488,7 +496,7 @@ def _template_trash_dir() -> "Path":
     把前一次刚移入的旧版**原地覆盖**（软删除内丢失，找不回来）。故目录已存在即追加
     `-NNN` 序号；序号补零到 3 位避免字典序陷阱，同一秒内至多几次，不会产生碎目录。
     """
-    base = config.resolve_path(config.TEMPLATES_DIR) / config.TEMPLATE_TRASH_DIRNAME
+    base = _templates_dir_or_raise() / config.TEMPLATE_TRASH_DIRNAME
     stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
     candidate = base / stamp
     seq = 2
@@ -539,7 +547,7 @@ def rename_template(name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     if new_filename == name:
         return {"ok": True, "file": name, "name": path.stem, "unchanged": True}
 
-    base = config.resolve_path(config.TEMPLATES_DIR)
+    base = _templates_dir_or_raise()
     new_path = config.resolve_path(base / new_filename)
     if not config.is_within(new_path, base):
         raise TreeError("templateNameInvalid", name=new_name)
@@ -581,6 +589,172 @@ def rename_template(name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         "name": stem,
         "path": str(new_path),
         "bytes": len(body.encode("utf-8")),
+    }
+
+
+# ---------- 模板目录绑定（V0.0.35 · §P2 第 7 项 · 设计方案见《模板系统重设计_方案原型_20261011》） ----------
+
+
+def _same_path(a: Path, b: Path) -> bool:
+    """路径等同判定：Windows 下须大小写不敏感（`Path.__eq__` 是大小写敏感的）。"""
+    try:
+        return os.path.normcase(str(a)) == os.path.normcase(str(b))
+    except (OSError, ValueError):
+        return a == b
+
+
+def _templates_dir_blocked(path: Path) -> str:
+    """**绑定**判据：返回拒绝原因（空串＝可绑定）。
+
+    复用既有落盘边界（§P0-1 R3/R4/R5），只新增「拒自绑」两条：
+      * 等于内置 `templates/` 本身 —— 它是只读内置层，用户不该把**用户库**绑到它；
+      * 等于项目根、或是项目根的**祖先**（`is_within(PROJECT_DIR, d)`）——
+        后者会把青蔓自身乃至整盘当成模板库。
+    用户关键目录（R4）只拒**根本身**，其子目录是正常目标（与 `check_target` 同口径）。
+    """
+    resolved = config.resolve_path(path)
+    if _same_path(resolved, config.resolve_path(config.DEFAULT_TEMPLATES_DIR)):
+        return "内置模板目录不可作为用户库"
+    if config.is_within(config.PROJECT_DIR_RESOLVED, resolved):
+        return "指向青蔓自身或其上级目录"
+    for root, label in config.BLOCKED_SUBTREES:
+        if config.is_within(resolved, root):
+            return label
+    for root, label in config.BLOCKED_ROOTS:
+        if _same_path(resolved, root):
+            return label
+    return ""
+
+
+def _templates_dir_reason(path: Path) -> str:
+    """**运行态**判据：默认目录（内置层）天生合法，其余复用绑定判据。
+
+    与 `_templates_dir_blocked` 只差这一条 —— 未绑定时运行态目录**就是**内置
+    `templates/`（`list_templates` 与「另存为模板」的既有行为都依赖它），若一并判
+    非法，工具一启动就「模板库不可用」，那是把「不许绑定」错当成「不许使用」。
+    """
+    resolved = config.resolve_path(path)
+    if _same_path(resolved, config.resolve_path(config.DEFAULT_TEMPLATES_DIR)):
+        return ""
+    return _templates_dir_blocked(resolved)
+
+
+def _templates_dir_or_raise() -> Path:
+    """解析并校验运行态模板目录；不合法即抛 `templateDirBlocked`。
+
+    **所有**模板写路径（另存 / 改名 / 删除 / 回收站）都先过这里 —— `QM_TEMPLATES_DIR`
+    可绕过 UI 直接指定目录，若只在绑定端点把关，写操作就能落到受保护位置。
+    """
+    d = config.resolve_path(config.templates_dir())
+    reason = _templates_dir_reason(d)
+    if reason:
+        raise TreeError("templateDirBlocked", dir=str(d), reason=reason)
+    return d
+
+
+def _probe_writable(path: Path, create: bool = True) -> "tuple[bool, str]":
+    """探测目录可写：`mkdir` + 真写一个临时文件（`TemporaryFile` 关闭即自清）。
+
+    只看 `os.access` 在 Windows 上并不准 —— 真写一次才算数。探针文件交由 `tempfile`
+    自行回收：调用方**不**直呼删除 API（项目总原则「只复制不删除」，`verify.py` 7q
+    守卫禁止 `routes.py` 出现真删除调用）。`create=False` 时只探测已存在的目录
+    （GET 是只读操作，不该顺手建目录）。返回 (可写, 原因)。
+    """
+    if create:
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            return False, "无法创建目录：%s" % exc
+    if not path.is_dir():
+        return False, "目录不存在"
+    try:
+        with tempfile.TemporaryFile(dir=str(path)):
+            pass
+    except OSError as exc:
+        return False, "目录不可写：%s" % exc
+    return True, ""
+
+
+def get_templates_dir() -> Dict[str, Any]:
+    """读取当前绑定的模板目录与元信息（`GET /api/templates-dir`）。**只读，不落盘**。"""
+    d = config.resolve_path(config.templates_dir())
+    reason = _templates_dir_reason(d)
+    if reason:
+        writable, why = False, reason
+    elif d.is_dir():
+        writable, why = _probe_writable(d, create=False)
+    else:
+        writable, why = False, "目录不存在（PUT 设定时会自动创建）"
+    return {
+        "ok": True,
+        "dir": str(d),
+        "source": config.templates_dir_source(),
+        "valid": not reason,
+        "reason": reason,
+        "writable": writable,
+        "writableReason": why,
+        "exists": d.is_dir(),
+        "builtinDir": str(config.DEFAULT_TEMPLATES_DIR),
+        "packDir": str(config.TEMPLATES_PACK_DIR),
+        "settingsFiles": [str(p) for p in config.settings_candidates()],
+        "schemaVersion": config.SETTINGS_SCHEMA_VERSION,
+    }
+
+
+def _settings_write(**updates: Any) -> Path:
+    """原子写 settings（保留既有字段，合并 `updates`）；返回实际写入路径。
+
+    复用 A-P3-2 的唯一临时名 + `os.replace` 原子替换；显式 `newline="\n"` 保 LF
+    （§编码基线：Windows 默认会把换行翻成 CRLF）。
+    """
+    path = config.settings_path()
+    data = config.load_settings()
+    data.update(updates)
+    data.setdefault("schemaVersion", config.SETTINGS_SCHEMA_VERSION)
+    body = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = _tmp_sibling(path)
+        with tmp.open("w", encoding="utf-8", newline="\n") as fh:
+            fh.write(body)
+        os.replace(tmp, path)
+    except OSError as exc:
+        raise TreeError("templateDirNotWritable", dir=str(path.parent), message=str(exc))
+    return path
+
+
+def set_templates_dir(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """设定绑定目录（`PUT /api/templates-dir`，**写操作**）。
+
+    校验链（任一步失败即抛错，**不产生半完成态**）：
+      非空 → resolve → 拒自绑 / 系统区（`_templates_dir_blocked`）→ 实测可写 → 写 settings。
+
+    `QM_TEMPLATES_DIR` env 的优先级**高于** settings —— 被 env 覆盖时 `effectiveDir`
+    会与请求值不同，响应如实回报 `applied=false`，供前端提示「需先清除环境变量」。
+    """
+    raw = payload.get("dir")
+    text = raw.strip() if isinstance(raw, str) else ""
+    if not text:
+        raise TreeError("templateDirBlocked", dir="", reason="目录不能为空")
+    d = config.resolve_path(text)
+    reason = _templates_dir_blocked(d)
+    if reason:
+        raise TreeError("templateDirBlocked", dir=str(d), reason=reason)
+    writable, why = _probe_writable(d)
+    if not writable:
+        raise TreeError("templateDirNotWritable", dir=str(d), message=why)
+
+    path = _settings_write(templatesDir=str(d))
+    effective = config.resolve_path(config.templates_dir())
+    applied = os.path.normcase(str(effective)) == os.path.normcase(str(d))
+    return {
+        "ok": True,
+        "dir": str(d),
+        "effectiveDir": str(effective),
+        "applied": applied,
+        "source": config.templates_dir_source(),
+        "writable": True,
+        "settingsPath": str(path),
     }
 
 

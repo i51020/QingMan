@@ -11,9 +11,11 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -76,6 +78,75 @@ class BodyLimitInvariantTests(unittest.TestCase):
     def test_module_matches_probe(self):
         """进程内单例与子进程实测同源，防止两者漂移。"""
         self.assertEqual(config.MAX_BODY_BYTES, probe()[0])
+
+
+class TemplatesDirResolutionTests(unittest.TestCase):
+    """V0.0.35：运行态模板目录的解析优先级 `env > settings > 默认 templates/`。
+
+    仍在**子进程**里导入 config（与 `probe` 同法）—— 复用同一进程会拿到被前一个用例
+    污染过的模块状态。`QM_SETTINGS` 一律指向临时文件，绝不读写真机配置。
+    """
+
+    _PROBE_DIR = ("import sys;sys.path.insert(0,{src!r});from server import config as c;"
+                  "print(c.templates_dir());print(c.templates_dir_source())")
+
+    def _probe_dir(self, extra_env: dict) -> tuple[Path, str]:
+        env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+        env.pop("QM_TEMPLATES_DIR", None)
+        env.update(extra_env)
+        out = subprocess.run([sys.executable, "-B", "-c", self._PROBE_DIR.format(src=str(_SRC))],
+                             env=env, capture_output=True, text=True,
+                             encoding="utf-8", errors="replace")
+        if out.returncode != 0:
+            raise AssertionError("config 导入失败：" + (out.stderr or "").strip())
+        lines = out.stdout.strip().splitlines()
+        return Path(lines[0]), lines[1]
+
+    @staticmethod
+    def _same(a: Path, b: Path) -> bool:
+        return os.path.normcase(str(a)) == os.path.normcase(str(b))
+
+    def test_default_when_nothing_set(self):
+        with tempfile.TemporaryDirectory(prefix="qm_cfg_") as d:
+            dir_, source = self._probe_dir({"QM_SETTINGS": str(Path(d) / "settings.json")})
+            self.assertEqual(source, "default")
+            self.assertTrue(self._same(dir_, _SRC.parent / "templates"))
+
+    def test_env_wins_over_settings(self):
+        with tempfile.TemporaryDirectory(prefix="qm_cfg_") as d:
+            settings = Path(d) / "settings.json"
+            settings.write_text(json.dumps({"templatesDir": str(Path(d) / "bound")}),
+                                encoding="utf-8")
+            target = Path(d) / "envdir"
+            dir_, source = self._probe_dir({"QM_SETTINGS": str(settings),
+                                            "QM_TEMPLATES_DIR": str(target)})
+            self.assertEqual(source, "env")
+            self.assertTrue(self._same(dir_, target))
+
+    def test_settings_used_when_env_absent(self):
+        with tempfile.TemporaryDirectory(prefix="qm_cfg_") as d:
+            settings = Path(d) / "settings.json"
+            target = Path(d) / "bound"
+            settings.write_text(json.dumps({"templatesDir": str(target)}), encoding="utf-8")
+            dir_, source = self._probe_dir({"QM_SETTINGS": str(settings)})
+            self.assertEqual(source, "settings")
+            self.assertTrue(self._same(dir_, target))
+
+    def test_corrupt_settings_falls_back_to_default(self):
+        with tempfile.TemporaryDirectory(prefix="qm_cfg_") as d:
+            settings = Path(d) / "settings.json"
+            settings.write_text("{不是合法 json", encoding="utf-8")
+            dir_, source = self._probe_dir({"QM_SETTINGS": str(settings)})
+            self.assertEqual(source, "default")
+            self.assertTrue(self._same(dir_, _SRC.parent / "templates"))
+
+    def test_env_wins_over_default(self):
+        with tempfile.TemporaryDirectory(prefix="qm_cfg_") as d:
+            target = Path(d) / "envonly"
+            dir_, source = self._probe_dir({"QM_SETTINGS": str(Path(d) / "settings.json"),
+                                            "QM_TEMPLATES_DIR": str(target)})
+            self.assertEqual(source, "env")
+            self.assertTrue(self._same(dir_, target))
 
 
 if __name__ == "__main__":

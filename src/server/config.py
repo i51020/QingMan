@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -72,7 +73,14 @@ START_BAT = PROJECT_DIR / "start.bat"
 # 也因此**不在版本交付清单内**（清单只覆盖 `src/**` + `start.bat` + `VERSION`）。
 # 后果：预览副本（`preview/V<版本>/`）里没有 templates/ —— 后端必须优雅降级，
 # 目录缺失时返回「不可用」而不是报错（见 routes.list_templates）。
-TEMPLATES_DIR = PROJECT_DIR / "templates"
+# 内置层（只读）：随工具交付的**唯一**内置模板目录。
+# V0.0.35 起它只是「默认值」—— 运行态目录由 `templates_dir()` 解析（env > settings > 此处），
+# 保留了 `TEMPLATES_DIR` 这个旧名会误导（它已**不是**当前生效目录），故据此改名。
+DEFAULT_TEMPLATES_DIR = PROJECT_DIR / "templates"
+# 分发层：仓库内独立可分发的模板包（`.md` 主 + `.json` 等价），同样不在交付清单内。
+TEMPLATES_PACK_DIR = PROJECT_DIR / "templates-pack"
+# 用户层绑定目录的环境变量名（解析优先级最高，见 `templates_dir()`）。
+TEMPLATES_DIR_ENV = "QM_TEMPLATES_DIR"
 
 # 模板文件的格式版本。现有 17 套模板**顶层无版本字段**，一律视为 v1。
 # 读取时容忍缺失（用 `doc.get("schemaVersion", 1)`）；自 V0.0.13 起「另存为模板」会写入该字段
@@ -245,6 +253,82 @@ def desktop_dir() -> Path:
         except (OSError, ImportError, ValueError):
             pass
     return Path.home() / "Desktop"
+
+
+# ---------- 运行态配置持久化（V0.0.35 · 模板目录绑定） ----------
+#
+# 用户绑定的模板库目录要跨重启保留，落点选**用户级**配置而非项目内：
+# 安装态的程序目录可能只读，写进项目内会直接失败（安装态落点见《项目手册》第十节）。
+# 位置按可写性择优：`%APPDATA%/QingMan/settings.json` → 便携回落 `<项目根>/.qingman/`。
+# `QM_SETTINGS` 可**覆写**该位置（自动化测试 / 便携分发用）；一旦设定则只认它。
+SETTINGS_ENV = "QM_SETTINGS"
+SETTINGS_SCHEMA_VERSION = 1
+
+
+def settings_candidates() -> "tuple[Path, ...]":
+    """settings 文件的候选位置（顺序即优先级）。"""
+    override = os.environ.get(SETTINGS_ENV, "").strip()
+    if override:
+        return (resolve_path(override),)
+    out: "list[Path]" = []
+    appdata = os.environ.get("APPDATA", "").strip()
+    if appdata:
+        out.append(resolve_path(appdata) / APP_NAME_EN / "settings.json")
+    out.append(PROJECT_DIR / ".qingman" / "settings.json")
+    return tuple(out)
+
+
+def settings_path() -> Path:
+    """settings 文件的**写入**位置：首个父目录可创建的候选（择优）。
+
+    读取按 `settings_candidates()` 顺序（首个可解析者胜）；写入按可写性择优。
+    全部候选都不可创建时返回首选 —— 由调用方把写失败转成明确错误码。
+    **注意**：本函数会尝试 `mkdir` 父目录（这就是「择优」的探针）。
+    """
+    for path in settings_candidates():
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            continue
+        return path
+    return settings_candidates()[0]
+
+
+def load_settings() -> dict:
+    """读取 settings（首个可解析的候选）。缺失 / 损坏一律返回空表，**不抛异常**。"""
+    for path in settings_candidates():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict):
+            return data
+    return {}
+
+
+def templates_dir_source() -> str:
+    """当前运行态模板目录的来源：`env` / `settings` / `default`。"""
+    if os.environ.get(TEMPLATES_DIR_ENV, "").strip():
+        return "env"
+    saved = load_settings().get("templatesDir")
+    if isinstance(saved, str) and saved.strip():
+        return "settings"
+    return "default"
+
+
+def templates_dir() -> Path:
+    """运行态模板库目录：`QM_TEMPLATES_DIR` env > settings 文件 > 默认 `templates/`。
+
+    **每次调用重新解析**（不缓存）—— `PUT /api/templates-dir` 改完即刻生效、无需重启。
+    解析失败一律回落默认目录，绝不把异常抛给调用方（与 `resolve_path` 同取舍）。
+    """
+    raw = os.environ.get(TEMPLATES_DIR_ENV, "").strip()
+    if raw:
+        return resolve_path(raw)
+    saved = load_settings().get("templatesDir")
+    if isinstance(saved, str) and saved.strip():
+        return resolve_path(saved.strip())
+    return DEFAULT_TEMPLATES_DIR
 
 
 DEFAULT_VERSION = "V0.00"

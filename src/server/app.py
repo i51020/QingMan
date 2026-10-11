@@ -188,6 +188,10 @@ class Handler(BaseHTTPRequestHandler):
                 except OSError as exc:
                     self._fail(500, "ioError", message=str(exc))
                 return
+            if path == routes.TEMPLATES_DIR_PATH:
+                # 模板目录绑定（V0.0.35）：只读查询当前绑定，不走写门槛
+                self._json(200, routes.get_templates_dir())
+                return
             if path == routes.TEMPLATES_PATH:
                 self._json(200, routes.list_templates())
                 return
@@ -252,15 +256,15 @@ class Handler(BaseHTTPRequestHandler):
             self._fail(500, "internalError", message=str(exc))
 
     def do_PUT(self) -> None:  # noqa: N802
-        """PUT /api/editor —— 保存编辑态文档。
+        """PUT /api/editor（保存编辑态文档）· PUT /api/templates-dir（绑定模板目录）。
 
-        属写操作：同样要过 _guard_write()（防护头）。PUT 无法由 HTML 表单发出，
+        两者皆属写操作：同样要过 _guard_write()（防护头）。PUT 无法由 HTML 表单发出，
         比 POST 更不易被跨站盲发，但仍按写操作同等对待。
         """
         if not self._guard() or not self._guard_write():
             return
         path = urlparse(self.path).path
-        if path != routes.EDITOR_PATH:
+        if path not in (routes.EDITOR_PATH, routes.TEMPLATES_DIR_PATH):
             self._fail(404, "notFound", path=path)
             return
         try:
@@ -277,7 +281,10 @@ class Handler(BaseHTTPRequestHandler):
             self._fail(400, "badJson")
             return
         try:
-            self._json(200, routes.save_editor(payload))
+            if path == routes.TEMPLATES_DIR_PATH:
+                self._json(200, routes.set_templates_dir(payload))
+            else:
+                self._json(200, routes.save_editor(payload))
         except TreeError as exc:
             self._fail(400, exc.code, **exc.detail)
         except OSError as exc:

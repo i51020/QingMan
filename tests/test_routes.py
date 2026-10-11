@@ -371,15 +371,20 @@ class TemplateTests(unittest.TestCase):
     """V0.0.11 模板库接口。
 
     `templates/` **不在版本交付清单内**，预览副本里没有它 —— 因此测试一律自建
-    临时目录，靠替换 `config.TEMPLATES_DIR` 隔离，不依赖主线真实模板。
+    临时目录，靠替换 `config.templates_dir`（V0.0.35 起的**唯一**解析入口）隔离，
+    不依赖主线真实模板。
     """
 
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="qm_tpl_"))
         self.addCleanup(lambda: __import__("shutil").rmtree(self.tmp, ignore_errors=True))
-        self.old = config.TEMPLATES_DIR
-        config.TEMPLATES_DIR = self.tmp
-        self.addCleanup(setattr, config, "TEMPLATES_DIR", self.old)
+        self._bind_dir(self.tmp)
+
+    def _bind_dir(self, path):
+        """把运行态模板目录钉到 `path`（生产由 `config.templates_dir()` 解析）。"""
+        patcher = mock.patch.object(config, "templates_dir", lambda: path)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def _write(self, name, body):
         p = self.tmp / name
@@ -388,7 +393,7 @@ class TemplateTests(unittest.TestCase):
 
     def test_missing_dir_is_unavailable_not_error(self):
         """目录不存在 → available=False + 空列表（预览副本的常态，不得报错）。"""
-        config.TEMPLATES_DIR = self.tmp / "不存在"
+        self._bind_dir(self.tmp / "不存在")
         res = routes.list_templates()
         self.assertFalse(res["available"])
         self.assertEqual(res["items"], [])
@@ -683,6 +688,121 @@ class TemplateTests(unittest.TestCase):
         self.assertFalse((self.tmp / "甲.json").exists())
 
 
+class TemplatesDirRouteTests(unittest.TestCase):
+    """V0.0.35 模板目录绑定（`GET/PUT /api/templates-dir`）。
+
+    绑定目录来自 env / settings 两处**外部状态**，故测试须同时隔离两者：
+    `QM_SETTINGS` 指向临时文件、清掉 `QM_TEMPLATES_DIR`，绝不碰真机配置。
+    """
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="qm_bind_"))
+        self.addCleanup(lambda: __import__("shutil").rmtree(self.tmp, ignore_errors=True))
+        self.bind = self.tmp / "我的模板"
+        self.settings = self.tmp / "settings.json"
+        env = mock.patch.dict(os.environ, {"QM_SETTINGS": str(self.settings)})
+        env.start()
+        self.addCleanup(env.stop)
+        os.environ.pop("QM_TEMPLATES_DIR", None)
+
+    @staticmethod
+    def _same(a, b) -> bool:
+        return os.path.normcase(str(a)) == os.path.normcase(str(b))
+
+    def test_default_dir_is_valid_not_blocked(self):
+        """未绑定时运行态目录＝内置 `templates/`，必须**可用** ——
+        不许把「不许绑到内置层」误当成「不许使用内置层」。"""
+        res = routes.get_templates_dir()
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["source"], "default")
+        self.assertTrue(self._same(res["dir"], config.DEFAULT_TEMPLATES_DIR))
+        self.assertTrue(res["valid"])
+        self.assertEqual(res["reason"], "")
+        self.assertIn("settingsFiles", res)
+
+    def test_default_dir_lists_normally(self):
+        """默认目录下 `list_templates` 照常可用（回归：曾被判非法 → 恒 available=False）。"""
+        res = routes.list_templates()
+        self.assertTrue(res["available"])
+        self.assertEqual(res["reason"], "")
+
+    def test_put_persists_and_becomes_effective(self):
+        res = routes.set_templates_dir({"dir": str(self.bind)})
+        self.assertTrue(res["ok"])
+        self.assertTrue(res["applied"])
+        self.assertTrue(self._same(res["effectiveDir"], self.bind))
+        raw = self.settings.read_bytes()
+        self.assertNotIn(b"\r", raw, "settings 须保持 LF（§编码基线）")
+        doc = json.loads(raw.decode("utf-8"))
+        self.assertTrue(self._same(doc["templatesDir"], self.bind))
+        self.assertEqual(doc["schemaVersion"], config.SETTINGS_SCHEMA_VERSION)
+        # 不缓存：改完即刻生效，且来源转为 settings
+        self.assertTrue(self._same(config.templates_dir(), self.bind))
+        self.assertEqual(config.templates_dir_source(), "settings")
+
+    def test_put_rejects_empty(self):
+        for bad in ("", "   ", None, 123):
+            with self.assertRaises(TreeError) as ctx:
+                routes.set_templates_dir({"dir": bad})
+            self.assertEqual(ctx.exception.code, "templateDirBlocked", repr(bad))
+        self.assertFalse(self.settings.exists(), "拒绑不得留下 settings")
+
+    def test_put_rejects_self_project_and_ancestors(self):
+        for bad in (str(config.PROJECT_DIR), str(config.PROJECT_DIR.parent)):
+            with self.assertRaises(TreeError) as ctx:
+                routes.set_templates_dir({"dir": bad})
+            self.assertEqual(ctx.exception.code, "templateDirBlocked", bad)
+        self.assertFalse(self.settings.exists())
+
+    def test_put_rejects_builtin_templates_dir(self):
+        with self.assertRaises(TreeError) as ctx:
+            routes.set_templates_dir({"dir": str(config.DEFAULT_TEMPLATES_DIR)})
+        self.assertEqual(ctx.exception.code, "templateDirBlocked")
+
+    def test_put_rejects_system_subtree(self):
+        root, _label = config.BLOCKED_SUBTREES[0]
+        with self.assertRaises(TreeError) as ctx:
+            routes.set_templates_dir({"dir": str(root / "qingman-bind-probe")})
+        self.assertEqual(ctx.exception.code, "templateDirBlocked")
+
+    def test_put_rejects_blocked_root_itself(self):
+        root, _label = config.BLOCKED_ROOTS[0]
+        with self.assertRaises(TreeError) as ctx:
+            routes.set_templates_dir({"dir": str(root)})
+        self.assertEqual(ctx.exception.code, "templateDirBlocked")
+
+    def test_put_rejects_not_writable(self):
+        blocker = self.tmp / "blocker"
+        blocker.write_text("x", encoding="utf-8")     # 文件占位 → 同名目录建不出来
+        with self.assertRaises(TreeError) as ctx:
+            routes.set_templates_dir({"dir": str(blocker / "sub")})
+        self.assertEqual(ctx.exception.code, "templateDirNotWritable")
+        self.assertFalse(self.settings.exists())
+
+    def test_env_overrides_settings(self):
+        """env 优先于 settings：PUT 照写盘，但 `applied=false` 如实回报。"""
+        os.environ["QM_TEMPLATES_DIR"] = str(self.tmp / "envdir")
+        res = routes.set_templates_dir({"dir": str(self.bind)})
+        self.assertFalse(res["applied"])
+        self.assertEqual(res["source"], "env")
+        self.assertTrue(self._same(res["effectiveDir"], self.tmp / "envdir"))
+
+    def test_illegal_binding_makes_list_unavailable(self):
+        """env 强设非法目录（指向青蔓自身）→ 列表 available=False，且不去 glob 该位置。"""
+        os.environ["QM_TEMPLATES_DIR"] = str(config.PROJECT_DIR)
+        res = routes.list_templates()
+        self.assertFalse(res["available"])
+        self.assertEqual(res["items"], [])
+        self.assertTrue(res["reason"])
+
+    def test_write_paths_also_enforce_dir_guard(self):
+        """env 可绕过 UI 直指受保护目录 —— 写路径必须**自己**再校验一次。"""
+        os.environ["QM_TEMPLATES_DIR"] = str(config.PROJECT_DIR)
+        with self.assertRaises(TreeError) as ctx:
+            routes.save_template({"name": "甲", "tree": {"a": {}}})
+        self.assertEqual(ctx.exception.code, "templateDirBlocked")
+
+
 class OsLocaleTests(unittest.TestCase):
     """V0.0.14「跟随系统」= 真 OS 语言，经 /api/env.js 同步注入前端。"""
 
@@ -748,14 +868,12 @@ class BackendDefenseBatchTests(unittest.TestCase):
     def test_template_trash_dir_unique_in_same_second(self):
         """A-P3-3：同一秒内二次调用必须拿到不同目录（否则会覆盖上次软删除的旧版）。"""
         with tempfile.TemporaryDirectory(prefix="qm_trash_") as d:
-            old = config.TEMPLATES_DIR
-            config.TEMPLATES_DIR = Path(d)
-            self.addCleanup(setattr, config, "TEMPLATES_DIR", old)
-            first = routes._template_trash_dir()
-            first.mkdir(parents=True)
-            second = routes._template_trash_dir()
-            self.assertNotEqual(first, second)
-            self.assertEqual(second.parent, first.parent)
+            with mock.patch.object(config, "templates_dir", lambda: Path(d)):
+                first = routes._template_trash_dir()
+                first.mkdir(parents=True)
+                second = routes._template_trash_dir()
+                self.assertNotEqual(first, second)
+                self.assertEqual(second.parent, first.parent)
 
     # ---------- A-P3-4 真实桌面解析 ----------
 

@@ -1,7 +1,10 @@
 """青蔓 QingMan · 端到端冒烟（§P0-2 T4）。
 
 把「启动服务 → 健康检查 → 演练不写盘 → 真实落盘 → 重复生成幂等 → 错误分支 →
-落盘安全边界 → 路径穿越」固化为常驻脚本，取代一次性的临时冒烟。
+落盘安全边界 → 路径穿越 → 模板目录绑定」固化为常驻脚本，取代一次性的临时冒烟。
+
+`QM_SETTINGS` 指向沙盒：模板目录绑定（PUT）会**真写** settings 文件，绝不能落到
+用户的 `%APPDATA%/QingMan/settings.json`。
 
 用法：
     python tools/smoke.py [--keep] [--port 8799] [--sandbox DIR]
@@ -84,6 +87,9 @@ class Client:
 
     def post_json(self, path: str, obj, **kw):
         return self.request("POST", path, json.dumps(obj, ensure_ascii=False).encode("utf-8"), **kw)
+
+    def put_json(self, path: str, obj, **kw):
+        return self.request("PUT", path, json.dumps(obj, ensure_ascii=False).encode("utf-8"), **kw)
 
 
 def wait_ready(client: Client, seconds: float = 15.0) -> bool:
@@ -183,6 +189,31 @@ def run_checks(client: Client, sandbox: Path) -> None:
     check(data and data.get("version") == version_text,
           "服务读到的版本 = VERSION 文件", f"{data.get('version') if data else '?'} vs {version_text}")
 
+    # 12. 模板目录绑定（V0.0.35）：读 → 写门槛 → 拒自绑 → 设定 → 即时生效
+    status, data, _ = client.request("GET", "/api/templates-dir")
+    check(status == 200 and data and data.get("ok") and data.get("dir"),
+          "GET /api/templates-dir → 200",
+          f"{status} source={data.get('source') if data else '?'}")
+
+    status, data, _ = client.put_json("/api/templates-dir",
+                                      {"dir": str(sandbox / "模板库")}, guard=False)
+    check(status == 403 and data and data.get("code") == "missingGuardHeader",
+          "PUT /api/templates-dir 缺头 → 403", f"{status} {data.get('code') if data else '?'}")
+
+    status, data, _ = client.put_json("/api/templates-dir", {"dir": str(PROJECT_ROOT)})
+    check(status == 400 and data and data.get("code") == "templateDirBlocked",
+          "PUT 拒自绑（指向项目自身）→ 400", f"{status} {data.get('code') if data else '?'}")
+
+    bind_dir = sandbox / "模板库"
+    status, data, _ = client.put_json("/api/templates-dir", {"dir": str(bind_dir)})
+    check(status == 200 and data and data.get("ok") and data.get("applied") is True,
+          "PUT /api/templates-dir → 200 且生效",
+          f"{status} applied={data.get('applied') if data else '?'}")
+    status, data, _ = client.request("GET", "/api/templates")
+    check(status == 200 and data and Path(data.get("path", "")) == bind_dir,
+          "设定后 /api/templates 指向新目录", f"{status} path={data.get('path') if data else '?'}")
+    check(bind_dir.is_dir(), "绑定目录已创建（可写实测）", str(bind_dir))
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="青蔓 QingMan 端到端冒烟")
@@ -212,7 +243,7 @@ def main() -> int:
     # （只看这几个已知名字，不动沙盒里其它内容）。不清的话第 7 项 `dryRun` 断言
     # `not target.exists()` 恒为 False → 第二次起必然误报 FAIL。
     # 体例与 `browser_smoke.py` 一致（§项目约定 §P2 第 17 项「工具间一致性」）。
-    stale = [name for name in ("生成结果", "big") if (sandbox / name).exists()]
+    stale = [name for name in ("生成结果", "big", "模板库") if (sandbox / name).exists()]
     if stale:
         print(f"[冒烟] 复用沙盒，清理上次产物：{', '.join(stale)}")
         for name in stale:
@@ -223,7 +254,10 @@ def main() -> int:
                 victim.unlink()
 
     port = args.port or free_port()
-    env = dict(os.environ, QM_PORT=str(port), QM_OPEN_BROWSER="0", PYTHONDONTWRITEBYTECODE="1")
+    env = dict(os.environ, QM_PORT=str(port), QM_OPEN_BROWSER="0", PYTHONDONTWRITEBYTECODE="1",
+               QM_SETTINGS=str(sandbox / "settings.json"))
+    # 绑定用例要落 settings；env 优先级更高，若外部设了会遮蔽 → 测试恒 applied=false
+    env.pop("QM_TEMPLATES_DIR", None)
 
     print(f"[冒烟] 服务：{SRC_DIR}  端口：{port}")
     print(f"[冒烟] 沙盒：{sandbox}")

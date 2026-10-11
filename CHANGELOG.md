@@ -7,6 +7,33 @@
 
 ---
 
+## V0.0.35 — 2026-10-11
+
+**主题**：**P3 · 6B 模板目录绑定 + 持久化**（《项目手册》§十.3「目录绑定导入」落地第一半）—— 模板目录从**写死的常量**改为**可绑定**：解析优先级 `env > settings > 默认`，落盘 `%APPDATA%/QingMan/settings.json`，新增 `GET/PUT /api/templates-dir`，并**拒绝自绑**（不得指向内置 `templates/`、项目自身及其祖先、系统保护区）。**升 patch `V0.0.34` → `V0.0.35`**。**新增错误码 2 枚**（`templateDirBlocked` / `templateDirNotWritable`，`error-codes.json` + `zh-CN` + `en-US` **三方齐备**）。
+
+> 决策依据（用户点选，均采纳推荐）：持久化 `%APPDATA%/QingMan/settings.json`（env 优先）· 拒绝自绑复用 `is_within` + 黑名单 · 目录选择器归 6E 前端。原型见 `docs/模板系统重设计_方案原型_20261011.md`。
+
+| # | 文件 | 项 | 处置 |
+|---|---|---|---|
+| 1 | `server/config.py` | **6B-1** | `TEMPLATES_DIR` **改名** `DEFAULT_TEMPLATES_DIR`（并注「已不是当前生效目录」）；新增 `TEMPLATES_PACK_DIR` / `TEMPLATES_DIR_ENV = "QM_TEMPLATES_DIR"`。新增段「运行态配置持久化」：`SETTINGS_ENV` / `SETTINGS_SCHEMA_VERSION` / `settings_candidates()`（`QM_SETTINGS` > `%APPDATA%/QingMan/settings.json` > `<项目根>/.qingman/settings.json`）/ `settings_path()` / `load_settings()` / `templates_dir_source()` / **`templates_dir()`（每次重解析、不缓存）** |
+| 2 | `server/routes.py` | **6B-2** | 新增常量 `TEMPLATES_DIR_PATH = "/api/templates-dir"`；**5 处** `config.TEMPLATES_DIR` 全部改走 `_templates_dir_or_raise()`（save/rename/trash）与 `config.templates_dir()`（list）。新增**两套判据**：**绑定判据** `_templates_dir_blocked(path)`（拒内置 `templates/` / `PROJECT_DIR` 及祖先 / `BLOCKED_SUBTREES` / `BLOCKED_ROOTS` 本身）与**运行态判据** `_templates_dir_reason(path)`（**默认模板目录先天合法**，仅其余复用绑定判据）；配套 `_same_path`（`normcase`）/ `_templates_dir_or_raise` / `_probe_writable`（`TemporaryFile` 真写探测）/ `get_templates_dir`（GET，只读，`create=False`）/ `_settings_write`（`_tmp_sibling` + `os.replace` 原子写，`newline="\n"`）/ `set_templates_dir`（PUT，env 遮蔽时 `applied=false`） |
+| 3 | `server/app.py` | 接线 | `do_GET` 加 `routes.TEMPLATES_DIR_PATH` 分支（**只读，不过 `_guard_write`**）；`do_PUT` 白名单加该路径，dispatch 分流至 `set_templates_dir` |
+| 4 | `src/shared/error-codes.json` + `zh-CN` / `en-US` | 错误码 | 新增 `templateDirBlocked`（`模板目录不被允许：{dir}（{reason}）`）/ `templateDirNotWritable`（`模板目录不可写：{dir}（{message}）`），三方占位符一致 |
+| 5 | `tests/test_config.py` | 单测 | 新增 `TemplatesDirResolutionTests` **5 项**（默认 / env 胜 settings / settings 胜默认 / env 胜默认 / **损坏 settings 回落默认**）—— 均用**子进程探针**隔离真实环境变量与 `settings.json` |
+| 6 | `tests/test_routes.py` | 单测 | `TemplateTests` 隔离方式改为 `mock.patch.object(config, "templates_dir", …)`；新增 `TemplatesDirRouteTests` **12 项**（默认目录合法且可列表 / PUT 持久化并生效 / 拒空 / 拒自绑·祖先 / 拒内置 / 拒系统子树 / 拒黑名单根 / 拒不可写 / env 遮蔽 settings / **非法绑定后列表转不可用** / 写路径同守卫） |
+| 7 | `tools/verify.py` | 守卫 | 新增检查段「模板目录绑定批 V0.0.35」（**14 锚点** + `routes.py` 旧写法 `config.TEMPLATES_DIR` **清零**判据）→ **87 → 88 项** |
+| 8 | `tools/smoke.py` | 端到端 | 新增 `Client.put_json()`；新增第 12 组 **6 项**（`GET → 200` / `PUT` 缺防护头 → `403 missingGuardHeader` / `PUT` 拒自绑 → `400 templateDirBlocked` / `PUT → 200` 且生效 / 设定后 `/api/templates` 指向新目录 / 绑定目录**已创建 = 可写实测**）；`stale` 清单加「模板库」；服务启动 env 加 `QM_SETTINGS` 沙盒隔离 → **17 → 23 项** |
+
+**反向验证（全部真实运行）**：在 `E:\qm_revcheck_6B\` **临时副本**逐项注入 → **6/6 恰该项 FAIL**（N1 删「拒内置」判据 · N2 运行态判据误用绑定判据（连默认目录一起判非法）· N3 取消写路径守卫 · N4 跳过可写探测 · N5 settings 优先于 env（优先级倒置）· N6 运行态判据函数改名 → verify 锚点失配）。基线副本缺 `.git` 致「接续说明实况段」恒红，三轮一致 → **差分干净**。
+
+**四件套**：`verify .` **88 项失败 1**（唯一红项＝「接续说明实况段 已过期」，待 `handoff.py` 刷新后转绿）· `unittest` **303 OK**（286 → 303，**+17**）· `smoke` **23/0** · `browser_smoke` **17/0**。
+
+**过程发现（据实，→ §三.50）**：**「绑定判据」与「运行态判据」必须分开** —— 实施中自查发现，若把 `_templates_dir_blocked` 直接用作运行态校验，则**默认 `templates/` 自己会被判非法**（它在 `PROJECT_DIR` 之下），工具一启动即「模板库不可用」。故拆为两函数：绑定判据严（拒项目自身），运行态判据宽（默认目录先天合法），并加回归用例 `test_default_dir_is_valid_not_blocked` / `test_default_dir_lists_normally` 钉死。
+
+**未做事（据实）**：本轮只落 **6B**（目录解析 + 持久化 + 拒自绑 + 两个端点）—— **`list_templates` 仍只认 `.json`**（双格式扫描）、**无导入端点**、**前端无绑定 UI / 轮询**，归 **6C / 6E**；迁移与打包归 **6D**。
+
+---
+
 ## V0.0.34 — 2026-10-11
 
 **主题**：**P3 · 6A 模板 `.md` 双格式核心**（《项目手册》§十.3 E/G 落地第一步）—— `src/server/dtree_core.py` 新增**模板结构校验**与 **`.md` 双向转换**三个纯函数。**升 patch `V0.0.33` → `V0.0.34`**。**新增错误码 2 枚**（`templateBadMarkdown` / `templateSiblingDuplicated`，`error-codes.json` + `zh-CN` + `en-US` **三方齐备**）。

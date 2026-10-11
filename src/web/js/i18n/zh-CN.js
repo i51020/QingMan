@@ -162,6 +162,8 @@ export const dict = {
   'err.templateWriteFailed': '模板写入失败：{name}（磁盘不可写或文件被占用）',
   'err.templateDeleteFailed': '删除模板失败：{name}（文件被占用或回收站不可写）',
   'err.templateRenameFailed': '重命名模板失败：{name}（文件被占用或名称冲突）',
+  'err.templateDirBlocked': '模板目录不被允许：{dir}（{reason}）',
+  'err.templateDirNotWritable': '模板目录不可写：{dir}（{message}）',
   'err.templateBadMarkdown': '模板 Markdown 解析失败：{reason}',
   'err.templateSiblingDuplicated': '模板内同层出现重名节点：{name}（大小写不敏感）',
 
@@ -306,7 +308,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.34',
+  'help.versionFallback': 'V0.0.35',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',

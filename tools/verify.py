@@ -1582,6 +1582,41 @@ def main() -> int:
           f"缺失：{', '.join(tpl_bad)}" if tpl_bad
           else "validate_template / render_md_template / parse_md_template + 围栏自适应 + 重名/解析错误码 齐备")
 
+    # 7ac. 模板目录绑定批（V0.0.35，§十.3 F · 6B）
+    #      绑定目录是「唯一可写模板库」的落点，三条不变量：
+    #      ① 解析入口**只能有一个**（`config.templates_dir()`），旧固定常量必须清零；
+    #      ② 「绑定判据」与「运行态判据」必须**分开** —— 默认 `templates/` 可用、
+    #         却不可被绑定（否则要么工具一启动就不可用，要么用户能绑到只读内置层）；
+    #      ③ 所有写路径自己再校验一次（`QM_TEMPLATES_DIR` 可绕过 UI 直指受保护位置）。
+    cfg_tpl = _read("src/server/config.py")
+    app_tpl = _read("src/server/app.py")
+    bind_bad: list[str] = []
+    bind_anchors = (
+        ("6B-1", cfg_tpl, "def templates_dir()", "config 缺 templates_dir 解析入口"),
+        ("6B-1", cfg_tpl, "def settings_candidates()", "config 缺 settings 候选位置"),
+        ("6B-1", cfg_tpl, "TEMPLATES_DIR_ENV", "config 缺绑定目录 env 名"),
+        ("6B-1", cfg_tpl, "DEFAULT_TEMPLATES_DIR", "config 缺内置默认目录常量"),
+        ("6B-2", rtext, "def _templates_dir_blocked(", "routes 缺绑定判据"),
+        ("6B-2", rtext, "def _templates_dir_reason(", "routes 缺运行态判据"),
+        ("6B-2", rtext, "def _templates_dir_or_raise(", "routes 缺写路径校验入口"),
+        ("6B-2", rtext, "def get_templates_dir(", "routes 缺 GET 处理器"),
+        ("6B-2", rtext, "def set_templates_dir(", "routes 缺 PUT 处理器"),
+        ("6B-2", rtext, "TEMPLATES_DIR_PATH = ", "routes 缺端点常量"),
+        ("6B-2", app_tpl, "routes.get_templates_dir()", "app.py 未接线 GET"),
+        ("6B-2", app_tpl, "routes.set_templates_dir(", "app.py 未接线 PUT"),
+        ("6B-2", codes_tpl, "templateDirBlocked", "error-codes.json 缺 templateDirBlocked"),
+        ("6B-2", codes_tpl, "templateDirNotWritable", "error-codes.json 缺 templateDirNotWritable"),
+    )
+    for code, text, token, why in bind_anchors:
+        if token not in text:
+            bind_bad.append(f"{code} {why}")
+    # 旧写法清零：写路径若仍直接读固定常量，绑定形同虚设
+    if re.search(r"config\.TEMPLATES_DIR\b", rtext):
+        bind_bad.append("routes.py 仍在直接读 config.TEMPLATES_DIR（应走 templates_dir()）")
+    check(not bind_bad, "模板目录绑定批 V0.0.35",
+          f"缺失：{', '.join(bind_bad)}" if bind_bad
+          else "解析入口 / 绑定与运行态双判据 / GET+PUT 接线 / 两枚错误码 齐备")
+
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
     if handoff_file.is_file():

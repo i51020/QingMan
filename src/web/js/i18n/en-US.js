@@ -156,6 +156,8 @@ export const dict = {
   'err.templateWriteFailed': 'Failed to write template: {name} (disk not writable or file in use)',
   'err.templateDeleteFailed': 'Failed to delete template: {name} (file in use or recycle bin not writable)',
   'err.templateRenameFailed': 'Failed to rename template: {name} (file in use or name conflict)',
+  'err.templateDirBlocked': 'Template directory not allowed: {dir} ({reason})',
+  'err.templateDirNotWritable': 'Template directory not writable: {dir} ({message})',
   'err.templateBadMarkdown': 'Failed to parse template Markdown: {reason}',
   'err.templateSiblingDuplicated': 'Duplicate sibling node in template: {name} (case-insensitive)',
 
@@ -300,7 +302,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.34',
+  'help.versionFallback': 'V0.0.35',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',
