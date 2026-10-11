@@ -1555,6 +1555,33 @@ def main() -> int:
           f"缺失：{', '.join(ser_bad)}" if ser_bad
           else "toDocumentNode / fromDocumentNode 均迭代化，旧递归写法已清除")
 
+    # 7ab. 模板双格式批（V0.0.34，§十.3 E/G · 6A）
+    #      模板 `.md` 是「导出→再导入」成环的载体：render / parse 必须**成对**存在，
+    #      围栏自适应（正文含反引号）与重名/解析错误码也必须就位 —— 任一缺失即
+    #      说明某类内容会在往返中静默丢数据（§十.3 往返成环要求）。
+    core_tpl = _read("src/server/dtree_core.py")
+    codes_tpl = _read("src/shared/error-codes.json")
+    tpl_bad: list[str] = []
+    tpl_anchors = (
+        ("6A-1", core_tpl, "def validate_template(", "缺 validate_template"),
+        ("6A-1", core_tpl, "def _validate_template_tree(", "缺模板树校验（段名/重名/上限）"),
+        ("6A-2", core_tpl, "def render_md_template(", "缺 render_md_template"),
+        ("6A-2", core_tpl, "def parse_md_template(", "缺 parse_md_template"),
+        ("6A-2", core_tpl, "def _md_fence_for(", "缺围栏自适应（正文含反引号）"),
+        ("6A-2", core_tpl, "_MD_ITEM_RE = re.compile", "缺列表项正则"),
+        ("6A-2", core_tpl, "_MD_DIR_MARK", "缺目录标记（📁 兼容）"),
+        ("6A-2", core_tpl, "templateSiblingDuplicated", "缺同层重名判据"),
+        ("6A-2", core_tpl, "templateBadMarkdown", "缺 Markdown 解析错误码"),
+        ("6A-2", codes_tpl, "templateBadMarkdown", "error-codes.json 缺 templateBadMarkdown"),
+        ("6A-2", codes_tpl, "templateSiblingDuplicated", "error-codes.json 缺 templateSiblingDuplicated"),
+    )
+    for code, text, token, why in tpl_anchors:
+        if token not in text:
+            tpl_bad.append(f"{code} {why}")
+    check(not tpl_bad, "模板双格式批 V0.0.34",
+          f"缺失：{', '.join(tpl_bad)}" if tpl_bad
+          else "validate_template / render_md_template / parse_md_template + 围栏自适应 + 重名/解析错误码 齐备")
+
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
     if handoff_file.is_file():

@@ -7,6 +7,28 @@
 
 ---
 
+## V0.0.34 — 2026-10-11
+
+**主题**：**P3 · 6A 模板 `.md` 双格式核心**（《项目手册》§十.3 E/G 落地第一步）—— `src/server/dtree_core.py` 新增**模板结构校验**与 **`.md` 双向转换**三个纯函数。**升 patch `V0.0.33` → `V0.0.34`**。**新增错误码 2 枚**（`templateBadMarkdown` / `templateSiblingDuplicated`，`error-codes.json` + `zh-CN` + `en-US` **三方齐备**）。
+
+> 决策依据（用户点选，均采纳推荐）：持久化 `%APPDATA%/QingMan/settings.json` · 实施范围全量 6A→6E · 迁移保留 `.json` 等价副本 · 轮询 2500ms。原型见 `docs/模板系统重设计_方案原型_20261011.md`。
+
+| # | 文件 | 项 | 处置 |
+|---|---|---|---|
+| 1 | `server/dtree_core.py` | **6A-1** | 新增 `validate_template(doc)` + `_validate_template_tree(tree, max_nodes)`：校验 `{name, description, tree}` 结构；`tree` 逐段名过 `validate_segment`；**同层重名（大小写不敏感）** 与规模上限（`MAX_NODES`）拦截；**显式栈** 遍历（深树不撞递归上限）。返回 `(dirs, files)` |
+| 2 | `server/dtree_core.py` | **6A-2** | 新增 `render_md_template(doc)` / `parse_md_template(text)` 一对**互逆纯函数** + `_md_fence_for(content)` 围栏自适应。严格文法：首个 `# `＝模板名 / `> ` 块＝描述 / `- `（**每 2 空格一级**）＝节点 / 名尾 `/`（或 📁 前缀）＝目录 / 文件正文用**再缩进一级的围栏块**。**正文含反引号时围栏自动加长**（≥ 最长连续反引号 +1），保证可闭合 |
+| 3 | `src/shared/error-codes.json` + `zh-CN` / `en-US` | 错误码 | 新增 `templateBadMarkdown`（`{reason}`）/ `templateSiblingDuplicated`（`{name}`），三方占位符一致 |
+| 4 | `tests/test_dtree_core.py` | 单测 | 新增 `TemplateFormatTests` **24 项**：往返等价 + 幂等（含 17 套**真实模板**逐一）、多行/尾随换行/含反引号正文、深嵌套 60 层、📁/`/` 双目录标记、**6 类解析拒收**（奇缩进/跳级/空名/意外行/文件下缩进/未闭合围栏）、同层重名、`validate_template` 7 类边界 |
+| 5 | `tools/verify.py` | 守卫 | 新增检查段「模板双格式批 V0.0.34」（11 锚点，含 `error-codes.json` 两码存在性）→ **86 → 87 项** |
+
+**反向验证（全部真实运行）**：在 `E:\qm_revcheck_6A\` **临时副本**逐项注入 → **3/3 恰该项 FAIL**（A 围栏恒短 → 含反引号正文恢复失败；B 常量改名 → 守卫锚点失配；C 删深度栈校验 → 文件下缩进被误收）。
+
+**四件套**：`verify .` **87/0**（`--against V0.0.34` 指纹一致）· `unittest` **286 OK**（262 → 286，+24）· `smoke` **17/0** · `browser_smoke` **17/0**。
+
+**未做事（据实）**：本轮只落 **6A**（纯函数 + 测试）—— **未接线到路由**（`list_templates` 仍只认 `.json`、无导入端点、`TEMPLATES_DIR` 仍固定），这些属 **6B / 6C**。
+
+---
+
 ## V0.0.33 — 2026-10-11
 
 **主题**：**批 4D · 序列化族迭代化**（第四档**同族残留**收口）—— `src/web/js/modules/tree-model.js` 的 `toDocumentNode` / `fromDocumentNode` 由**递归**改**显式栈**。**这不是审查报告列出的项**，而是收第四档时**自行发现的同族遗漏**（B-P3-5 只迭代化了「查询族」）→ **升 patch `V0.0.32` → `V0.0.33`**。**无新增错误码 / 取词键**。

@@ -311,5 +311,157 @@ class ErrorCodesTests(unittest.TestCase):
         self.assertEqual(dtree_core._load_error_codes(), {"a": "甲"})   # 非字符串值被滤除
 
 
+class TemplateFormatTests(unittest.TestCase):
+    """模板校验 + `.md` 双格式往返（§十.3 E/G · 6A）。
+
+    核心不变式：`parse(render(doc)) == doc` 且 `render(parse(render(doc))) == render(doc)`。
+    这两条一破，「导出→再导入」就会在某类内容上静默丢数据。
+    """
+
+    def _roundtrip(self, doc):
+        md = dtree_core.render_md_template(doc)
+        back = dtree_core.parse_md_template(md)
+        self.assertEqual(back["name"], doc.get("name") or "")
+        self.assertEqual(back["description"], doc.get("description") or "")
+        self.assertEqual(back["tree"], doc["tree"])
+        # 幂等：再渲染一次必须逐字节相同
+        self.assertEqual(dtree_core.render_md_template(back), md)
+        return md
+
+    def test_minimal_doc(self):
+        self._roundtrip({"name": "空模板", "description": "", "tree": {}})
+
+    def test_dirs_and_files_no_content(self):
+        self._roundtrip({"name": "T", "description": "d", "tree": {
+            "日志": {}, "附件": {"图片": {}, "视频": {}}, "说明.md": "",
+        }})
+
+    def test_file_with_multiline_content(self):
+        self._roundtrip({"name": "T", "description": "", "tree": {
+            "说明.md": "# 标题\n\n- 要点一\n- 要点二\n",
+        }})
+
+    def test_content_with_trailing_newline_preserved(self):
+        for content in ("a", "a\n", "a\n\n", "\n", "  "):
+            with self.subTest(content=content):
+                self._roundtrip({"name": "", "description": "", "tree": {"f.txt": content}})
+
+    def test_content_with_backticks_upgrades_fence(self):
+        doc = {"name": "T", "description": "", "tree": {
+            "snippet.md": "代码：\n```py\nprint(1)\n```\n完",
+        }}
+        md = self._roundtrip(doc)
+        self.assertIn("````", md)          # 围栏自动升级为 4 个反引号
+        self.assertNotIn("```` `", md)
+
+    def test_content_line_that_looks_like_item_is_not_structure(self):
+        self._roundtrip({"name": "", "description": "", "tree": {
+            "f.txt": "- 这行像列表项\n  - 缩进的也像\n# 这行像标题",
+        }})
+
+    def test_description_multiline(self):
+        self._roundtrip({"name": "T", "description": "第一行\n第二行\n", "tree": {}})
+
+    def test_deep_nesting(self):
+        tree = {}
+        cur = tree
+        for i in range(60):
+            nxt = {}
+            cur[f"d{i}"] = nxt
+            cur = nxt
+        cur["leaf.txt"] = "x"
+        self._roundtrip({"name": "deep", "description": "", "tree": tree})
+
+    def test_dir_marker_trailing_slash_and_emoji(self):
+        md = "- 目录/\n  - 子/\n- 文件.txt\n- \U0001F4C1 前缀目录\n  - x\n"
+        doc = dtree_core.parse_md_template(md)
+        self.assertEqual(doc["tree"], {"目录": {"子": {}}, "文件.txt": "",
+                                       "前缀目录": {"x": ""}})
+
+    def test_all_real_templates_roundtrip(self):
+        tpl = _HERE.parents[1] / "templates"
+        if not tpl.is_dir():
+            self.skipTest("模板目录不在交付清单内（预览副本）")
+        import json
+        count = 0
+        for p in sorted(tpl.glob("*.json")):
+            doc = json.loads(p.read_text(encoding="utf-8"))
+            with self.subTest(template=p.name):
+                dtree_core.validate_template(doc)
+                self._roundtrip(doc)
+            count += 1
+        self.assertGreaterEqual(count, 1)
+
+    # ---- parse 严格性：非法输入必须抛 TreeError（错误码 templateBadMarkdown）----
+
+    def _bad_md(self, text):
+        with self.assertRaises(TreeError) as ctx:
+            dtree_core.parse_md_template(text)
+        return ctx.exception.code
+
+    def test_rejects_odd_indent(self):
+        self.assertEqual(self._bad_md("- a/\n   - b\n"), "templateBadMarkdown")
+
+    def test_rejects_indent_jump(self):
+        self.assertEqual(self._bad_md("- a/\n    - b\n"), "templateBadMarkdown")
+
+    def test_rejects_empty_name(self):
+        self.assertEqual(self._bad_md("- \n"), "templateBadMarkdown")
+
+    def test_rejects_unexpected_line(self):
+        self.assertEqual(self._bad_md("随便一句话\n- a\n"), "templateBadMarkdown")
+
+    def test_rejects_child_under_file(self):
+        # 文件项不入栈 → 其下再缩进必判 indent jump
+        self.assertEqual(self._bad_md("- f.txt\n  - x\n"), "templateBadMarkdown")
+
+    def test_rejects_unclosed_fence(self):
+        self.assertEqual(self._bad_md("- f.txt\n  ```\n  body\n"), "templateBadMarkdown")
+
+    def test_rejects_duplicate_sibling(self):
+        with self.assertRaises(TreeError) as ctx:
+            dtree_core.parse_md_template("- a.txt\n- a.txt\n")
+        self.assertEqual(ctx.exception.code, "templateSiblingDuplicated")
+
+    # ---- validate_template ----
+
+    def test_validate_counts(self):
+        dirs, files = dtree_core.validate_template({"tree": {
+            "a": {"b": {}}, "x.txt": "", "y.txt": "1",
+        }})
+        self.assertEqual((dirs, files), (2, 2))
+
+    def test_validate_rejects_non_dict(self):
+        with self.assertRaises(TreeError) as ctx:
+            dtree_core.validate_template([1, 2])
+        self.assertEqual(ctx.exception.code, "templateBadJson")
+
+    def test_validate_rejects_missing_tree(self):
+        with self.assertRaises(TreeError) as ctx:
+            dtree_core.validate_template({"name": "x"})
+        self.assertEqual(ctx.exception.code, "templateTreeMissing")
+
+    def test_validate_rejects_bad_segment(self):
+        with self.assertRaises(TreeError) as ctx:
+            dtree_core.validate_template({"tree": {"a/b": {}}})
+        self.assertEqual(ctx.exception.code, "segmentInvalid")
+
+    def test_validate_rejects_case_insensitive_sibling(self):
+        with self.assertRaises(TreeError) as ctx:
+            dtree_core.validate_template({"tree": {"Readme.md": "", "readme.md": ""}})
+        self.assertEqual(ctx.exception.code, "templateSiblingDuplicated")
+
+    def test_validate_rejects_too_many_nodes(self):
+        tree = {f"f{i}.txt": "" for i in range(5)}
+        with self.assertRaises(TreeError) as ctx:
+            dtree_core.validate_template({"tree": tree}, max_nodes=3)
+        self.assertEqual(ctx.exception.code, "templateTooManyNodes")
+
+    def test_validate_rejects_non_string_value(self):
+        with self.assertRaises(TreeError) as ctx:
+            dtree_core.validate_template({"tree": {"x": 1}})
+        self.assertEqual(ctx.exception.code, "templateBadJson")
+
+
 if __name__ == "__main__":
     unittest.main()

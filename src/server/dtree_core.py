@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -289,3 +290,235 @@ def build_tree(tree: Any, base: Path, dry_run: bool = False) -> Dict[str, Any]:
         "createdFiles": created_files,
         "existed": existed,
     }
+
+
+# ---------------------------------------------------------------------------
+# 模板：结构校验 + `.md` 双格式（§P2 第 7 项 · 设计方案见《模板系统重设计_方案原型_20261011》）
+#
+# 模板的 `tree` 是**嵌套字典**（目录 = dict、文件 = 内容字符串），与编辑态文档的
+# 「id / type / children」结构**不同** —— 故不复用 `validate_document`。
+#
+# `.md` 是本项目为「AI / Agent / Skill 生态」选定的交换格式（§P2 第 7 项）。本节的
+# `parse_md_template` 与 `render_md_template` 必须是一对**互逆且确定性**的纯函数：
+# `parse(render(doc)) == doc`（导出→再导入不丢内容），且 `render` 幂等
+# （`render(parse(render(doc))) == render(doc)`）。任一不成立都意味着「往返成环」
+# 会在某类内容上静默丢数据。
+# ---------------------------------------------------------------------------
+
+# 围栏最短 3 个反引号；内容含更长的反引号串时写端自动加长（保证可闭合）。
+_MD_FENCE_MIN = 3
+# 列表项：行首缩进（**仅空格**）+ "- " + 内容。Tab 缩进一律判非法（严格文法）。
+_MD_ITEM_RE = re.compile(r"^( *)- +(.*)$")
+# 目录名判据：尾部 "/"（权威形）；解析端另兼容 "📁" 前缀（历史 / 手工书写）。
+_MD_DIR_MARK = "\U0001F4C1"  # 📁
+
+
+def _validate_template_tree(tree: Dict[str, Any], max_nodes: int) -> Tuple[int, int]:
+    """校验模板 `tree`（嵌套字典）：逐段名校验 + 同层重名 + 规模上限。
+
+    用**显式栈**（同 `count_tree`）以免深树撞递归上限。返回 (dirs, files)。
+    """
+    dirs = files = total = 0
+    stack: List[Dict[str, Any]] = [tree]
+    while stack:
+        node = stack.pop()
+        seen: Dict[str, str] = {}
+        for name, value in node.items():
+            if not isinstance(name, str):
+                raise TreeError("templateBadJson")
+            ok, reason = validate_segment(name)
+            if not ok:
+                raise TreeError("segmentInvalid", name=name,
+                                reason=message(reason, name=name))
+            # 同层重名（**大小写不敏感**）：落盘目标多为 Windows 文件系统。
+            key = name.strip().lower()
+            if key in seen:
+                raise TreeError("templateSiblingDuplicated", name=name)
+            seen[key] = name
+            total += 1
+            if total > max_nodes:
+                raise TreeError("templateTooManyNodes", total=total, limit=max_nodes)
+            if isinstance(value, dict):
+                dirs += 1
+                stack.append(value)
+            elif isinstance(value, str):
+                files += 1
+            else:
+                raise TreeError("templateBadJson")
+    return dirs, files
+
+
+def validate_template(doc: Any, max_nodes: "int | None" = None) -> Tuple[int, int]:
+    """校验整套模板文档 `{name, description, updated?, tree}`，返回 (dirs, files)。
+
+    非法结构一律抛 `TreeError`（错误码与既有 `template*` 体例一致）。`tree` 内每个
+    段名都过 `validate_segment`，同层重名（大小写不敏感）与规模上限同 `save_template`。
+    """
+    limit = config.MAX_NODES if max_nodes is None else max_nodes
+    if not isinstance(doc, dict):
+        raise TreeError("templateBadJson")
+    for field in ("name", "description"):
+        value = doc.get(field)
+        if value is not None and not isinstance(value, str):
+            raise TreeError("templateBadJson")
+    tree = doc.get("tree")
+    if not isinstance(tree, dict):
+        raise TreeError("templateTreeMissing")
+    return _validate_template_tree(tree, limit)
+
+
+def _md_fence_for(content: str) -> str:
+    """按内容里最长连续反引号串决定围栏长度（至少 3）。"""
+    longest = run = 0
+    for ch in content:
+        if ch == "`":
+            run += 1
+            longest = max(longest, run)
+        else:
+            run = 0
+    return "`" * max(_MD_FENCE_MIN, longest + 1)
+
+
+def _render_md_tree(node: Dict[str, Any], depth: int, out: List[str]) -> None:
+    indent = "  " * depth
+    body_indent = "  " * (depth + 1)
+    for name, value in node.items():
+        if isinstance(value, dict):
+            out.append(f"{indent}- {name}/")
+            _render_md_tree(value, depth + 1, out)
+            continue
+        content = value if isinstance(value, str) else ""
+        out.append(f"{indent}- {name}")
+        if content:
+            fence = _md_fence_for(content)
+            out.append(f"{body_indent}{fence}md")
+            for line in content.split("\n"):
+                # 空行不留缩进（写端规范化；解析端把围栏内空行当正文空行）。
+                out.append(f"{body_indent}{line}" if line else "")
+            out.append(f"{body_indent}{fence}")
+
+
+def render_md_template(doc: Dict[str, Any]) -> str:
+    """模板文档 → `.md` 文本（确定性、可再被 `parse_md_template` 还原）。"""
+    if not isinstance(doc, dict):
+        raise TreeError("templateBadJson")
+    tree = doc.get("tree")
+    if not isinstance(tree, dict):
+        raise TreeError("templateTreeMissing")
+
+    out: List[str] = []
+    name = doc.get("name")
+    if isinstance(name, str) and name.strip():
+        out.append("# " + name.strip())
+    description = doc.get("description")
+    if isinstance(description, str) and description:
+        for line in description.split("\n"):
+            out.append(("> " + line) if line else ">")
+    if out:
+        out.append("")
+    _render_md_tree(tree, 0, out)
+    return "\n".join(out) + "\n"
+
+
+def parse_md_template(text: str) -> Dict[str, Any]:
+    """`.md` 文本 → 模板文档 `{name, description, tree}`（严格文法，非法即抛）。
+
+    文法（《模板系统重设计_方案原型》第三节提案）：文档首个 `# ` 行 = 模板名；紧随的
+    `> ` 引用块 = 描述；`- ` 行 = 节点（**每 2 空格一级**）；名尾 `/`（或 📁 前缀）=
+    目录，否则文件；文件正文用**再缩进一级**的围栏块承载。
+    """
+    if not isinstance(text, str):
+        raise TreeError("templateBadMarkdown", reason="not a string")
+    src = text.replace("\r\n", "\n").replace("\r", "\n")
+    if src.startswith("\ufeff"):
+        src = src[1:]
+    lines = src.split("\n")
+    n = len(lines)
+    idx = 0
+
+    while idx < n and not lines[idx].strip():
+        idx += 1
+    name = ""
+    if idx < n and lines[idx].startswith("# "):
+        name = lines[idx][2:].strip()
+        idx += 1
+    desc_lines: List[str] = []
+    while idx < n and (lines[idx] == ">" or lines[idx].startswith("> ")):
+        line = lines[idx]
+        desc_lines.append(line[2:] if line.startswith("> ") else line[1:])
+        idx += 1
+
+    tree: Dict[str, Any] = {}
+    # 显式栈：(-1, 根)。目录项入栈（供其子项挂靠）；文件项不入栈 ——
+    # 于是「文件下再缩进的项」会因父级深度对不上而判 indent-jump 非法。
+    stack: List[Tuple[int, Dict[str, Any]]] = [(-1, tree)]
+    while idx < n:
+        line = lines[idx]
+        if not line.strip():
+            idx += 1
+            continue
+        match = _MD_ITEM_RE.match(line)
+        if not match:
+            raise TreeError("templateBadMarkdown", reason="unexpected line", line=line[:60])
+        indent = len(match.group(1))
+        if indent % 2:
+            raise TreeError("templateBadMarkdown", reason="odd indent", line=line[:60])
+        depth = indent // 2
+        rest = match.group(2).strip()
+        is_dir = rest.endswith("/")
+        seg = rest[:-1].strip() if is_dir else rest
+        if seg.startswith(_MD_DIR_MARK):
+            is_dir = True
+            seg = seg[len(_MD_DIR_MARK):].strip()
+        if not seg:
+            raise TreeError("templateBadMarkdown", reason="empty name", line=line[:60])
+
+        while stack and stack[-1][0] >= depth:
+            stack.pop()
+        if not stack or stack[-1][0] != depth - 1:
+            raise TreeError("templateBadMarkdown", reason="indent jump", line=line[:60])
+        parent = stack[-1][1]
+        if seg in parent:
+            raise TreeError("templateSiblingDuplicated", name=seg)
+        idx += 1
+
+        if is_dir:
+            child: Dict[str, Any] = {}
+            parent[seg] = child
+            stack.append((depth, child))
+            continue
+
+        content = ""
+        if idx < n:
+            body_indent = "  " * (depth + 1)
+            nxt = lines[idx]
+            if nxt.startswith(body_indent) and nxt[len(body_indent):].startswith("`"):
+                head = nxt[len(body_indent):]
+                run = 0
+                while run < len(head) and head[run] == "`":
+                    run += 1
+                if run >= _MD_FENCE_MIN:
+                    fence = "`" * run
+                    idx += 1
+                    body: List[str] = []
+                    closed = False
+                    while idx < n:
+                        cur = lines[idx]
+                        if cur.strip() == fence:
+                            closed = True
+                            idx += 1
+                            break
+                        if cur == "":
+                            body.append("")
+                        elif cur.startswith(body_indent):
+                            body.append(cur[len(body_indent):])
+                        else:
+                            raise TreeError("templateBadMarkdown",
+                                            reason="malformed body", line=cur[:60])
+                        idx += 1
+                    if not closed:
+                        raise TreeError("templateBadMarkdown", reason="unclosed fence")
+                    content = "\n".join(body)
+        parent[seg] = content
+
+    return {"name": name, "description": "\n".join(desc_lines), "tree": tree}
