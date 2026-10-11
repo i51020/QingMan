@@ -1,0 +1,290 @@
+{
+  "count": 17,
+  "digest": "sha256:0a316ff8d19bb6aaa2da72c61a0c0dd64e2eb80ba1825313f17188d3bd635116",
+  "digestRule": "sha256(utf8(json.dumps(<本清单去掉 digest / zip 两键>, ensure_ascii=False, sort_keys=True, separators=(\",\", \":\"))))",
+  "generatedBy": "tools/pack_templates.py",
+  "schemaVersion": 1,
+  "templates": [
+    {
+      "builtin": true,
+      "description": "项目类 P0 · 空白模板：仅项目级横向职能 14 项目录，专业工作区留空，作为综合项目起点。",
+      "dirs": 14,
+      "files": 1,
+      "json": {
+        "file": "../templates/P0_空白项目模板.json",
+        "sha256": "4bca308be8770879ebd376821aa8bd6c347ca6112ffd0785a95acfa64c924070"
+      },
+      "md": {
+        "file": "P0_空白项目模板.md",
+        "sha256": "74378cbeb55b9abee52b8f4e0c3cdedc9b96b17ce977fbd72b392f7db3d7381c"
+      },
+      "name": "空白项目模板",
+      "stem": "P0_空白项目模板"
+    },
+    {
+      "builtin": false,
+      "description": "项目类 P1 · 实拍短视频：项目级横向职能 + 实拍短视频专业工作区（选题/脚本/拍摄/视觉/剪辑/交付）。",
+      "dirs": 30,
+      "files": 1,
+      "json": {
+        "file": "P1_实拍短视频项目.json",
+        "sha256": "b8a97ae94ea4a4e3120e400e93495d8c9f2189d8d40e55a6980870af06c7534b"
+      },
+      "md": {
+        "file": "P1_实拍短视频项目.md",
+        "sha256": "d4b2f690c2d7ea3efac7e192690935654ec35fc8fdf50933c348b09e014846a8"
+      },
+      "name": "实拍短视频项目",
+      "stem": "P1_实拍短视频项目"
+    },
+    {
+      "builtin": false,
+      "description": "项目类 P2 · AI 通用生成：项目级横向职能 + AI 专业工作区（提示词/输入素材/多模态生成/评估/交付）。",
+      "dirs": 44,
+      "files": 1,
+      "json": {
+        "file": "P2_AI通用生成项目.json",
+        "sha256": "081d90e17c0c0d6fe41fdd181ce0a338b609a5622adb1f67c21328f1c7d26041"
+      },
+      "md": {
+        "file": "P2_AI通用生成项目.md",
+        "sha256": "ea0bd10bb6a1e59ae74a8eee4c35d1d8dd7b385c64029eabc58d8794b5b4dea3"
+      },
+      "name": "AI通用生成项目",
+      "stem": "P2_AI通用生成项目"
+    },
+    {
+      "builtin": false,
+      "description": "项目类 P3 · AI 短剧：项目级横向职能 + AI 短剧专业工作区（剧本/角色/分镜/镜头生成/配音/剪辑/交付）。",
+      "dirs": 55,
+      "files": 1,
+      "json": {
+        "file": "P3_AI短剧项目.json",
+        "sha256": "e414be5e94c5a77852018d5565cfa0479071e23cf202dd3316441c3ee4b6d5e3"
+      },
+      "md": {
+        "file": "P3_AI短剧项目.md",
+        "sha256": "b4f31111e2c791d359f9dbff9633f770583d768342394fbcdaf3fb23ea791d4b"
+      },
+      "name": "AI短剧项目",
+      "stem": "P3_AI短剧项目"
+    },
+    {
+      "builtin": false,
+      "description": "项目类 P4 · AI 音乐：项目级横向职能 + AI 音乐专业工作区（歌词/作曲编曲/生成/音频制作/交付）。",
+      "dirs": 38,
+      "files": 1,
+      "json": {
+        "file": "P4_AI音乐项目.json",
+        "sha256": "b6795b295661a171584a1aef4f87bfd419cc3f68fe90eec4ce3e95951085694e"
+      },
+      "md": {
+        "file": "P4_AI音乐项目.md",
+        "sha256": "c8a07fd86c498cccc5f824c41236f3146455a6472488b9fb59efb3c3ee507b36"
+      },
+      "name": "AI音乐项目",
+      "stem": "P4_AI音乐项目"
+    },
+    {
+      "builtin": false,
+      "description": "项目类 P5 · AI MV：项目级横向职能 + AI MV 专业工作区（歌曲/概念/分镜/视觉生成/音画同步/剪辑/交付）。",
+      "dirs": 44,
+      "files": 1,
+      "json": {
+        "file": "P5_AI_MV项目.json",
+        "sha256": "5b1d7dd8092a553f06c028fcad9a7b8deb346197f895c2f17312df2fd19f09c8"
+      },
+      "md": {
+        "file": "P5_AI_MV项目.md",
+        "sha256": "67e6f815bc27b485304f57e033a7534f187ce24ddf5c871d6793391aa58bf7cc"
+      },
+      "name": "AI_MV项目",
+      "stem": "P5_AI_MV项目"
+    },
+    {
+      "builtin": false,
+      "description": "项目类 P6 · 直播：项目级横向职能 + 直播专业工作区（直播前/直播中/直播后/交付）。",
+      "dirs": 23,
+      "files": 1,
+      "json": {
+        "file": "P6_直播项目.json",
+        "sha256": "0bf0e7695dc955a7f555930d3837d2baf3a30038fe00642a7674278d489827e3"
+      },
+      "md": {
+        "file": "P6_直播项目.md",
+        "sha256": "727af4de915a11a6bec3c9862ab1726f9e227d537ec7be1715cc4f47bc158343"
+      },
+      "name": "直播项目",
+      "stem": "P6_直播项目"
+    },
+    {
+      "builtin": false,
+      "description": "项目类 P7 · 策划：项目级横向职能 + 策划专业工作区（调研/策略/执行/时间预算/招商/风险/交付）。",
+      "dirs": 22,
+      "files": 1,
+      "json": {
+        "file": "P7_策划项目.json",
+        "sha256": "12d0d9cc65bd410afd047a8f5caaf78622b53c13476aae16937a659196faa9cd"
+      },
+      "md": {
+        "file": "P7_策划项目.md",
+        "sha256": "ef3bdc9c784ebf77564631beaa23f090184f715d1de9b8d8bd5f80f618d897e4"
+      },
+      "name": "策划项目",
+      "stem": "P7_策划项目"
+    },
+    {
+      "builtin": false,
+      "description": "项目类 P8 · FDE 前向部署：项目级横向职能 + FDE 专业工作区（客户环境/需求/方案/部署/数据/迭代/移交/交付）。",
+      "dirs": 23,
+      "files": 1,
+      "json": {
+        "file": "P8_FDE项目.json",
+        "sha256": "bfb9cd7a348e51552dbe55ddccea32079c11575f76249aec45cb1359477f026a"
+      },
+      "md": {
+        "file": "P8_FDE项目.md",
+        "sha256": "14f76ffe5ac87450aedb630c22951345ff076f01b9cbf9e578da8b547f7d3424"
+      },
+      "name": "FDE项目",
+      "stem": "P8_FDE项目"
+    },
+    {
+      "builtin": false,
+      "description": "项目类 P9 · 高斯泼溅：项目级横向职能 + 高斯泼溅专业工作区（采集/预处理/训练/输出/评估/交付）。",
+      "dirs": 36,
+      "files": 1,
+      "json": {
+        "file": "P9_高斯泼溅项目.json",
+        "sha256": "e7a4d2b620bcb1dd8059e6d23e08b5662d21db5a9ce768e1fb092e145b059905"
+      },
+      "md": {
+        "file": "P9_高斯泼溅项目.md",
+        "sha256": "66b04dd253ec17a568ed676f6938d2ace66bd18180a0380dbcabd912c040e6b5"
+      },
+      "name": "高斯泼溅项目",
+      "stem": "P9_高斯泼溅项目"
+    },
+    {
+      "builtin": false,
+      "description": "独立系统 S2 · 个人知识库：操作指南、自我觉察、认知、学习与输入、工作、生活、设备与器材、模板等。",
+      "dirs": 87,
+      "files": 1,
+      "json": {
+        "file": "S2_个人知识库.json",
+        "sha256": "5e8bd26899bc6c46a02894e28546b6920d07df071fa4e2928e4ad9f2a89a21f2"
+      },
+      "md": {
+        "file": "S2_个人知识库.md",
+        "sha256": "510b6f6d11f63cbb13e8e7f9574725ae55b6b5609895514c2a2089762b2b49cf"
+      },
+      "name": "个人知识库",
+      "stem": "S2_个人知识库"
+    },
+    {
+      "builtin": false,
+      "description": "独立系统 S3 · 素材资源库：共用资产（字体/LUT/品牌/音效/模板/授权）、拍摄素材、通用素材、导出成片。",
+      "dirs": 15,
+      "files": 2,
+      "json": {
+        "file": "S3_素材资源库.json",
+        "sha256": "ae78390052b35f0567656b1c8bd56b06b7cbe6918fcc78ce811b8fdbaa4b821e"
+      },
+      "md": {
+        "file": "S3_素材资源库.md",
+        "sha256": "438e670c4e53966fac0f56ecaa59a9fbc065566c516517f65c35cf8a8f022576"
+      },
+      "name": "素材资源库",
+      "stem": "S3_素材资源库"
+    },
+    {
+      "builtin": false,
+      "description": "独立系统 S4 · 财务台账：记账、凭证、税务合规、进销项发票、银行流水、年度模板（含四季度）。",
+      "dirs": 14,
+      "files": 1,
+      "json": {
+        "file": "S4_财务台账.json",
+        "sha256": "70896d77bb2ec5795db7643bd043f1d8471da29df5cd706c35d9e95c6b4ee499"
+      },
+      "md": {
+        "file": "S4_财务台账.md",
+        "sha256": "004fcf914ddee99660b8f400b1160bd7a0dc1fa737db5f7a5b98c5607bde4a32"
+      },
+      "name": "财务台账",
+      "stem": "S4_财务台账"
+    },
+    {
+      "builtin": false,
+      "description": "独立系统 S5 · 文档资料库：电子书、说明书、行业标准、论文报告、表单模板、待归类、归档。",
+      "dirs": 8,
+      "files": 1,
+      "json": {
+        "file": "S5_文档资料库.json",
+        "sha256": "b0ed58628e1f88f7c30e2a096d07244306f0b70a1014cfc51aff6d79d058a57b"
+      },
+      "md": {
+        "file": "S5_文档资料库.md",
+        "sha256": "a84e4a6238571ed446f4dac24e99a11435e8a3b62ae7570c03f033c0d164bbb6"
+      },
+      "name": "文档资料库",
+      "stem": "S5_文档资料库"
+    },
+    {
+      "builtin": false,
+      "description": "独立系统 S6 · 个人档案库：证件、健康、财务、车辆、家庭、合同、证书、通讯录、设备与工作档案。",
+      "dirs": 13,
+      "files": 1,
+      "json": {
+        "file": "S6_个人档案库.json",
+        "sha256": "cec79b26ee00c35158da11b1a57735ea537f090a3253929616bc0a0f2dbc1094"
+      },
+      "md": {
+        "file": "S6_个人档案库.md",
+        "sha256": "785d6f361cff68466e7d8e375e291825c6e912687bce9773161bc8806645e1e7"
+      },
+      "name": "个人档案库",
+      "stem": "S6_个人档案库"
+    },
+    {
+      "builtin": false,
+      "description": "独立系统 S7 · 产出库：视频、文章、音频、图片四类产出，含发布记录与归档。",
+      "dirs": 7,
+      "files": 1,
+      "json": {
+        "file": "S7_产出库.json",
+        "sha256": "81d5f75764630187e425a9b544c40fdce49acf889d76ddbef2dcc8a5f6454de8"
+      },
+      "md": {
+        "file": "S7_产出库.md",
+        "sha256": "e80c5978119b0cff2746f9bc3d018b1a89f74492f102e4255f235d565a7e5aaa"
+      },
+      "name": "产出库",
+      "stem": "S7_产出库"
+    },
+    {
+      "builtin": false,
+      "description": "独立系统 S8 · 提示词与脚本工具库：系统/任务提示词、片段变量、脚本总库、测试用例、文档与短链接登记表。",
+      "dirs": 16,
+      "files": 2,
+      "json": {
+        "file": "S8_提示词与脚本工具库.json",
+        "sha256": "1b47baaa33c64fa27947d87172ff619bf3e1479f7b986e95b4e8f7aee2491115"
+      },
+      "md": {
+        "file": "S8_提示词与脚本工具库.md",
+        "sha256": "b3487dfb00b9b5a972642f849d980157af9b0d14802e2698b8851af08b90e8fa"
+      },
+      "name": "提示词与脚本工具库",
+      "stem": "S8_提示词与脚本工具库"
+    }
+  ],
+  "totals": {
+    "dirs": 489,
+    "files": 19
+  },
+  "zip": {
+    "file": "QingMan-模板包.zip",
+    "members": 34,
+    "sha256": "6f953128d369fb2fba7b44715be1ce2fc83c371f8360fd9801105d7439a7866b"
+  }
+}

@@ -36,7 +36,7 @@ NORMAL = {
     "idxCjk": "0",
     "idxSkin": "1",
     "skinEn": "Paper", "skinZh": "纸张",
-    "tplRows": "17",
+    "tplRows": "1",
     "secBefore": "7", "secEn": "7", "secZh": "7",
     "navBefore": "7", "navZh": "7",
     "langEn": "en-US", "langZh": "zh-CN",
@@ -58,6 +58,8 @@ FAIL_LANG = "主界面·默认示例随语言"
 FAIL_DRAG = "主界面·拖拽预判自身子树（C-P3-2）"
 FAIL_DL = "主界面·拖拽高亮不因划过子元素闪烁（C-P3-3）"
 FAIL_TOAST = "主界面·提示条数量上限（C-P3-4）"
+# V0.0.37（6D）：模板判定项由「模板库已接入（≥1）」收紧为「内置模板仅 P0（恰好 1）」
+TPL_CHECK = "主界面·内置模板仅 P0（V0.0.37）"
 
 
 def run_metrics(metrics: dict, expected_version: str = VERSION,
@@ -208,7 +210,12 @@ class VerifyMetricsTests(unittest.TestCase):
     def test_templates_check_skipped_when_not_expected(self):
         results = run_metrics(NORMAL, expect_templates=False)
         self.assertEqual(len(results), 13, "不期望模板时不应产生模板判定项")
-        self.assertNotIn("主界面·模板库已接入", [n for _o, n, _x in results])
+        self.assertNotIn(TPL_CHECK, [n for _o, n, _x in results])
+
+    def test_6d_business_templates_in_builtin_fails_exactly(self):
+        """6D 契约：内置只允许 P0。业务模板被放回 templates/（17 行）→ 恰好那项 FAIL。"""
+        metrics = dict(NORMAL, tplRows="17")
+        self.assertEqual(failed_names(run_metrics(metrics)), [TPL_CHECK])
 
     def test_low_row_count_fails(self):
         metrics = dict(NORMAL, idxRows="1")

@@ -12,6 +12,10 @@ store/.trash/
 # 见 docs/项目约定.md §P0-7「编辑态数据契约与持久化」
 data/
 
+# 模板分发包：可由 `tools/pack_templates.py` **确定性重建**的可再生产物
+# （唯一真源是包目录内的 .md / .json 与 pack.manifest.json，见 §十.3 E）
+templates-pack/*.zip
+
 # ── 编辑器 / 操作系统 ───────────────────────────────────
 .vscode/
 .idea/

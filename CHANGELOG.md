@@ -7,6 +7,53 @@
 
 ---
 
+## V0.0.37 — 2026-10-12
+
+**主题**：**P3 · 6D 模板迁移 + 打包**（《项目手册》§十.3 **E 分发层**）—— 交付形态从「工具内置 17 套业务模板」改为「**内置只留 `P0` + 独立可分发的模板包**」：16 套业务模板迁入 `templates-pack/`（`.md` 为**主分发格式** + `.json` **逐字节等价**副本），并新增 `tools/pack_templates.py` 把包固化为**可复算**产物（逐套 `md↔json` **逐节点等价** · 清单 `digest` **独立复算** · **确定性 zip**）。**升 patch `V0.0.36` → `V0.0.37`**。**无新增错误码** —— `src/` 只动**三处版本戳**（否则工具会「内置 17 套业务模板」的隐含前提仍在）。
+
+> 裁决依据（用户 2026-10-11，三问一补）：① `templates/` 里 16 套 `.json` 原件 → **直接 `git rm`**；② `browser_smoke` 模板行断言 → **收紧为「恰好 1」且注入沙盒 env**；③ 打包落地方案 → **采纳 Ⓐ′**（清单入库 + `zip` 入 `.gitignore` + 确定性构建）；④ 反向验证暴露的**退出码契约不一致** → **一并修入 V0.0.37**。
+
+| # | 文件 | 项 | 处置 |
+|---|---|---|---|
+| 1 | `templates/` | **内置层收窄** | 只留 `P0_空白项目模板.json`；16 套业务 `.json` 原件迁出（**直接 `git rm`**，按用户裁决不保留内置副本）。`store.TRACK_ITEMS` 只含 `src` / `start.bat` / `VERSION`，故 `templates/` 与 `templates-pack/` **均不进版本清单** |
+| 2 | `templates-pack/` | **分发层新增** | 17 套 `.md`（`P0` 同源件 + 16 套业务）+ 16 套 `.json`（业务，`P0` 的 `.json` **不在包内** —— 它是工具唯一内置模板）+ `模板库来源说明.md`（由 `templates/` 迁入并追加「## 分发包布局（2026-10-11 · V0.0.37）」节）。实测 **套数 17 / 目录 489 / 文件 19**（与来源说明一致） |
+| 3 | `tools/pack_templates.py` | **新增（纯工具）** | `discover`（盘点 17 套 + **双向孤儿判据**）/ `validate_entry`（三条不变量：`.json` 结构合法 + `.md` 三字段**逐节点等价** + `.md` 是 `render(parse(md))` 的**不动点**）/ `validate_pack` / `build_payload` / `canonical_bytes` / `payload_digest` / `zip_members` / `build_zip_bytes` / `finalize_manifest` / `render_manifest` / `_write_atomic` / `load_manifest` / `main` / `_run_check`。CLI：`--check` / `--zip <路径>` / `--pack-dir` / `--templates-dir` |
+| 4 | `tools/pack_templates.py` | **退出码契约** | 拆出 **`PackIOError(PackError)`** 只承载环境类错误（包目录 / 内置件缺失）→ `1`；**孤儿 `.md` / 缺同名件 / 等价性 / 规范渲染 / 清单失配**归内容类 → `2`。原实现把前两类也归入 `1`，与 docstring 声称的 `2` **不符**（反向验证 N7a 暴露） |
+| 5 | `tools/pack_templates.py` | **确定性 zip** | 条目时间戳固定 `(1980,1,1,0,0,0)` + `create_system=0` + `external_attr=0o644<<16` + `compresslevel=9` + 成员名字典序 → **同源连跑两次字节相同**（实测 24 270 B，`sha256=6f953128…`） |
+| 6 | `tools/verify.py` | 守卫 | 新增检查段「模板迁移与打包批 V0.0.37」（**7ae**）四条不变量：① `templates/` 只允许 `P0_空白项目模板.json`；② 包内 `.md` 18 / `.json` 16 + 三个必需文件；③ **清单 `digest` 由本校验按 `digestRule` 独立复算**（`hashlib` + 规范化 `json.dumps`，**不调用工具函数** —— 调工具等于拿工具证明它自己）；④ `.gitignore` 含 `templates-pack/*.zip`。另锚 `pack_templates.py` **10 个 token**（含 `"孤儿"`、`'zipfile.ZIP_DEFLATED'`、`"class PackIOError("`、`"except PackIOError"`）+ `browser_smoke` 两 token（`"QM_TEMPLATES_DIR"`、`"tpl == 1"`）→ **89 → 90 项** |
+| 7 | `tools/verify.py` | 守卫 | `BINARY_SUFFIXES` 增 **`.zip`** —— deflate 流天然含 `0x0D`，而「换行一致性」是**遍历文件系统**的全树检查（二进制只按扩展名豁免），不登记即假红 |
+| 8 | `tools/browser_smoke.py` | 页面层 | 模板行断言由 **`tpl >= 1` 收紧为 `tpl == 1`**，并把沙盒内置目录经 **`QM_TEMPLATES_DIR`** 显式喂给服务 —— 否则业务模板回流照样通过，且本机 `settings.json` 的绑定会污染断言 |
+| 9 | `tests/test_pack_templates.py` | 单测 | **新增 25 项**（布局 3 / 等价性 6 / 清单 4 / 确定性 zip 4 / 检查模式 8）；破坏性用例一律在**临时副本**上进行（`_fixture()` 复制真实目录、排除 `*.zip`） |
+| 10 | `tests/test_browser_smoke.py` | 单测 | `NORMAL["tplRows"]` **`17` → `1`**；新增 `test_6d_business_templates_in_builtin_fails_exactly`（回流时**恰好**该项 FAIL） |
+| 11 | `.gitignore` | 收口 | 新增 `templates-pack/*.zip` —— 唯一真源是包目录内的 `.md` / `.json` 与 `pack.manifest.json`，`zip` 是**可再生产物**（§P1-4 / §P1-7 R3 同理） |
+| 12 | 文档 | 同步 | `README.md`（目录树 + §模板库 整节重写 + 主线 **90 项** / 预览 **85 项** + 四件套「改 `templates-pack/` 后另跑 `--check`」）· `docs/项目手册.md`（§7.3 改「已实施」/ §10.3 状态行 / §十三 第 9 项 / §十四 工具索引）· `docs/模板系统重设计_方案原型_20261011.md`（实施进度表 6D ✅）· `docs/错误笔记.md` **§三.52–54** |
+
+**反向验证（全部真实运行，`E:\qm_revcheck_6D\` 临时副本）**：基线副本 `verify` **86 项 / 0 失败**（未含 `docs/`）→ 逐个注入 → **10/10 恰该项被捕获**：
+
+| # | 注入的缺陷 | 捕获者 | 期望签名 |
+|---|---|---|---|
+| N1 | 业务模板放回 `templates/` | verify 7ae① | rc≠0 + `templates/ 应只留 P0_空白项目模板.json` |
+| N2 | 删 `S4_财务台账.md` | verify 7ae② + `discover` | `包内 .md 应 18` / `缺同名 .md 等价件`（工具 rc=2） |
+| N3 | `.md` 改一字 | `validate_entry` | `--check` rc=2 + `tree 不等价` |
+| N4 | 清单 `digest` 改末位 | verify 7ae③ **独立复算** | `清单 digest 复算失配` |
+| N5 | 清单 `count` 17→16 | verify 7ae③ | `清单套数 16 ≠ 17` |
+| N6 | `.gitignore` 去掉忽略行 | verify 7ae④ | `.gitignore 未忽略 templates-pack/*.zip` |
+| N7a | 删 `.json` 留 `.md`（孤儿） | `discover` 双向判据 | `孤儿 S5_文档资料库.md`（rc=**2**） |
+| N7b | 摘掉工具的孤儿判据整块 | verify 的 `"孤儿"` token 锚定 | `pack_templates 未拒孤儿 .md` |
+| N8 | 16 套业务模板回流 + 两版断言 | 运行时页面层 | `==1` 版**恰好 1 项 FAIL**；放松为 `>=1` 版 **rc=0 漏网** |
+| N9 | —（正向复核） | 工具幂等 | 同源重跑 `zip` 字节相同；`sha256` 与清单一致 |
+| N10 | 包目录缺失 | 退出码契约上半 | rc=**1**（环境类），与 N7a 的 2 构成码位对 |
+
+每个用例均在 `finally` 还原并复查回绿。**N8 最具价值**：同时证明「`==1` 收紧」既**必要**（放松后回流漏网）又**充分**（收紧后恰好命中、无误伤）。**N3 的分层留档**：`verify` 的 digest 复算只验「清单自洽」，**证不了「盘上文件与清单一致」**——后者由 `--check` 的「清单主体与盘上模板不一致」负责，两层分工**不是缺陷**。
+
+**四件套**：`verify .` **90 项失败 1**（唯一红项＝「接续说明实况段 已过期」，待 `handoff.py` 刷新）· `unittest` **351 OK**（325 → 349 → 351；6D 先 **+24**、退出码契约再 **+2**）· `smoke` **29/0** · `browser_smoke` **17/0**（新断言实机 PASS：`模板行 1 条`）。
+
+**过程发现（据实，→ §三.53 / §三.54）**：① **「只按一种扩展名收集」会让漏项静默消失** —— `discover` 原先只 `glob("*.json")`，删掉某套 `.json` 后该套**根本不进集合**，套数 17→16 而校验 / 清单 / zip 全部照常通过（单测以 `PackError not raised` 直接暴露）；② **二进制产物撞上全树换行扫描** → `.zip` 未登记进 `BINARY_SUFFIXES` 即假红；③ **退出码契约名实不符** —— docstring 称孤儿属 `2`，实现因 `discover` 抛错而统一归 `1`。
+
+**未做事（据实）**：本轮**不含前端** —— 目录绑定 UI（`tkinter.filedialog.askdirectory` / 手动粘贴降级）、轮询 2500ms、右键菜单、导出（`api.importTemplate` 接线）归 **6E**。**副产物**：`E:\qm_tmp`（`test.mjs` + `tree-model.mjs`，2 文件 / 8 K，10-11 16:39）系**早期批次遗留**，未动，待裁决。
+
+---
+
 ## V0.0.36 — 2026-10-11
 
 **主题**：**P3 · 6C 模板双格式列表 + 导入**（《项目手册》§十.3 落地第二步）—— 模板库从「只认 `.json`」扩到 **`.json` + `.md` 双格式**：列表两种格式一并扫并标注 `source`、单读按扩展名分派，并新增 **`POST /api/templates/import`**（收文件原文 → **归一** → 全量校验 → **保持原格式**落盘）。**升 patch `V0.0.35` → `V0.0.36`**。**新增错误码 1 枚**（`templateEmpty`，`error-codes.json` + `zh-CN` + `en-US` **三方齐备**）。

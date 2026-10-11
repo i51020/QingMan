@@ -1,0 +1,326 @@
+"""青蔓 QingMan · pack_templates 单元测试（§P0-2 T2 / §P2 第 19 项 / 批 6D）。
+
+覆盖 `tools/pack_templates.py` 承担判定职责的**纯函数**与两条核心不变量：
+
+  * **内容保真**：17 套的 `.md` 与 `.json` **逐节点等价**（name / description / tree），
+    且 `.md` 自身是往返不动点 —— 任一单边改动都必须被拒。
+  * **可复算**：清单 `digest` 与 zip `sha256` 都能由盘上内容独立复算出来；且 zip 是
+    **确定性**的（同一份源连跑两次字节相同，§P1-4 工具幂等）。
+  * **退出码契约**：1 = 环境 / IO（目录或内置件缺失）；2 = 内容不通过（孤儿 `.md` /
+    缺同名件 / 等价性 / 规范渲染 / 清单失配）。两类必须可分，见 `CheckModeTests`。
+
+破坏性用例一律在**临时副本**上进行，不触碰仓库内真实 `templates/` 与 `templates-pack/`。
+"""
+
+from __future__ import annotations
+
+import contextlib
+import io
+import json
+import shutil
+import sys
+import tempfile
+import unittest
+import zipfile
+from pathlib import Path
+
+_HERE = Path(__file__).resolve()
+_ROOT = _HERE.parents[1]
+_TOOLS = _ROOT / "tools"
+if str(_TOOLS) not in sys.path:
+    sys.path.insert(0, str(_TOOLS))
+
+import pack_templates as pt  # noqa: E402
+
+REAL_PACK = _ROOT / "templates-pack"
+REAL_TPL = _ROOT / "templates"
+
+
+def _quiet(func, *args, **kwargs):
+    """吞掉工具的 stdout（保持测试输出干净），返回其返回值。"""
+    with contextlib.redirect_stdout(io.StringIO()):
+        return func(*args, **kwargs)
+
+
+def _quiet_capture(func, *args, **kwargs):
+    """吞掉 stdout 并返回 `(返回值, 输出文本)` —— 用于断言退出码**与**提示语同时正确。"""
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = func(*args, **kwargs)
+    return rc, buf.getvalue()
+
+
+def _fixture():
+    """临时副本：真实 templates/ + templates-pack/（排除可再生的 zip）。"""
+    tmp = Path(tempfile.mkdtemp(prefix="qm_pack_test_"))
+    pack = tmp / "templates-pack"
+    tpl = tmp / "templates"
+    shutil.copytree(REAL_PACK, pack, ignore=shutil.ignore_patterns("*.zip"))
+    shutil.copytree(REAL_TPL, tpl)
+    return tmp, pack, tpl
+
+
+class PackLayoutTests(unittest.TestCase):
+    """盘上布局：内置只留 P0；包内 17 套 .md + 16 套 .json。"""
+
+    def test_templates_dir_has_only_builtin(self):
+        left = sorted(p.name for p in REAL_TPL.iterdir())
+        self.assertEqual(left, [pt.BUILTIN_JSON],
+                         f"templates/ 应只留内置 {pt.BUILTIN_JSON}，实测 {left}")
+
+    def test_pack_dir_counts(self):
+        mds = [p.name for p in REAL_PACK.glob("*.md")]
+        jsons = [p.name for p in REAL_PACK.glob("*.json")
+                 if p.name != pt.MANIFEST_NAME]
+        self.assertEqual(len(mds), 18, f"包内 .md 应为 17 套 + 1 说明，实测 {len(mds)}")
+        self.assertEqual(len(jsons), 16, f"包内 .json 应为 16 套，实测 {len(jsons)}")
+
+    def test_discover_marks_builtin_first(self):
+        entries = pt.discover(REAL_PACK, REAL_TPL)
+        self.assertEqual(len(entries), 17)
+        self.assertTrue(entries[0]["builtin"])
+        self.assertEqual(entries[0]["stem"], pt.BUILTIN_JSON[:-5])
+        self.assertEqual(entries[0]["json_rel"], "../templates/" + pt.BUILTIN_JSON,
+                         "P0 的 .json 必须指向包外的内置件")
+        self.assertTrue(all(not e["builtin"] for e in entries[1:]))
+
+
+class PackEquivalenceTests(unittest.TestCase):
+    """17/17 逐节点等价 + 规模与来源说明自洽。"""
+
+    def test_all_entries_pass(self):
+        entries = pt.discover(REAL_PACK, REAL_TPL)
+        n, dirs, files = pt.validate_pack(entries)
+        self.assertEqual((n, dirs, files), (17, 489, 19),
+                         "17 套 / 489 目录 / 19 文件（与《模板库来源说明》一致）")
+
+    def test_rejects_md_json_mismatch(self):
+        tmp, pack, tpl = _fixture()
+        try:
+            md = pack / "P1_实拍短视频项目.md"
+            md.write_text(md.read_text(encoding="utf-8").replace("- 日志/", "- 日志X/", 1),
+                          encoding="utf-8", newline="\n")
+            entries = pt.discover(pack, tpl)
+            with self.assertRaises(pt.PackError) as ctx:
+                pt.validate_pack(entries)
+            self.assertIn("tree 不等价", str(ctx.exception))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_rejects_noncanonical_md(self):
+        """语义不变但非规范形（多一层缩进的空行）也必须被拒。"""
+        tmp, pack, tpl = _fixture()
+        try:
+            md = pack / "P7_策划项目.md"
+            text = md.read_text(encoding="utf-8")
+            md.write_text(text + "\n\n", encoding="utf-8", newline="\n")
+            entries = pt.discover(pack, tpl)
+            with self.assertRaises(pt.PackError) as ctx:
+                pt.validate_pack(entries)
+            self.assertIn("规范渲染", str(ctx.exception))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_rejects_missing_json_twin(self):
+        """孤儿 `.md`（`.json` 被删）必须被拒 —— 只按 `.json` 收集会让它静默消失。"""
+        tmp, pack, tpl = _fixture()
+        try:
+            (pack / "S5_文档资料库.json").unlink()
+            with self.assertRaises(pt.PackError) as ctx:
+                pt.discover(pack, tpl)
+            self.assertIn("孤儿", str(ctx.exception))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_rejects_missing_md_twin(self):
+        tmp, pack, tpl = _fixture()
+        try:
+            (pack / "S5_文档资料库.md").unlink()
+            with self.assertRaises(pt.PackError) as ctx:
+                pt.discover(pack, tpl)
+            self.assertIn("缺同名 .md", str(ctx.exception))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_doc_file_is_not_orphan(self):
+        """说明件无 `.json` 等价件，但**不得**被判孤儿。"""
+        entries = pt.discover(REAL_PACK, REAL_TPL)
+        stems = {e["stem"] for e in entries}
+        self.assertNotIn("模板库来源说明", stems)
+        self.assertEqual(len(entries), 17)
+
+
+class ManifestTests(unittest.TestCase):
+    """清单 digest 可复算；且覆盖 digestRule 自身。"""
+
+    def test_manifest_matches_disk(self):
+        entries = pt.discover(REAL_PACK, REAL_TPL)
+        want = pt.canonical_bytes(pt.build_payload(entries))
+        got = pt.canonical_bytes(pt.load_manifest(REAL_PACK))
+        self.assertEqual(want, got, "清单主体应与盘上模板一致（否则有人改了模板未重生成清单）")
+
+    def test_digest_recomputable(self):
+        manifest = pt.load_manifest(REAL_PACK)
+        self.assertEqual(manifest["digest"], pt.payload_digest(manifest))
+        self.assertEqual(manifest["digestRule"], pt.DIGEST_RULE)
+
+    def test_digest_covers_digest_rule(self):
+        """规则文本本身也进 digest —— 改写规则同样会失配。"""
+        manifest = pt.load_manifest(REAL_PACK)
+        tampered = dict(manifest)
+        tampered["digestRule"] = manifest["digestRule"] + " "
+        self.assertNotEqual(pt.payload_digest(tampered), manifest["digest"])
+
+    def test_totals_match_entries(self):
+        manifest = pt.load_manifest(REAL_PACK)
+        self.assertEqual(manifest["count"], 17)
+        self.assertEqual(manifest["totals"], {"dirs": 489, "files": 19})
+        self.assertEqual(sum(t["dirs"] for t in manifest["templates"]), 489)
+        self.assertEqual(sum(t["files"] for t in manifest["templates"]), 19)
+        for item in manifest["templates"]:
+            self.assertTrue(item["md"]["sha256"] and item["json"]["sha256"])
+
+
+class DeterministicZipTests(unittest.TestCase):
+    """zip 确定性：字节可复现、条目固定、时间戳固定、清单不入包。"""
+
+    def test_zip_bytes_reproducible(self):
+        a = pt.build_zip_bytes(REAL_PACK)
+        b = pt.build_zip_bytes(REAL_PACK)
+        self.assertEqual(a, b, "同一份源连跑两次 zip 必须字节相同")
+
+    def test_members_exclude_manifest_and_zip(self):
+        names = [p.name for p in pt.zip_members(REAL_PACK)]
+        self.assertEqual(len(names), 34, f"34 个成员（18 .md + 16 .json），实测 {len(names)}")
+        self.assertNotIn(pt.MANIFEST_NAME, names)
+        self.assertFalse([n for n in names if n.lower().endswith(".zip")])
+        self.assertEqual(names, sorted(names), "成员须按名字典序")
+
+    def test_entry_stamp_and_mode_fixed(self):
+        data = pt.build_zip_bytes(REAL_PACK)
+        with zipfile.ZipFile(io.BytesIO(data)) as zf:
+            for info in zf.infolist():
+                self.assertEqual(info.date_time, pt.ZIP_STAMP)
+                self.assertEqual(info.external_attr, pt.ZIP_MODE)
+
+    def test_manifest_zip_sha256_matches_build(self):
+        manifest = pt.load_manifest(REAL_PACK)
+        self.assertEqual(manifest["zip"]["sha256"],
+                         pt.sha256_bytes(pt.build_zip_bytes(REAL_PACK)))
+        self.assertEqual(manifest["zip"]["members"], 34)
+
+
+class CheckModeTests(unittest.TestCase):
+    """`--check` / 默认模式的三态：干净副本通过；内容坏 / 清单缺失或过期 → 2（不得抛栈）。"""
+
+    def test_check_passes_on_fresh_copy(self):
+        tmp, pack, tpl = _fixture()
+        try:
+            self.assertEqual(
+                _quiet(pt.main, ["--pack-dir", str(pack), "--templates-dir", str(tpl)]), 0)
+            self.assertEqual(
+                _quiet(pt.main, ["--check", "--pack-dir", str(pack),
+                                 "--templates-dir", str(tpl)]), 0)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_broken_content_returns_2_not_traceback(self):
+        """`.md` 非规范渲染是**内容校验失败**（退出码 2），不能以 traceback 收场。"""
+        tmp, pack, tpl = _fixture()
+        try:
+            self.assertEqual(
+                _quiet(pt.main, ["--pack-dir", str(pack), "--templates-dir", str(tpl)]), 0)
+            md = pack / "S2_个人知识库.md"
+            md.write_text(md.read_text(encoding="utf-8") + "\n", encoding="utf-8", newline="\n")
+            self.assertEqual(
+                _quiet(pt.main, ["--pack-dir", str(pack), "--templates-dir", str(tpl)]), 2)
+            self.assertEqual(
+                _quiet(pt.main, ["--check", "--pack-dir", str(pack),
+                                 "--templates-dir", str(tpl)]), 2)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_missing_env_returns_1(self):
+        tmp, pack, tpl = _fixture()
+        try:
+            (tpl / pt.BUILTIN_JSON).unlink()
+            self.assertEqual(
+                _quiet(pt.main, ["--pack-dir", str(pack), "--templates-dir", str(tpl)]), 1)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_orphan_and_missing_twin_are_content_errors(self):
+        """孤儿 `.md` / 缺同名件属**内容**校验失败（退出码 2），不得与环境错误（1）同码。
+
+        反向验证 N7a（2026-10-11）暴露：二者原本都由 `discover()` 抛出，被 main 的
+        discover 分支统一归为 1，而 docstring 声称其为 2。修法是拆出 `PackIOError`
+        只承载环境类错误。本用例锁住该契约，避免日后合并回一个码位。
+        """
+        tmp, pack, tpl = _fixture()
+        try:
+            (pack / "S5_文档资料库.json").unlink()
+            rc, msg = _quiet_capture(pt.main, ["--check", "--pack-dir", str(pack),
+                                               "--templates-dir", str(tpl)])
+            self.assertEqual(rc, 2, f"孤儿 .md 应返 2，实测 {rc}：{msg.strip()}")
+            self.assertIn("孤儿", msg)
+
+            shutil.copy2(REAL_PACK / "S5_文档资料库.json", pack / "S5_文档资料库.json")
+            (pack / "S4_财务台账.md").unlink()
+            rc, msg = _quiet_capture(pt.main, ["--check", "--pack-dir", str(pack),
+                                               "--templates-dir", str(tpl)])
+            self.assertEqual(rc, 2, f"缺同名件应返 2，实测 {rc}：{msg.strip()}")
+            self.assertIn("缺同名 .md", msg)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_missing_pack_dir_returns_1(self):
+        """包目录整个缺失 → 环境错误（1），与内容错误（2）码位对的上半部分。"""
+        tmp, pack, tpl = _fixture()
+        try:
+            shutil.rmtree(pack)
+            rc, msg = _quiet_capture(pt.main, ["--check", "--pack-dir", str(pack),
+                                               "--templates-dir", str(tpl)])
+            self.assertEqual(rc, 1, f"包目录缺失应返 1，实测 {rc}：{msg.strip()}")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_check_detects_missing_manifest(self):
+        tmp, pack, tpl = _fixture()
+        try:
+            (pack / pt.MANIFEST_NAME).unlink()
+            self.assertEqual(
+                _quiet(pt.main, ["--check", "--pack-dir", str(pack),
+                                 "--templates-dir", str(tpl)]), 2)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_check_detects_tampered_manifest(self):
+        """清单被手改（digest 与内容不符）→ 复算失配。"""
+        tmp, pack, tpl = _fixture()
+        try:
+            _quiet(pt.main, ["--pack-dir", str(pack), "--templates-dir", str(tpl)])
+            path = pack / pt.MANIFEST_NAME
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["digest"] = "sha256:" + "0" * 64
+            path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+                            encoding="utf-8", newline="\n")
+            self.assertEqual(
+                _quiet(pt.main, ["--check", "--pack-dir", str(pack),
+                                 "--templates-dir", str(tpl)]), 2)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_manifest_write_is_lf(self):
+        tmp, pack, tpl = _fixture()
+        try:
+            _quiet(pt.main, ["--pack-dir", str(pack), "--templates-dir", str(tpl)])
+            raw = (pack / pt.MANIFEST_NAME).read_bytes()
+            self.assertNotIn(b"\r", raw, "清单必须是纯 LF（§编码基线）")
+            self.assertTrue(raw.endswith(b"\n"))
+            json.loads(raw.decode("utf-8"))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+if __name__ == "__main__":
+    unittest.main()

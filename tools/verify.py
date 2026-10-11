@@ -27,7 +27,7 @@
  9a. 共享契约版本戳（V0.0.23）：schema.json 的 version 必须等于 VERSION（防契约漂移）
  9b. 落盘安全边界（§P0-1）：config 黑名单 / dtree_core.check_target / routes 接线 / 错误码
  9c. 回归测试网（§P0-2）：tests/ 全部 test_*.py + tools/smoke.py + tools/browser_smoke.py
-     （仅项目根，预览目录跳过）
+     + tools/pack_templates.py（仅项目根，预览目录跳过）
  7s. 请求体上限一致性（V0.0.22）：MAX_BODY_BYTES ≥ 各业务上限（编辑态/模板/图标），
      否则业务错误码 editorTooLarge / templateTooLarge 不可达
  7t. 帮助页分节渲染幂等（V0.0.22）：renderSections 必须清空容器，语言切换不得累积
@@ -44,6 +44,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import os
 import re
@@ -119,8 +120,10 @@ CJK = re.compile(r"[\u4e00-\u9fff]")
 
 # 二进制扩展名：换行检查豁免（PNG/JPEG 等含 CR 字节属正常）。
 # 同时单文件体积上限仍约束它们（SRC_FILE_LIMIT）。
+# `.zip` 于 V0.0.37（6D）加入：`templates-pack/*.zip` 是**可再生的分发件**（deflate 流
+# 天然含 0x0D 字节），且 §P1-4 的 `legacy/trash-archive-<日期>.zip` 同属此类。
 BINARY_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico",
-                   ".woff", ".woff2", ".ttf", ".otf", ".eot"}
+                   ".woff", ".woff2", ".ttf", ".otf", ".eot", ".zip"}
 
 # 换行一致性守卫的扫描范围 = **纳入版本控制的文本文件全集**（含 versions/**/MANIFEST*.json）。
 # 排除运行时与派生内容：data/（运行时数据，见 §P0-7）、store/（对象库 blob 副本）、.git/。
@@ -1660,6 +1663,95 @@ def main() -> int:
           f"缺失：{', '.join(fmt_bad)}" if fmt_bad
           else "双格式列表+source / 统一读取分派 / 导入归一+全量校验+格式保持 / 接线 / 错误码 齐备")
 
+    # 7ae. 模板迁移与打包批（V0.0.37，§十.3 E · 6D）
+    #      交付形态从「工具内置 17 套」改为「内置 P0 + 独立可分发包」，四条不变量：
+    #      ① **内置层收窄**：`templates/` 只允许内置 P0 —— 业务模板回流必须被抓（否则
+    #         「工具不带业务模板」在无人察觉的情况下回退）；
+    #      ② **分发层成形**：`templates-pack/` 内 17 套 `.md` + 16 套 `.json` + 说明 + 清单；
+    #      ③ **清单可复算**：`digest` 由本校验**按 digestRule 独立复算**（不调用工具函数 ——
+    #         调工具就等于拿工具证明它自己，改坏规则也照样通过）；
+    #      ④ **zip 不入库**：可再生产物必须被 `.gitignore` 收口（否则每次改模板都产生新 blob）。
+    pack_bad: list[str] = []
+    tpl_dir = root / "templates"
+    tpl_names = sorted(p.name for p in tpl_dir.iterdir()) if tpl_dir.is_dir() else []
+    if tpl_names != ["P0_空白项目模板.json"]:
+        pack_bad.append(f"templates/ 应只留 P0_空白项目模板.json，实测 {tpl_names}")
+
+    pack_dir = root / "templates-pack"
+    if not pack_dir.is_dir():
+        pack_bad.append("缺 templates-pack/")
+    else:
+        pack_names = sorted(p.name for p in pack_dir.iterdir())
+        n_md = sum(1 for n in pack_names if n.endswith(".md"))
+        n_json = sum(1 for n in pack_names if n.endswith(".json") and n != "pack.manifest.json")
+        if n_md != 18:
+            pack_bad.append(f"包内 .md 应 18（17 套 + 1 说明），实测 {n_md}")
+        if n_json != 16:
+            pack_bad.append(f"包内 .json 应 16，实测 {n_json}")
+        for rel in ("P0_空白项目模板.md", "模板库来源说明.md", "pack.manifest.json"):
+            if rel not in pack_names:
+                pack_bad.append(f"缺 templates-pack/{rel}")
+
+    man_path = pack_dir / "pack.manifest.json"
+    if not man_path.is_file():
+        pack_bad.append("缺 pack.manifest.json（清单可复算之前提）")
+    else:
+        try:
+            man = json.loads(man_path.read_text(encoding="utf-8"))
+        except ValueError:
+            man = None
+            pack_bad.append("pack.manifest.json 无法解析")
+        if isinstance(man, dict):
+            # 独立复算：规则照 digestRule 的表述（排除 digest / zip 两键的规范化 JSON）
+            body = {k: v for k, v in man.items() if k not in ("digest", "zip")}
+            canon = json.dumps(body, ensure_ascii=False, sort_keys=True,
+                               separators=(",", ":")).encode("utf-8")
+            want_digest = "sha256:" + hashlib.sha256(canon).hexdigest()
+            if man.get("digest") != want_digest:
+                pack_bad.append("清单 digest 复算失配（规则见清单 digestRule）")
+            if man.get("count") != 17:
+                pack_bad.append(f"清单套数 {man.get('count')} ≠ 17")
+            if (man.get("totals") or {}) != {"dirs": 489, "files": 19}:
+                pack_bad.append("清单合计 ≠ 489 目录 / 19 文件")
+            if not (man.get("zip") or {}).get("sha256"):
+                pack_bad.append("清单缺 zip.sha256（确定性构建不可复算）")
+            builtin_items = [t for t in (man.get("templates") or []) if t.get("builtin")]
+            if len(builtin_items) != 1 or builtin_items[0].get("stem") != "P0_空白项目模板":
+                pack_bad.append("清单未正确标注唯一内置项（builtin=true 应恰好 1 条 = P0）")
+
+    # 另锚工具自身的**退出码契约**：环境类（PackIOError）与内容类必须分码，否则 CI 会把
+    # 「模板被改坏」误报成「环境没配好」（2026-10-11 反向验证 N7a 暴露并修复）。
+    pt_tpl = _read("tools/pack_templates.py")
+    for token, why in (
+        ("DIGEST_RULE = ", "pack_templates 缺 digestRule 常量"),
+        ("PACK_DOC_FILES = ", "pack_templates 缺说明件白名单（孤儿 .md 判定会误伤）"),
+        ("def discover(", "pack_templates 缺模板盘点"),
+        ("def validate_entry(", "pack_templates 缺逐套校验"),
+        ("def payload_digest(", "pack_templates 缺清单摘要"),
+        ("def build_zip_bytes(", "pack_templates 缺确定性打包"),
+        ("孤儿", "pack_templates 未拒孤儿 .md（只按 .json 收集会静默少一套）"),
+        ('zipfile.ZIP_DEFLATED', "pack_templates 未固定压缩方式（确定性无从谈起）"),
+        ("class PackIOError(", "pack_templates 未区分环境错误（孤儿 .md 退回与环境错误同码 1）"),
+        ("except PackIOError", "pack_templates main 未按 PackIOError 分流退出码（契约失效）"),
+    ):
+        if token not in pt_tpl:
+            pack_bad.append(why)
+    if "templates-pack/*.zip" not in _read(".gitignore"):
+        pack_bad.append(".gitignore 未忽略 templates-pack/*.zip（可再生产物会入库）")
+    # browser_smoke 侧：模板数断言必须收紧为「恰好 1」（≥1 时业务模板回流照样通过），
+    # 且必须把沙盒内置目录显式喂给服务（否则本机 settings 里的绑定会污染断言）。
+    bs_tpl = _read("tools/browser_smoke.py")
+    for token, why in (
+        ("QM_TEMPLATES_DIR", "browser_smoke 未绑定沙盒内置目录（模板数断言会被本机 settings 污染）"),
+        ("tpl == 1", "browser_smoke 模板断言未收紧为「恰好 1」（业务模板回流抓不到）"),
+    ):
+        if token not in bs_tpl:
+            pack_bad.append(why)
+
+    check(not pack_bad, "模板迁移与打包批 V0.0.37",
+          f"缺失：{', '.join(pack_bad)}" if pack_bad
+          else "内置仅 P0 / 包 17 套 .md+16 .json / 清单 digest 独立复算一致 / zip 收口 齐备")
+
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
     if handoff_file.is_file():
@@ -1819,7 +1911,9 @@ def main() -> int:
             "tests/test_browser_smoke.py", "tests/test_handoff.py",
             "tests/test_verify.py", "tests/test_promote.py",
             "tests/test_smoke.py", "tests/test_frontend_js.py",
+            "tests/test_pack_templates.py",
             "tools/smoke.py", "tools/browser_smoke.py",
+            "tools/pack_templates.py",
         ) if not (root / rel).is_file()]
         n_modules = len(sorted((root / "tests").glob("test_*.py")))
         # 轻量内容判据（§P2-17）：文件在 ≠ 内含用例；防「空壳测试文件」蒙混过关。

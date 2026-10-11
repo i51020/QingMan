@@ -545,7 +545,10 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
 
     if expect_templates:
         tpl = as_int(metrics.get("tplRows"))
-        check(tpl >= 1, "主界面·模板库已接入", f"模板行 {tpl} 条")
+        # V0.0.37（6D）：交付形态改为「内置仅 P0 + 独立模板包」，故断言由「≥1」收紧为
+        # **恰好 1** —— 否则业务模板被放回 templates/ 也照样通过，「工具不带业务模板」失守。
+        check(tpl == 1, "主界面·内置模板仅 P0（V0.0.37）",
+              f"模板行 {tpl} 条（应恰好 1；业务模板归 templates-pack/）")
 
     sec_before = as_int(metrics.get("secBefore"), 0)
     sec_en = as_int(metrics.get("secEn"), 0)
@@ -657,6 +660,11 @@ def main() -> int:
 
     port = args.port or free_port()
     env = dict(os.environ, QM_PORT=str(port), QM_OPEN_BROWSER="0", PYTHONDONTWRITEBYTECODE="1")
+    if templates_dir.is_dir():
+        # 6D：显式绑定到**沙盒内**的内置目录 —— ① env 优先级高于 settings（`config.templates_dir()`
+        # 的解析链为 env > settings > 默认），避免本机 %APPDATA%/QingMan/settings.json 里
+        # 既有绑定把「内置模板数」污染成不可复现的值；② 断言「只内置 P0」因此具备确定性。
+        env["QM_TEMPLATES_DIR"] = str(sandbox / "templates")
     proc = subprocess.Popen(
         [sys.executable, "-m", "server"], cwd=str(sandbox_src), env=env,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,

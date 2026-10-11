@@ -74,8 +74,11 @@ QingMan/
 │  └─ V0.0.1/           MANIFEST.json（基线 r1）+ MANIFEST-r<N>.json（同版本修订）
 ├─ preview/             试运行区（**只服务单次开发**：`promote` 后即清空，不跨版本保留 —— §P1-7）
 │  └─ README.md         用途与规则说明（占位，使目录保留在 git 跟踪内）
-├─ templates/           17 套中文目录树模板（内容资产）+ .trash/（软删除回收区）
-├─ tests/               回归测试网（**12 模块**，标准库 unittest，零第三方依赖 —— §P0-2）
+├─ templates/           内置模板库：**仅 `P0_空白项目模板.json`**（+ 运行时 `.trash/` 软删除回收区）
+├─ templates-pack/      独立可分发的**模板包**（16 套业务模板 `.md`(主) + `.json`(等价) +
+│                       `P0_空白项目模板.md` 同源件 + 来源说明 + `pack.manifest.json`）
+│                       `QingMan-模板包.zip` 由 `tools/pack_templates.py` 确定性重建，**不入库**
+├─ tests/               回归测试网（**13 模块**，标准库 unittest，零第三方依赖 —— §P0-2）
 │  ├─ test_dtree_core.py   切分 / 统计 / 文档校验 / check_target(R1–R5) / build_tree(R6–R8)
 │  ├─ test_routes.py       生成守卫 / 写入 / 编辑态往返 / 健康 / 模板 CRUD 与覆盖写
 │  ├─ test_config.py       体积上限分层自洽 / 路径与开关派生
@@ -86,8 +89,10 @@ QingMan/
 │  ├─ test_browser_smoke.py 页面冒烟纯函数（指标解析 / 控制台过滤 / verify_metrics 判定 / sandbox_base）
 │  ├─ test_promote.py      list_files 判据（VERSION 单存即算非空）/ 默认源推导
 │  ├─ test_smoke.py        sandbox_base（与 browser_smoke 一致）
+│  ├─ test_pack_templates.py 模板包：17/17 等价 / 清单 digest 可复算 / zip 确定性 / 孤儿与坏内容拒收
 │  └─ test_verify.py       托管 node 取最新（版本键 · 数字排序 · 跳过无 node.exe 目录）
-├─ tools/               工具链：store / verify / versioning / release / promote / handoff / smoke / browser_smoke
+├─ tools/               工具链：store / verify / versioning / release / promote / handoff / smoke /
+│                       browser_smoke / pack_templates
 ├─ legacy/              历史归档，命名 `<对象>-<日期>/`，只增不删
 │  ├─ tools-20261009/    改造前的工具备份
 │  └─ preview-20261009/  旧编号预览版 V0.01 全量归档（22 文件，git 保留重命名历史）
@@ -108,15 +113,26 @@ QingMan/
 
 ## 模板库
 
-模板 = 一棵可复用的目录树（`templates/<名称>.json`，嵌套字典：目录 = `{}`，文件 = 字符串内容）。
+模板 = 一棵可复用的目录树（嵌套字典：目录 = `{}`，文件 = 字符串内容），两种等价载体：
+
+| 载体 | 形态 | 定位 |
+|---|---|---|
+| `.json` | `{name, description, updated, tree}` | 规范格式；**写出**必带 `schemaVersion`，**读取**容忍缺失 |
+| `.md` | `# 名称` + `> 描述` + `- 节点/`（每级 2 空格缩进；文件正文用围栏块） | **主分发格式** —— AI / Agent / Skill 可直接读取；与 `.json` **逐节点等价**、可成环（导出 → 再导入） |
+
+**交付形态（V0.0.37 起）**：工具**只内置 `P0_空白项目模板.json`**（唯一内置空案例）；16 套业务模板移入独立包 `templates-pack/`，`templates/` 不再是业务模板的落点。运行态模板库 = **内置层** ∪ **用户绑定目录**（`QM_TEMPLATES_DIR` / settings，见下表）。
 
 | 操作 | 说明 |
 |---|---|
-| 另存为模板 | 把当前树存为命名模板。**同名默认拒写**（返回 `templateExists`）；用户**显式确认**后带 `overwrite:true` 才覆盖，且旧模板先入 `templates/.trash/<时间戳>/` 再写新文件 |
-| 重命名 | `POST /api/templates/<名称>`：**同时改文件名与文件内 `name` 字段**（两者不一致会让「点了 A 却载入 B」）。旧文件移入回收站保底 |
-| 删除 | `DELETE /api/templates/<名称>`：**软删除**，移入 `templates/.trash/<时间戳>/`，不真删 |
+| 另存为模板 | 把当前树存为命名模板。**同名默认拒写**（返回 `templateExists`）；用户**显式确认**后带 `overwrite:true` 才覆盖，且旧模板先入 `<模板目录>/.trash/<时间戳>/` 再写新文件 |
+| 重命名 | `POST /api/templates/<名称>`：**同时改文件名与文件内 `name` 字段**（两者不一致会让「点了 A 却载入 B」）。旧文件移入回收站保底；**保持原格式**（`.md` 进 `.md` 出） |
+| 删除 | `DELETE /api/templates/<名称>`：**软删除**，移入 `<模板目录>/.trash/<时间戳>/`，不真删 |
+| 导入 | `POST /api/templates/import`：`.md` / `.json` 文本 → 归一（**全量校验** + 保持原格式）→ 落用户库；同名默认拒写 |
+| 模板目录绑定 | `GET` / `PUT /api/templates-dir`：绑定「用户模板库」目录，解析优先级 **`QM_TEMPLATES_DIR` env > settings > 默认 `templates/`** |
+| 包校验 / 打包 | `python tools/pack_templates.py`：17 套逐套校验 + 清单（含 sha256）+ 确定性 zip；`--check` 只校验不写盘 |
 
-> 模板目录 `templates/` **不在版本交付清单内**，故 `list_templates()` 在目录缺失时返回 `available=false` + 空列表（**不报错**）—— 否则预览副本一启动就满屏红。
+> 模板目录 **不在版本交付清单内**（同理 `templates-pack/`），故 `list_templates()` 在目录缺失时返回 `available=false` + 空列表（**不报错**）—— 否则预览副本一启动就满屏红。
+> `templates-pack/pack.manifest.json` 的 `digest` 与 zip `sha256` **均可独立复算**（规则写在清单的 `digestRule` 字段里，`verify` 按同一规则独立复算一遍）。
 
 ## 任务进度
 
@@ -143,7 +159,7 @@ QingMan/
 | 步骤 | 命令 | 说明 |
 |---|---|---|
 | 1. 预览开发 | `python tools/release.py bump --kind patch`，再建 `preview/V<版本>/` | **先升版再建副本** —— 预览副本也含 `VERSION`。试错保护来自**主线仍停在上一版**；**副本不进索引**（§P1-7 生效后），清空按 `git ls-files preview/V<版本>` 二分：**非空** → `git rm -r`；**为空** → `git clean -fd`（**不要 `git add`**）。详见 §P1-7「清空细则」 |
-| 2. 交付校验 | `python tools/verify.py preview/V<版本>` | 主线 **89 项**、预览目录 **84 项**（预览无 `docs/`，少「接续说明实况段」「实况段·版本 tag 行」「实况段·时间线日期」与「源码 § 引用可解析」四项；另无 `tests/`，再少「回归测试网」一项 —— 共少 5；带 `--against` 另加 2 项），不通过不落地 |
+| 2. 交付校验 | `python tools/verify.py preview/V<版本>` | 主线 **90 项**、预览目录 **85 项**（预览无 `docs/`，少「接续说明实况段」「实况段·版本 tag 行」「实况段·时间线日期」与「源码 § 引用可解析」四项；另无 `tests/`，再少「回归测试网」一项 —— 共少 5；带 `--against` 另加 2 项），不通过不落地 |
 | 3. 落地主线 | `python tools/promote.py --from preview/V<版本> --force` | 单向：预览 → 主线，只复制不删除（主线非空时需 `--force`） |
 | 4. 提交版本 | `python tools/store.py commit --note "说明"` | 写入 blob 池 + 生成清单（同版本则追加修订） |
 | 5. 升级版本号 | 见第 1 步 | 本步实际在**第 1 步之前**就要做（版本号须先升）；此处保留编号只为与 §P0-6 修订机制对照 |
@@ -158,10 +174,12 @@ QingMan/
 python tools/verify.py .                      # 交付校验（静态）
 python -m unittest discover -s tests          # 单元测试
 python tools/smoke.py                         # 端到端冒烟（HTTP 层；起真实服务 + 沙盒目录，测完即清）
-python tools/browser_smoke.py                 # 页面级冒烟（无头浏览器 11 项；未装浏览器则跳过）
+python tools/browser_smoke.py                 # 页面级冒烟（无头浏览器 17 项；未装浏览器则跳过）
 ```
 
 四项全过才算完成。单元测试可用 `QM_SRC=<版本根>/src` 指向**预览版**，这样落地前就能过全部门禁。
+
+**改 `templates-pack/` 后另跑**：`python tools/pack_templates.py --check` —— 17 套 `.md`↔`.json` 逐节点等价 + 清单 `digest` 与 zip `sha256` 复算（不写盘）。
 
 > `browser_smoke.py` 覆盖「**只有页面跑起来才现形**」的那一类缺陷（页面无未捕获异常·无漏翻、帮助页分节渲染幂等、默认示例随语言、支持页完好）—— 这类问题在 `verify` / `unittest` / `smoke` 三项全绿时依然会漏网。它自动探测 Edge/Chrome，可在沙盒内跑（`--keep` 保留现场、`--browser PATH` 指定浏览器）。见 `docs/项目约定.md` §P0-2 T7。
 
