@@ -199,6 +199,38 @@ export function hasSiblingName(parent, name, exceptId = null) {
   );
 }
 
+/* ---------- 名字合法性（前端轻校验 + 服务端权威，B-P2-1 修正） ---------- */
+
+/** Windows 文件名非法字符 —— 用户可即时理解的语法级字符（\ / : * ? " < > |）。 */
+const ILLEGAL_CHARS = new Set(['/', '\\', ':', '*', '?', '"', '<', '>', '|']);
+
+/** 单段名长度上限 —— 与后端 `validate_segment` 的 120 一致。 */
+const MAX_SEGMENT_LENGTH = 120;
+
+/**
+ * 前端**轻校验**（即时语法级）：仅拦截用户立刻能理解的非法字符 / 空 / 过长 / "." / ".."。
+ *
+ * **完整业务规则（Windows 保留名、尾随空白 / 点等）由服务端 `dtree_core.validate_segment`
+ * 作为唯一权威裁决** —— 前端不镜像这些业务规则，避免「前端 / 后端双份规则」漂移
+ * （评审文档裁决：采纳「前端轻校验 + 服务端权威」，撤销早期「前端镜像后端」方案）。
+ *
+ * 返回 `{ ok, code }`：`code` 为错误码（如 `segmentIllegalChar`），调用方用
+ * `t('err.' + code, { name })` 本地化成句，与后端错误码共用同一套取词文案。
+ */
+export function validateSegment(name) {
+  if (typeof name !== 'string') return { ok: false, code: 'segmentNotString' };
+  const s = name.trim();
+  if (!s) return { ok: false, code: 'segmentEmpty' };
+  if (s === '.' || s === '..') return { ok: false, code: 'segmentDot' };
+  if (s.length > MAX_SEGMENT_LENGTH) return { ok: false, code: 'segmentTooLong' };
+  for (const ch of s) {
+    if (ILLEGAL_CHARS.has(ch) || ch.codePointAt(0) < 32) {
+      return { ok: false, code: 'segmentIllegalChar' };
+    }
+  }
+  return { ok: true, code: '' };
+}
+
 /* ---------- 统计与路径 ---------- */
 
 export function countTree(node) {

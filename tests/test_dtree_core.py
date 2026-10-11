@@ -70,6 +70,16 @@ class SegmentTests(unittest.TestCase):
                      "con.txt"):
             self.assertEqual(dtree_core.validate_segment(name)[1], "segmentReserved", name)
 
+    def test_rejects_trailing_whitespace_or_dot(self):
+        """A-P2-2：首尾空白 / 尾随点会被 Windows 规范化（记录名 ≠ 磁盘名）→ 必须拒绝。"""
+        for name in ("a ", " a", "ab ", "abc.", "a. ", " x .", "a b.", "name.."):
+            self.assertEqual(dtree_core.validate_segment(name)[1], "segmentTrailing", name)
+
+    def test_allows_inner_spaces_and_inner_dots(self):
+        """收紧只针对**首尾**：中间的空格与点不受影响（避免误伤正常名）。"""
+        for name in ("a b", "层1.2", "说明文档.md", "v1.0 草稿"):
+            self.assertTrue(dtree_core.validate_segment(name)[0], name)
+
 
 class CountTests(unittest.TestCase):
 

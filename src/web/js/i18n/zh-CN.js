@@ -108,6 +108,7 @@ export const dict = {
   'err.segmentDot': '目录名不能是 . 或 .. ：{name}',
   'err.segmentIllegalChar': '目录名含非法字符：{name}',
   'err.segmentReserved': '目录名是系统保留名：{name}',
+  'err.segmentTrailing': '目录名不能有首尾空白或以点结尾：{name}',
   'err.segmentInvalid': '「{name}」不是合法目录名（{reason}）',
   'err.treeMissing': '缺少目录树数据 tree',
   'err.targetMissing': '缺少目标位置 target',
@@ -302,7 +303,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.27',
+  'help.versionFallback': 'V0.0.28',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',

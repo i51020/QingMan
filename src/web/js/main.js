@@ -15,7 +15,7 @@ import {
 import {
   createDir, createFile, findNode, findParent, addChild,
   renameNode, removeNode, moveNode, canMove, countTree, treePayload,
-  hasSiblingName, reserveIds, assertUniqueIds,
+  hasSiblingName, reserveIds, assertUniqueIds, validateSegment,
   toDocumentNode, fromDocumentNode, resetIdRegistry, fromNestedTree,
   adoptTemplateNote, normalizeNote, isDir, pathOf,
 } from './modules/tree-model.js';
@@ -408,6 +408,11 @@ function doAddChild(id = selectedId()) {
     toast(t('toast.nameEmpty'), 'warn');
     return;
   }
+  const vseg = validateSegment(trimmed);
+  if (!vseg.ok) {
+    toast(t('err.' + vseg.code, { name: trimmed }), 'warn');
+    return;
+  }
   if (hasSiblingName(node, trimmed)) {
     toast(t('toast.siblingExists', { name: trimmed }), 'warn');
     return;
@@ -433,6 +438,11 @@ function doRename(id = selectedId()) {
   const trimmed = name.trim();
   if (!trimmed) {
     toast(t('toast.nameEmpty'), 'warn');
+    return;
+  }
+  const vseg = validateSegment(trimmed);
+  if (!vseg.ok) {
+    toast(t('err.' + vseg.code, { name: trimmed }), 'warn');
     return;
   }
   if (trimmed === node.name) return;

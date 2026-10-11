@@ -102,6 +102,7 @@ export const dict = {
   'err.segmentDot': 'Directory name cannot be . or .. : {name}',
   'err.segmentIllegalChar': 'Directory name contains an illegal character: {name}',
   'err.segmentReserved': 'Directory name is a reserved system name: {name}',
+  'err.segmentTrailing': 'Directory name cannot have leading/trailing spaces or end with a dot: {name}',
   'err.segmentInvalid': '"{name}" is not a valid directory name ({reason})',
   'err.treeMissing': 'Missing directory tree data: tree',
   'err.targetMissing': 'Missing target location: target',
@@ -296,7 +297,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.27',
+  'help.versionFallback': 'V0.0.28',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

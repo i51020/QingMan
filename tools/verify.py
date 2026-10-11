@@ -685,7 +685,13 @@ def main() -> int:
     # 7f. 体积上限（§P2 第 4 项）：src/** 合计 ≤ 400K，单文件 ≤ 64K
     SRC_TOTAL_LIMIT = 400 * 1024
     SRC_FILE_LIMIT = 64 * 1024
-    src_files = [p for p in (root / "src").rglob("*") if p.is_file()]
+    # 仅统计**源码**：排除运行/测试生成的编译产物（__pycache__/*.pyc）。
+    # 这些产物已被 .gitignore 忽略、不进版本，计入体积上限会与「源码预算」本意相悖
+    # （实测 src/server/__pycache__ 约 89K，会把 325K 的真实源码总量虚抬过 400K 上限造成误报）。
+    src_files = [
+        p for p in (root / "src").rglob("*")
+        if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc"
+    ]
     if not src_files:
         # 缺 src/ 必须**显式 FAIL**，而不是静默少产生一项（§P2-14）。
         check(False, "体积上限 §P2 第 4 项", f"未找到 {root / 'src'} 下任何文件（src/ 缺失？）")

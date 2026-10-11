@@ -80,6 +80,11 @@ def validate_segment(name: str) -> Tuple[bool, str]:
             return False, "segmentIllegalChar"
     if s.split(".")[0].upper() in RESERVED_NAMES:
         return False, "segmentReserved"
+    # A-P2-2：首尾空白 / 尾随点会被 Windows 文件系统**规范化**（"a " → "a"、"abc." → "abc"），
+    # 于是落盘报告里的名字与磁盘实际名不符（用户照着报告去找会落空）。宁可在此拒绝，
+    # 也不让「记录名 ≠ 磁盘名」传到用户面前。判据用**原始** name 与 strip 后的 s 对比。
+    if s != name or s.endswith("."):
+        return False, "segmentTrailing"
     return True, ""
 
 

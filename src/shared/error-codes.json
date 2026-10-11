@@ -6,6 +6,7 @@
   "segmentDot": "目录名不能是 . 或 .. ：{name}",
   "segmentIllegalChar": "目录名含非法字符：{name}",
   "segmentReserved": "目录名是系统保留名：{name}",
+  "segmentTrailing": "目录名不能有首尾空白或以点结尾：{name}",
   "segmentInvalid": "「{name}」不是合法目录名（{reason}）",
   "treeMissing": "缺少目录树数据 tree",
   "targetMissing": "缺少目标位置 target",
