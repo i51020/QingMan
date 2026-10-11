@@ -79,6 +79,11 @@ class Handler(BaseHTTPRequestHandler):
         })
 
     def _read_body(self) -> bytes:
+        # A-P3-7：`Transfer-Encoding: chunked` 时**不带** `Content-Length`。若只读
+        # Content-Length，body 会被**静默当空**（旧行为）—— 调用方拿到 `{}` 且毫不知情。
+        # 本机浏览器恒带 Content-Length，此处仍按 chunked 正确解码，避免静默失真。
+        if "chunked" in (self.headers.get("Transfer-Encoding") or "").lower():
+            return self._read_chunked_body()
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
@@ -86,6 +91,31 @@ class Handler(BaseHTTPRequestHandler):
         if length > config.MAX_BODY_BYTES:
             raise TreeError("bodyTooLarge", limit=config.MAX_BODY_BYTES)
         return self.rfile.read(length) if length > 0 else b""
+
+    def _read_chunked_body(self) -> bytes:
+        """按 HTTP/1.1 分块编码读取请求体（A-P3-7）。**读取期间即受体积上限约束**。"""
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            line = self.rfile.readline(64)          # `<hex>[;ext]` CRLF
+            if not line:
+                break
+            try:
+                size = int(line.split(b";", 1)[0].strip() or b"0", 16)
+            except ValueError:
+                break                               # 分块头损坏：按已读内容收尾，不崩
+            if size == 0:                           # 末块：读掉 trailer 直到空行
+                while True:
+                    trailer = self.rfile.readline(1024)
+                    if trailer in (b"\r\n", b"\n", b""):
+                        break
+                break
+            total += size
+            if total > config.MAX_BODY_BYTES:
+                raise TreeError("bodyTooLarge", limit=config.MAX_BODY_BYTES)
+            chunks.append(self.rfile.read(size))
+            self.rfile.read(2)                      # 每块结尾的 CRLF
+        return b"".join(chunks)
 
     # ---------- 调用来源校验（N1） ----------
 
@@ -329,7 +359,11 @@ def _bind_server() -> ThreadingHTTPServer:
 def _open_browser_later(url: str) -> None:
     if not config.OPEN_BROWSER:
         return
-    threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+    timer = threading.Timer(0.8, lambda: webbrowser.open(url))
+    # A-P3-8：Timer 默认是**非守护**线程，会拖住解释器退出时序（Ctrl+C 后要等它到点
+    # 才真正退出）。设为守护线程，进程终止时不再被这个一次性定时器拖延。
+    timer.daemon = True
+    timer.start()
 
 
 def main() -> None:

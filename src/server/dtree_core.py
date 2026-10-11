@@ -89,18 +89,25 @@ def validate_segment(name: str) -> Tuple[bool, str]:
 
 
 def count_tree(tree: Any) -> Tuple[int, int]:
-    """统计 (目录数, 文件数)。"""
+    """统计 (目录数, 文件数)。
+
+    用**显式栈**而非递归（A-P3-5）：模板树深度由内容决定，递归实现在极深嵌套下会撞
+    Python 递归上限抛 `RecursionError` —— 模板虽是本机资产、深树罕见，但「深」不该
+    等于「崩」。显式栈把栈从 C 栈搬到堆，深度不再受 `sys.getrecursionlimit()` 约束。
+    计数口径与旧递归实现保持一致（逐节点累加，仅目录/文件二分）。
+    """
     dirs = files = 0
     if not isinstance(tree, dict):
         return 0, 0
-    for _name, value in tree.items():
-        if isinstance(value, dict):
-            dirs += 1
-            sub_dirs, sub_files = count_tree(value)
-            dirs += sub_dirs
-            files += sub_files
-        else:
-            files += 1
+    stack: List[Dict[str, Any]] = [tree]
+    while stack:
+        node = stack.pop()
+        for _name, value in node.items():
+            if isinstance(value, dict):
+                dirs += 1
+                stack.append(value)
+            else:
+                files += 1
     return dirs, files
 
 

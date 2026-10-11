@@ -7,6 +7,53 @@
 
 ---
 
+## V0.0.30 — 2026-10-11
+
+**主题**：`src/` 审查**批 4A（第四档 · 后端防御 8 项）**整改（《审查报告_src_20261011》§三 **A-P3-1 ~ A-P3-8**）。改动集中在 `src/server/{routes,app,config,dtree_core}.py` → **升 patch 版 `V0.0.29` → `V0.0.30`**。**无新增错误码 / 取词键**（复用 `bodyTooLarge` 等既有码）。
+
+| # | 文件 | 项 | 处置 |
+|---|---|---|---|
+| 1 | `routes.py` | **A-P3-1**（真健壮性） | `_write_lnk` 的 `subprocess.run` 原**无 `timeout`** → PowerShell 挂起即**永久占用请求线程**（`ThreadingHTTPServer` 线程数无上限）。加 `timeout=_PS_TIMEOUT_SEC`（30s）+ 捕 `subprocess.TimeoutExpired` → 转 `OSError` 交上层降级（返回 .lnk 字节） |
+| 2 | `routes.py` | **A-P3-2**（并发防御） | 四处原子写的临时文件名原**固定 `.tmp`** → 并发写互相覆盖。新增 `_tmp_sibling()`（`<name>.<pid>-<token>.tmp`），`save_editor` / `save_template` / `rename_template` / `save_launch_icon` **全部改用**；仍同目录 → `os.replace` 依旧同盘原子 |
+| 3 | `routes.py` | **A-P3-3**（软删除完整性） | `_template_trash_dir` 原用**秒级**戳 → 同一秒内对**同名模板**二次覆盖/删除会复用同一目录、**覆盖上次软删除的旧版**。改为目录已存在即追加 `-NNN` 序号（补零 3 位） |
+| 4 | `config.py` + `routes.py` | **A-P3-4**（环境适配） | 桌面路径原硬拼 `Path.home()/"Desktop"` → 未处理 **OneDrive 重定向**，快捷方式落到用户看不到的位置。新增 `config.desktop_dir()`：读注册表 `…\\User Shell Folders` 的 `Desktop` + `expandvars`，取不到回落原值；`create_shortcut` 改用之 |
+| 5 | `dtree_core.py` | **A-P3-5**（健壮性） | `count_tree` 原**递归** → 极深嵌套撞 `RecursionError`。改**显式栈**（堆栈替代 C 栈），计数口径不变 |
+| 6 | `routes.py` | **A-P3-6**（真值正确性） | `dry_run=bool(payload.get("dryRun"))` → 字符串 `"false"` 被 `bool()` 判 **True**（误开演练/误写）。改 `payload.get("dryRun") is True`（严格布尔；前端恒传 JSON 布尔） |
+| 7 | `app.py` | **A-P3-7**（协议完整性） | `_read_body` 原只读 `Content-Length` → `chunked` 请求体被**静默当空**。新增分支 + `_read_chunked_body()`（按 HTTP/1.1 分块解码，**读取期即受 `MAX_BODY_BYTES` 约束**） |
+| 8 | `app.py` | **A-P3-8**（退出时序） | `_open_browser_later` 的 `threading.Timer` 默认**非守护**，拖住解释器退出。`timer.daemon = True` |
+| 9 | `tools/verify.py` | 守卫同步 | 新增检查段 **「后端防御批 V0.0.30」**：逐条锚 10 个 token（超时常量/超时接线/异常捕获/桌面解析/桌面接线/严格布尔/回收站序号/chunked/守护 Timer/迭代栈）+ A-P3-2「助手存在 ∧ 5 处调用 ∧ 旧固定名已清除」→ **82 → 83 项** |
+| 10 | `tests/test_routes.py` | 回归位 | 新增 `BackendDefenseBatchTests` **7 用例**：dryRun 字符串不真、dryRun True 不写盘、唯一临时名同目录、回收站同秒唯一、桌面为 Path、超时→OSError、chunked **走真实入口 `_read_body`**（解析 + 超限）|
+| 11 | `tests/test_dtree_core.py` | 回归位 | `CountTests` 增 **1 用例**：5000 层深树 `count_tree` **不抛 RecursionError** |
+
+**反向验证（逐项还原为缺陷 → 期望恰该项 FAIL）**：
+
+| 项 | 手法 | 结果 |
+|---|---|---|
+| A-P3-1 | 还原 `_write_lnk`（去超时/去捕获） | **FAIL** `test_write_lnk_timeout_becomes_oserror` |
+| A-P3-2 | `_tmp_sibling` 退回固定名 | **FAIL** `test_tmp_sibling_unique_same_dir` |
+| A-P3-3 | `_template_trash_dir` 退回秒级 | **FAIL** `test_template_trash_dir_unique_in_same_second` |
+| A-P3-4 | `create_shortcut` 退回硬拼 | **FAIL** verify「后端防御批」 |
+| A-P3-5 | `count_tree` 退回递归 | **FAIL** `test_count_tree_deep_no_recursion_error` |
+| A-P3-6 | 退回 `bool(...)` | **FAIL** `test_dryrun_string_false_is_not_dry_run` |
+| A-P3-7 | 删除 `_read_body` 的 chunked 分支 | **FAIL** `test_read_body_parses_chunked` |
+| A-P3-8 | 删除 `timer.daemon = True` | **FAIL** verify「后端防御批」 |
+
+> **8/8 恰该项 FAIL**。反向验证脚本见《错误笔记》§三.44（同批踩到 `write_text` 换行陷阱，已修）。
+
+**验证（四件套，全部真实运行）**：
+
+| 项 | 结果 |
+|---|---|
+| `verify.py .` | **83/0** |
+| `verify.py . --against V0.0.30` | **85/0**（指纹一致） |
+| `unittest` | **Ran 247 tests · OK**（238 → 247，+9） |
+| `smoke.py` | **17/0** |
+| `browser_smoke.py` | **14/0** |
+
+**未做的事（据实）**：A-P3-3 的唯一化用「存在即递增」判据，**单进程顺序场景（报告所述）已消除**；**并发**透传仍存在 TOCTOU 窗口（概率极低，未构造并发实证，标【推断】）。第四档剩余 **9 项**（前端核心 B-P3-1~6 / UI C-P3-2~4）按批 4B / 4C 续做。
+
+---
+
 ## V0.0.29 — 2026-10-11
 
 **主题**：`src/` 审查**批 3（第四档 · 体验 4 项）**整改（《审查报告_src_20261011》§三 P3）—— C-P3-5 / D-P3-1 / D-P3-2 三项 + C-P3-1（**实测未复现**的显式加固）。改 `src/` 且扩 `browser_smoke` 断言 → **升 patch 版 `V0.0.28` → `V0.0.29`**。

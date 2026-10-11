@@ -15,6 +15,7 @@ import shutil
 import struct
 import subprocess
 import tempfile
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
@@ -40,6 +41,22 @@ EDITOR_SCHEMA_VERSION = 1
 # 模板文件名白名单：仅允许「中英文、数字、下划线、连字符」+ `.json`。
 # 不含路径分隔符，从源头堵死路径穿越（`..` / 子目录）。
 TEMPLATE_NAME = re.compile(r"^[A-Za-z0-9_\u4e00-\u9fff-]+\.json$")
+
+# PowerShell 子进程超时（秒）。CreateShortcut 正常毫秒级返回；设上限是为防「PowerShell
+# 挂起 → 请求线程被**永久占用**」（A-P3-1：ThreadingHTTPServer 线程数无上限，挂起的线程
+# 会一直堆积）。超时由 subprocess 终止子进程，再转成 OSError 交上层降级。
+_PS_TIMEOUT_SEC = 30
+
+
+def _tmp_sibling(path: Path) -> Path:
+    """返回与 `path` **同目录**、**唯一命名**的临时文件路径（原子写用）。
+
+    固定名 `<name>.tmp` 会让两个并发写**互相覆盖临时文件**、再各自 `os.replace` 抢结果
+    （A-P3-2）。唯一名（pid + 随机 token）消除该竞争；仍在同一目录 → `os.replace` 依旧是
+    同盘原子替换（跨盘会退化为非原子复制，故**不可**用系统临时目录）。
+    """
+    token = f"{os.getpid()}-{uuid.uuid4().hex[:8]}"
+    return path.with_name(f"{path.name}.{token}.tmp")
 
 
 def health() -> Dict[str, Any]:
@@ -108,7 +125,11 @@ def generate(payload: Dict[str, Any]) -> Dict[str, Any]:
             )
         base = base / root
 
-    result = dtree_core.build_tree(tree, base, dry_run=bool(payload.get("dryRun")))
+    # dryRun 按**严格布尔**判定（A-P3-6）：`bool("false")` 为 True —— 若前端误传字符串
+    # `"false"`，旧写法会把「真写盘」当成演练（或反之）。前端恒传 JSON 布尔，故
+    # `is True` 既堵住字符串真值、又不改变既有行为。
+    dry_run = payload.get("dryRun") is True
+    result = dtree_core.build_tree(tree, base, dry_run=dry_run)
     result["ok"] = True
     result["target"] = str(base)
     return result
@@ -239,7 +260,7 @@ def save_editor(payload: Dict[str, Any]) -> Dict[str, Any]:
     path.parent.mkdir(parents=True, exist_ok=True)
     # 顺序不可颠倒：必须**先备份上一版、再替换**；颠倒则备份到的已是新内容
     backup = _backup_editor(path)
-    tmp = path.with_name(path.name + ".tmp")
+    tmp = _tmp_sibling(path)   # A-P3-2：唯一临时名，避免并发写互相覆盖
     # 显式 newline="\n"：默认 newline=None 在 Windows 下会写成 CRLF，
     # 使返回的 bytes 与磁盘实际字节不符，且破坏跨平台字节一致性（§编码基线）。
     with tmp.open("w", encoding="utf-8", newline="\n") as fh:
@@ -417,7 +438,7 @@ def save_template(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         base.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_name(path.name + ".tmp")
+        tmp = _tmp_sibling(path)   # A-P3-2：唯一临时名，避免并发写互相覆盖
         # 显式 newline="\n"：默认在 Windows 下会写成 CRLF，破坏跨平台字节一致（§编码基线）
         with tmp.open("w", encoding="utf-8", newline="\n") as fh:
             fh.write(body)
@@ -461,9 +482,20 @@ def _template_path_or_raise(name: str) -> "Path":
 
 
 def _template_trash_dir() -> "Path":
-    """本次软删除的回收站目录：`templates/.trash/<YYYYMMDD-HHMMSS>/`。"""
+    """本次软删除**独占**的回收站目录：`templates/.trash/<YYYYMMDD-HHMMSS[-NNN]>/`。
+
+    秒级戳不够（A-P3-3）：同一秒内对**同名模板**二次覆盖/删除会复用同一目录，后一次
+    把前一次刚移入的旧版**原地覆盖**（软删除内丢失，找不回来）。故目录已存在即追加
+    `-NNN` 序号；序号补零到 3 位避免字典序陷阱，同一秒内至多几次，不会产生碎目录。
+    """
+    base = config.resolve_path(config.TEMPLATES_DIR) / config.TEMPLATE_TRASH_DIRNAME
     stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
-    return config.resolve_path(config.TEMPLATES_DIR) / config.TEMPLATE_TRASH_DIRNAME / stamp
+    candidate = base / stamp
+    seq = 2
+    while candidate.exists():
+        candidate = base / f"{stamp}-{seq:03d}"
+        seq += 1
+    return candidate
 
 
 def delete_template(name: str) -> Dict[str, Any]:
@@ -525,7 +557,7 @@ def rename_template(name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     body = json.dumps(doc, ensure_ascii=False, indent=2) + "\n"
     trash = _template_trash_dir()
     try:
-        tmp = new_path.with_name(new_path.name + ".tmp")
+        tmp = _tmp_sibling(new_path)   # A-P3-2：唯一临时名，避免并发写互相覆盖
         # 显式 newline="\n"：跨平台字节一致（§编码基线）
         with tmp.open("w", encoding="utf-8", newline="\n") as fh:
             fh.write(body)
@@ -560,10 +592,15 @@ def _write_lnk(path: Path, target: str, workdir: str, icon: str = "") -> None:
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     script = _lnk_script(path, target, workdir, icon)
-    result = subprocess.run(
-        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
-        capture_output=True, text=True, check=False,
-    )
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+            capture_output=True, text=True, check=False, timeout=_PS_TIMEOUT_SEC,
+        )
+    except subprocess.TimeoutExpired:
+        # A-P3-1：超时后 subprocess 已终止子进程；转成 OSError 交由上层降级
+        # （桌面写失败 → 返回 .lnk 字节供下载），而不是让请求线程一直挂着。
+        raise OSError(f"PowerShell CreateShortcut timed out after {_PS_TIMEOUT_SEC}s")
     if result.returncode != 0:
         raise OSError(result.stderr or "PowerShell CreateShortcut failed")
 
@@ -665,7 +702,7 @@ def save_launch_icon(payload: Dict[str, Any]) -> Dict[str, Any]:
     path = config.ICON_FILE
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_name(path.name + ".tmp")
+        tmp = _tmp_sibling(path)   # A-P3-2：唯一临时名，避免并发写互相覆盖
         tmp.write_bytes(data)
         os.replace(tmp, path)   # 原子替换，避免中断留下半截文件
     except OSError:
@@ -714,7 +751,8 @@ def create_shortcut(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     workdir = str(config.PROJECT_DIR)
     name = f"{config.APP_NAME_ZH} {config.APP_NAME_EN}.lnk"
-    desktop = Path.home() / "Desktop"
+    # A-P3-4：用系统认定的桌面（处理 OneDrive 重定向），而非硬拼 home/Desktop
+    desktop = config.desktop_dir()
     lnk = desktop / name
 
     try:

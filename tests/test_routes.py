@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import io
 import os
 import re
 import sys
@@ -22,7 +23,7 @@ _SRC = (Path(os.environ["QM_SRC"]).resolve()
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from server import config, routes  # noqa: E402
+from server import app, config, routes  # noqa: E402
 from server.dtree_core import TreeError  # noqa: E402
 
 SIMPLE_TREE = {"素材": {"原图": {}}, "说明.md": "内容\n"}
@@ -708,6 +709,100 @@ class OsLocaleTests(unittest.TestCase):
         routes.os_locale = lambda: ""
         self.addCleanup(setattr, routes, "os_locale", old)
         self.assertEqual(routes.env_script(), 'window.__QM_OS_LOCALE__ = "";\n')
+
+
+class BackendDefenseBatchTests(unittest.TestCase):
+    """src 审查第四档 · 后端防御批（V0.0.30 · A-P3-1~8）回归位。"""
+
+    # ---------- A-P3-6 dryRun 严格布尔 ----------
+
+    def test_dryrun_string_false_is_not_dry_run(self):
+        """A-P3-6：字符串 `"false"` 不得被 `bool()` 当成 True 而误开演练。"""
+        with tempfile.TemporaryDirectory(prefix="qm_dryrun_") as d:
+            target = str(Path(d) / "out")
+            r = routes.generate({"tree": SIMPLE_TREE, "target": target, "dryRun": "false"})
+            self.assertFalse(r["dryRun"], "字符串 \"false\" 应判为非演练")
+            self.assertTrue(Path(target).is_dir(), "非演练应真的落盘")
+
+    def test_dryrun_true_writes_nothing(self):
+        with tempfile.TemporaryDirectory(prefix="qm_dryrun_") as d:
+            target = str(Path(d) / "out")
+            r = routes.generate({"tree": SIMPLE_TREE, "target": target, "dryRun": True})
+            self.assertTrue(r["dryRun"])
+            self.assertFalse(Path(target).exists(), "dry_run 不得写盘")
+
+    # ---------- A-P3-2 原子写唯一临时名 ----------
+
+    def test_tmp_sibling_unique_same_dir(self):
+        """A-P3-2：临时名两两不同，且与目标同目录（保 os.replace 同盘原子）。"""
+        p = Path("D:/x/y/editor.json")
+        a = routes._tmp_sibling(p)
+        b = routes._tmp_sibling(p)
+        self.assertNotEqual(a, b)
+        self.assertEqual(a.parent, p.parent)
+        self.assertTrue(a.name.startswith("editor.json."))
+        self.assertTrue(a.name.endswith(".tmp"))
+
+    # ---------- A-P3-3 模板回收站目录唯一化 ----------
+
+    def test_template_trash_dir_unique_in_same_second(self):
+        """A-P3-3：同一秒内二次调用必须拿到不同目录（否则会覆盖上次软删除的旧版）。"""
+        with tempfile.TemporaryDirectory(prefix="qm_trash_") as d:
+            old = config.TEMPLATES_DIR
+            config.TEMPLATES_DIR = Path(d)
+            self.addCleanup(setattr, config, "TEMPLATES_DIR", old)
+            first = routes._template_trash_dir()
+            first.mkdir(parents=True)
+            second = routes._template_trash_dir()
+            self.assertNotEqual(first, second)
+            self.assertEqual(second.parent, first.parent)
+
+    # ---------- A-P3-4 真实桌面解析 ----------
+
+    def test_desktop_dir_is_path(self):
+        self.assertIsInstance(config.desktop_dir(), Path)
+
+    # ---------- A-P3-1 subprocess 超时 → OSError ----------
+
+    def test_write_lnk_timeout_becomes_oserror(self):
+        """A-P3-1：PowerShell 超时必须转成 OSError，交上层降级，而非永久挂住线程。"""
+        boom = routes.subprocess.TimeoutExpired("powershell", routes._PS_TIMEOUT_SEC)
+        with mock.patch.object(routes.subprocess, "run", side_effect=boom):
+            with tempfile.TemporaryDirectory(prefix="qm_lnk_") as d:
+                with self.assertRaises(OSError):
+                    routes._write_lnk(Path(d) / "x.lnk", "target", "workdir")
+
+    # ---------- A-P3-7 chunked 请求体 ----------
+
+    @staticmethod
+    def _fake_handler(headers, body):
+        # 桩对象挂上真实的 _read_body / _read_chunked_body（不启动服务即可驱动入口）
+        h = type("H", (), {
+            "_read_body": app.Handler._read_body,
+            "_read_chunked_body": app.Handler._read_chunked_body,
+        })()
+        h.headers = headers
+        h.rfile = io.BytesIO(body)
+        return h
+
+    def test_read_body_parses_chunked(self):
+        """A-P3-7：走**真实入口** `_read_body`，带 chunked 头须正确拼接。
+
+        旧实现只读 Content-Length → chunked 请求体被静默当空（返回 b""）。
+        """
+        h = self._fake_handler({"Transfer-Encoding": "chunked"},
+                               b"5\r\nhello\r\n6\r\n world\r\n0\r\n\r\n")
+        self.assertEqual(app.Handler._read_body(h), b"hello world")
+
+    def test_read_body_chunked_enforces_cap(self):
+        """A-P3-7：分块读取期间也须受体积上限约束。"""
+        over = config.MAX_BODY_BYTES + 1
+        payload = b"a" * over
+        raw = hex(over)[2:].encode() + b"\r\n" + payload + b"\r\n0\r\n\r\n"
+        h = self._fake_handler({"Transfer-Encoding": "chunked"}, raw)
+        with self.assertRaises(TreeError) as ctx:
+            app.Handler._read_body(h)
+        self.assertEqual(ctx.exception.code, "bodyTooLarge")
 
 
 class HealthTests(unittest.TestCase):

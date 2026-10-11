@@ -1430,6 +1430,46 @@ def main() -> int:
           else "控制台异常 / 漏翻 / 分节幂等 / 默认示例语言 / 切换驱动 / 沙盒隔离 / "
                "皮肤回落 / 箭头随皮肤 / 滚动保持 齐备")
 
+    # 7x. 后端防御批（V0.0.30，src 审查第四档 A-P3-1~8）
+    #     逐条钉住「防御补丁」的关键 token —— 防止日后被无意回退（守卫的守卫）。
+    def _read(rel: str) -> str:
+        p = root / rel
+        return p.read_text(encoding="utf-8") if p.is_file() else ""
+
+    srcs = {
+        "routes": _read("src/server/routes.py"),
+        "app": _read("src/server/app.py"),
+        "config": _read("src/server/config.py"),
+        "core": _read("src/server/dtree_core.py"),
+    }
+    def_bad: list[str] = []
+    anchors_def = (
+        ("A-P3-1", "routes", "_PS_TIMEOUT_SEC = 30", "缺 PowerShell 超时常量"),
+        ("A-P3-1", "routes", "timeout=_PS_TIMEOUT_SEC", "subprocess.run 未接超时"),
+        ("A-P3-1", "routes", "subprocess.TimeoutExpired", "未捕获超时异常"),
+        ("A-P3-4", "config", "def desktop_dir(", "缺真实桌面解析"),
+        ("A-P3-4", "routes", "config.desktop_dir()", "create_shortcut 未用真实桌面"),
+        ("A-P3-6", "routes", 'payload.get("dryRun") is True', "dryRun 未严格布尔判定"),
+        ("A-P3-3", "routes", "seq:03d", "模板回收站目录未唯一化"),
+        ("A-P3-7", "app", "_read_chunked_body", "未支持 chunked body"),
+        ("A-P3-8", "app", "timer.daemon = True", "Timer 未设守护"),
+        ("A-P3-5", "core", "while stack:", "count_tree 未迭代化（未见显式栈循环）"),
+    )
+    for code, key, token, why in anchors_def:
+        if token not in srcs[key]:
+            def_bad.append(f"{code} {why}")
+    # A-P3-2：助手存在 + 四处原子写均已改用 + 旧固定名已清除
+    rt = srcs["routes"]
+    if "_tmp_sibling(" not in rt:
+        def_bad.append("A-P3-2 缺唯一临时名助手")
+    elif rt.count("_tmp_sibling(") < 5:   # 1 定义 + 4 调用点
+        def_bad.append("A-P3-2 原子写未全部改用 _tmp_sibling")
+    if 'path.name + ".tmp"' in rt or 'new_path.name + ".tmp"' in rt:
+        def_bad.append("A-P3-2 仍残留固定临时名")
+    check(not def_bad, "后端防御批 V0.0.30",
+          f"缺失：{', '.join(def_bad)}" if def_bad
+          else "超时 / 唯一临时名 / 唯一回收站 / 真实桌面 / 迭代计数 / 严格布尔 / chunked / 守护 Timer 齐备")
+
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
     if handoff_file.is_file():

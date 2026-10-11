@@ -90,6 +90,18 @@ class CountTests(unittest.TestCase):
     def test_count_tree_non_dict(self):
         self.assertEqual(dtree_core.count_tree(["x"]), (0, 0))
 
+    def test_count_tree_deep_no_recursion_error(self):
+        """A-P3-5：极深嵌套不得触发 RecursionError（计数用显式栈而非递归）。
+
+        深度取 5000 远超默认递归上限（~1000）—— 旧递归实现必在此抛 RecursionError。
+        """
+        root = {}
+        cur = root
+        for _ in range(5000):
+            cur["d"] = {}
+            cur = cur["d"]
+        self.assertEqual(dtree_core.count_tree(root), (5000, 0))
+
 
 class ValidateDocumentTests(unittest.TestCase):
 

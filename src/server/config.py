@@ -218,6 +218,35 @@ PROJECT_DIR_RESOLVED = resolve_path(PROJECT_DIR)
 BLOCKED_SUBTREES = _blocked_subtrees()
 BLOCKED_ROOTS = _blocked_roots()
 
+def desktop_dir() -> Path:
+    """真实「桌面」目录：优先读注册表的「用户 Shell 文件夹」，处理 OneDrive 重定向。
+
+    `Path.home() / "Desktop"` 在启用 OneDrive「备份桌面」后**不是**用户看到的桌面
+    （真实路径被重定向到 `%OneDrive%\\Desktop` 之类），快捷方式会落在用户找不到的位置
+    （A-P3-4）。系统认定的桌面存在
+    `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders`
+    的 `Desktop` 值里，可能含 `%USERPROFILE%` / `%OneDrive%` 环境变量，须 `expandvars`。
+
+    取不到（非 Windows、键缺失、值非法）一律回落 `Path.home() / "Desktop"` ——
+    **绝不因探测失败改变既有行为**。
+    """
+    if os.name == "nt":
+        try:
+            import winreg
+
+            with winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders",
+            ) as key:
+                raw, _kind = winreg.QueryValueEx(key, "Desktop")
+            expanded = os.path.expandvars(str(raw)).strip()
+            if expanded and Path(expanded).is_dir():
+                return resolve_path(expanded)
+        except (OSError, ImportError, ValueError):
+            pass
+    return Path.home() / "Desktop"
+
+
 DEFAULT_VERSION = "V0.00"
 
 
