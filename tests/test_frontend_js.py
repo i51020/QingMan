@@ -1,12 +1,14 @@
-"""青蔓 QingMan · 前端核心 Node 驱动测试（src 审查第四档 · 批 4B）。
+"""青蔓 QingMan · 前端核心 Node 驱动测试（src 审查第四档 · 批 4B / 4C）。
 
-`modules/tree-model.js` 与 `core/*.js` 顶层**无 DOM 依赖**（DOM / localStorage 访问
-都在函数内部），可在 Node 中直接作 ESM 导入。本模块把一段断言脚本写成临时 `.mjs`，
+`modules/tree-model.js`、`core/*.js` 与 `ui/tree-view.js`（顶层只 import + 函数声明）
+均**无顶层 DOM 依赖**，可在 Node 中直接作 ESM 导入。本模块把一段断言脚本写成临时 `.mjs`，
 交给托管 `node` 执行，读回 `RESULT <json>` 逐项判定。
 
 覆盖批 4B：B-P3-1（网络失败归一）/ B-P3-3（renameNode 自校验）/ B-P3-4（toPlainTree
 重名告警）/ B-P3-5（查询族深树不爆栈）/ B-P3-6（bus.off 后不再触发）。
-B-P3-2（saveNow 在途保护）依赖真实页面，由 `tools/browser_smoke.py` + 静态守卫覆盖。
+覆盖批 4C：C-P3-3（`leftRow`「算不算离开」判定，含 relatedTarget 为 null 的坐标兜底）。
+B-P3-2（saveNow 在途保护）与 C-P3-2/C-P3-4（拖拽落点、提示条上限）依赖真实页面，
+由 `tools/browser_smoke.py` + 静态守卫覆盖。
 """
 
 from __future__ import annotations
@@ -107,6 +109,29 @@ const tm = await import(SRC + '/modules/tree-model.js');
   ok('B-P3-1/networkError', code === 'networkError', code);
 }
 
+/* ---------- C-P3-3「指针是否真离开本行」（批 4C） ----------
+   `ui/tree-view.js` 顶层只有 import 与函数声明（DOM 访问都在函数体内），可作 ESM 导入。
+   `leftRow` 是本项判定的**本体**，两种分支都要覆盖：浏览器探针只能造出
+   「有 relatedTarget」那一种，`relatedTarget` 为 null 的坐标兜底分支只能在此验证。 */
+{
+  const tv = await import(SRC + '/ui/tree-view.js');
+  const fakeRow = {
+    contains: (el) => Boolean(el) && el.inRow === true,
+    getBoundingClientRect: () => ({ left: 10, top: 20, right: 110, bottom: 40 }),
+  };
+  ok('C-P3-3/relatedInside',
+    tv.leftRow(fakeRow, { relatedTarget: { inRow: true } }) === false);
+  ok('C-P3-3/relatedOutside',
+    tv.leftRow(fakeRow, { relatedTarget: { inRow: false } }) === true);
+  ok('C-P3-3/nullInside',
+    tv.leftRow(fakeRow, { relatedTarget: null, clientX: 60, clientY: 30 }) === false);
+  ok('C-P3-3/nullOutside',
+    tv.leftRow(fakeRow, { relatedTarget: null, clientX: 5, clientY: 30 }) === true);
+  /* 边界取**闭区间**：正落在边框上仍算「行内」 */
+  ok('C-P3-3/nullEdge',
+    tv.leftRow(fakeRow, { relatedTarget: null, clientX: 10, clientY: 40 }) === false);
+}
+
 process.stdout.write('RESULT ' + JSON.stringify(results) + '\n');
 """
 
@@ -162,6 +187,12 @@ class FrontendJsTests(unittest.TestCase):
 
     def test_b3_1_network_error_normalized(self):
         self._ok("B-P3-1/networkError")
+
+    def test_c3_3_left_row_judgement(self):
+        """批 4C · C-P3-3：`dragleave` 的「算不算离开」判定，含 relatedTarget 为 null 的兜底分支。"""
+        for n in ("C-P3-3/relatedInside", "C-P3-3/relatedOutside",
+                  "C-P3-3/nullInside", "C-P3-3/nullOutside", "C-P3-3/nullEdge"):
+            self._ok(n)
 
 
 if __name__ == "__main__":

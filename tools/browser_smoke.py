@@ -184,6 +184,76 @@ frame('./index.html', function (doc) {
       lsel.value = 'en-US';   /* 复位，避免影响阶段 2 的初始语言 */
       lsel.dispatchEvent(new Event('change'));
     }
+    /* C-P3-2 / C-P3-3（V0.0.32）：拖拽落点**预判**「自身 / 自身子孙」+ 高亮不因划子元素闪烁。
+       合成 DragEvent 走**真实监听器**（dataTransfer 用 new DataTransfer()），不做静态断言。
+       目录行用图标码点判定（📁 U+1F4C1）—— 走 codePointAt 而非字面量，
+       避开多层转义（同 §P2-18 把 `\\u4e00` 换成 `CJK` 标识符的教训）。 */
+    if (doc && win && typeof win.DragEvent === 'function') {
+      var allRows = doc.querySelectorAll('.tree-row');
+      var isDirRow = function (r) {
+        var ic = r.querySelector('.tree-icon');
+        return !!ic && ic.textContent.codePointAt(0) === 0x1F4C1;
+      };
+      var rowDepth = function (r) {
+        var d = 0, p = r.parentNode;
+        while (p && p !== doc) {
+          if (p.classList && p.classList.contains('tree-children')) { d += 1; }
+          p = p.parentNode;
+        }
+        return d;
+      };
+      /* A = 被拖节点：**非根**、且有目录子孙的目录行（默认示例里是 materials）；
+         C = 非法落点（A 的目录子孙）；D = 合法落点（不在 A 子树内、也非根的另一目录行）。 */
+      var A = null, C = null, D = null, i, j;
+      for (i = 0; i < allRows.length; i += 1) {
+        if (!isDirRow(allRows[i]) || rowDepth(allRows[i]) < 1) { continue; }
+        var inner = allRows[i].parentNode.querySelectorAll('.tree-row');
+        var cand = null;
+        for (j = 1; j < inner.length; j += 1) {
+          if (isDirRow(inner[j])) { cand = inner[j]; break; }
+        }
+        if (cand) { A = allRows[i]; C = cand; break; }
+      }
+      if (A) {
+        for (i = 0; i < allRows.length; i += 1) {
+          if (!isDirRow(allRows[i]) || rowDepth(allRows[i]) < 1) { continue; }
+          if (!A.parentNode.contains(allRows[i])) { D = allRows[i]; break; }
+        }
+      }
+      if (A && C && D) {
+        var dt = new win.DataTransfer();
+        var fire = function (el, type, init) {
+          var o = { bubbles: true, cancelable: true, dataTransfer: dt };
+          for (var k in (init || {})) { o[k] = init[k]; }
+          var ev = new win.DragEvent(type, o);
+          el.dispatchEvent(ev);
+          return ev;
+        };
+        fire(A, 'dragstart');
+        m.dragSelf = fire(A, 'dragover').defaultPrevented ? 0 : 1;
+        var eDesc = fire(C, 'dragover');
+        m.dragDesc = (eDesc.defaultPrevented || C.classList.contains('is-drop-target')) ? 0 : 1;
+        var eOk = fire(D, 'dragover');
+        m.dragOk = (eOk.defaultPrevented && D.classList.contains('is-drop-target')) ? 1 : 0;
+        fire(D, 'dragleave', { relatedTarget: D.querySelector('.tree-name') });
+        m.dlChild = D.classList.contains('is-drop-target') ? 1 : 0;
+        fire(D, 'dragleave', { relatedTarget: doc.body, clientX: 0, clientY: 0 });
+        m.dlOut = D.classList.contains('is-drop-target') ? 0 : 1;
+        fire(A, 'dragend');
+      } else {
+        /* 默认示例形态变了 → 明示找不到落点，让三项判定明确 FAIL，不静默略过 */
+        m.dragSelf = -1; m.dragDesc = -1; m.dragOk = -1; m.dlChild = -1; m.dlOut = -1;
+      }
+    }
+    /* C-P3-4（V0.0.32）：连续 40 次「目标位置为空」的生成 → 提示条须被上限截住。
+       走真实按钮监听器（`btnGenerate` 在目标为空时 toast 后即早退，不改数据）。 */
+    var gen = doc ? doc.getElementById('btnGenerate') : null;
+    if (gen) {
+      for (var g = 0; g < 40; g += 1) {
+        gen.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      }
+      m.toastN = doc.querySelectorAll('#toastHost .toast').length;
+    }
   } catch (e) { m.err1 = String(e && e.message ? e.message : e); }
   phase2();
 });
@@ -380,6 +450,20 @@ def run_browser(browser: str, url: str, profile: Path, budget: int, timeout: flo
     return proc.stdout or "", proc.stderr or "", proc.returncode
 
 
+def toast_cap() -> int:
+    """从 `src/web/js/ui/toast.js` 读「同时显示提示条」上限（C-P3-4，V0.0.32）。
+
+    刻意**不把上限硬编码在判定里**：`toast.js` 是唯一事实源，改上限只需改源码一处，
+    页面级断言自动跟随，不会出现「源码改了、断言还在按旧数判」的漂移。
+    读不到常量（文件缺失 / 被改名）返回 -1 → 判定 FAIL，不静默放行。
+    """
+    path = SRC_DIR / "web" / "js" / "ui" / "toast.js"
+    if not path.is_file():
+        return -1
+    match = re.search(r"const\s+MAX_TOASTS\s*=\s*(\d+)", path.read_text(encoding="utf-8"))
+    return int(match.group(1)) if match else -1
+
+
 def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templates: bool) -> None:
     console_free = metrics.get("htmlLang") == "en-US"
     rows = as_int(metrics.get("idxRows"))
@@ -425,6 +509,39 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
     check(scroll_ok, "主界面·重建后滚动位置保持（C-P3-1）",
           f"scrollTop {sb} → {sa}，重建 {'是' if rebuilt == 1 else '否'}"
           + ("" if scroll_ok else "（C-P3-1 回归：重建后滚动位置丢失）"))
+
+    # C-P3-2（V0.0.32）：`dragover` 须**预判**「拖进自身 / 自身子孙」。
+    # 逼出缺陷：旧实现只挡「自身」，子孙落点照样亮 `is-drop-target` → 给「可放下」假暗示，
+    # 直到 `drop` 才由模型层 `canMove` 判 `cycle` 报错。三项同时成立才算过 ——
+    # 只断言「子孙被拒」会被「一律拒绝」式假修复骗过，故合法落点必须**真的被接受**。
+    d_self = as_int(metrics.get("dragSelf"), -1)
+    d_desc = as_int(metrics.get("dragDesc"), -1)
+    d_ok = as_int(metrics.get("dragOk"), -1)
+    drag_ok = d_self == 1 and d_desc == 1 and d_ok == 1
+    check(drag_ok, "主界面·拖拽预判自身子树（C-P3-2）",
+          f"自身落点{'拒' if d_self == 1 else '误收'} / "
+          f"子孙落点{'拒' if d_desc == 1 else '误收'} / "
+          f"无关目录{'收' if d_ok == 1 else '误拒'}"
+          + ("" if drag_ok else "（C-P3-2 回归：子树内落点仍给「可放下」假暗示）"))
+
+    # C-P3-3（V0.0.32）：`dragleave` 的 `relatedTarget` 仍在本行内（划过 toggle / icon / name）
+    # 时不得摘高亮；真离开时必须摘掉。**两向都断言**，否则「干脆永不摘」也能骗过单向断言。
+    dl_child = as_int(metrics.get("dlChild"), -1)
+    dl_out = as_int(metrics.get("dlOut"), -1)
+    dl_ok = dl_child == 1 and dl_out == 1
+    check(dl_ok, "主界面·拖拽高亮不因划过子元素闪烁（C-P3-3）",
+          f"划过子元素{'保持' if dl_child == 1 else '被误摘'} / "
+          f"真离开{'已摘' if dl_out == 1 else '未摘'}"
+          + ("" if dl_ok else "（C-P3-3 回归：高亮在子元素间闪烁）"))
+
+    # C-P3-4（V0.0.32）：提示条**同时显示**数量不得超上限。
+    # 上限从源码读（单一事实源）：改上限只需改 `toast.js` 一处，此断言自动跟随。
+    cap = toast_cap()
+    toast_n = as_int(metrics.get("toastN"), -1)
+    toast_ok = cap > 0 and toast_n == cap
+    check(toast_ok, "主界面·提示条数量上限（C-P3-4）",
+          f"上限 {cap if cap > 0 else '未读到'} 条，40 次提示后实存 {toast_n} 条"
+          + ("" if toast_ok else "（C-P3-4 回归：提示条无上限堆积）"))
 
     if expect_templates:
         tpl = as_int(metrics.get("tplRows"))

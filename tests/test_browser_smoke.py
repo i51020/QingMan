@@ -6,10 +6,11 @@
 **不验证判定逻辑本身是否正确**。本文件把「一次性反向验证」变成**常态回归网**。
 
 重点（复刻上一轮反向验证的逻辑，但固化为单测）：
-  * 喂「正常指标」→ 11 项全 PASS；
+  * 喂「正常指标」→ 14 项全 PASS；
   * 喂「P1-1 回归指标（分节 7 → 14 → 21）」→ **恰好**「帮助页·分节渲染幂等」一项 FAIL；
   * 喂「P1-2 回归指标（示例含中文名 6 个）」→ **恰好**「主界面·默认示例随语言」一项 FAIL；
-  * 喂「C-P3-5 回归指标（非法皮肤名被直接采用）」/「D-P3-2 回归指标（箭头色仍是旧灰）」→ 各恰好一项 FAIL。
+  * 喂「C-P3-5 回归指标（非法皮肤名被直接采用）」/「D-P3-2 回归指标（箭头色仍是旧灰）」→ 各恰好一项 FAIL；
+  * V0.0.32 三项（C-P3-2 子孙落点误收 / C-P3-3 划过子元素误摘 / C-P3-4 提示条无上限）→ 各恰好一项 FAIL。
 """
 
 from __future__ import annotations
@@ -45,10 +46,18 @@ NORMAL = {
     "badSkinHref": "./css/skins/s06-moonlight-pengray.css",
     "arrowColor": "rgb(79, 84, 90)", "dimColor": "rgb(79, 84, 90)",
     "scrollBefore": "40", "scrollAfter": "40", "reRendered": "1",
+    # V0.0.32 新增：C-P3-2（拖拽落点预判）/ C-P3-3（划子元素不摘高亮）/ C-P3-4（提示条上限）
+    #   上限值须与 src/web/js/ui/toast.js 的 MAX_TOASTS 一致（verify_metrics 会从源码读，此处对齐）
+    "dragSelf": "1", "dragDesc": "1", "dragOk": "1",
+    "dlChild": "1", "dlOut": "1",
+    "toastN": str(bs.toast_cap()),
 }
 
 FAIL = "帮助页·分节渲染幂等"
 FAIL_LANG = "主界面·默认示例随语言"
+FAIL_DRAG = "主界面·拖拽预判自身子树（C-P3-2）"
+FAIL_DL = "主界面·拖拽高亮不因划过子元素闪烁（C-P3-3）"
+FAIL_TOAST = "主界面·提示条数量上限（C-P3-4）"
 
 
 def run_metrics(metrics: dict, expected_version: str = VERSION,
@@ -164,7 +173,7 @@ class VerifyMetricsTests(unittest.TestCase):
     def test_normal_all_pass(self):
         results = run_metrics(NORMAL)
         self.assertEqual(failed_names(results), [], "正常指标不应有任何失败项")
-        self.assertEqual(len(results), 11, "verify_metrics 应产生 11 项判定")
+        self.assertEqual(len(results), 14, "verify_metrics 应产生 14 项判定")
 
     def test_p1_1_regression_fails_exactly_section_idempotence(self):
         """P1-1 回归：帮助页切语言累积分节（7 → 14 → 21）→ 恰好那项 FAIL。"""
@@ -198,7 +207,7 @@ class VerifyMetricsTests(unittest.TestCase):
 
     def test_templates_check_skipped_when_not_expected(self):
         results = run_metrics(NORMAL, expect_templates=False)
-        self.assertEqual(len(results), 10, "不期望模板时不应产生模板判定项")
+        self.assertEqual(len(results), 13, "不期望模板时不应产生模板判定项")
         self.assertNotIn("主界面·模板库已接入", [n for _o, n, _x in results])
 
     def test_low_row_count_fails(self):
@@ -234,6 +243,41 @@ class VerifyMetricsTests(unittest.TestCase):
         metrics = dict(NORMAL, reRendered="0")
         self.assertEqual(failed_names(run_metrics(metrics)),
                          ["主界面·重建后滚动位置保持（C-P3-1）"])
+
+    def test_c3_2_descendant_drop_misadvertised_fails_exactly(self):
+        """C-P3-2 回归：子孙落点仍给「可放下」假暗示（dragDesc=0）→ 恰好那项 FAIL。"""
+        metrics = dict(NORMAL, dragDesc="0")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_DRAG])
+
+    def test_c3_2_over_rejection_fails_exactly(self):
+        """C-P3-2：合法落点被误拒（dragOk=0）也要 FAIL —— 防「一律拒绝」式假修复。"""
+        metrics = dict(NORMAL, dragOk="0")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_DRAG])
+
+    def test_c3_2_missing_metrics_fail_explicitly(self):
+        """C-P3-2：探针找不到落点（-1）时须明确 FAIL，不静默略过。"""
+        metrics = dict(NORMAL, dragSelf="-1", dragDesc="-1", dragOk="-1")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_DRAG])
+
+    def test_c3_3_child_span_strips_highlight_fails_exactly(self):
+        """C-P3-3 回归：划过行内子元素即摘高亮（dlChild=0）→ 恰好那项 FAIL。"""
+        metrics = dict(NORMAL, dlChild="0")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_DL])
+
+    def test_c3_3_never_stripping_fails_exactly(self):
+        """C-P3-3：真离开却不摘高亮（dlOut=0）也要 FAIL —— 防「干脆永不摘」式假修复。"""
+        metrics = dict(NORMAL, dlOut="0")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_DL])
+
+    def test_c3_4_unbounded_toasts_fail_exactly(self):
+        """C-P3-4 回归：提示条无上限堆积（实存 40 条 > 上限）→ 恰好那项 FAIL。"""
+        metrics = dict(NORMAL, toastN="40")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_TOAST])
+
+    def test_toast_cap_read_from_source(self):
+        """C-P3-4：上限须从 `toast.js` 读（单一事实源），而非硬编码在判定里。"""
+        self.assertGreater(bs.toast_cap(), 0)
+        self.assertEqual(NORMAL["toastN"], str(bs.toast_cap()))
 
 
 class SandboxBaseTests(unittest.TestCase):

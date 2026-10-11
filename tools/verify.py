@@ -1421,6 +1421,10 @@ def main() -> int:
             ("not-a-real-skin", "缺非法皮肤回落断言（C-P3-5 回归位）"),
             ("--qm-text-dim", "缺箭头随皮肤变量断言（D-P3-2 回归位）"),
             ("treeWrap", "缺滚动位置保持断言（C-P3-1 回归位）"),
+            # V0.0.32 增：C-P3-2（拖拽落点预判自身子树）/ C-P3-3（划子元素不摘高亮）/ C-P3-4（提示条上限）
+            ("dragDesc", "缺拖拽落点预判断言（C-P3-2 回归位）"),
+            ("dlChild", "缺划子元素不摘高亮断言（C-P3-3 回归位）"),
+            ("MAX_TOASTS", "缺提示条数量上限断言（C-P3-4 回归位）"),
         )
         for token, why in anchors_bsmoke:
             if token not in btext:
@@ -1428,7 +1432,7 @@ def main() -> int:
     check(not b_bad, "浏览器冒烟覆盖 V0.0.25",
           f"缺失：{', '.join(b_bad)}" if b_bad
           else "控制台异常 / 漏翻 / 分节幂等 / 默认示例语言 / 切换驱动 / 沙盒隔离 / "
-               "皮肤回落 / 箭头随皮肤 / 滚动保持 齐备")
+               "皮肤回落 / 箭头随皮肤 / 滚动保持 / 拖拽落点预判 / 高亮不闪 / 提示条上限 齐备")
 
     # 7x. 后端防御批（V0.0.30，src 审查第四档 A-P3-1~8）
     #     逐条钉住「防御补丁」的关键 token —— 防止日后被无意回退（守卫的守卫）。
@@ -1503,6 +1507,30 @@ def main() -> int:
     check(not fe_bad, "前端核心防御批 V0.0.31",
           f"缺失：{', '.join(fe_bad)}" if fe_bad
           else "网络归一 / 在途保护 / 改名自校验 / 重名告警 / 迭代查询 / bus 清理 齐备")
+
+    # 7z. UI 防御批（V0.0.32，src 审查第四档 C-P3-2~4）
+    #     同 7x / 7y：把「防御补丁」的关键 token 钉住，防止日后被无意回退（守卫的守卫）。
+    tv_js = _read("src/web/js/ui/tree-view.js")
+    toast_js = _read("src/web/js/ui/toast.js")
+    ui_bad: list[str] = []
+    ui_anchors = (
+        ("C-P3-2", tv_js, "isSelfOrDescendant(draggingNode, node.id)",
+         "dragover 未预判「自身 / 自身子孙」（防环规则退化成只挡自身）"),
+        ("C-P3-2", tv_js, "let draggingNode = null;", "缺被拖节点对象缓存"),
+        ("C-P3-3", tv_js, "function leftRow(", "缺「指针是否真离开本行」判定"),
+        ("C-P3-3", tv_js, "if (leftRow(row, event))", "dragleave 未走离开判定（会再次闪烁）"),
+        ("C-P3-4", toast_js, "const MAX_TOASTS = 4;", "缺提示条数上限常量"),
+        ("C-P3-4", toast_js, "items.length - MAX_TOASTS", "缺超限淘汰逻辑"),
+    )
+    for code, text, token, why in ui_anchors:
+        if token not in text:
+            ui_bad.append(f"{code} {why}")
+    # C-P3-2：旧的「只挡自身」写法必须已清除（防两套判据并存）
+    if "draggingId !== node.id" in tv_js:
+        ui_bad.append("C-P3-2 仍残留「只挡自身」的旧判据")
+    check(not ui_bad, "UI 防御批 V0.0.32",
+          f"缺失：{', '.join(ui_bad)}" if ui_bad
+          else "拖拽落点预判 / 含子元素语义的 dragleave / 提示条上限 齐备")
 
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
