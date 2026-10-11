@@ -20,10 +20,22 @@ const DEFAULT_HEADERS = {
 };
 
 async function request(path, options = {}) {
-  const res = await fetch(BASE + path, {
-    ...options,
-    headers: { ...DEFAULT_HEADERS, ...(options.headers || {}) },
-  });
+  let res;
+  try {
+    res = await fetch(BASE + path, {
+      ...options,
+      headers: { ...DEFAULT_HEADERS, ...(options.headers || {}) },
+    });
+  } catch (cause) {
+    // B-P3-1：网络层失败（服务未起 / 连接被拒 / DNS）会抛 **裸 `TypeError`**，它没有
+    // `code` → `localizeError` 只能回落到浏览器原文（"Failed to fetch"，且是英文）。
+    // 归一成带 `code` 的错误，走与 HTTP 错误同一条本地化通道。
+    const error = new Error('networkError');
+    error.code = 'networkError';
+    error.detail = { path, message: String((cause && cause.message) || cause) };
+    console.warn('[QingMan] network failed:', error.detail);
+    throw error;
+  }
 
   let payload = null;
   try {

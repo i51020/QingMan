@@ -117,13 +117,14 @@ export async function copyText(text) {
   }
 }
 
+/** 按 id 找节点。显式栈（B-P3-5）：深树不撞引擎调用栈上限，语义同旧递归版。 */
 function findAny(node, id) {
   if (!node) return null;
-  if (node.id === id) return node;
-  if (!isDir(node)) return null;
-  for (const child of node.children) {
-    const hit = findAny(child, id);
-    if (hit) return hit;
+  const stack = [node];
+  while (stack.length) {
+    const n = stack.pop();
+    if (n.id === id) return n;
+    if (isDir(n)) for (const child of n.children) stack.push(child);
   }
   return null;
 }

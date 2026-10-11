@@ -1470,6 +1470,40 @@ def main() -> int:
           f"缺失：{', '.join(def_bad)}" if def_bad
           else "超时 / 唯一临时名 / 唯一回收站 / 真实桌面 / 迭代计数 / 严格布尔 / chunked / 守护 Timer 齐备")
 
+    # 7y. 前端核心防御批（V0.0.31，src 审查第四档 B-P3-1~6）
+    api_js = _read("src/web/js/core/api.js")
+    bus_js = _read("src/web/js/core/bus.js")
+    tm_js = _read("src/web/js/modules/tree-model.js")
+    main_js = _read("src/web/js/main.js")
+    insp_js = _read("src/web/js/ui/inspector.js")
+    codes_json = _read("src/shared/error-codes.json")
+    zh_js = _read("src/web/js/i18n/zh-CN.js")
+    en_js = _read("src/web/js/i18n/en-US.js")
+    fe_bad: list[str] = []
+    fe_anchors = (
+        ("B-P3-1", api_js, "code = 'networkError'", "api 未归一网络失败"),
+        ("B-P3-1", api_js, "catch (cause)", "api 未捕 fetch 失败"),
+        ("B-P3-1", codes_json, '"networkError"', "error-codes.json 缺 networkError"),
+        ("B-P3-1", zh_js, "'err.networkError'", "zh-CN 缺 err.networkError"),
+        ("B-P3-1", en_js, "'err.networkError'", "en-US 缺 err.networkError"),
+        ("B-P3-2", main_js, "let saveInFlight = false;", "main 缺在途保护标志"),
+        ("B-P3-2", main_js, "if (saveInFlight) {", "main 未按在途标志提前返回"),
+        ("B-P3-2", main_js, "let saveQueued = false;", "main 缺排队合并标志"),
+        ("B-P3-3", tm_js, "if (!validateSegment(name).ok) return false;", "renameNode 未自校验合法性"),
+        ("B-P3-3", tm_js, "if (hasSiblingName(findParent(root, id), name, id)) return false;",
+         "renameNode 未自校验同层重名"),
+        ("B-P3-4", tm_js, "hasOwnProperty.call(out, child.name)", "toPlainTree 未检同层重名"),
+        ("B-P3-5", tm_js, "while (stack.length)", "tree-model 查询族未迭代化"),
+        ("B-P3-5", insp_js, "const stack = [node]", "inspector.findAny 未迭代化"),
+        ("B-P3-6", bus_js, "listeners.delete(type)", "bus.off 未清空集合"),
+    )
+    for code, text, token, why in fe_anchors:
+        if token not in text:
+            fe_bad.append(f"{code} {why}")
+    check(not fe_bad, "前端核心防御批 V0.0.31",
+          f"缺失：{', '.join(fe_bad)}" if fe_bad
+          else "网络归一 / 在途保护 / 改名自校验 / 重名告警 / 迭代查询 / bus 清理 齐备")
+
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
     if handoff_file.is_file():
@@ -1628,7 +1662,7 @@ def main() -> int:
             "tests/test_store.py", "tests/test_versioning.py",
             "tests/test_browser_smoke.py", "tests/test_handoff.py",
             "tests/test_verify.py", "tests/test_promote.py",
-            "tests/test_smoke.py",
+            "tests/test_smoke.py", "tests/test_frontend_js.py",
             "tools/smoke.py", "tools/browser_smoke.py",
         ) if not (root / rel).is_file()]
         n_modules = len(sorted((root / "tests").glob("test_*.py")))

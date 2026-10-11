@@ -98,23 +98,35 @@ export function createFile(name, content = '') {
   return { id: uid('f'), type: 'file', name, content };
 }
 
+/**
+ * 查询族一律用**显式栈**而非递归（B-P3-5）。
+ *
+ * 树深由用户输入决定（`MAX_EDITOR_NODES` = 20000，深链可逼近该值）；递归实现会在
+ * 深树上撞 JS 引擎调用栈上限抛 `RangeError: Maximum call stack size exceeded`。
+ * 显式栈把栈搬到堆，深度不再受引擎限制。**语义与旧递归实现一致**（id 全局唯一，
+ * 遍历顺序不影响命中结果）。
+ */
 export function findNode(root, id) {
   if (!root) return null;
-  if (root.id === id) return root;
-  if (!isDir(root)) return null;
-  for (const child of root.children) {
-    const hit = findNode(child, id);
-    if (hit) return hit;
+  const stack = [root];
+  while (stack.length) {
+    const node = stack.pop();
+    if (node.id === id) return node;
+    if (isDir(node)) for (const child of node.children) stack.push(child);
   }
   return null;
 }
 
 export function findParent(root, id) {
   if (!root || !isDir(root)) return null;
-  for (const child of root.children) {
-    if (child.id === id) return root;
-    const hit = findParent(child, id);
-    if (hit) return hit;
+  const stack = [root];
+  while (stack.length) {
+    const node = stack.pop();
+    if (!isDir(node)) continue;
+    for (const child of node.children) {
+      if (child.id === id) return node;
+      stack.push(child);
+    }
   }
   return null;
 }
@@ -128,11 +140,18 @@ export function addChild(parent, node) {
 /**
  * 节点是否在 target 的子树内（含相等）。
  * 拖拽防环用：把目录移进它自己的子孙里会形成环，必须拦截。
+ * 显式栈实现（B-P3-5），语义同旧递归版（含 `!node → true` 的历史行为）。
  */
 export function isSelfOrDescendant(node, id) {
   if (!node || node.id === id) return true;
   if (!isDir(node)) return false;
-  return node.children.some((child) => isSelfOrDescendant(child, id));
+  const stack = [...node.children];
+  while (stack.length) {
+    const n = stack.pop();
+    if (n.id === id) return true;
+    if (isDir(n)) for (const c of n.children) stack.push(c);
+  }
+  return false;
 }
 
 /**
@@ -168,9 +187,18 @@ export function moveNode(root, id, targetDirId) {
   return true;
 }
 
+/**
+ * 重命名节点。**自校验**（B-P3-3）：名字非法或同层重名一律拒改并返回 `false`。
+ *
+ * 此前只查「节点存在 / 非根」，重名与合法性完全依赖调用方 —— 新增调用点极易漏检，
+ * 留下「UI 显示成功、落盘被服务端拒」的不一致。此处复用同模块的 `validateSegment`
+ * 与 `hasSiblingName`，把不变式收在被改的模型里（函数声明提升，前向引用无碍）。
+ */
 export function renameNode(root, id, name) {
   const node = findNode(root, id);
   if (!node || root.id === id) return false;
+  if (!validateSegment(name).ok) return false;
+  if (hasSiblingName(findParent(root, id), name, id)) return false;
   node.name = name;
   return true;
 }
@@ -250,24 +278,47 @@ export function countTree(node) {
   return { dirs, files };
 }
 
+/**
+ * 路径（`A / B / C`）。显式栈 + **父指针映射**（B-P3-5）。
+ *
+ * 不用「栈里带全路径字符串」的做法：那对线性深链是 O(深度²) 的字符串构建
+ * （20000 层会吃掉上 GB 中间串）。先一遍 DFS 建 `child → parent` 映射并定位目标，
+ * 再从目标回溯到根拼名字 —— **O(n) 时间 / O(n) 空间**，输出格式与旧递归版一致。
+ */
 export function pathOf(root, id) {
   if (!root) return '';
   if (root.id === id) return root.name;
-  if (!isDir(root)) return '';
-  for (const child of root.children) {
-    const sub = pathOf(child, id);
-    if (sub) return `${root.name} / ${sub}`;
+  const parent = new Map();
+  const stack = [root];
+  let target = null;
+  while (!target && stack.length) {
+    const node = stack.pop();
+    if (!isDir(node)) continue;
+    for (const child of node.children) {
+      parent.set(child, node);
+      if (child.id === id) {
+        target = child;
+        break;
+      }
+      stack.push(child);
+    }
   }
-  return '';
+  if (!target) return '';
+  const names = [];
+  for (let cur = target; cur && cur !== root; cur = parent.get(cur)) names.push(cur.name);
+  names.push(root.name);
+  return names.reverse().join(' / ');
 }
 
+/** 深度（根 = 0）。显式栈（B-P3-5），保留第三参以兼容既有调用。 */
 export function depthOf(root, id, depth = 0) {
   if (!root) return -1;
-  if (root.id === id) return depth;
-  if (!isDir(root)) return -1;
-  for (const child of root.children) {
-    const hit = depthOf(child, id, depth + 1);
-    if (hit >= 0) return hit;
+  const stack = [[root, depth]];
+  while (stack.length) {
+    const [node, d] = stack.pop();
+    if (node.id === id) return d;
+    if (!isDir(node)) continue;
+    for (const child of node.children) stack.push([child, d + 1]);
   }
   return -1;
 }
@@ -336,7 +387,13 @@ export function fromDocumentNode(raw, path = '$') {
 
 /* ---------- 落盘载荷（供 /api/generate 使用） ---------- */
 
-/** 内存节点 → 后端/模板使用的纯对象结构：目录为 {}，文件为字符串内容。 */
+/**
+ * 内存节点 → 后端/模板使用的纯对象结构：目录为 {}，文件为字符串内容。
+ *
+ * B-P3-4：对象字面量下**同层重名会「后者覆盖前者」**（静默丢一个节点）。
+ * 正常流程已由 `validateSegment` / 服务端 `editorSiblingDuplicated` 拦住，不会到达；
+ * 此处加**告警**把「本不该发生」的情形暴露出来（不抛错 —— 落盘契约不能因此中断）。
+ */
 export function toPlainTree(node) {
   if (!isDir(node)) {
     return { [node.name]: node.content || '' };
@@ -344,6 +401,9 @@ export function toPlainTree(node) {
   const out = {};
   if (node.children.length === 0) return out;
   for (const child of node.children) {
+    if (Object.prototype.hasOwnProperty.call(out, child.name)) {
+      console.warn('[QingMan] toPlainTree: duplicate sibling name overwritten:', child.name);
+    }
     if (isDir(child)) {
       out[child.name] = toPlainTree(child);
     } else {

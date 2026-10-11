@@ -161,6 +161,7 @@ export const dict = {
   'err.codeLabel': 'Error code: {code}',
   /* Not a backend code: raised by the frontend on HTTP-level failure, but shares the err.* prefix so it localizes the same way */
   'err.httpError': 'Request failed (HTTP {status})',
+  'err.networkError': 'Cannot reach the backend service; make sure it is still running: {message}',
 
   /* ---------- Center: generation parameters ---------- */
   'gen.rootLabel': 'Root folder name',
@@ -297,7 +298,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.30',
+  'help.versionFallback': 'V0.0.31',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

@@ -17,7 +17,11 @@ export function createBus() {
 
   function off(type, handler) {
     const set = listeners.get(type);
-    if (set) set.delete(handler);
+    if (!set) return;
+    set.delete(handler);
+    // B-P3-6：最后一个监听器移除后把空 Set 一并删掉 —— 否则 `listeners` 里会长期
+    // 残留空集合（每注册过一种事件就多一条），属极轻微内存滞留。
+    if (set.size === 0) listeners.delete(type);
   }
 
   function emit(type, payload) {

@@ -7,6 +7,48 @@
 
 ---
 
+## V0.0.31 — 2026-10-11
+
+**主题**：`src/` 审查**批 4B（第四档 · 前端核心防御 6 项）**整改（《审查报告_src_20261011》§三 **B-P3-1 ~ B-P3-6**）。改动集中在 `src/web/js/{core,modules,ui}/` + `main.js` + `src/shared/error-codes.json` → **升 patch 版 `V0.0.30` → `V0.0.31`**。新增错误码 **`networkError`**（`error-codes.json` + 两语 `err.networkError` 三处齐备）。
+
+| # | 文件 | 项 | 处置 |
+|---|---|---|---|
+| 1 | `core/api.js` | **B-P3-1**（用户可见） | `fetch` 网络层失败（服务未起 / 连接被拒）抛**裸 `TypeError`**（无 `code`）→ `localizeError` 只能回落浏览器英文原文（"Failed to fetch"）。改为 `try/catch` 归一成带 `code='networkError'` 的错误，走同一条本地化通道；新增错误码三处齐备 |
+| 2 | `main.js` | **B-P3-2**（竞态防御） | `saveNow` 原无 in-flight 保护：防抖到点与 Ctrl+S 可能**并发 PUT**（叠加 A-P3-2 → 响应乱序）。加 `saveInFlight` + `saveQueued`：一次在途、期间改动**排队合并**，收尾再存一次 |
+| 3 | `modules/tree-model.js` | **B-P3-3**（不变式收敛） | `renameNode` 原先只查「存在 / 非根」，**重名与合法性全靠调用方**（新增调用点易漏检）→ 改为**自校验**：非法名或同层重名一律拒改返回 `false`（复用同模块 `validateSegment` / `hasSiblingName`） |
+| 4 | `modules/tree-model.js` | **B-P3-4**（防御） | `toPlainTree` 对象字面量下**同层重名后者覆盖前者**（静默丢节点）→ 加 `hasOwnProperty` 检测 + `console.warn`（**不抛错**：落盘契约不因此中断；正常流程已被服务端拦截） |
+| 5 | `modules/tree-model.js` + `ui/inspector.js` | **B-P3-5**（健壮性） | `findNode`/`findParent`/`isSelfOrDescendant`/`pathOf`/`depthOf`/`findAny` 原**递归** → 深树（`MAX_EDITOR_NODES`=20000）撞引擎调用栈上限。统一改**显式栈**；`pathOf` 用**父指针映射**（避免「栈里带全路径串」的 O(深度²) 构建）。语义与旧版一致 |
+| 6 | `core/bus.js` | **B-P3-6**（内存） | `off` 移除后未删空 `Set` → `listeners` 长期残留空集合。加 `if (set.size === 0) listeners.delete(type)` |
+| 7 | `tools/verify.py` | 守卫同步 | 新增检查段「前端核心防御批 V0.0.31」（13 个锚点）；并把 `tests/test_frontend_js.py` 纳入「回归测试网」必需清单 → **83 → 84 项** |
+| 8 | `tests/test_frontend_js.py` | **新模块** | 前端核心 **Node 驱动测试**：把断言脚本写成临时 `.mjs`、交托管 `node` 执行、读回 `RESULT <json>` 逐项判定（`tree-model.js`/`core/*.js` 顶层无 DOM，可作 ESM 直接导入）→ **5 用例 / 15 断言** |
+
+**反向验证（逐项还原为缺陷 → 恰该项 FAIL）**：
+
+| 项 | 手法 | 结果 |
+|---|---|---|
+| B-P3-1 | `error.code` 改回 `httpError` | **FAIL** `test_b3_1_network_error_normalized` |
+| B-P3-2 | 删 `let saveInFlight = false;` | **FAIL** verify「前端核心防御批」 |
+| B-P3-3 | 删 `renameNode` 两行自校验 | **FAIL** `test_b3_3_rename_self_guard` |
+| B-P3-4 | 删 `hasOwnProperty` 告警块 | **FAIL** `test_b3_4_plain_tree_duplicate_warn` |
+| B-P3-5 | `findNode` 退回递归 | **FAIL** `test_b3_5_deep_tree_queries`（20000 层栈溢出） |
+| B-P3-6 | 删 `listeners.delete(type)` | **FAIL** verify「前端核心防御批」 |
+
+> **6/6 恰该项 FAIL**。注：初版深树用例取 5000 层 —— **不足以**触发 V8 栈溢出（反向验证「未复现」）；改 **20000 层**（= `MAX_EDITOR_NODES`）后递归版必溢出。同时发现 `pathOf` 显式栈初版对线性深链是 **O(深度²)** 字符串构建，已改父指针映射。
+
+**验证（四件套，全部真实运行）**：
+
+| 项 | 结果 |
+|---|---|
+| `verify.py .` | **84/0** |
+| `verify.py . --against V0.0.31` | **86/0**（指纹一致） |
+| `unittest` | **Ran 252 tests · OK**（247 → 252，+5） |
+| `smoke.py` | **17/0** |
+| `browser_smoke.py` | **14/0** |
+
+**未做的事（据实）**：`toDocumentNode` / `fromDocumentNode`（序列化族）同为递归，**不在报告清单内**，本批**未改**（深树序列化仍可能溢出，登记为后续候补）。第四档剩 **3 项**（UI：C-P3-2 / C-P3-3 / C-P3-4），按批 4C 续做。
+
+---
+
 ## V0.0.30 — 2026-10-11
 
 **主题**：`src/` 审查**批 4A（第四档 · 后端防御 8 项）**整改（《审查报告_src_20261011》§三 **A-P3-1 ~ A-P3-8**）。改动集中在 `src/server/{routes,app,config,dtree_core}.py` → **升 patch 版 `V0.0.29` → `V0.0.30`**。**无新增错误码 / 取词键**（复用 `bodyTooLarge` 等既有码）。

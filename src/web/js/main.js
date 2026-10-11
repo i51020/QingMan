@@ -313,6 +313,10 @@ function renderSaveChip() {
 /* ---------- 编辑态持久化（见 docs/项目约定.md §P0-7） ---------- */
 
 let saveTimer = null;
+/** 是否已有一次保存在途（B-P3-2）。防抖到点与 Ctrl+S 可能同时触发 → 并发 PUT。 */
+let saveInFlight = false;
+/** 在途期间又发生了改动：等本次完成后合并再存一次。 */
+let saveQueued = false;
 
 /** 重复 id 列表 → 便于阅读的短串（分隔符同样走取词，避免直写全角标点）。 */
 function idList(ids) {
@@ -338,6 +342,12 @@ function markDirty() {
 
 /** 立即写盘。防抖到点与 Ctrl+S 都走这里。 */
 async function saveNow() {
+  // B-P3-2：在途保护 —— 并发 PUT 会让两次保存的响应乱序（后到的旧结果覆盖新状态）。
+  // 合并为「一次在途 + 一次排队」，排队在收尾时重新触发。
+  if (saveInFlight) {
+    saveQueued = true;
+    return;
+  }
   if (saveTimer) {
     clearTimeout(saveTimer);
     saveTimer = null;
@@ -351,6 +361,7 @@ async function saveNow() {
     return;
   }
 
+  saveInFlight = true;
   store.set({ saveState: 'saving' });
   try {
     const res = await api.saveDoc(currentDocument());
@@ -359,6 +370,13 @@ async function saveNow() {
   } catch (err) {
     store.set({ saveState: 'error' });
     toast(t('toast.saveFailed', { message: localizeError(err) }), 'error', 6000);
+  } finally {
+    saveInFlight = false;
+    // 在途期间的改动：此刻已无并发，安全地再存一次（markDirty 会重新起防抖）
+    if (saveQueued) {
+      saveQueued = false;
+      markDirty();
+    }
   }
 }
 

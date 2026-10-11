@@ -167,6 +167,7 @@ export const dict = {
   'err.codeLabel': '错误码：{code}',
   /* 非后端错误码：HTTP 层失败时前端自行造的码，同样走 err.* 前缀以便本地化 */
   'err.httpError': '请求失败（HTTP {status}）',
+  'err.networkError': '无法连接后端服务，请确认服务仍在运行：{message}',
 
   /* ---------- 中栏：生成参数 ---------- */
   'gen.rootLabel': '根文件夹名',
@@ -303,7 +304,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.30',
+  'help.versionFallback': 'V0.0.31',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',
