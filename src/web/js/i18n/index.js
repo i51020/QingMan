@@ -247,10 +247,19 @@ function defaultSkinFile() {
   return hit ? hit.file : '';
 }
 
-/** 当前皮肤文件名。**恒返回非空**（无偏好时给出厂默认）。 */
+/** 已登记皮肤文件名白名单（C-P3-5）：用于校验持久化偏好，非法值一律回落出厂默认。 */
+const SKIN_FILES = new Set(SKINS.map((s) => s.file));
+
+/**
+ * 当前皮肤文件名。**恒返回非空**（无偏好或偏好非法时都给出厂默认）。
+ *
+ * C-P3-5：`localStorage` 可被手改、也可能残留旧版本/其它页写下的值；直接拿原值去拼
+ * `./css/skins/<name>.css` 会 404 —— 皮肤样式表装载失败即落回 `tokens.css` 的裸色，
+ * 与选择器上显示的皮肤名不符。故按注册表白名单校验，非法值回落出厂默认。
+ */
 export function getSkin() {
   const saved = readPref(SKIN_KEY);
-  return saved || defaultSkinFile();
+  return SKIN_FILES.has(saved) ? saved : defaultSkinFile();
 }
 
 /** 是否显式选过皮肤（用于区分「出厂默认」与「用户选的同一款」）。 */

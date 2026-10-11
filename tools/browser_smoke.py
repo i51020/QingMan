@@ -1,4 +1,4 @@
-"""青蔓 QingMan · 无头浏览器冒烟（§P0-2 T7，V0.0.25）。
+"""青蔓 QingMan · 无头浏览器冒烟（§P0-2 T7，V0.0.25；V0.0.29 扩 C-P3-5 / D-P3-2 / C-P3-1）。
 
 把「**页面跑起来才现形**」的那一类缺陷固化为常驻脚本。与相邻两件工具的分工：
 
@@ -20,6 +20,9 @@
   6. 帮助页·语言切换联动 `<html lang>`
   7. 帮助页·版本徽标 = `VERSION` 且后端可达（`help-stale` 已摘除）
   8. 支持页·V0.0.18 拆页后仍完好
+  9. 主界面·非法皮肤偏好回落出厂默认（C-P3-5 回归位，V0.0.29）
+ 10. 主界面·下拉箭头颜色随 `--qm-text-dim`（D-P3-2 回归位，V0.0.29）
+ 11. 主界面·目录树全量重建后保持滚动位置（C-P3-1 回归位，V0.0.29）
 
 用法：
     python tools/browser_smoke.py [--keep] [--browser PATH] [--sandbox DIR]
@@ -120,10 +123,12 @@ function frame(url, probe, done) {
   document.body.appendChild(f);
 }
 
-/* 阶段 1：英文偏好下的首屏默认示例（P1-2 回归位）。
-   先写偏好再建 iframe —— localStorage 与 iframe 同源共享，页面启动即读到 en-US。 */
+/* 阶段 1：英文偏好下的首屏默认示例（P1-2 回归位）+ 皮肤白名单 / 箭头随皮肤（C-P3-5 / D-P3-2）。
+   先写偏好再建 iframe —— localStorage 与 iframe 同源共享，页面启动即读到。
+   皮肤特意写入一个**非法**名：修复后页面须回落出厂默认（与"未选过"等价），
+   故选这一档即可同时覆盖 C-P3-5（非法回落）与 D-P3-2（箭头色随 --qm-text-dim）。 */
 try { localStorage.setItem('qm.lang', 'en-US'); } catch (e) {}
-try { localStorage.removeItem('qm.skin'); } catch (e) {}
+try { localStorage.setItem('qm.skin', 'not-a-real-skin'); } catch (e) {}
 
 frame('./index.html', function (doc) {
   return doc.querySelectorAll('.tree-row').length > 0
@@ -135,6 +140,37 @@ frame('./index.html', function (doc) {
     m.idxCjk = names(doc).filter(function (s) { return CJK.test(s); }).length;
     m.idxSkin = doc && doc.getElementById('skinLink') ? 1 : 0;
     m.tplRows = doc ? doc.querySelectorAll('#templateList li.tpl-row').length : -1;
+    /* C-P3-5 / D-P3-2（V0.0.29）：偏好已写入**非法**皮肤名 ——
+       ① skinLink.href 不得指向该非法名，须回落出厂默认（否则装载失败 → 落裸色）；
+       ② 下拉箭头伪元素的 background-color 须等于 --qm-text-dim 的计算实色
+          （旧版把箭头色烘死在 SVG 里，恒为 #6d7278 = rgb(109, 114, 120)，不随皮肤）。 */
+    var skinLink = doc ? doc.getElementById('skinLink') : null;
+    m.badSkinHref = skinLink ? (skinLink.getAttribute('href') || '') : '';
+    var win = doc ? doc.defaultView : null;
+    var wrap = doc ? doc.querySelector('.topbar-select') : null;
+    if (win && wrap) {
+      var probeEl = doc.createElement('i');
+      probeEl.style.color = 'var(--qm-text-dim)';
+      doc.body.appendChild(probeEl);
+      m.dimColor = win.getComputedStyle(probeEl).color;
+      probeEl.parentNode.removeChild(probeEl);
+      m.arrowColor = win.getComputedStyle(wrap, '::after').backgroundColor;
+    }
+    /* C-P3-1（V0.0.29）：全量重建不得把目录树滚动位置弹回顶部。
+       默认示例较短、正常高度下不滚动，故用内联 max-height 把滚动容器压到 60px 逼出滚动；
+       记下 scrollTop → 点一个行（store.set → 同步 render 全量重建）→ 重建后 scrollTop 须保持。
+       另校验"确实重建了"（首行节点被替换），避免重建未发生时的假通过。 */
+    var tw = doc ? doc.getElementById('treeWrap') : null;
+    var rows = doc ? doc.querySelectorAll('.tree-row') : null;
+    if (tw && rows && rows.length > 1) {
+      tw.style.maxHeight = '60px';
+      tw.scrollTop = 40;
+      m.scrollBefore = tw.scrollTop;
+      var firstRow = rows[0];
+      rows[1].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      m.scrollAfter = tw.scrollTop;
+      m.reRendered = (doc.querySelector('.tree-row') !== firstRow) ? 1 : 0;
+    }
     /* C-P2-1 回归位：皮肤名是取词键（skin.N）→ 换语言须重填 <option>。
        走真实用户路径：页面自己的语言下拉 change → setLocale → qmlocalechange → skin-picker.fill()。 */
     var lsel = doc ? doc.getElementById('langSelect') : null;
@@ -363,6 +399,32 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
     check(skin_i18n_ok, "主界面·皮肤下拉随语言刷新",
           f"en={skin_en!r} → zh={skin_zh!r}"
           + ("" if skin_i18n_ok else "（C-P2-1 回归：换语言后皮肤名未重填）"))
+
+    # C-P3-5（V0.0.29）：非法皮肤偏好须回落出厂默认 —— 若被直接采用，会去加载不存在的
+    # `./css/skins/not-a-real-skin.css`（装载失败 → 落 tokens.css 裸色，与选择器显示不符）。
+    bad_href = metrics.get("badSkinHref", "")
+    fallback_ok = bool(bad_href) and bad_href.endswith(".css") and "not-a-real-skin" not in bad_href
+    check(fallback_ok, "主界面·非法皮肤回落出厂默认（C-P3-5）",
+          f"href={bad_href or '(空)'}"
+          + ("" if fallback_ok else "（C-P3-5 回归：非法皮肤名被直接采用）"))
+
+    # D-P3-2（V0.0.29）：下拉箭头颜色须取自 --qm-text-dim（随皮肤），而非旧版烘死的 #6d7278。
+    arrow = metrics.get("arrowColor", "")
+    dim = metrics.get("dimColor", "")
+    arrow_ok = bool(arrow) and bool(dim) and arrow == dim and arrow != "rgb(109, 114, 120)"
+    check(arrow_ok, "主界面·下拉箭头随 --qm-text-dim（D-P3-2）",
+          f"箭头 {arrow or '(空)'} vs --qm-text-dim {dim or '(空)'}"
+          + ("" if arrow_ok else "（D-P3-2 回归：箭头色未随皮肤变量）"))
+
+    # C-P3-1（V0.0.29）：目录树全量重建后须保持滚动位置（否则每次编辑都跳回顶部）。
+    # 须同时满足「确实重建了」（reRendered=1），否则重建未发生时的相等是假通过。
+    sb = as_int(metrics.get("scrollBefore"), -1)
+    sa = as_int(metrics.get("scrollAfter"), -2)
+    rebuilt = as_int(metrics.get("reRendered"), 0)
+    scroll_ok = sb > 0 and sa == sb and rebuilt == 1
+    check(scroll_ok, "主界面·重建后滚动位置保持（C-P3-1）",
+          f"scrollTop {sb} → {sa}，重建 {'是' if rebuilt == 1 else '否'}"
+          + ("" if scroll_ok else "（C-P3-1 回归：重建后滚动位置丢失）"))
 
     if expect_templates:
         tpl = as_int(metrics.get("tplRows"))

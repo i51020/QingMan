@@ -6,9 +6,10 @@
 **不验证判定逻辑本身是否正确**。本文件把「一次性反向验证」变成**常态回归网**。
 
 重点（复刻上一轮反向验证的逻辑，但固化为单测）：
-  * 喂「正常指标」→ 7 项全 PASS；
+  * 喂「正常指标」→ 11 项全 PASS；
   * 喂「P1-1 回归指标（分节 7 → 14 → 21）」→ **恰好**「帮助页·分节渲染幂等」一项 FAIL；
-  * 喂「P1-2 回归指标（示例含中文名 6 个）」→ **恰好**「主界面·默认示例随语言」一项 FAIL。
+  * 喂「P1-2 回归指标（示例含中文名 6 个）」→ **恰好**「主界面·默认示例随语言」一项 FAIL；
+  * 喂「C-P3-5 回归指标（非法皮肤名被直接采用）」/「D-P3-2 回归指标（箭头色仍是旧灰）」→ 各恰好一项 FAIL。
 """
 
 from __future__ import annotations
@@ -40,6 +41,10 @@ NORMAL = {
     "langEn": "en-US", "langZh": "zh-CN",
     "chip": VERSION, "stale": "0",
     "qr": "1", "thanks": "1",
+    # V0.0.29 新增：C-P3-5（非法皮肤回落）/ D-P3-2（箭头随 --qm-text-dim）/ C-P3-1（重建后滚动保持）
+    "badSkinHref": "./css/skins/s06-moonlight-pengray.css",
+    "arrowColor": "rgb(79, 84, 90)", "dimColor": "rgb(79, 84, 90)",
+    "scrollBefore": "40", "scrollAfter": "40", "reRendered": "1",
 }
 
 FAIL = "帮助页·分节渲染幂等"
@@ -159,7 +164,7 @@ class VerifyMetricsTests(unittest.TestCase):
     def test_normal_all_pass(self):
         results = run_metrics(NORMAL)
         self.assertEqual(failed_names(results), [], "正常指标不应有任何失败项")
-        self.assertEqual(len(results), 8, "verify_metrics 应产生 8 项判定")
+        self.assertEqual(len(results), 11, "verify_metrics 应产生 11 项判定")
 
     def test_p1_1_regression_fails_exactly_section_idempotence(self):
         """P1-1 回归：帮助页切语言累积分节（7 → 14 → 21）→ 恰好那项 FAIL。"""
@@ -193,7 +198,7 @@ class VerifyMetricsTests(unittest.TestCase):
 
     def test_templates_check_skipped_when_not_expected(self):
         results = run_metrics(NORMAL, expect_templates=False)
-        self.assertEqual(len(results), 7, "不期望模板时不应产生模板判定项")
+        self.assertEqual(len(results), 10, "不期望模板时不应产生模板判定项")
         self.assertNotIn("主界面·模板库已接入", [n for _o, n, _x in results])
 
     def test_low_row_count_fails(self):
@@ -205,6 +210,30 @@ class VerifyMetricsTests(unittest.TestCase):
         metrics = dict(NORMAL, skinZh="Paper")
         self.assertEqual(failed_names(run_metrics(metrics)),
                          ["主界面·皮肤下拉随语言刷新"])
+
+    def test_c3_5_illegal_skin_adopted_fails_exactly(self):
+        """C-P3-5 回归：非法皮肤名被直接采用（href 指向不存在的 .css）→ 恰好那项 FAIL。"""
+        metrics = dict(NORMAL, badSkinHref="./css/skins/not-a-real-skin.css")
+        self.assertEqual(failed_names(run_metrics(metrics)),
+                         ["主界面·非法皮肤回落出厂默认（C-P3-5）"])
+
+    def test_d3_2_arrow_stale_color_fails_exactly(self):
+        """D-P3-2 回归：箭头色未随皮肤变量（仍是旧版烘死的 #6d7278）→ 恰好那项 FAIL。"""
+        metrics = dict(NORMAL, arrowColor="rgb(109, 114, 120)")
+        self.assertEqual(failed_names(run_metrics(metrics)),
+                         ["主界面·下拉箭头随 --qm-text-dim（D-P3-2）"])
+
+    def test_c3_1_scroll_reset_fails_exactly(self):
+        """C-P3-1 回归：重建后滚动位置回顶（scrollTop 40 → 0）→ 恰好那项 FAIL。"""
+        metrics = dict(NORMAL, scrollAfter="0")
+        self.assertEqual(failed_names(run_metrics(metrics)),
+                         ["主界面·重建后滚动位置保持（C-P3-1）"])
+
+    def test_c3_1_no_rebuild_is_not_vacuous_pass(self):
+        """C-P3-1：未真正重建（reRendered=0）时，即使 scrollTop 相等也不得判定通过。"""
+        metrics = dict(NORMAL, reRendered="0")
+        self.assertEqual(failed_names(run_metrics(metrics)),
+                         ["主界面·重建后滚动位置保持（C-P3-1）"])
 
 
 class SandboxBaseTests(unittest.TestCase):

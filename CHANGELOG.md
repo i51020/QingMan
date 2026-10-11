@@ -7,6 +7,42 @@
 
 ---
 
+## V0.0.29 — 2026-10-11
+
+**主题**：`src/` 审查**批 3（第四档 · 体验 4 项）**整改（《审查报告_src_20261011》§三 P3）—— C-P3-5 / D-P3-1 / D-P3-2 三项 + C-P3-1（**实测未复现**的显式加固）。改 `src/` 且扩 `browser_smoke` 断言 → **升 patch 版 `V0.0.28` → `V0.0.29`**。
+
+| # | 文件 | 项 | 处置 |
+|---|---|---|---|
+| 1 | `src/web/js/i18n/index.js` | **C-P3-5**（**真缺陷**） | `getSkin()` 原样返回 `localStorage` 值 → 非法值会去加载不存在的 `./css/skins/<值>.css`，装载失败即落 `tokens.css` **裸色**（与选择器显示不符）。改为按 **`SKINS[].file` 白名单**（`Set`）校验，非法值回落 `defaultSkinFile()` |
+| 2 | `src/web/css/{tokens,base}.css` | **D-P3-2**（**视觉变更**） | 箭头色原**烘死在 SVG data-URI**（`#6d7278`），仅随 light/dark、**不随皮肤**（深色皮肤下对比度不足）。改走**遮罩**：`--qm-select-arrow-mask`（白描边遮罩）+ `base.css` 新增 `.topbar-select::after`，以 `background-color: var(--qm-text-dim)` 上色 → **随皮肤/主题**自动变化。4 个 `<select>` 均在 `.topbar-select` 内，**无需改 HTML** |
+| 3 | `src/web/css/layout.css` | **D-P3-1**（**视觉变更**） | `#main` 原固定三栏 `240px minmax(360px,1fr) 280px` 无断点（最小需求约 920px）→ 窄窗挤压裁切。新增 `@media (max-width:920px)` **单列纵向堆叠**（镜像 `help.css` 的窄屏做法） |
+| 4 | `src/web/js/ui/tree-view.js` | **C-P3-1**（**实测未复现 · 显式加固**） | `render` 全量重建，报告称"滚动位置回到顶部"。**实测证伪**：还原原实现后 `scrollTop` 仍 `40 → 40`（同任务内清空+重建不触发重排 → 从不夹紧；关闭滚动锚定亦然）。按用户裁决**保留为显式仍保持**（对未来异步 / 强制回流稳健），断言作**前向行为守卫** |
+| 5 | `tools/browser_smoke.py` | 反向验证常驻化 | 阶段 1 并入 3 条新断言：**C-P3-5**（非法皮肤回落出厂默认）/ **D-P3-2**（箭头色 == `--qm-text-dim`）/ **C-P3-1**（重建后 `scrollTop` 保持，且校验"确实重建"以免假通过）→ **页面断言 11 → 14 项** |
+| 6 | `tools/verify.py` | 守卫同步 | 「浏览器冒烟覆盖 V0.0.25」加 **3 个静态锚点**（`not-a-real-skin` / `--qm-text-dim` / `treeWrap`），锚 **10 → 12 token** |
+| 7 | `tests/test_browser_smoke.py` | 判定逻辑固化 | `NORMAL` 补 3 组指标键；新增 **3 项回归单测**（非法皮肤被采用 / 箭头色未随皮肤 / 重建后滚动回顶）+ 「未真正重建不许假通过」→ `verify_metrics` 判定数 **8 → 11** |
+
+**反向验证（全部真实运行）**：
+
+| 项 | 手法 | 结果 |
+|---|---|---|
+| C-P3-5 | 还原 `getSkin` 为 `saved \|\| defaultSkinFile()` → 跑 `browser_smoke` | **恰该项 FAIL**（`href=./css/skins/not-a-real-skin.css`） |
+| D-P3-2 | 箭头 `background-color` 改回旧灰 `#6d7278` → 跑 `browser_smoke` | **恰该项 FAIL**（`箭头 rgb(109, 114, 120) vs --qm-text-dim rgb(93, 106, 124)`） |
+| C-P3-1 | 还原 `render` 为原实现（并关 `overflow-anchor`）→ 跑 `browser_smoke` | 仍 **PASS**（`40 → 40`）→ **现象未复现**，据实记，改按「显式加固」处置 |
+
+**验证（四件套，全部真实运行）**：
+
+| 项 | 结果 |
+|---|---|
+| `verify.py .` | **82/0** |
+| `verify.py . --against V0.0.29` | **84/0**（指纹一致） |
+| `unittest` | **Ran 238 tests · OK**（+4） |
+| `smoke.py` | **17/0** |
+| `browser_smoke.py` | **14/0** |
+
+**升版**：`V0.0.28` → **`V0.0.29`**（patch）；store 快照 **`V0.0.29@r1`**（54 文件 / 9 新 blob / parent `V0.0.28`）；git tag `V0.0.29`。
+
+---
+
 ## V0.0.28 — 2026-10-11
 
 **主题**：`src/` 审查**批 2（第三档）**整改（《审查报告_src_20261011》§五 **第三档**）—— 3 项 P2 + 1 项工具守卫修正。改 `src/` 行为 → **升 patch 版 `V0.0.27` → `V0.0.28`**。

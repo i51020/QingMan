@@ -1399,6 +1399,7 @@ def main() -> int:
     #     verify / unittest / smoke **三项全绿** —— 它们只在页面真跑起来时才现形。
     #     `tools/browser_smoke.py` 把这类缺陷变成常态守卫；这里静态锚定它的关键断言，
     #     防止日后有人把断言削成空壳（守卫的守卫）。
+    #     V0.0.29：再锚 2 个 token —— C-P3-5（非法皮肤回落出厂默认）与 D-P3-2（箭头色随 --qm-text-dim）。
     bsmoke_p = root / "tools/browser_smoke.py"
     b_bad: list[str] = []
     if not bsmoke_p.is_file():
@@ -1416,13 +1417,18 @@ def main() -> int:
             ("CJK", "缺中文名判定"),   # 稳定标识符锚点（原 "\\u4e00" 依赖三层转义，§P2-18）
             ("copytree", "缺沙盒隔离（会污染真实 data/）"),
             ("_probe_ui.html", "缺同源探针页"),
+            # V0.0.29 增：C-P3-5（非法皮肤回落）/ D-P3-2（箭头色随 --qm-text-dim）/ C-P3-1（滚动保持）
+            ("not-a-real-skin", "缺非法皮肤回落断言（C-P3-5 回归位）"),
+            ("--qm-text-dim", "缺箭头随皮肤变量断言（D-P3-2 回归位）"),
+            ("treeWrap", "缺滚动位置保持断言（C-P3-1 回归位）"),
         )
         for token, why in anchors_bsmoke:
             if token not in btext:
                 b_bad.append(why)
     check(not b_bad, "浏览器冒烟覆盖 V0.0.25",
           f"缺失：{', '.join(b_bad)}" if b_bad
-          else "控制台异常 / 漏翻 / 分节幂等 / 默认示例语言 / 切换驱动 / 沙盒隔离 齐备")
+          else "控制台异常 / 漏翻 / 分节幂等 / 默认示例语言 / 切换驱动 / 沙盒隔离 / "
+               "皮肤回落 / 箭头随皮肤 / 滚动保持 齐备")
 
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"

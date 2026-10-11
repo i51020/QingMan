@@ -107,19 +107,36 @@ select {
     1px 1px 2px var(--qm-shadow-dark),
     -1px -1px 1px var(--qm-shadow-light),
     inset .5px .5px 1px var(--qm-edge-hi);
-  background-image: var(--qm-select-arrow);
-  background-repeat: no-repeat;
-  background-position: right 7px center;
+  /* 箭头不再由 select 自绘：改由包裹层 .topbar-select::after 用遮罩上色（D-P3-2）。
+     右侧 padding 仍为箭头预留位置。 */
 }
 select:focus { outline: 2px solid var(--qm-accent-soft); border-color: var(--qm-accent); }
 select option { background: var(--qm-surface-2); color: var(--qm-text); }
 
 .topbar-select {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 5px;
   font-size: 12px;
   color: var(--qm-text-dim);
+}
+/* D-P3-2：下拉箭头用**遮罩**上色 —— 颜色取 --qm-text-dim，随皮肤 / 主题自动变化
+   （旧版把颜色烘死在 background-image 的 SVG 里，只随 light/dark，不随皮肤）。
+   全部 <select> 都落在 .topbar-select 内，故箭头由包裹层统一绘制。
+   注意：日后若新增不在 .topbar-select 内的 <select>，须另配箭头。 */
+.topbar-select::after {
+  content: '';
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  width: 10px;
+  height: 6px;
+  transform: translateY(-50%);
+  background-color: var(--qm-text-dim);
+  -webkit-mask: var(--qm-select-arrow-mask) center / 10px 6px no-repeat;
+  mask: var(--qm-select-arrow-mask) center / 10px 6px no-repeat;
+  pointer-events: none;
 }
 .select-label { font-size: 11px; letter-spacing: .5px; }
 

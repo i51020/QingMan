@@ -365,3 +365,19 @@
 }
 .toast.is-error { border-left-color: var(--qm-danger); }
 .toast.is-warn { border-left-color: var(--qm-warn); }
+
+/* ---------- 窄窗兜底（D-P3-1） ----------
+   三栏固定列（240 + minmax(360,1fr) + 280）＋ 栏间距/内边距，最小需求约 920px；
+   窗口窄于此时中栏被挤到不足 360px 并溢出裁切（#main 原本无溢出策略）。
+   参考 help.css 的窄屏处理（@media max-width:720px），改为**单列纵向堆叠**：
+   中栏（树 / 工具栏）给足高度、内部照常滚动，左右栏随内容自然增高、由 #main 统一滚动。 */
+@media (max-width: 920px) {
+  #main {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: min-content;
+    align-content: start;
+    overflow: auto;
+  }
+  #sidebar, #inspector { overflow: visible; }
+  #center { min-height: 60vh; }
+}

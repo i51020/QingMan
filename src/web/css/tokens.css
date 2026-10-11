@@ -40,8 +40,12 @@
   --qm-btn-hi: rgba(255, 255, 255, .18);
   --qm-btn-lo: rgba(0, 0, 0, .25);
 
-  /* 下拉框箭头 SVG，颜色随主题切换（§P0-3 L4：组件 CSS 不写裸色值） */
-  --qm-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%236d7278' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+  /* 下拉箭头**遮罩**（D-P3-2）：遮罩本身不带颜色，实际颜色由 base.css 的
+     `.topbar-select::after` 以 `background-color: var(--qm-text-dim)` 上色 ——
+     于是箭头随**皮肤**（皮肤覆盖 --qm-text-dim）与 light/dark 一同变化，
+     不再是一枚烘死在 SVG 里的灰色常客（旧版仅随 light/dark，选深色皮肤时对比度不足）。
+     描边取白色：遮罩无论按 alpha 还是 luminance 解释，白色都表示"完全显示"。 */
+  --qm-select-arrow-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%23fff' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
 
   --qm-font: "Microsoft YaHei UI", "Microsoft YaHei", system-ui, -apple-system, "Segoe UI", sans-serif;
   --qm-mono: "Cascadia Mono", Consolas, "Courier New", monospace;
@@ -77,6 +81,6 @@
     --qm-btn-hi: rgba(255, 255, 255, .18);
     --qm-btn-lo: rgba(0, 0, 0, .25);
 
-    --qm-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%239aa7b5' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+    /* 箭头遮罩无颜色 → 深色主题无需另设一份（颜色由 ::after 的 --qm-text-dim 决定，D-P3-2）。 */
   }
 }

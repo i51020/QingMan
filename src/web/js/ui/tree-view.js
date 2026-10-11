@@ -18,9 +18,17 @@ export function createTreeView(container, { onSelect, onMove, onContext }) {
   function render(root, selectedId) {
     currentRoot = root;
     currentSelectedId = selectedId;
+    /* C-P3-1：本函数是**全量重建**（编辑 / 折叠 / 选中任一操作都走到这里），
+       清空容器会让滚动位置回到顶部。滚动条长在**父节点** `#treeWrap` 上
+       （见 css/layout.css：`#treeWrap { overflow: auto }`），`container`（`#treeCanvas`）
+       自身不滚动 —— 故在重建前后记录并还原滚动偏移，避免"改一下就跳回顶"。 */
+    const scroller = container.parentElement || container;
+    const keepTop = scroller.scrollTop;
+    const keepLeft = scroller.scrollLeft;
     container.textContent = '';
-    if (!root) return;
-    container.appendChild(buildRow(root, selectedId));
+    if (root) container.appendChild(buildRow(root, selectedId));
+    scroller.scrollTop = keepTop;
+    scroller.scrollLeft = keepLeft;
   }
 
   function buildRow(node, selectedId) {
