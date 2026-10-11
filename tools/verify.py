@@ -1532,6 +1532,29 @@ def main() -> int:
           f"缺失：{', '.join(ui_bad)}" if ui_bad
           else "拖拽落点预判 / 含子元素语义的 dragleave / 提示条上限 齐备")
 
+    # 7aa. 序列化族迭代化（V0.0.33，第四档同族残留收口）
+    #      背景：B-P3-5 只迭代化了「查询族」，同族的 toDocumentNode / fromDocumentNode
+    #      仍是递归 —— 深链（MAX_EDITOR_NODES = 20000）下依旧会 RangeError。
+    #      判据：① 两函数改迭代（正锚点）；② 旧递归写法已清除（防两套并存）。
+    tm_ser = _read("src/web/js/modules/tree-model.js")
+    ser_bad: list[str] = []
+    ser_anchors = (
+        ("4D-1", tm_ser, "const outRoot = build(node);", "toDocumentNode 未改为迭代构建"),
+        ("4D-1", tm_ser, "const stack = [[node, outRoot]];", "toDocumentNode 缺显式栈遍历"),
+        ("4D-2", tm_ser, "const stack = [{ src: raw", "fromDocumentNode 未改为迭代构建"),
+        ("4D-2", tm_ser, "kidsOf(frame.kids[idx])", "fromDocumentNode 未按帧下潜子节点"),
+    )
+    for code, text, token, why in ser_anchors:
+        if token not in text:
+            ser_bad.append(f"{code} {why}")
+    for leftover in ("node.children.map(toDocumentNode)",
+                     "children.map((child, i) => fromDocumentNode("):
+        if leftover in tm_ser:
+            ser_bad.append(f"仍残留旧递归写法（{leftover}）")
+    check(not ser_bad, "序列化族迭代化 V0.0.33",
+          f"缺失：{', '.join(ser_bad)}" if ser_bad
+          else "toDocumentNode / fromDocumentNode 均迭代化，旧递归写法已清除")
+
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
     if handoff_file.is_file():

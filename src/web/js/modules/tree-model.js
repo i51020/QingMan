@@ -325,24 +325,32 @@ export function depthOf(root, id, depth = 0) {
 
 /* ---------- 文档序列化（编辑态持久化，见 docs/项目约定.md §P0-7） ---------- */
 
-/** 内存节点 → 可持久化节点（保留 id，只留数据字段，剔除折叠态等视图信息）。 */
+/**
+ * 内存节点 → 可持久化节点（保留 id，只留数据字段，剔除折叠态等视图信息）。
+ *
+ * 4D-1：改为**显式栈迭代**（原为按 children 递归下潜，与 B-P3-5 同类缺陷 ——
+ * 深链在 MAX_EDITOR_NODES（20000）下递归版会 RangeError）。语义不变：
+ * 目录 children 保持源顺序，文件保留 content 原样。
+ */
 export function toDocumentNode(node) {
-  if (isDir(node)) {
-    return {
-      id: node.id,
-      type: 'dir',
-      name: node.name,
-      note: normalizeNote(node.note),
-      children: node.children.map(toDocumentNode),
-    };
+  const build = (n) => (isDir(n)
+    ? { id: n.id, type: 'dir', name: n.name, note: normalizeNote(n.note), children: [] }
+    : {
+      id: n.id, type: 'file', name: n.name,
+      note: normalizeNote(n.note), content: n.content || '',
+    });
+  const outRoot = build(node);
+  if (!isDir(node)) return outRoot;
+  const stack = [[node, outRoot]];
+  while (stack.length) {
+    const [src, out] = stack.pop();
+    for (const child of src.children) {
+      const childOut = build(child);
+      out.children.push(childOut);
+      if (isDir(child)) stack.push([child, childOut]);
+    }
   }
-  return {
-    id: node.id,
-    type: 'file',
-    name: node.name,
-    note: normalizeNote(node.note),
-    content: node.content || '',
-  };
+  return outRoot;
 }
 
 /**
@@ -350,39 +358,60 @@ export function toDocumentNode(node) {
  *
  * 宽容处：id 缺失或非字符串时补发新 id（兼容早期文档）。
  * 恢复后仍须调用 reserveIds()，把补发之外的既有 id 一并登记。
+ *
+ * 4D-2：改为**显式栈迭代**。关键 —— 用「帧 + 游标」模拟原递归的**前序**下潜：
+ * 建好 child[i] 后立即深入其子树，回来再取 child[i+1]。这样「多个节点同时非法时
+ * 先抛哪一个」的错误顺序与原实现逐字一致（若改成一次性先把同层子节点全过一遍，
+ * 就会改变该顺序）。宽容与校验语义均保持不变。
  */
 export function fromDocumentNode(raw, path = '$') {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    throw new Error(t('doc.nodeNotObject', { path }));
-  }
-  if (raw.type !== 'dir' && raw.type !== 'file') {
-    throw new Error(t('doc.nodeBadType', { path }));
-  }
-  if (typeof raw.name !== 'string' || !raw.name) {
-    throw new Error(t('doc.nodeBadName', { path }));
-  }
-  const id = (typeof raw.id === 'string' && raw.id) ? raw.id : uid(raw.type === 'dir' ? 'd' : 'f');
-
-  if (raw.type === 'dir') {
-    const children = raw.children === undefined ? [] : raw.children;
-    if (!Array.isArray(children)) {
-      throw new Error(t('doc.nodeBadChildren', { path }));
+  const build = (r, p) => {
+    if (!r || typeof r !== 'object' || Array.isArray(r)) {
+      throw new Error(t('doc.nodeNotObject', { path: p }));
+    }
+    if (r.type !== 'dir' && r.type !== 'file') {
+      throw new Error(t('doc.nodeBadType', { path: p }));
+    }
+    if (typeof r.name !== 'string' || !r.name) {
+      throw new Error(t('doc.nodeBadName', { path: p }));
+    }
+    const id = (typeof r.id === 'string' && r.id) ? r.id : uid(r.type === 'dir' ? 'd' : 'f');
+    if (r.type === 'dir') {
+      const children = r.children === undefined ? [] : r.children;
+      if (!Array.isArray(children)) {
+        throw new Error(t('doc.nodeBadChildren', { path: p }));
+      }
+      return { id, type: 'dir', name: r.name, note: normalizeNote(r.note), children: [] };
     }
     return {
-      id,
-      type: 'dir',
-      name: raw.name,
-      note: normalizeNote(raw.note),
-      children: children.map((child, i) => fromDocumentNode(child, `${path}.children[${i}]`)),
+      id, type: 'file', name: r.name,
+      note: normalizeNote(r.note),
+      content: typeof r.content === 'string' ? r.content : '',
     };
-  }
-  return {
-    id,
-    type: 'file',
-    name: raw.name,
-    note: normalizeNote(raw.note),
-    content: typeof raw.content === 'string' ? raw.content : '',
   };
+  const kidsOf = (r) => (r.children === undefined ? [] : r.children);
+
+  const root = build(raw, path);
+  if (root.type !== 'dir') return root;
+
+  const stack = [{ src: raw, out: root, base: path, kids: kidsOf(raw), i: 0 }];
+  while (stack.length) {
+    const frame = stack[stack.length - 1];
+    if (frame.i >= frame.kids.length) {
+      stack.pop();
+      continue;
+    }
+    const idx = frame.i;
+    frame.i += 1;
+    const childPath = `${frame.base}.children[${idx}]`;
+    const child = build(frame.kids[idx], childPath);
+    frame.out.children.push(child);
+    if (child.type === 'dir') {
+      stack.push({ src: frame.kids[idx], out: child, base: childPath,
+        kids: kidsOf(frame.kids[idx]), i: 0 });
+    }
+  }
+  return root;
 }
 
 /* ---------- 落盘载荷（供 /api/generate 使用） ---------- */
