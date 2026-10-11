@@ -160,6 +160,7 @@ export const dict = {
   'err.templateDirNotWritable': 'Template directory not writable: {dir} ({message})',
   'err.templateBadMarkdown': 'Failed to parse template Markdown: {reason}',
   'err.templateSiblingDuplicated': 'Duplicate sibling node in template: {name} (case-insensitive)',
+  'err.templateEmpty': 'Template content is empty: no nodes parsed',
 
   /* Error-code badge: a stable identifier for troubleshooting, shown alongside the localized text */
   'err.codeLabel': 'Error code: {code}',
@@ -302,7 +303,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.35',
+  'help.versionFallback': 'V0.0.36',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

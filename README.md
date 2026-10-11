@@ -75,7 +75,7 @@ QingMan/
 ├─ preview/             试运行区（**只服务单次开发**：`promote` 后即清空，不跨版本保留 —— §P1-7）
 │  └─ README.md         用途与规则说明（占位，使目录保留在 git 跟踪内）
 ├─ templates/           17 套中文目录树模板（内容资产）+ .trash/（软删除回收区）
-├─ tests/               回归测试网（**11 模块**，标准库 unittest，零第三方依赖 —— §P0-2）
+├─ tests/               回归测试网（**12 模块**，标准库 unittest，零第三方依赖 —— §P0-2）
 │  ├─ test_dtree_core.py   切分 / 统计 / 文档校验 / check_target(R1–R5) / build_tree(R6–R8)
 │  ├─ test_routes.py       生成守卫 / 写入 / 编辑态往返 / 健康 / 模板 CRUD 与覆盖写
 │  ├─ test_config.py       体积上限分层自洽 / 路径与开关派生
@@ -143,7 +143,7 @@ QingMan/
 | 步骤 | 命令 | 说明 |
 |---|---|---|
 | 1. 预览开发 | `python tools/release.py bump --kind patch`，再建 `preview/V<版本>/` | **先升版再建副本** —— 预览副本也含 `VERSION`。试错保护来自**主线仍停在上一版**；**副本不进索引**（§P1-7 生效后），清空按 `git ls-files preview/V<版本>` 二分：**非空** → `git rm -r`；**为空** → `git clean -fd`（**不要 `git add`**）。详见 §P1-7「清空细则」 |
-| 2. 交付校验 | `python tools/verify.py preview/V<版本>` | 主线 **88 项**、预览目录 **83 项**（预览无 `docs/`，少「接续说明实况段」「实况段·版本 tag 行」「实况段·时间线日期」与「源码 § 引用可解析」四项；另无 `tests/`，再少「回归测试网」一项 —— 共少 5；带 `--against` 另加 2 项），不通过不落地 |
+| 2. 交付校验 | `python tools/verify.py preview/V<版本>` | 主线 **89 项**、预览目录 **84 项**（预览无 `docs/`，少「接续说明实况段」「实况段·版本 tag 行」「实况段·时间线日期」与「源码 § 引用可解析」四项；另无 `tests/`，再少「回归测试网」一项 —— 共少 5；带 `--against` 另加 2 项），不通过不落地 |
 | 3. 落地主线 | `python tools/promote.py --from preview/V<版本> --force` | 单向：预览 → 主线，只复制不删除（主线非空时需 `--force`） |
 | 4. 提交版本 | `python tools/store.py commit --note "说明"` | 写入 blob 池 + 生成清单（同版本则追加修订） |
 | 5. 升级版本号 | 见第 1 步 | 本步实际在**第 1 步之前**就要做（版本号须先升）；此处保留编号只为与 §P0-6 修订机制对照 |

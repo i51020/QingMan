@@ -64,5 +64,6 @@
   "templateDirNotWritable": "模板目录不可写：{dir}（{message}）",
   "templateBadMarkdown": "模板 Markdown 解析失败：{reason}",
   "templateSiblingDuplicated": "模板内同层出现重名节点：{name}（大小写不敏感）",
+  "templateEmpty": "模板内容为空：未解析出任何节点",
   "networkError": "无法连接后端服务，请确认服务仍在运行：{message}"
 }

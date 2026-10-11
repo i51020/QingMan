@@ -7,6 +7,34 @@
 
 ---
 
+## V0.0.36 — 2026-10-11
+
+**主题**：**P3 · 6C 模板双格式列表 + 导入**（《项目手册》§十.3 落地第二步）—— 模板库从「只认 `.json`」扩到 **`.json` + `.md` 双格式**：列表两种格式一并扫并标注 `source`、单读按扩展名分派，并新增 **`POST /api/templates/import`**（收文件原文 → **归一** → 全量校验 → **保持原格式**落盘）。**升 patch `V0.0.35` → `V0.0.36`**。**新增错误码 1 枚**（`templateEmpty`，`error-codes.json` + `zh-CN` + `en-US` **三方齐备**）。
+
+> 决策依据（用户「采纳建议，分步，依次执行」）：承接 6B，按 P3 原顺序推进 6C。原型见 `docs/模板系统重设计_方案原型_20261011.md`。
+
+| # | 文件 | 项 | 处置 |
+|---|---|---|---|
+| 1 | `server/routes.py` | **6C-1** | **白名单按用途拆分**：`TEMPLATE_NAME`（**只认 `.json`**，管新建 / 另存 / 改名**目标**）与 `TEMPLATE_FILE`（**双格式**，管列表 / 读取 / 删除 / 导入）；配套 `_TPL_STEM_PATTERN` / `_TEMPLATE_EXTS`。新增 `_template_source`（扩展名判格式）/ `_strip_template_ext`（顺手带扩展名不报错）/ **`_read_template_doc`**（统一读取分派：`.md` → `parse_md_template`、`.json` → `json.loads`，**`.json` 错误码语义逐字保留**） |
+| 2 | `server/routes.py` | **6C-1** | `list_templates` 合并扫描 `*.json` + `*.md`（小写名稳定排序），每项新增 **`source`**（`"json"` / `"md"`）；`load_template` 走统一分派并回传 `source`。两者共用 `_read_template_doc` → 「列表里能看到的，单读一定能读到」 |
+| 3 | `server/routes.py` | **6C-2** | 新增 **`TEMPLATES_IMPORT_PATH`**（`/api/templates/import`）与 `import_template(payload)`：文件名过 `TEMPLATE_FILE` → 内容非空 → **按扩展名分派解析** → **`validate_template` 全量校验**（段名 / 同层重名 / 规模）→ 空树拒 → **保持原格式**重新序列化（`.md` 走 `render_md_template`、`.json` 补 `schemaVersion` / `updated`）→ 体积检查**先于**覆盖 → 同名拒写 / `overwrite: true` 时旧版先入 `.trash/` → 唯一临时名原子写 |
+| 4 | `server/routes.py` | **6C-2** | `rename_template` 改**格式保持**（`.md` 进 `.md` 出，不偷偷转 json）；`_template_path_or_raise` 改走 `TEMPLATE_FILE` |
+| 5 | `server/app.py` | 接线 | `do_POST` 新增 `is_import` 分流，且**必须先于** `is_rename` 前缀判定 —— 否则 `/api/templates/import` 会被 `startswith("/api/templates/")` 当成「重命名一个叫 `import` 的模板」 |
+| 6 | `src/shared/error-codes.json` + `zh-CN` / `en-US` | 错误码 | 新增 `templateEmpty`（`模板内容为空：未解析出任何节点`），三方齐备 |
+| 7 | `tests/test_routes.py` | 单测 | 新增 **`TemplateDualFormatTests` 22 项**（列表含 md+source / 坏 md 只跳过 / 单读分派 / `.json` 缺 tree **仍是 `templateBadJson`** 的回归位 / 导入归一+格式保持+落盘字节 / 空内容·空树·坏 md·坏 json·非法段名·同层重名·同名拒写·覆盖入回收站·非法文件名·目录守卫 / 改名与删除的格式保持）→ 测试 **303 → 325** |
+| 8 | `tools/verify.py` | 守卫 | 新增检查段「模板双格式批 V0.0.36」（**15 锚点** + `TEMPLATE_NAME` **必须仍只认 `.json`** + `list_templates` **不得再用旧白名单**）→ **88 → 89 项** |
+| 9 | `tools/smoke.py` | 端到端 | 引入 `urllib.parse.quote`；新增第 13 组 **6 项**（导入 `.md` → 列表标 `source=md` → 单读往返 → 同名拒写 → 空内容 → 非法 md）→ **23 → 29 项** |
+
+**反向验证（全部真实运行）**：在 `E:\qm_revcheck_6C\` **临时副本**逐项注入 → **8/8 恰该项被捕获**（N1 列表回退旧白名单 · N2 导入跳过全量校验 · N3 导入 `.md` 不规范化 · N4 导入不分派（一律当 json）· N5 白名单顺手放宽 · N6 改名不保持格式 · N7 统一读取分派失效 · N8 app 导入分支关闭）。其中 **N5 / N8 单测无感、仅守卫抓住** → 印证「守卫与单测各司其职」。基线副本 85/0 干净，差分清晰。
+
+**四件套**：`verify .` **89 项失败 1**（唯一红项＝「接续说明实况段 已过期」，待 `handoff.py` 刷新）· `unittest` **325 OK**（303 → 325，**+22**）· `smoke` **29/0**（23 → 29，**+6**）· `browser_smoke` **17/0**。
+
+**过程发现（据实，→ §三.51）**：**前缀匹配的「集合路由」会吞掉「具体路由」** —— `/api/templates/<name>`（重命名）与 `/api/templates/import`（导入）共享前缀，`startswith` 判定若不先排具体路由，导入请求会被当成「重命名模板 `import`」（`templateNotFound`）。已在 `app.py` 显式把 `is_import` 提到 `is_rename` **之前**，并在 verify 里把该行锚成完整赋值（`is_import = path == routes.TEMPLATES_IMPORT_PATH`），使「退化成 `is_import = False`」这类回归能被守卫直接抓住。
+
+**未做事（据实）**：本轮**不含前端** —— `core/api.js` 无 `importTemplate`、无目录绑定 UI / 轮询 / 右键菜单 / 导出（归 **6E**）；迁移 `templates-pack/` 与 `pack_templates.py` 归 **6D**。**副产物**：既有前端（列表 / 载入 / 改名 / 删除）**无需改动即可识别并操作 `.md`** —— 列表项已带 `file` 与 `source`，四条链路均按扩展名透明工作。
+
+---
+
 ## V0.0.35 — 2026-10-11
 
 **主题**：**P3 · 6B 模板目录绑定 + 持久化**（《项目手册》§十.3「目录绑定导入」落地第一半）—— 模板目录从**写死的常量**改为**可绑定**：解析优先级 `env > settings > 默认`，落盘 `%APPDATA%/QingMan/settings.json`，新增 `GET/PUT /api/templates-dir`，并**拒绝自绑**（不得指向内置 `templates/`、项目自身及其祖先、系统保护区）。**升 patch `V0.0.34` → `V0.0.35`**。**新增错误码 2 枚**（`templateDirBlocked` / `templateDirNotWritable`，`error-codes.json` + `zh-CN` + `en-US` **三方齐备**）。

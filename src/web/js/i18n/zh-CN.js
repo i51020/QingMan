@@ -166,6 +166,7 @@ export const dict = {
   'err.templateDirNotWritable': '模板目录不可写：{dir}（{message}）',
   'err.templateBadMarkdown': '模板 Markdown 解析失败：{reason}',
   'err.templateSiblingDuplicated': '模板内同层出现重名节点：{name}（大小写不敏感）',
+  'err.templateEmpty': '模板内容为空：未解析出任何节点',
 
   /* 错误码徽标：技术排查用的稳定标识，与本地化文案并列展示 */
   'err.codeLabel': '错误码：{code}',
@@ -308,7 +309,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.35',
+  'help.versionFallback': 'V0.0.36',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',

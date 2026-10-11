@@ -933,5 +933,205 @@ class HealthTests(unittest.TestCase):
         json.dumps(info)  # 必须可序列化
 
 
+class TemplateDualFormatTests(unittest.TestCase):
+    """V0.0.36 · 6C：模板**双格式**（`.json` + `.md`）列表 / 读取 / 导入。
+
+    隔离方式同 `TemplateTests`：自建临时目录 + `mock.patch.object(config,
+    "templates_dir", …)`，不碰主线真实模板。
+    """
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="qm_tplfmt_"))
+        self.addCleanup(lambda: __import__("shutil").rmtree(self.tmp, ignore_errors=True))
+        patcher = mock.patch.object(config, "templates_dir", lambda: self.tmp)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _write(self, name, body):
+        p = self.tmp / name
+        p.write_text(body, encoding="utf-8", newline="\n")
+        return p
+
+    _MD = "# 我的模板\n> 一句描述\n- 素材/\n  - 原图/\n  - 说明.md\n"
+    # ---- 列表 ----
+
+    def test_list_includes_md_with_source(self):
+        """列表同时扫 `*.json` 与 `*.md`，每项带 `source` 标注。"""
+        self._write("a.json", json.dumps(
+            {"name": "甲", "description": "", "tree": {"x": {}}}, ensure_ascii=False))
+        self._write("b.md", self._MD)
+        res = routes.list_templates()
+        self.assertTrue(res["available"])
+        by_file = {it["file"]: it for it in res["items"]}
+        self.assertEqual(set(by_file), {"a.json", "b.md"})
+        self.assertEqual(by_file["a.json"]["source"], "json")
+        self.assertEqual(by_file["b.md"]["source"], "md")
+        # md 项的名称来自其 `# 标题`，计数与 json 同一口径
+        self.assertEqual(by_file["b.md"]["name"], "我的模板")
+        self.assertEqual((by_file["b.md"]["dirs"], by_file["b.md"]["files"]), (2, 1))
+
+    def test_corrupt_md_skipped_not_fatal(self):
+        """坏 `.md` 只跳过该套，不影响其余（与坏 json 同体例）。"""
+        self._write("ok.json", json.dumps({"name": "甲", "tree": {"x": {}}}, ensure_ascii=False))
+        self._write("bad.md", "  - 缩进非法\n")   # 首行即带缩进的悬空项
+        res = routes.list_templates()
+        self.assertEqual([it["file"] for it in res["items"]], ["ok.json"])
+
+    # ---- 读取 ----
+
+    def test_load_md_dispatch(self):
+        self._write("b.md", self._MD)
+        res = routes.load_template("b.md")
+        self.assertEqual(res["source"], "md")
+        self.assertEqual(res["name"], "我的模板")
+        self.assertEqual(res["description"], "一句描述")
+        self.assertEqual(res["tree"], {"素材": {"原图": {}, "说明.md": ""}})
+        self.assertEqual(res["stats"], {"dirs": 2, "files": 1})
+
+    def test_load_json_still_reports_source_json(self):
+        self._write("a.json", json.dumps(
+            {"name": "甲", "tree": {"x": {}}}, ensure_ascii=False))
+        res = routes.load_template("a.json")
+        self.assertEqual(res["source"], "json")
+
+    def test_load_json_without_tree_still_bad_json(self):
+        """**回归位**：`.json` 缺 `tree` 仍是 `templateBadJson`（语义不得被双格式改造改变）。"""
+        self._write("notree.json", json.dumps({"name": "甲"}, ensure_ascii=False))
+        with self.assertRaises(TreeError) as ctx:
+            routes.load_template("notree.json")
+        self.assertEqual(ctx.exception.code, "templateBadJson")
+
+    def test_load_unknown_ext_not_found(self):
+        with self.assertRaises(TreeError) as ctx:
+            routes.load_template("x.txt")
+        self.assertEqual(ctx.exception.code, "templateNotFound")
+
+    # ---- 导入 ----
+
+    def test_import_md_normalizes_and_persists(self):
+        """导入 `.md` → 归一 → **仍以 `.md` 落盘**，且列表可见。"""
+        # 原始 md 有多余空行、缩进随手，导入后应被 render 规范化为确定性产物
+        messy = "# 我的模板\n> 描述\n\n\n- 素材/\n  - 原图/\n\n- 说明.md\n"
+        res = routes.import_template({"filename": "导入的.md", "content": messy})
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["source"], "md")
+        self.assertEqual(res["file"], "导入的.md")
+        self.assertEqual(res["stats"], {"dirs": 2, "files": 1})
+        self.assertFalse(res["overwritten"])
+        # 落盘的是规范化后的 md（与 `render_md_template` 逐字节一致 → 导入/导出可成环）
+        saved = (self.tmp / "导入的.md").read_text(encoding="utf-8")
+        self.assertEqual(saved, "# 我的模板\n> 描述\n\n- 素材/\n  - 原图/\n- 说明.md\n")
+        # 列表能看见它，且能再读回来
+        self.assertIn("导入的.md", [it["file"] for it in routes.list_templates()["items"]])
+        self.assertEqual(routes.load_template("导入的.md")["tree"],
+                         {"素材": {"原图": {}}, "说明.md": ""})
+
+    def test_import_json_persists_schema_version(self):
+        res = routes.import_template({
+            "filename": "t.json",
+            "content": json.dumps({"name": "甲", "tree": {"x": {}}}, ensure_ascii=False),
+        })
+        self.assertEqual(res["source"], "json")
+        doc = json.loads((self.tmp / "t.json").read_text(encoding="utf-8"))
+        self.assertEqual(doc["schemaVersion"], config.TEMPLATE_SCHEMA_VERSION)
+        self.assertIn("updated", doc)
+
+    def test_import_rejects_empty_content(self):
+        for bad in ("", "   ", None, 123):
+            with self.assertRaises(TreeError) as ctx:
+                routes.import_template({"filename": "t.md", "content": bad})
+            self.assertEqual(ctx.exception.code, "templateEmpty", repr(bad))
+
+    def test_import_rejects_empty_tree(self):
+        """内容可解析但**一个节点都没有** → `templateEmpty`（不落一个空模板）。"""
+        with self.assertRaises(TreeError) as ctx:
+            routes.import_template({"filename": "t.md", "content": "# 空模板\n"})
+        self.assertEqual(ctx.exception.code, "templateEmpty")
+
+    def test_import_rejects_bad_markdown(self):
+        with self.assertRaises(TreeError) as ctx:
+            routes.import_template({"filename": "t.md", "content": "- a/\n   - 跳级不可达/\n"})
+        self.assertIn(ctx.exception.code, ("templateBadMarkdown",))
+
+    def test_import_rejects_bad_json(self):
+        with self.assertRaises(TreeError) as ctx:
+            routes.import_template({"filename": "t.json", "content": "{ not json"})
+        self.assertEqual(ctx.exception.code, "templateBadJson")
+
+    def test_import_validates_segments(self):
+        """导入是质量闸门：非法段名（尾随点）拦下 —— 列表/读取路径不做此校验，导入做。"""
+        with self.assertRaises(TreeError) as ctx:
+            routes.import_template({
+                "filename": "t.json",
+                "content": json.dumps({"name": "甲", "tree": {"bad.": {}}}, ensure_ascii=False),
+            })
+        self.assertEqual(ctx.exception.code, "segmentInvalid")
+
+    def test_import_rejects_sibling_duplicate(self):
+        with self.assertRaises(TreeError) as ctx:
+            routes.import_template({
+                "filename": "t.json",
+                "content": json.dumps({"name": "甲", "tree": {"A": {}, "a": {}}}, ensure_ascii=False),
+            })
+        self.assertEqual(ctx.exception.code, "templateSiblingDuplicated")
+
+    def test_import_duplicate_filename_rejected(self):
+        self._write("t.md", self._MD)
+        with self.assertRaises(TreeError) as ctx:
+            routes.import_template({"filename": "t.md", "content": "# 新\n- x\n"})
+        self.assertEqual(ctx.exception.code, "templateExists")
+
+    def test_import_overwrite_moves_old_to_trash(self):
+        self._write("t.md", self._MD)
+        res = routes.import_template({
+            "filename": "t.md", "content": "# 新\n- x\n", "overwrite": True})
+        self.assertTrue(res["overwritten"])
+        self.assertEqual(routes.load_template("t.md")["tree"], {"x": ""})
+        trash = list((self.tmp / ".trash").rglob("t.md"))
+        self.assertEqual(len(trash), 1)   # 旧版入回收站，可人工找回
+
+    def test_import_rejects_invalid_filename(self):
+        for bad in ("", "  ", "a.txt", "../x.md", "a/b.md"):
+            with self.assertRaises(TreeError) as ctx:
+                routes.import_template({"filename": bad, "content": self._MD})
+            self.assertEqual(ctx.exception.code, "templateNameEmpty" if not bad.strip()
+                             else "templateNameInvalid", repr(bad))
+
+    def test_import_illegal_dir_guard_applies(self):
+        """绑定目录非法（自绑项目自身）→ 拒绝（复用 6B 的写路径守卫）。"""
+        patcher = mock.patch.object(config, "templates_dir", lambda: config.PROJECT_DIR)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        with self.assertRaises(TreeError) as ctx:
+            routes.import_template({"filename": "t.md", "content": self._MD})
+        self.assertEqual(ctx.exception.code, "templateDirBlocked")
+
+    # ---- 改名 / 删除：格式保持 ----
+
+    def test_rename_md_keeps_md(self):
+        self._write("old.md", self._MD)
+        res = routes.rename_template("old.md", {"name": "新的"})
+        self.assertEqual(res["file"], "新的.md")          # 仍是 .md，不转 json
+        self.assertFalse((self.tmp / "old.md").exists())
+        self.assertEqual(routes.load_template("新的.md")["name"], "新的")
+
+    def test_rename_json_keeps_json(self):
+        self._write("old.json", json.dumps(
+            {"name": "甲", "tree": {"x": {}}}, ensure_ascii=False))
+        res = routes.rename_template("old.json", {"name": "新的"})
+        self.assertEqual(res["file"], "新的.json")
+
+    def test_delete_md_soft(self):
+        self._write("del.md", self._MD)
+        res = routes.delete_template("del.md")
+        self.assertFalse((self.tmp / "del.md").exists())
+        self.assertTrue(Path(res["trashedTo"]).is_file())
+
+    def test_json_name_hint_with_md_suffix_becomes_json(self):
+        """`save_template` 带 `.md` 后缀 → 剥掉存为 `.json`（双格式上线后的友好化）。"""
+        res = routes.save_template({"name": "甲.md", "tree": {"x": {}}})
+        self.assertEqual(res["file"], "甲.json")
+
+
 if __name__ == "__main__":
     unittest.main()

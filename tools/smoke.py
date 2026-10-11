@@ -31,6 +31,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 TOOLS_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = TOOLS_DIR.parent
@@ -213,6 +214,41 @@ def run_checks(client: Client, sandbox: Path) -> None:
     check(status == 200 and data and Path(data.get("path", "")) == bind_dir,
           "设定后 /api/templates 指向新目录", f"{status} path={data.get('path') if data else '?'}")
     check(bind_dir.is_dir(), "绑定目录已创建（可写实测）", str(bind_dir))
+
+    # 13. 模板双格式 + 导入（V0.0.36 · 6C）：导入 .md → 列表可见 → 单读往返 → 拒写三则
+    md_text = "# 冒烟模板\n> 端到端\n- 素材/\n  - 原图/\n  - 说明.md\n"
+    status, data, _ = client.post_json("/api/templates/import",
+                                       {"filename": "冒烟模板.md", "content": md_text})
+    check(status == 200 and data and data.get("ok") and data.get("source") == "md"
+          and data.get("file") == "冒烟模板.md",
+          "POST /api/templates/import（.md）→ 200",
+          f"{status} file={data.get('file') if data else '?'} src={data.get('source') if data else '?'}")
+
+    status, data, _ = client.request("GET", "/api/templates")
+    items = (data or {}).get("items") or []
+    md_items = [it for it in items if it.get("source") == "md"]
+    check(status == 200 and any(it.get("file") == "冒烟模板.md" for it in md_items),
+          "列表含导入的 .md 且标 source=md", f"{status} md={len(md_items)} 总={len(items)}")
+
+    status, data, _ = client.request("GET", "/api/templates/" + quote("冒烟模板.md"))
+    check(status == 200 and data and data.get("source") == "md"
+          and data.get("tree") == {"素材": {"原图": {}, "说明.md": ""}},
+          "单读 .md 往返一致", f"{status} tree={data.get('tree') if data else '?'}")
+
+    status, data, _ = client.post_json("/api/templates/import",
+                                       {"filename": "冒烟模板.md", "content": md_text})
+    check(status == 400 and data and data.get("code") == "templateExists",
+          "重复导入同名 → 400 templateExists", f"{status} {data.get('code') if data else '?'}")
+
+    status, data, _ = client.post_json("/api/templates/import",
+                                       {"filename": "空的.md", "content": "   "})
+    check(status == 400 and data and data.get("code") == "templateEmpty",
+          "导入空内容 → 400 templateEmpty", f"{status} {data.get('code') if data else '?'}")
+
+    status, data, _ = client.post_json("/api/templates/import",
+                                       {"filename": "坏的.md", "content": "- a/\n   - 跳级/\n"})
+    check(status == 400 and data and data.get("code") == "templateBadMarkdown",
+          "导入非法 md → 400 templateBadMarkdown", f"{status} {data.get('code') if data else '?'}")
 
 
 def main() -> int:

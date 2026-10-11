@@ -217,10 +217,15 @@ class Handler(BaseHTTPRequestHandler):
             return
         path = urlparse(self.path).path
         # POST /api/templates = 另存为模板（V0.0.13）；/api/templates/<name> = 重命名（V0.0.20）；
-        # /api/launch-icon = 皮肤联动图标上传（V0.0.15）—— 与生成、快捷方式同为写操作
-        is_rename = path.startswith(routes.TEMPLATES_PATH + "/")
-        if not is_rename and path not in (routes.GENERATE_PATH, routes.SHORTCUT_PATH,
-                                          routes.TEMPLATES_PATH, routes.ICON_PATH):
+        # /api/templates/import = 导入模板（V0.0.36 · 6C）；/api/launch-icon = 皮肤联动图标上传（V0.0.15）
+        # —— 与生成、快捷方式同为写操作。
+        # ⚠️ `/api/templates/import` **必须先于** `is_rename` 判定：否则会被 `startswith`
+        # 当成「重命名一个叫 import 的模板」（V0.0.36 接线时的顺序坑）。
+        is_import = path == routes.TEMPLATES_IMPORT_PATH
+        is_rename = (not is_import) and path.startswith(routes.TEMPLATES_PATH + "/")
+        if not (is_import or is_rename) and path not in (
+                routes.GENERATE_PATH, routes.SHORTCUT_PATH,
+                routes.TEMPLATES_PATH, routes.ICON_PATH):
             self._fail(404, "notFound", path=path)
             return
         try:
@@ -237,7 +242,9 @@ class Handler(BaseHTTPRequestHandler):
             self._fail(400, "badJson")
             return
         try:
-            if is_rename:
+            if is_import:
+                self._json(200, routes.import_template(payload))
+            elif is_rename:
                 name = unquote(path[len(routes.TEMPLATES_PATH) + 1:])
                 self._json(200, routes.rename_template(name, payload))
             elif path == routes.GENERATE_PATH:

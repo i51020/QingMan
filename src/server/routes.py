@@ -30,6 +30,8 @@ SHORTCUT_PATH = "/api/shortcut"
 TEMPLATES_PATH = "/api/templates"
 # 用户模板库的「绑定目录」端点（V0.0.35）：GET 读取当前绑定，PUT 设定（写操作）。
 TEMPLATES_DIR_PATH = "/api/templates-dir"
+# 模板导入端点（V0.0.36 · 6C）：POST 上传 `.json` / `.md` 内容 → 归一 → 落盘。
+TEMPLATES_IMPORT_PATH = "/api/templates/import"
 # 皮肤联动的桌面图标上传（V0.0.15）：前端 canvas 绘制、后端只落盘与接线
 ICON_PATH = "/api/launch-icon"
 # 「跟随系统」要跟的是 **操作系统语言**，不是浏览器语言（V0.0.14）。
@@ -40,9 +42,17 @@ ENV_PATH = "/api/env.js"
 # 编辑态文档结构版本；结构不兼容变更时递增（见 src/shared/schema.json）
 EDITOR_SCHEMA_VERSION = 1
 
-# 模板文件名白名单：仅允许「中英文、数字、下划线、连字符」+ `.json`。
-# 不含路径分隔符，从源头堵死路径穿越（`..` / 子目录）。
-TEMPLATE_NAME = re.compile(r"^[A-Za-z0-9_\u4e00-\u9fff-]+\.json$")
+# 模板文件名白名单：单段（**不含路径分隔符**，从源头堵死路径穿越 `..` / 子目录），
+# 「中英文、数字、下划线、连字符」+ 扩展名。**两个正则分工明确**（V0.0.36 · 6C）：
+#   · `TEMPLATE_NAME` 只认 `.json` —— **新建 / 另存 / 改名目标**恒为 `.json`（规范化格式）；
+#   · `TEMPLATE_FILE` 另认 `.md` —— **列表 / 读取 / 删除 / 导入**支持双格式（§P2 第 7 项）。
+# 分开而非合并的原因：`save_template` 产出的永远是**规范 `.json`**，若白名单一并放开，
+# 就会允许「另存为 `X.md`」，与「`.md` 是 AI/Agent 交换格式、由导入/导出产生」的设计相悖。
+_TPL_STEM_PATTERN = r"[A-Za-z0-9_\u4e00-\u9fff-]+"
+TEMPLATE_NAME = re.compile(r"^" + _TPL_STEM_PATTERN + r"\.json$")
+TEMPLATE_FILE = re.compile(r"^" + _TPL_STEM_PATTERN + r"\.(?:json|md)$")
+# 可被「剥离」的模板扩展名（另存 / 改名时用户顺手带上 `.json` / `.md` 不报错）。
+_TEMPLATE_EXTS = (".json", ".md")
 
 # PowerShell 子进程超时（秒）。CreateShortcut 正常毫秒级返回；设上限是为防「PowerShell
 # 挂起 → 请求线程被**永久占用**」（A-P3-1：ThreadingHTTPServer 线程数无上限，挂起的线程
@@ -279,12 +289,55 @@ def save_editor(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _template_source(filename: str) -> str:
+    """按扩展名判模板格式来源：`"md"` 或 `"json"`（大小写不敏感）。"""
+    return "md" if filename.lower().endswith(".md") else "json"
+
+
+def _strip_template_ext(name: str) -> str:
+    """剥掉模板扩展名（`.json` / `.md`，大小写不敏感）—— 用户顺手带上不报错。"""
+    low = name.lower()
+    for ext in _TEMPLATE_EXTS:
+        if low.endswith(ext):
+            return name[: -len(ext)]
+    return name
+
+
+def _read_template_doc(path: Path, *, name: str) -> Dict[str, Any]:
+    """按扩展名**分派读取**并把模板归一为 `{name?, description?, tree}`。
+
+    · `.md` → `dtree_core.parse_md_template`（严格文法；非法抛 `templateBadMarkdown` /
+      `templateSiblingDuplicated`）；
+    · `.json` → `json.loads`，随后要求「是对象且 `tree` 是对象」—— **错误码与语义同本函数
+      引入前逐字一致**（一律 `templateBadJson`），以免改变既有 `.json` 的对外行为。
+
+    读取失败统一抛 `templateReadFailed`。列表侧调用时会吞掉这些异常（单套损坏只跳过）。
+    """
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        # 同 load_editor：非法 UTF-8 抛 UnicodeDecodeError（ValueError 族），须一并捕获。
+        raise TreeError("templateReadFailed", name=name, message=str(exc))
+    if _template_source(path.name) == "md":
+        return dtree_core.parse_md_template(raw)
+    try:
+        doc = json.loads(raw)
+    except ValueError:
+        raise TreeError("templateBadJson", name=name)
+    if not isinstance(doc, dict) or not isinstance(doc.get("tree"), dict):
+        raise TreeError("templateBadJson", name=name)
+    return doc
+
+
 def list_templates() -> Dict[str, Any]:
-    """列出模板库。
+    """列出模板库（**双格式**：`*.json` + `*.md`，V0.0.36 · 6C）。
 
     `templates/` **不在版本交付清单内**，预览副本里根本没有它 —— 目录缺失时
     返回 `available=False` + 空列表，**不报错**（否则预览版一启动就满屏红）。
     单套模板损坏也只跳过该套，不拖垮整个列表。
+
+    每项带 `source`（`"json"` / `"md"`）标明来源格式；两种格式**同一套读取与计数口径**，
+    故列表里能看到的，`load_template` 一定能读到（共用 `_read_template_doc`）。
     """
     d = config.resolve_path(config.templates_dir())
     # 绑定目录非法（自绑 / 系统区）或缺失 → 一律「不可用」，既不报错、也不去 glob
@@ -296,15 +349,16 @@ def list_templates() -> Dict[str, Any]:
                 "reason": blocked}
 
     items: list[Dict[str, Any]] = []
-    for p in sorted(d.glob("*.json")):
-        if not TEMPLATE_NAME.match(p.name):
+    # 两个 glob 合并后统一排序（按小写名 + 原名，跨平台确定性；`.trash/` 是子目录，扫不到）。
+    found = sorted(list(d.glob("*.json")) + list(d.glob("*.md")),
+                   key=lambda q: (q.name.lower(), q.name))
+    for p in found:
+        if not TEMPLATE_FILE.match(p.name):
             continue
         try:
-            doc = json.loads(p.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            continue
-        if not isinstance(doc, dict) or not isinstance(doc.get("tree"), dict):
-            continue
+            doc = _read_template_doc(p, name=p.name)
+        except (TreeError, OSError, ValueError):
+            continue   # 单套损坏只跳过该套（含 `.md` 解析失败）
         dirs, files = dtree_core.count_tree(doc["tree"])
         items.append({
             "file": p.name,
@@ -312,6 +366,7 @@ def list_templates() -> Dict[str, Any]:
             "description": doc.get("description") or "",
             "dirs": dirs,
             "files": files,
+            "source": _template_source(p.name),
         })
 
     return {
@@ -325,26 +380,14 @@ def list_templates() -> Dict[str, Any]:
 
 
 def load_template(name: str) -> Dict[str, Any]:
-    """读取单套模板的完整树。
+    """读取单套模板的完整树（**双格式分派**：`.json` / `.md`，V0.0.36 · 6C）。
 
     安全顺序：**先过文件名白名单**（不含路径分隔符，源头堵死穿越），
     **再校验解析后的绝对路径仍在 `templates/` 之内**（防符号链接等绕过）。
     该两步已收敛到 `_template_path_or_raise`（删除/重命名共用同一来源）。
     """
     path = _template_path_or_raise(name)
-
-    try:
-        raw = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError) as exc:
-        # 同 load_editor：非法 UTF-8 抛 UnicodeDecodeError（ValueError 族），须一并捕获。
-        raise TreeError("templateReadFailed", name=name, message=str(exc))
-    try:
-        doc = json.loads(raw)
-    except ValueError:
-        raise TreeError("templateBadJson", name=name)
-
-    if not isinstance(doc, dict) or not isinstance(doc.get("tree"), dict):
-        raise TreeError("templateBadJson", name=name)
+    doc = _read_template_doc(path, name=name)
 
     # 模板 `tree` 是**嵌套字典**（目录=dict、文件=内容字符串），与编辑态文档的
     # 「id / type / children」结构**不同** —— 故统计用 count_tree 而非 validate_document。
@@ -357,6 +400,7 @@ def load_template(name: str) -> Dict[str, Any]:
         "description": doc.get("description") or "",
         "tree": doc["tree"],
         "stats": {"dirs": dirs, "files": files},
+        "source": _template_source(name),
         # 老模板没有该字段，一律视为当前版本（读取容忍缺失，写入必带 —— §P2 第 7 项）
         "schemaVersion": doc.get("schemaVersion", config.TEMPLATE_SCHEMA_VERSION),
     }
@@ -383,9 +427,9 @@ def save_template(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not name:
         raise TreeError("templateNameEmpty")
 
-    # 用户可能顺手带上 .json：剥掉再统一补回，避免 `X.json.json`
-    stem = name[:-5] if name.lower().endswith(".json") else name
-    stem = stem.strip()
+    # 用户可能顺手带上扩展名：剥掉再统一补回 `.json`，避免 `X.json.json`（V0.0.36 起
+    # 同时剥 `.md` —— 双格式列表上线后，「另存为 X.md」应是「存为模板 X」而非报错）。
+    stem = _strip_template_ext(name).strip()
     if not stem:
         raise TreeError("templateNameEmpty")
     if len(stem) > config.TEMPLATE_NAME_MAX:
@@ -475,12 +519,13 @@ def save_template(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _template_path_or_raise(name: str) -> "Path":
-    """把模板名解析为 `templates/` 下的真实路径（过白名单 + is_within 复核）。
+    """把模板名解析为绑定目录下的真实路径（过白名单 + is_within 复核）。
 
     与 `load_template` 同一套校验：先过文件名白名单（源头堵死路径穿越），
-    再校验解析后的绝对路径仍在 `templates/` 之内（防符号链接绕过）。
+    再校验解析后的绝对路径仍在模板目录之内（防符号链接绕过）。
+    **白名单用 `TEMPLATE_FILE`（`.json` / `.md` 双格式）** —— 读取 / 删除 / 改名共用。
     """
-    if not name or not TEMPLATE_NAME.match(name):
+    if not name or not TEMPLATE_FILE.match(name):
         raise TreeError("templateNotFound", name=str(name))
     base = _templates_dir_or_raise()
     path = config.resolve_path(base / name)
@@ -528,21 +573,23 @@ def rename_template(name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     **同时改文件名与文件内 `name` 字段** —— 前者决定 URL，后者决定列表显示名，
     两者不一致会让用户看到「点了 A 却载入 B」。目标模板名已存在一律拒绝（沿用
     `templateExists` 拒写取舍）。旧文件移入回收站保底，不直接删除。
+    **V0.0.36 起保持原格式**：`.json` / `.md` 各自改名后仍是原格式（不跨格式转换）。
     """
     path = _template_path_or_raise(name)
+    # 改名**保持原格式**（V0.0.36 · 6C）：`.md` 进则 `.md` 出 —— 不把用户的 md 偷偷转成 json。
+    ext = ".md" if _template_source(name) == "md" else ".json"
 
     raw_new = payload.get("name")
     new_name = raw_new.strip() if isinstance(raw_new, str) else ""
     if not new_name:
         raise TreeError("templateNameEmpty")
-    stem = new_name[:-5] if new_name.lower().endswith(".json") else new_name
-    stem = stem.strip()
+    stem = _strip_template_ext(new_name).strip()
     if not stem:
         raise TreeError("templateNameEmpty")
     if len(stem) > config.TEMPLATE_NAME_MAX:
         raise TreeError("templateNameTooLong", name=new_name)
-    new_filename = stem + ".json"
-    if not TEMPLATE_NAME.match(new_filename):
+    new_filename = stem + ext
+    if not TEMPLATE_FILE.match(new_filename):
         raise TreeError("templateNameInvalid", name=new_name)
     if new_filename == name:
         return {"ok": True, "file": name, "name": path.stem, "unchanged": True}
@@ -554,15 +601,23 @@ def rename_template(name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     if new_path.exists():
         raise TreeError("templateExists", name=new_name)
 
-    try:
-        doc = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        raise TreeError("templateBadJson", name=name)
-    if not isinstance(doc, dict):
-        raise TreeError("templateBadJson", name=name)
-    doc["name"] = stem
-
-    body = json.dumps(doc, ensure_ascii=False, indent=2) + "\n"
+    if ext == ".md":
+        try:
+            doc = dtree_core.parse_md_template(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            # 读不到 / 非法 UTF-8（`.md` 解析自身抛的 `TreeError` 不在此列，原样上抛）
+            raise TreeError("templateRenameFailed", name=name)
+        doc["name"] = stem
+        body = dtree_core.render_md_template(doc)
+    else:
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            raise TreeError("templateBadJson", name=name)
+        if not isinstance(doc, dict):
+            raise TreeError("templateBadJson", name=name)
+        doc["name"] = stem
+        body = json.dumps(doc, ensure_ascii=False, indent=2) + "\n"
     trash = _template_trash_dir()
     try:
         tmp = _tmp_sibling(new_path)   # A-P3-2：唯一临时名，避免并发写互相覆盖
@@ -589,6 +644,125 @@ def rename_template(name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         "name": stem,
         "path": str(new_path),
         "bytes": len(body.encode("utf-8")),
+    }
+
+
+def import_template(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """导入一套模板（V0.0.36 · 6C）—— 收 `.json` / `.md` **原文**，**归一后落盘**。
+
+    与 `save_template` 的分工：
+
+    | | 输入 | 产出格式 | 校验强度 |
+    |---|---|---|---|
+    | `save_template` | 前端已结构化的 `tree` 对象 | 恒 `.json` | 段名 + 规模（沿用既有） |
+    | `import_template` | 模板**文件原文**（字符串） | **保持原格式**（`.md` 进 `.md` 出） | **全量** `validate_template` |
+
+    「归一」＝内容先解析成内部文档、过 `validate_template`、再按规范**重新序列化**：
+
+    · `.md` → `parse_md_template` → `render_md_template`（手工书写的多余空行 / 缩进随手，
+      导入后变成确定性产物，与导出侧逐字节对齐 —— 「导入 → 导出」可成环）；
+    · `.json` → `json.loads` → 补 `schemaVersion` / `updated` 后重 dump。
+
+    落盘路径**不由用户给出**：恒定拼在**绑定模板目录**之下，文件名过 `TEMPLATE_FILE`
+    白名单，仍保留 `is_within` 复核。同名默认**拒写**；载荷带严格 `overwrite: true` 时
+    覆盖，且旧模板**先入 `.trash/`** 保底（比照 `save_template`，延续「只复制不删除」）。
+    """
+    raw_name = payload.get("filename")
+    filename = raw_name.strip() if isinstance(raw_name, str) else ""
+    if not filename:
+        raise TreeError("templateNameEmpty")
+    if not TEMPLATE_FILE.match(filename):
+        raise TreeError("templateNameInvalid", name=filename)
+    source = _template_source(filename)
+
+    content = payload.get("content")
+    if not isinstance(content, str) or not content.strip():
+        raise TreeError("templateEmpty")
+
+    # 解析 + **全量校验**（导入是质量闸门：段名 / 同层重名 / 规模一并拦下）
+    if source == "md":
+        doc = dtree_core.parse_md_template(content)
+    else:
+        try:
+            doc = json.loads(content)
+        except ValueError:
+            raise TreeError("templateBadJson", name=filename)
+        if not isinstance(doc, dict):
+            raise TreeError("templateBadJson", name=filename)
+    dirs, files = dtree_core.validate_template(doc)
+    if dirs + files == 0:
+        raise TreeError("templateEmpty")
+
+    # 显示名：优先内容自带 `name`，缺省回落文件名主干（文件决定 URL，name 决定显示）
+    stem = _strip_template_ext(filename)
+    doc_name = doc.get("name")
+    name = doc_name.strip() if isinstance(doc_name, str) else ""
+    name = name or stem
+    description = doc.get("description")
+    description = description if isinstance(description, str) else ""
+
+    if source == "md":
+        body = dtree_core.render_md_template({
+            "name": name, "description": description, "tree": doc["tree"]})
+    else:
+        body = json.dumps({
+            "schemaVersion": config.TEMPLATE_SCHEMA_VERSION,
+            "name": name,
+            "description": description,
+            "updated": datetime.now().astimezone().strftime("%Y-%m-%d"),
+            "tree": doc["tree"],
+        }, ensure_ascii=False, indent=2) + "\n"
+
+    size = len(body.encode("utf-8"))
+    # 体积检查**必须在覆盖旧文件之前**（比照 save_template P3-11），否则超限抛错时旧模板已入回收站。
+    if size > config.TEMPLATE_MAX_BYTES:
+        raise TreeError("templateTooLarge", limit=config.TEMPLATE_MAX_BYTES, actual=size)
+
+    base = _templates_dir_or_raise()
+    path = config.resolve_path(base / filename)
+    if not config.is_within(path, base):
+        raise TreeError("templateNameInvalid", name=filename)
+
+    overwritten = False
+    trashed_old = None
+    if path.exists():
+        if payload.get("overwrite") is not True:
+            raise TreeError("templateExists", name=filename)
+        trash = _template_trash_dir()
+        try:
+            trash.mkdir(parents=True, exist_ok=True)
+            os.replace(path, trash / filename)   # 同盘移动，原子；误覆盖可人工找回
+        except OSError:
+            raise TreeError("templateWriteFailed", name=filename)
+        trashed_old = trash / filename
+        overwritten = True
+
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+        tmp = _tmp_sibling(path)   # A-P3-2：唯一临时名，避免并发写互相覆盖
+        # 显式 newline="\n"：跨平台字节一致（§编码基线）
+        with tmp.open("w", encoding="utf-8", newline="\n") as fh:
+            fh.write(body)
+        os.replace(tmp, path)
+    except OSError:
+        # 写失败回滚：旧模板已入回收站时移回原位（同 save_template P3-11）。
+        if trashed_old is not None:
+            try:
+                os.replace(trashed_old, path)
+            except OSError:
+                pass
+        raise TreeError("templateWriteFailed", name=filename)
+
+    return {
+        "ok": True,
+        "file": filename,
+        "name": name,
+        "source": source,
+        "path": str(path),
+        "bytes": size,
+        "stats": {"dirs": dirs, "files": files},
+        "schemaVersion": config.TEMPLATE_SCHEMA_VERSION,
+        "overwritten": overwritten,
     }
 
 

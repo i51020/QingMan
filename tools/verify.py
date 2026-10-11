@@ -1617,6 +1617,49 @@ def main() -> int:
           f"缺失：{', '.join(bind_bad)}" if bind_bad
           else "解析入口 / 绑定与运行态双判据 / GET+PUT 接线 / 两枚错误码 齐备")
 
+    # 7ad. 模板双格式批（V0.0.36，§十.3 · 6C）
+    #      列表 / 读取 / 导入 / 删除必须**共用同一套白名单与读取口径**，否则
+    #      「列表里看得到、单读读不到」会成为静默坑。三条不变量：
+    #      ① **白名单分工**：`TEMPLATE_FILE`（双格式）管读/列/删/导入，`TEMPLATE_NAME`
+    #         （仅 `.json`）管新建/改名 —— 若顺手把 `TEMPLATE_NAME` 也放宽，`.md` 就会
+    #         参与「另存为」，破坏「`.md` 只由导入/导出产生」的格式契约；
+    #      ② 读取走**同一分派函数**（`_read_template_doc`），列表与单读同口径；
+    #      ③ 导入**全量校验**（`validate_template`）且 `.md` 走 `render_md_template`
+    #         **规范化重渲染**（否则手工书写的 md 落盘后与导出侧不同字节，往返不成环）。
+    zh_i18n = _read("src/web/js/i18n/zh-CN.js")
+    en_i18n = _read("src/web/js/i18n/en-US.js")
+    fmt_bad: list[str] = []
+    fmt_anchors = (
+        ("6C-1", rtext, "TEMPLATE_FILE = re.compile(", "routes 缺双格式白名单"),
+        ("6C-1", rtext, "def _template_source(", "routes 缺格式判定"),
+        ("6C-1", rtext, "def _strip_template_ext(", "routes 缺扩展名剥离助手"),
+        ("6C-1", rtext, "def _read_template_doc(", "routes 缺统一读取分派"),
+        ("6C-1", rtext, 'd.glob("*.md")', "list_templates 未扫 .md"),
+        ("6C-1", rtext, '"source": _template_source(', "列表项未标 source"),
+        ("6C-2", rtext, "TEMPLATES_IMPORT_PATH = ", "routes 缺导入端点常量"),
+        ("6C-2", rtext, "def import_template(", "routes 缺导入处理器"),
+        ("6C-2", rtext, "dtree_core.validate_template(", "导入未走全量校验"),
+        ("6C-2", rtext, "dtree_core.render_md_template(", "导入 .md 未规范化重渲染"),
+        ("6C-2", app_tpl, "routes.import_template(", "app.py 未接线导入"),
+        ("6C-2", app_tpl, "is_import = path == routes.TEMPLATES_IMPORT_PATH",
+         "app.py 缺 is_import 判定（会被 is_rename 前缀吞掉）"),
+        ("6C-2", codes_tpl, "templateEmpty", "error-codes.json 缺 templateEmpty"),
+        ("6C-2", zh_i18n, "err.templateEmpty", "zh-CN 缺 err.templateEmpty"),
+        ("6C-2", en_i18n, "err.templateEmpty", "en-US 缺 err.templateEmpty"),
+    )
+    for code, text, token, why in fmt_anchors:
+        if token not in text:
+            fmt_bad.append(f"{code} {why}")
+    # 分工判据：`TEMPLATE_NAME` 必须仍是**只认 `.json`**（防被顺手放宽成双格式）
+    if '_TPL_STEM_PATTERN + r"\\.json$"' not in rtext:
+        fmt_bad.append("TEMPLATE_NAME 不再是「只认 .json」（新建/改名的格式契约被破坏）")
+    # 列表若仍用旧白名单，会漏掉 `.md`
+    if "TEMPLATE_NAME.match(p.name)" in rtext:
+        fmt_bad.append("list_templates 仍用 TEMPLATE_NAME（应改 TEMPLATE_FILE）")
+    check(not fmt_bad, "模板双格式批 V0.0.36",
+          f"缺失：{', '.join(fmt_bad)}" if fmt_bad
+          else "双格式列表+source / 统一读取分派 / 导入归一+全量校验+格式保持 / 接线 / 错误码 齐备")
+
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
     if handoff_file.is_file():
