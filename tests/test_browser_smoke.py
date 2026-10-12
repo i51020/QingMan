@@ -55,6 +55,11 @@ NORMAL = {
     "tplDirRow": "1", "tplDirPath": "D:/x/templates", "tplDirBtns": "3",
     "tplMenuN": "5", "tplMenu": "Load/Rename/Duplicate/Export/Delete",
     "pollBefore": "1", "pollAfter": "2",
+    # V0.0.39 新增：皮肤 swatch 绑定（下拉按 swatch[0] 背景明度亮 → 暗排序）
+    #   期望序列由 tools/browser_smoke.py 的 expected_skin_order() 独立复算，
+    #   与 src/web/js/ui/skin-picker.js 的 luma() 同公式（改皮肤背景色须同步此处基线）。
+    "skinOrder": bs.expected_skin_order(),
+    "skinCount": "15",
 }
 
 FAIL = "帮助页·分节渲染幂等"
@@ -179,7 +184,7 @@ class VerifyMetricsTests(unittest.TestCase):
     def test_normal_all_pass(self):
         results = run_metrics(NORMAL)
         self.assertEqual(failed_names(results), [], "正常指标不应有任何失败项")
-        self.assertEqual(len(results), 17, "verify_metrics 应产生 17 项判定（14 + 6E 三项）")
+        self.assertEqual(len(results), 18, "verify_metrics 应产生 18 项判定（14 + 6E 三项 + V0.0.39 一项）")
 
     def test_p1_1_regression_fails_exactly_section_idempotence(self):
         """P1-1 回归：帮助页切语言累积分节（7 → 14 → 21）→ 恰好那项 FAIL。"""
@@ -213,7 +218,7 @@ class VerifyMetricsTests(unittest.TestCase):
 
     def test_templates_check_skipped_when_not_expected(self):
         results = run_metrics(NORMAL, expect_templates=False)
-        self.assertEqual(len(results), 13, "不期望模板时不应产生模板判定项")
+        self.assertEqual(len(results), 14, "不期望模板时不应产生模板判定项")
         self.assertNotIn(TPL_CHECK, [n for _o, n, _x in results])
 
     def test_6d_business_templates_in_builtin_fails_exactly(self):
@@ -248,6 +253,24 @@ class VerifyMetricsTests(unittest.TestCase):
         metrics = dict(NORMAL, scrollAfter="0")
         self.assertEqual(failed_names(run_metrics(metrics)),
                          ["主界面·重建后滚动位置保持（C-P3-1）"])
+
+    def test_skin_order_regression_fails_exactly(self):
+        """V0.0.39 回归：下拉顺序与按 swatch[0] 明度复算的期望序列不符 → 恰好那项 FAIL。
+
+        这是 §十三.4「swatch 与 CSS 无绑定」的**页面层**回归位：swatch 在页面上唯一
+        可见的效果就是排序，把顺序锁死即等于把 swatch 数据锁死。
+        """
+        wrong = ",".join(reversed(NORMAL["skinOrder"].split(",")))
+        metrics = dict(NORMAL, skinOrder=wrong)
+        self.assertEqual(failed_names(run_metrics(metrics)),
+                         ["主界面·皮肤下拉按背景明度排序（V0.0.39）"])
+
+    def test_skin_count_regression_fails_exactly(self):
+        """V0.0.39 回归：皮肤少注册一款（如漏掉 swatch 字段被过滤）→ 恰好那项 FAIL。"""
+        parts = NORMAL["skinOrder"].split(",")
+        metrics = dict(NORMAL, skinOrder=",".join(parts[:-1]), skinCount=str(len(parts) - 1))
+        self.assertEqual(failed_names(run_metrics(metrics)),
+                         ["主界面·皮肤下拉按背景明度排序（V0.0.39）"])
 
     def test_c3_1_no_rebuild_is_not_vacuous_pass(self):
         """C-P3-1：未真正重建（reRendered=0）时，即使 scrollTop 相等也不得判定通过。"""

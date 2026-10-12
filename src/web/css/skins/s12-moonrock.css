@@ -15,7 +15,8 @@
   --qm-accent-soft: #414141;
   --qm-on-accent: #fafaf8;
   --qm-btn-bg: #727272;
-  --qm-danger: #f28a8a;
+  --qm-btn-bg-hi: #686868;
+  --qm-danger: #f49999;
   --qm-danger-soft: #543e3e;
   --qm-warn: #f5ce60;
   --qm-edge-hi: rgba(255, 255, 255, 0.1);

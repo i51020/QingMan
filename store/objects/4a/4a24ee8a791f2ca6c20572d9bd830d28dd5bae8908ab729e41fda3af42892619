@@ -1,0 +1,29 @@
+/* 青蔓 QingMan · 皮肤：奶黄·晨曦（Cream · Sunrise Glow）
+ * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+
+:root {
+  --qm-bg: #f5edc8;
+  --qm-surface: #fff9e3;
+  --qm-surface-2: #fbf5e0;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4f5355;
+  --qm-accent: #483f36;
+  --qm-accent-ink: #312b25;
+  --qm-accent-soft: #e8d9b0;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #38312a;
+  --qm-btn-bg-hi: #2c2721;
+  --qm-danger: #b43838;
+  --qm-danger-soft: #f7e0cd;
+  --qm-warn: #906716;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(74, 71, 60, 0.12);
+  --qm-shadow-dark: rgba(98, 95, 80, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(98, 95, 80, 0.15);
+  --qm-shadow-raise: 4px 4px 9px var(--qm-shadow-dark), -3px -3px 8px var(--qm-shadow-light), inset 1px 1px 1.5px var(--qm-edge-hi), inset -1px -1px 1.5px var(--qm-edge-lo);
+  --qm-inset: inset 2px 2px 5px var(--qm-shadow-dark), inset -2px -2px 5px var(--qm-shadow-light), inset .5px .5px 1px var(--qm-edge-lo), inset -.5px -.5px 1px var(--qm-edge-hi);
+}

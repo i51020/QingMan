@@ -17,7 +17,8 @@
      故单列本变量调深一档（同色相、仅降明度）→ 白字对比度 4.82，且**不动品牌主色**——
      --qm-accent 仍用于描边 / 选中态 / 进度点等「非文本」用途（3:1 门槛下 3.99 已达标）。 */
   --qm-btn-bg: #2a8060;
-  --qm-danger: #bf4a3a;
+  --qm-btn-bg-hi: #257154;
+  --qm-danger: #b14536;
   --qm-danger-soft: #f7e6e2;
   /* §P2 第 13 项：原 #a8721a 在 --qm-surface 上仅 3.88，调深一档 → 4.82 */
   --qm-warn: #946417;
@@ -67,6 +68,7 @@
     --qm-on-accent: #0f1a16;
     /* 深色下按钮底色即 --qm-accent（本主题 0 处对比度违规，无需调深） */
     --qm-btn-bg: #4fbf90;
+    --qm-btn-bg-hi: #5ec499;
     --qm-danger: #e0776a;
     --qm-danger-soft: #3a2422;
     --qm-warn: #d9a45b;

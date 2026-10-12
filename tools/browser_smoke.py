@@ -184,6 +184,15 @@ frame('./index.html', function (doc) {
       lsel.value = 'en-US';   /* 复位，避免影响阶段 2 的初始语言 */
       lsel.dispatchEvent(new Event('change'));
     }
+    /* V0.0.39 / §十三.4：swatch 在页面上的**唯一可见效果**就是下拉的**排列顺序**
+       （skin-picker 按 swatch[0] 背景明度亮 → 暗排序）；把它整条抓出来，
+       与 Python 侧按同一公式复算的期望序列逐项比对。 */
+    if (ssel) {
+      var order = [];
+      for (var oi = 0; oi < ssel.options.length; oi += 1) { order.push(ssel.options[oi].value); }
+      m.skinOrder = order.join(',');
+      m.skinCount = order.length;
+    }
     /* C-P3-2 / C-P3-3（V0.0.32）：拖拽落点**预判**「自身 / 自身子孙」+ 高亮不因划子元素闪烁。
        合成 DragEvent 走**真实监听器**（dataTransfer 用 new DataTransfer()），不做静态断言。
        目录行用图标码点判定（📁 U+1F4C1）—— 走 codePointAt 而非字面量，
@@ -438,6 +447,32 @@ def as_int(value, default: int = -1) -> int:
         return default
 
 
+def expected_skin_order() -> str:
+    """按 `skins.js` 的 `swatch[0]`（背景色）明度**亮 → 暗**复算期望的下拉顺序。
+
+    与 `src/web/js/ui/skin-picker.js` 的 `luma()` 用**同一公式**（WCAG 相对亮度）。
+    此处**独立复算**，不调用页面函数 —— 调页面函数等于「拿页面证明它自己」
+    （同 §P2-8 清单 digest「不调用工具函数」的道理）。
+    """
+    reg = SRC_DIR / "web/js/i18n/skins.js"
+    if not reg.is_file():
+        return ""
+    entries = re.findall(
+        r"file:\s*'([^']+)',\s*label:\s*'[^']+',\s*swatch:\s*\[\s*'([^']+)'",
+        reg.read_text(encoding="utf-8"))
+
+    def _luma(hexv: str) -> float:
+        s = hexv.strip().lstrip("#")
+        r, g, b = (int(s[i:i + 2], 16) / 255 for i in (0, 2, 4))
+
+        def _ch(c: float) -> float:
+            return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+        return 0.2126 * _ch(r) + 0.7152 * _ch(g) + 0.0722 * _ch(b)
+
+    ordered = sorted(entries, key=lambda e: _luma(e[1]), reverse=True)
+    return ",".join(f for f, _ in ordered)
+
+
 def parse_metrics(stdout: str) -> dict[str, str] | None:
     """从 `--dump-dom` 的输出里取探针写下的 `RESULT k=v | k=v` 行。
 
@@ -530,6 +565,19 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
     check(skin_i18n_ok, "主界面·皮肤下拉随语言刷新",
           f"en={skin_en!r} → zh={skin_zh!r}"
           + ("" if skin_i18n_ok else "（C-P2-1 回归：换语言后皮肤名未重填）"))
+
+    # V0.0.39 / §十三.4：swatch 在页面上的**唯一可见效果** = 下拉的排列顺序（按 swatch[0]
+    # 背景明度亮 → 暗）。期望序列由 Python 侧按同一公式独立复算（见 expected_skin_order）。
+    # 它同时锁住三件事：15 款全在册 · swatch 数据正确 · 排序逻辑未被改坏。
+    skin_order = metrics.get("skinOrder", "")
+    exp_order = expected_skin_order()
+    order_ok = bool(skin_order) and skin_order == exp_order
+    if order_ok:
+        parts = skin_order.split(",")
+        order_note = f"{len(parts)} 款 · 首 {parts[0]} · 末 {parts[-1]}"
+    else:
+        order_note = f"实得={skin_order or '(空)'} 期望={exp_order or '(空)'}"
+    check(order_ok, "主界面·皮肤下拉按背景明度排序（V0.0.39）", order_note)
 
     # C-P3-5（V0.0.29）：非法皮肤偏好须回落出厂默认 —— 若被直接采用，会去加载不存在的
     # `./css/skins/not-a-real-skin.css`（装载失败 → 落 tokens.css 裸色，与选择器显示不符）。

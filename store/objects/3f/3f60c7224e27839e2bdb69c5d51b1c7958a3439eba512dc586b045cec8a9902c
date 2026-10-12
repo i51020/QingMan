@@ -1,0 +1,88 @@
+/* 青蔓 QingMan · 设计变量（唯一色彩与尺寸来源） */
+
+:root {
+  --qm-bg: #eceff4;
+  --qm-surface: #f6f8fb;
+  --qm-surface-2: #ffffff;
+  --qm-line: #d5dbe5;
+  --qm-line-soft: #e4e9f0;
+  --qm-text: #1e2732;
+  --qm-text-dim: #5d6a7c;
+  --qm-accent: #2f8f6b;
+  --qm-accent-ink: #1d6d50;
+  --qm-accent-soft: #e2f0e9;
+  /* 强调色背景上的文字色（§P0-3 L4：组件 CSS 不得写裸色值） */
+  --qm-on-accent: #ffffff;
+  /* 主按钮底色（§P2 第 13 项）：--qm-accent 作白字底仅 3.99，未达 AA 4.5；
+     故单列本变量调深一档（同色相、仅降明度）→ 白字对比度 4.82，且**不动品牌主色**——
+     --qm-accent 仍用于描边 / 选中态 / 进度点等「非文本」用途（3:1 门槛下 3.99 已达标）。 */
+  --qm-btn-bg: #2a8060;
+  --qm-btn-bg-hi: #257154;
+  --qm-danger: #b14536;
+  --qm-danger-soft: #f7e6e2;
+  /* §P2 第 13 项：原 #a8721a 在 --qm-surface 上仅 3.88，调深一档 → 4.82 */
+  --qm-warn: #946417;
+
+  --qm-r-sm: 6px;
+  --qm-r-md: 8px;
+  --qm-gap: 10px;
+
+  --qm-shadow: 0 1px 2px rgba(30, 39, 50, .07);
+  --qm-shadow-raise: 3px 3px 8px rgba(30, 39, 50, .10), -2px -2px 6px rgba(255, 255, 255, .85);
+
+  /* 新拟物锐利边缘变量（皮肤文件可覆盖；§P0-3 L4：仅 tokens.css 允许字面量色值） */
+  --qm-edge-hi: rgba(255, 255, 255, .55);
+  --qm-edge-lo: rgba(30, 39, 50, .10);
+  --qm-shadow-dark: rgba(30, 39, 50, .12);
+  --qm-shadow-light: rgba(255, 255, 255, .85);
+  --qm-inset: inset 2px 2px 5px rgba(30, 39, 50, .12), inset -2px -2px 5px rgba(255, 255, 255, .85);
+  /* 主按钮内高光 / 按下内阴影（D-P2-1：自 base.css 的裸 rgba 上移为变量；值不变 → 零视觉变更）。
+     light / dark 同值：搬迁前 base.css 是**单一字面量**、本就不随主题变化，同值才是等价搬迁。 */
+  --qm-btn-hi: rgba(255, 255, 255, .18);
+  --qm-btn-lo: rgba(0, 0, 0, .25);
+
+  /* 下拉箭头**遮罩**（D-P3-2）：遮罩本身不带颜色，实际颜色由 base.css 的
+     `.topbar-select::after` 以 `background-color: var(--qm-text-dim)` 上色 ——
+     于是箭头随**皮肤**（皮肤覆盖 --qm-text-dim）与 light/dark 一同变化，
+     不再是一枚烘死在 SVG 里的灰色常客（旧版仅随 light/dark，选深色皮肤时对比度不足）。
+     描边取白色：遮罩无论按 alpha 还是 luminance 解释，白色都表示"完全显示"。 */
+  --qm-select-arrow-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%23fff' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+
+  --qm-font: "Microsoft YaHei UI", "Microsoft YaHei", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --qm-mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --qm-bg: #161a1f;
+    --qm-surface: #1d2229;
+    --qm-surface-2: #232a32;
+    --qm-line: #323a44;
+    --qm-line-soft: #2a313a;
+    --qm-text: #e7ecf2;
+    --qm-text-dim: #9aa7b5;
+    --qm-accent: #4fbf90;
+    --qm-accent-ink: #7dd6b0;
+    --qm-accent-soft: #1f3a31;
+    /* 深色主题下 --qm-accent 本身是浅绿，叠加白字对比度不足，改用深墨绿 */
+    --qm-on-accent: #0f1a16;
+    /* 深色下按钮底色即 --qm-accent（本主题 0 处对比度违规，无需调深） */
+    --qm-btn-bg: #4fbf90;
+    --qm-btn-bg-hi: #5ec499;
+    --qm-danger: #e0776a;
+    --qm-danger-soft: #3a2422;
+    --qm-warn: #d9a45b;
+    --qm-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+    --qm-shadow-raise: 3px 3px 8px rgba(0, 0, 0, .45), -2px -2px 6px rgba(255, 255, 255, .03);
+
+    --qm-edge-hi: rgba(255, 255, 255, .08);
+    --qm-edge-lo: rgba(0, 0, 0, .35);
+    --qm-shadow-dark: rgba(0, 0, 0, .45);
+    --qm-shadow-light: rgba(255, 255, 255, .03);
+    --qm-inset: inset 2px 2px 5px rgba(0, 0, 0, .45), inset -2px -2px 5px rgba(255, 255, 255, .03);
+    --qm-btn-hi: rgba(255, 255, 255, .18);
+    --qm-btn-lo: rgba(0, 0, 0, .25);
+
+    /* 箭头遮罩无颜色 → 深色主题无需另设一份（颜色由 ::after 的 --qm-text-dim 决定，D-P3-2）。 */
+  }
+}

@@ -75,8 +75,12 @@ code {
     inset .5px .5px 1px var(--qm-btn-hi);
 }
 .btn-primary:hover:not(:disabled) {
-  background: var(--qm-accent-ink);
-  border-color: var(--qm-accent-ink);
+  /* hover 底色用专用 token --qm-btn-bg-hi，不用 --qm-accent-ink：
+     后者语义是「强调色的墨色」（暗色皮肤下为浅色），拿它当按钮底再配
+     --qm-on-accent 会与本皮肤的字色撞车 —— 详见《错误笔记》里「把墨色当
+     按钮底色」一条（对比度由 tools/verify.py 的皮肤 WCAG 守卫把关）。 */
+  background: var(--qm-btn-bg-hi);
+  border-color: var(--qm-btn-bg-hi);
   color: var(--qm-on-accent);
 }
 .btn-primary:active:not(:disabled) { box-shadow: inset 1px 1px 3px var(--qm-btn-lo); }

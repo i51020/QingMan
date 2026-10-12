@@ -179,6 +179,89 @@ def find_node() -> str | None:
     return str(managed[0]) if managed else None
 
 
+# ---------- 皮肤色板：绑定与对比度（V0.0.39 · §十三.3 / §十三.4）----------
+_CSS_VAR_RE = re.compile(r"(--qm-[a-z0-9-]+)\s*:\s*([^;]+);")
+
+# 文本配对（AA 4.5）—— 配对集**由组件 CSS 的实际共现反查得出**（grep `color:` 与
+# `background:` 的搭配），非凭空设定。列 `(说明, 前景变量, 背景变量)`。
+SKIN_TEXT_PAIRS = (
+    ("正文·面板", "--qm-text", "--qm-surface"),
+    ("正文·页底", "--qm-text", "--qm-bg"),
+    ("正文·控件", "--qm-text", "--qm-surface-2"),
+    ("次要·面板", "--qm-text-dim", "--qm-surface"),
+    ("次要·页底", "--qm-text-dim", "--qm-bg"),
+    ("强调墨·面板", "--qm-accent-ink", "--qm-surface"),
+    ("强调墨·软底", "--qm-accent-ink", "--qm-accent-soft"),
+    ("主按钮字", "--qm-on-accent", "--qm-btn-bg"),
+    ("主按钮字·悬停", "--qm-on-accent", "--qm-btn-bg-hi"),
+    ("危险·面板", "--qm-danger", "--qm-surface"),
+    ("危险·控件", "--qm-danger", "--qm-surface-2"),
+    ("危险·软底", "--qm-danger", "--qm-danger-soft"),
+    ("警告·面板", "--qm-warn", "--qm-surface"),
+)
+# 非文本配对（AA 1.4.11 → 3.0）：`--qm-accent` 在组件 CSS 里**从不作 `color`**，
+# 只作描边 / 轮廓 / 选中态，故按「UI 组件边界」的 3:1 门槛校验。
+SKIN_NONTEXT_PAIRS = (
+    ("描边·页底", "--qm-accent", "--qm-bg"),
+    ("描边·面板", "--qm-accent", "--qm-surface"),
+    ("描边·软底", "--qm-accent", "--qm-accent-soft"),
+)
+SKIN_CONTRAST_MIN_TEXT = 4.5
+SKIN_CONTRAST_MIN_NONTEXT = 3.0
+
+
+def css_vars(text: str) -> dict[str, str]:
+    """抽取 `--qm-*` 的**字面量**取值（跳过 `var(...)` / `url(...)` 这类间接引用）。"""
+    out: dict[str, str] = {}
+    for key, val in _CSS_VAR_RE.findall(text):
+        val = val.strip()
+        if "var(" in val or "url(" in val:
+            continue
+        out[key] = val
+    return out
+
+
+def split_light_dark(css_text: str) -> tuple[dict[str, str], dict[str, str]]:
+    """tokens.css → (浅色块, 深色块生效值)。深色块只覆盖子集，故须叠在浅色之上。"""
+    idx = css_text.find("@media")
+    light = css_vars(css_text[:idx]) if idx >= 0 else css_vars(css_text)
+    dark = dict(light)
+    if idx >= 0:
+        dark.update(css_vars(css_text[idx:]))
+    return light, dark
+
+
+def _hex_rgb(val: str) -> tuple[int, int, int] | None:
+    val = val.strip()
+    m = re.fullmatch(r"#([0-9a-fA-F]{3})", val)
+    if m:
+        s = m.group(1)
+        return (int(s[0] * 2, 16), int(s[1] * 2, 16), int(s[2] * 2, 16))
+    m = re.fullmatch(r"#([0-9a-fA-F]{6})", val)
+    if m:
+        s = m.group(1)
+        return (int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16))
+    return None
+
+
+def rel_luminance(rgb: tuple[int, int, int]) -> float:
+    def ch(v: float) -> float:
+        v /= 255
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    return 0.2126 * ch(rgb[0]) + 0.7152 * ch(rgb[1]) + 0.0722 * ch(rgb[2])
+
+
+def contrast_ratio(fg: str, bg: str) -> float | None:
+    """WCAG 对比度。任一侧不是 `#rgb` / `#rrggbb` 字面量 → None（调用方须显式报错）。"""
+    rf, rb = _hex_rgb(fg), _hex_rgb(bg)
+    if rf is None or rb is None:
+        return None
+    lf, lb = rel_luminance(rf), rel_luminance(rb)
+    if lf < lb:
+        lf, lb = lb, lf
+    return (lf + 0.05) / (lb + 0.05)
+
+
 def strip_comments(text: str, kind: str) -> str:
     if kind == "js":
         text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
@@ -669,6 +752,87 @@ def main() -> int:
     if not skin_errs and cids and default_cid is not None:
         def_note += f"，默认 S{int(default_cid):02d}"
     check(not skin_errs, "皮肤注册表 §P0-3 L5", def_note)
+
+    # 7d-3. 皮肤注册表 swatch 与 skins/*.css **逐值一致**（V0.0.39 · §十三.4）
+    #       swatch = [--qm-bg, --qm-accent, --qm-surface]；其唯一消费者是 skin-picker 的
+    #       **排序键**（按背景明度亮 → 暗）。本守卫把「改了皮肤取值却忘同步 swatch」从
+    #       **静默漂移**变成**立刻报错** —— 这正是 §十三.4「无绑定」的机器解法
+    #       （运行时 getComputedStyle 只能读到**当前生效那一款**，拿不到其余 14 款，故
+    #        绑定只能落在**校验期**而非运行期）。
+    swatch_errs: list[str] = []
+    swatch_n = 0
+    if reg_file.is_file() and skins_dir.is_dir():
+        reg_text2 = reg_file.read_text(encoding="utf-8")
+        sw_pat = re.compile(
+            r"file:\s*'([^']+)',\s*label:\s*'[^']+',\s*swatch:\s*\[\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'\s*\]"
+        )
+        t_light_s, _t_dark_s = split_light_dark(
+            (root / "src/web/css/tokens.css").read_text(encoding="utf-8"))
+        for m in sw_pat.finditer(reg_text2):
+            fname, s_bg, s_accent, s_surface = m.groups()
+            swatch_n += 1
+            css_path = skins_dir / f"{fname}.css"
+            if not css_path.is_file():
+                swatch_errs.append(f"{fname}: 缺皮肤文件，无法比对 swatch")
+                continue
+            eff = dict(t_light_s)
+            eff.update(css_vars(css_path.read_text(encoding="utf-8")))
+            for tag, sw, var in (("bg", s_bg, "--qm-bg"),
+                                 ("accent", s_accent, "--qm-accent"),
+                                 ("surface", s_surface, "--qm-surface")):
+                want = eff.get(var)
+                if want is None:
+                    swatch_errs.append(f"{fname}: {var} 未定义")
+                elif want.lower() != sw.lower():
+                    swatch_errs.append(f"{fname}.{tag}: swatch={sw} ≠ CSS={want}")
+    else:
+        swatch_errs.append("缺少 skins.js 或 skins/ 目录")
+    check(not swatch_errs, "皮肤 swatch 与 CSS 绑定 V0.0.39",
+          "; ".join(swatch_errs[:4]) if swatch_errs
+          else f"{swatch_n} 款 swatch 三色与各自 CSS 逐值一致")
+
+    # 7d-4. 皮肤 WCAG AA 对比度（V0.0.39 · §十三.3）
+    #       基座 = **无皮肤时的 tokens 浅/深两套**（README：未选皮肤即不注入样式表，
+    #       故 tokens 默认值直接生效）+ **15 款皮肤**（皮肤覆盖叠在 tokens 浅色之上）。
+    contrast_errs: list[str] = []
+    base_n = 0
+    tokens_path = root / "src/web/css/tokens.css"
+    if tokens_path.is_file() and skins_dir.is_dir():
+        t_light_c, t_dark_c = split_light_dark(tokens_path.read_text(encoding="utf-8"))
+        bases: list[tuple[str, dict[str, str]]] = [
+            ("tokens·浅", t_light_c), ("tokens·深", t_dark_c),
+        ]
+        reg_for_bases = reg_file.read_text(encoding="utf-8") if reg_file.is_file() else ""
+        for m in re.finditer(r"file:\s*'([^']+)'", reg_for_bases):
+            fname = m.group(1)
+            css_path = skins_dir / f"{fname}.css"
+            if not css_path.is_file():
+                continue
+            eff = dict(t_light_c)
+            eff.update(css_vars(css_path.read_text(encoding="utf-8")))
+            bases.append((fname, eff))
+        for label, eff in bases:
+            base_n += 1
+            for name, fk, bk in SKIN_TEXT_PAIRS:
+                fg, bg_ = eff.get(fk, ""), eff.get(bk, "")
+                r = contrast_ratio(fg, bg_)
+                if r is None:
+                    contrast_errs.append(f"{label}/{name}: 非字面量色值 {fg!r} / {bg_!r}")
+                elif r < SKIN_CONTRAST_MIN_TEXT:
+                    contrast_errs.append(f"{label}/{name}={r:.2f}<{SKIN_CONTRAST_MIN_TEXT}")
+            for name, fk, bk in SKIN_NONTEXT_PAIRS:
+                fg, bg_ = eff.get(fk, ""), eff.get(bk, "")
+                r = contrast_ratio(fg, bg_)
+                if r is None:
+                    contrast_errs.append(f"{label}/{name}: 非字面量色值 {fg!r} / {bg_!r}")
+                elif r < SKIN_CONTRAST_MIN_NONTEXT:
+                    contrast_errs.append(f"{label}/{name}={r:.2f}<{SKIN_CONTRAST_MIN_NONTEXT}")
+    else:
+        contrast_errs.append("缺少 tokens.css 或 skins/ 目录")
+    n_pairs = len(SKIN_TEXT_PAIRS) + len(SKIN_NONTEXT_PAIRS)
+    check(not contrast_errs, "皮肤 WCAG AA 对比度 V0.0.39",
+          f"{len(contrast_errs)} 处不达标：" + "; ".join(contrast_errs[:4]) if contrast_errs
+          else f"{base_n} 基座 × {n_pairs} 配对（文本 ≥4.5 / 非文本 ≥3.0）全部达标")
 
     # 7e. CSS 类名形态：kebab-case，不得含下划线或大写（§P2 第 1 项）
     #     先剥掉 url(...) —— 否则 url("../assets/logo.svg") 里的 `.svg` 会被当成类名。
@@ -1817,6 +1981,47 @@ def main() -> int:
     check(not fe_bad, "模板前端批 V0.0.38",
           f"缺失：{', '.join(fe_bad)}" if fe_bad
           else "绑定 UI / 2500ms 轮询+变化判据 / 右键菜单 / 导入导出接线 / 页面断言 齐备")
+
+    # 7ag. 皮肤体系守卫批（V0.0.39，§十三.3 对比度 / §十三.4 swatch 绑定）
+    #      三件事：
+    #      ① `--qm-btn-bg-hi` 必须在 tokens.css 定义并被 base.css 的 `.btn-primary:hover`
+    #         使用，且 `.btn-primary:hover` **不得**再拿 `--qm-accent-ink` 当底色
+    #         （那是「墨色」，暗色皮肤下为浅色，配 `--qm-on-accent` 必翻车）；
+    #      ② 15 款皮肤的 `--qm-btn-bg-hi` 与 `--qm-danger` 必须**各自显式给出**
+    #         （继承 tokens 默认会与本皮肤色系不符）；
+    #      ③ 页面层的 swatch 排序断言（`skinOrder` + 独立复算函数）不得被摘除。
+    #         该断言反过来把「swatch 与 CSS 绑定」落到**运行期可见效果**上。
+    skin_bad: list[str] = []
+    tokens_css = _read("src/web/css/tokens.css")
+    base_css = _read("src/web/css/base.css")
+    bs_skin = _read("tools/browser_smoke.py")
+    if tokens_css.count("--qm-btn-bg-hi") < 2:
+        skin_bad.append("tokens.css 缺 --qm-btn-bg-hi（浅/深两套各需一条）")
+    hover_block = re.search(r"\.btn-primary:hover[^{]*\{[^}]*\}",
+                            strip_comments(base_css, "css"))
+    if not hover_block:
+        skin_bad.append("base.css 缺 .btn-primary:hover 规则")
+    else:
+        if "var(--qm-btn-bg-hi)" not in hover_block.group(0):
+            skin_bad.append(".btn-primary:hover 未改用 --qm-btn-bg-hi")
+        if "--qm-accent-ink" in hover_block.group(0):
+            skin_bad.append(".btn-primary:hover 又把「墨色」当按钮底色（对比度会翻车）")
+    _skins_dir_v = root / "src/web/css/skins"
+    _skin_files_v = sorted(p for p in _skins_dir_v.glob("s*.css")) if _skins_dir_v.is_dir() else []
+    missing_hi = [p.stem for p in _skin_files_v
+                  if "--qm-btn-bg-hi" not in p.read_text(encoding="utf-8")]
+    if missing_hi:
+        skin_bad.append(f"皮肤缺 --qm-btn-bg-hi：{', '.join(missing_hi[:3])}")
+    for token, why in (
+        ("skinOrder", "browser_smoke 缺皮肤排序抓取（swatch 唯一可见效果）"),
+        ("def expected_skin_order", "browser_smoke 缺期望序列独立复算（删掉即退化为自证）"),
+    ):
+        if token not in bs_skin:
+            skin_bad.append(why)
+
+    check(not skin_bad, "皮肤体系守卫批 V0.0.39",
+          f"缺失：{', '.join(skin_bad)}" if skin_bad
+          else f"hover 专用底色 / {len(_skin_files_v)} 款皮肤显式取值 / 页面排序断言 齐备")
 
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"

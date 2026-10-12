@@ -10,12 +10,13 @@
   --qm-line-soft: rgba(35, 41, 49, 0.09);
   --qm-text: #232931;
   --qm-text-dim: #4f5255;
-  --qm-accent: #f0b432;
+  --qm-accent: #b27e0d;
   --qm-accent-ink: #87661c;
   --qm-accent-soft: #fdf0d0;
   --qm-on-accent: #232931;
   --qm-btn-bg: #bb8c27;
-  --qm-danger: #c54444;
+  --qm-btn-bg-hi: #cc992b;
+  --qm-danger: #b43838;
   --qm-danger-soft: #f7dfce;
   --qm-warn: #906716;
   --qm-edge-hi: rgba(255, 255, 255, 0.62);
