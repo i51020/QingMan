@@ -32,6 +32,16 @@ TEMPLATES_PATH = "/api/templates"
 TEMPLATES_DIR_PATH = "/api/templates-dir"
 # 模板导入端点（V0.0.36 · 6C）：POST 上传 `.json` / `.md` 内容 → 归一 → 落盘。
 TEMPLATES_IMPORT_PATH = "/api/templates/import"
+# 模板导出端点（V0.0.38 · 6E）：GET 原文件文本，与导入成环（`.json` 进 `.json` 出）。
+# **独立前缀**（`templates-export` ≠ `templates/`）—— 刻意避开 `/api/templates/` 的前缀
+# 路由，免得重演「集合路由吞掉具体路由」那种顺序坑（见《错误笔记》前缀匹配一条）。
+TEMPLATES_EXPORT_PATH = "/api/templates-export"
+# 原生目录选择框（V0.0.38 · 6E）：POST 弹 `tkinter.filedialog.askdirectory`，只回报所选路径
+# （**不落盘、不绑定** —— 绑定另发 `PUT /api/templates-dir`）。
+TEMPLATES_DIR_PICK_PATH = "/api/templates-dir/pick"
+# 关断原生目录框的 env：无头 / 自动化环境（CI、沙盒、`browser_smoke`）必须能关断，
+# 否则模态框会**阻塞请求线程直到有人去点它**。
+NO_GUI_PICK_ENV = "QM_NO_GUI_PICK"
 # 皮肤联动的桌面图标上传（V0.0.15）：前端 canvas 绘制、后端只落盘与接线
 ICON_PATH = "/api/launch-icon"
 # 「跟随系统」要跟的是 **操作系统语言**，不是浏览器语言（V0.0.14）。
@@ -338,6 +348,12 @@ def list_templates() -> Dict[str, Any]:
 
     每项带 `source`（`"json"` / `"md"`）标明来源格式；两种格式**同一套读取与计数口径**，
     故列表里能看到的，`load_template` 一定能读到（共用 `_read_template_doc`）。
+
+    每项另带 `mtime`（`st_mtime`，float 秒）与 `size`（字节，V0.0.38 · 6E）—— 供前端
+    轮询做「`file + mtime + size` 三元组签名」变化判据：**内容没变就不重渲染**，
+    否则每 2.5s 一次的重建会让正在浏览的列表跳回去
+    （风险与缓解见《模板系统重设计_方案原型_20261011.md》第八节）。
+    统计失败（列表期间文件被外部删除）只跳过该套，与「单套损坏只跳过」同一取舍。
     """
     d = config.resolve_path(config.templates_dir())
     # 绑定目录非法（自绑 / 系统区）或缺失 → 一律「不可用」，既不报错、也不去 glob
@@ -359,6 +375,10 @@ def list_templates() -> Dict[str, Any]:
             doc = _read_template_doc(p, name=p.name)
         except (TreeError, OSError, ValueError):
             continue   # 单套损坏只跳过该套（含 `.md` 解析失败）
+        try:
+            st = p.stat()
+        except OSError:
+            continue   # 列表期间被外部删除：跳过该套，不拖垮整个列表
         dirs, files = dtree_core.count_tree(doc["tree"])
         items.append({
             "file": p.name,
@@ -366,6 +386,8 @@ def list_templates() -> Dict[str, Any]:
             "description": doc.get("description") or "",
             "dirs": dirs,
             "files": files,
+            "mtime": st.st_mtime,
+            "size": st.st_size,
             "source": _template_source(p.name),
         })
 
@@ -403,6 +425,26 @@ def load_template(name: str) -> Dict[str, Any]:
         "source": _template_source(name),
         # 老模板没有该字段，一律视为当前版本（读取容忍缺失，写入必带 —— §P2 第 7 项）
         "schemaVersion": doc.get("schemaVersion", config.TEMPLATE_SCHEMA_VERSION),
+    }
+
+
+def export_template(name: str) -> Dict[str, Any]:
+    """读取模板**原文件文本**（`GET /api/templates-export/<name>`，V0.0.38 · 6E）。
+
+    导出＝把盘上那份文件**原样**交回，**不做任何再序列化** —— 「导出 → 再导入」因此
+    与原件内容一致（单一真源；若前端另写一套 `.md` 渲染器，两侧迟早漂移）。
+    前端据 `file` 的扩展名决定下载文件名（`.json` 进 `.json` 出、`.md` 进 `.md` 出）。
+
+    路径校验与读取共用 `_template_path_or_raise`（白名单 + `is_within` + 必须是文件）；
+    读失败由上层转 `ioError`（`OSError`），不新增错误码。
+    """
+    path = _template_path_or_raise(name)
+    return {
+        "ok": True,
+        "file": name,
+        "name": path.stem,
+        "source": _template_source(name),
+        "text": path.read_text(encoding="utf-8"),
     }
 
 
@@ -847,6 +889,73 @@ def _probe_writable(path: Path, create: bool = True) -> "tuple[bool, str]":
     except OSError as exc:
         return False, "目录不可写：%s" % exc
     return True, ""
+
+
+class _PickUnavailable(Exception):
+    """原生目录选择框不可用（`tkinter` 缺失 / 无 GUI 会话 / Tcl 初始化失败）。"""
+
+
+def _env_truthy(name: str) -> bool:
+    """该 env 是否设为真值（`1` / `true` / `yes` / `on`，大小写不敏感、忽略首尾空白）。"""
+    return (os.environ.get(name) or "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _ask_directory() -> "str | None":
+    """弹原生目录选择框，返回所选**绝对路径**；用户取消 → `None`。
+
+    不能用（`import tkinter` 失败 / 无显示 / `Tk()` 抛错）一律抛 `_PickUnavailable`，
+    由 `pick_templates_dir` 转成 `available=false` 的**降级响应**（前端改用手动粘贴路径）。
+
+    在请求线程内调用是安全的：`ThreadingHTTPServer` 每请求一线程，模态框只阻塞**本线程**，
+    服务照常响应其他请求。`withdraw()` + `-topmost` 让对话框置顶、且不闪出一个空主窗。
+    """
+    try:
+        import tkinter
+        from tkinter import filedialog
+    except Exception as exc:  # noqa: BLE001 - ImportError / 无 Tcl 运行时
+        raise _PickUnavailable(str(exc) or "tkinter unavailable") from exc
+
+    root = None
+    try:
+        root = tkinter.Tk()
+        root.withdraw()
+        try:
+            root.attributes("-topmost", True)
+        except Exception:  # noqa: BLE001 - 个别 Tk 版本无该属性，非致命
+            pass
+        chosen = filedialog.askdirectory(parent=root, mustexist=True)
+    except Exception as exc:  # noqa: BLE001 - TclError（无显示）/ 其他 GUI 失败
+        raise _PickUnavailable(str(exc) or "cannot open directory dialog") from exc
+    finally:
+        if root is not None:
+            try:
+                root.destroy()
+            except Exception:  # noqa: BLE001 - 已销毁 / 无显示
+                pass
+    return chosen or None
+
+
+def pick_templates_dir() -> Dict[str, Any]:
+    """`POST /api/templates-dir/pick`：弹原生目录选择框，**只回报用户所选路径**。
+
+    刻意**不落盘、不校验、不绑定** —— 「选择」与「绑定」是两个独立动作：用户在框里挑错
+    目录不会立刻改写 settings；是否绑定由前端确认后另发 `PUT /api/templates-dir`。
+    响应恒为 `ok=true`（「原生框用不了」是**能力缺失**，不是请求失败）：
+
+      * `available=false, reason="disabled"`    —— env `QM_NO_GUI_PICK` 关断；
+      * `available=false, reason="unavailable"` —— `tkinter` / GUI 会话缺失（带 `message`）；
+      * `available=true, cancelled=true`        —— 用户取消（`dir` 为空）；
+      * `available=true, cancelled=false`       —— 选中路径（`dir` 为绝对路径）。
+    """
+    if _env_truthy(NO_GUI_PICK_ENV):
+        return {"ok": True, "available": False, "reason": "disabled", "dir": ""}
+    try:
+        chosen = _ask_directory()
+    except _PickUnavailable as exc:
+        return {"ok": True, "available": False, "reason": "unavailable",
+                "message": str(exc), "dir": ""}
+    return {"ok": True, "available": True, "reason": "",
+            "cancelled": chosen is None, "dir": chosen or ""}
 
 
 def get_templates_dir() -> Dict[str, Any]:

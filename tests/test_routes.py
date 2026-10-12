@@ -803,6 +803,121 @@ class TemplatesDirRouteTests(unittest.TestCase):
         self.assertEqual(ctx.exception.code, "templateDirBlocked")
 
 
+class TemplatesDirPickTests(unittest.TestCase):
+    """V0.0.38 · 6E 原生目录选择框（`POST /api/templates-dir/pick`）。
+
+    真弹窗会**阻塞到有人去点它**，自动化里绝不可触发 —— 故全部给 `_ask_directory`
+    打桩，只测本层逻辑：env 关断 / 不可用降级 / 取消 / 选中四条分支 + 「选择不落盘」。
+    """
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="qm_pick_"))
+        self.addCleanup(lambda: __import__("shutil").rmtree(self.tmp, ignore_errors=True))
+        env = mock.patch.dict(os.environ, {"QM_SETTINGS": str(self.tmp / "settings.json")})
+        env.start()
+        self.addCleanup(env.stop)
+        os.environ.pop("QM_TEMPLATES_DIR", None)
+        os.environ.pop(routes.NO_GUI_PICK_ENV, None)
+        self.addCleanup(lambda: os.environ.pop(routes.NO_GUI_PICK_ENV, None))
+
+    def test_disabled_by_env(self):
+        os.environ[routes.NO_GUI_PICK_ENV] = "1"
+        res = routes.pick_templates_dir()
+        self.assertTrue(res["ok"])
+        self.assertFalse(res["available"])
+        self.assertEqual(res["reason"], "disabled")
+        self.assertEqual(res["dir"], "")
+
+    def test_unavailable_degrades(self):
+        with mock.patch.object(routes, "_ask_directory",
+                               side_effect=routes._PickUnavailable("no display")):
+            res = routes.pick_templates_dir()
+        self.assertTrue(res["ok"])
+        self.assertFalse(res["available"])
+        self.assertEqual(res["reason"], "unavailable")
+        self.assertIn("no display", res["message"])
+        self.assertEqual(res["dir"], "")
+
+    def test_returns_chosen_dir(self):
+        chosen = str(self.tmp / "模板库")
+        with mock.patch.object(routes, "_ask_directory", return_value=chosen):
+            res = routes.pick_templates_dir()
+        self.assertTrue(res["available"])
+        self.assertFalse(res["cancelled"])
+        self.assertEqual(res["dir"], chosen)
+
+    def test_cancelled_returns_empty(self):
+        with mock.patch.object(routes, "_ask_directory", return_value=None):
+            res = routes.pick_templates_dir()
+        self.assertTrue(res["available"])
+        self.assertTrue(res["cancelled"])
+        self.assertEqual(res["dir"], "")
+
+    def test_pick_does_not_touch_settings(self):
+        """「选择」不得落盘 —— 只回报路径，绑定留给 `PUT /api/templates-dir`。"""
+        with mock.patch.object(routes, "_ask_directory", return_value=str(self.tmp / "x")):
+            routes.pick_templates_dir()
+        self.assertFalse((self.tmp / "settings.json").exists())
+
+    def test_list_items_carry_mtime_and_size(self):
+        """轮询变化判据依赖的两个字段必须在每项上（V0.0.38 · 6E）。"""
+        res = routes.list_templates()
+        self.assertTrue(res["available"])
+        self.assertTrue(res["items"], "默认内置目录应至少有一套模板")
+        for item in res["items"]:
+            self.assertIsInstance(item["mtime"], float)
+            self.assertIsInstance(item["size"], int)
+            self.assertGreaterEqual(item["size"], 0)
+
+
+class TemplateExportTests(unittest.TestCase):
+    """V0.0.38 · 6E 模板导出（`GET /api/templates-export/<name>`）。
+
+    导出的语义是「盘上那份文件**原样**交回」—— 故断言**逐字节等于**盘上内容，
+    这正是「导出 → 再导入」能成环的前提（若导出做了再序列化，两侧就会漂移）。
+    """
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="qm_export_"))
+        self.addCleanup(lambda: __import__("shutil").rmtree(self.tmp, ignore_errors=True))
+        self.dir = self.tmp / "lib"
+        self.dir.mkdir()
+        patcher = mock.patch.object(config, "templates_dir", lambda: self.dir)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _write(self, name: str, text: str) -> str:
+        (self.dir / name).write_text(text, encoding="utf-8", newline="\n")
+        return text
+
+    def test_json_export_is_byte_identical(self):
+        text = '{\n  "name": "甲",\n  "tree": {"a": {}}\n}\n'
+        self._write("甲.json", text)
+        res = routes.export_template("甲.json")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["file"], "甲.json")
+        self.assertEqual(res["source"], "json")
+        self.assertEqual(res["text"], text)
+
+    def test_md_export_is_byte_identical(self):
+        text = "# 乙\n\n> 说明\n\n- 目录/\n"
+        self._write("乙.md", text)
+        res = routes.export_template("乙.md")
+        self.assertEqual(res["source"], "md")
+        self.assertEqual(res["text"], text)
+
+    def test_export_rejects_path_traversal_and_bad_ext(self):
+        for bad in ("../x.json", "a/b.json", "..\\x.json", "x.txt", ""):
+            with self.assertRaises(TreeError) as ctx:
+                routes.export_template(bad)
+            self.assertEqual(ctx.exception.code, "templateNotFound", repr(bad))
+
+    def test_export_missing_file(self):
+        with self.assertRaises(TreeError) as ctx:
+            routes.export_template("不存在.md")
+        self.assertEqual(ctx.exception.code, "templateNotFound")
+
+
 class OsLocaleTests(unittest.TestCase):
     """V0.0.14「跟随系统」= 真 OS 语言，经 /api/env.js 同步注入前端。"""
 

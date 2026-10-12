@@ -713,13 +713,91 @@ async function boot() {
   // 后端可用才恢复/初始化文档；后端未连接时保持默认示例，不做任何写盘尝试
   await restoreDocument();
 
-  // 模板库是只读素材，与文档恢复无依赖，放在最后且失败不影响主流程
-  await loadTemplateList();
+  // 模板库是只读素材，与文档恢复无依赖，放在最后且失败不影响主流程。
+  // 两个请求**并发**：串行会多花一个网络往返，无头冒烟的虚拟时间预算可能在
+  // 列表渲染完成前就 dump DOM（`--virtual-time-budget` 不等未决 Promise）。
+  await Promise.all([loadTemplatesDir(), loadTemplateList()]);
+  startTemplatePolling();   // 仅在后端可用时起轮询：连不上就别空转发请求
 }
 
 /* ---------- 模板库（V0.0.11） ---------- */
 
 /* 错误本地化已迁至 ./core/errors.js（V0.0.12）：主界面与帮助页共用同一套 `err.<code>` 取词。 */
+
+/* ---------- 模板目录绑定（V0.0.38 · 6E） ---------- */
+
+/** 最近一次 `GET /api/templates-dir` 的响应；切换语言时用它重渲染动态文案（不再请求）。 */
+let lastDirRes = null;
+
+/**
+ * 渲染绑定行：路径 + 状态提示。
+ *
+ * `source === 'default'` 表示**没绑外部目录**（用内置层）—— 这不是错误，
+ * 但要说明白，否则用户会奇怪「为什么我放在别处的模板看不见」。
+ * `valid === false`（自绑 / 系统区 / 不存在）才是真异常，展示后端给的原因。
+ */
+function renderTemplatesDir(res) {
+  lastDirRes = res;
+  const pathEl = el('tplDirPath');
+  const hintEl = el('tplDirHint');
+  const dir = (res && res.dir) || '';
+  pathEl.textContent = dir || t('template.dirUnknown');
+  pathEl.title = dir;
+
+  let hint = '';
+  if (res && res.source === 'default') hint = t('template.dirHintDefault');
+  else if (res && res.valid === false) hint = t('template.dirHintInvalid', { reason: res.reason || '' });
+  hintEl.textContent = hint;
+  hintEl.hidden = !hint;
+}
+
+async function loadTemplatesDir() {
+  try {
+    renderTemplatesDir(await api.templatesDir());
+  } catch (err) {
+    // 只读查询失败不该拖垮主流程：路径显示「未读取」，不弹提示
+    renderTemplatesDir(null);
+  }
+}
+
+/** 绑定目录 → 成功后刷新路径行与列表；被 env 遮蔽时如实提示（settings 已写但未生效）。 */
+async function bindTemplatesDir(dir) {
+  try {
+    const res = await api.setTemplatesDir(dir);
+    if (res.applied === false) {
+      toast(t('template.dirEnvShadow', { dir: res.effectiveDir || '' }), 'warn', 6000);
+    } else {
+      toast(t('template.dirBound', { dir: res.dir || dir }), 'ok');
+    }
+    await loadTemplatesDir();
+    await loadTemplateList();
+  } catch (err) {
+    toast(t('template.dirBindFailed', { message: localizeError(err) }), 'warn', 6000);
+  }
+}
+
+/**
+ * 「选择…」：优先原生目录框；本机用不了（缺 tkinter / 无 GUI / env 关断）则降级为
+ * **手动粘贴路径**（设计文档《模板系统重设计_方案原型_20261011.md》第六节）。
+ * 选中后只把路径交给 `bindTemplatesDir` —— 「选择」与「绑定」两步分离。
+ */
+async function chooseTemplatesDir() {
+  let res;
+  try {
+    res = await api.pickTemplatesDir();
+  } catch (err) {
+    res = { available: false };   // 端点异常按能力缺失处理，走同一降级路径
+  }
+  if (res.available && !res.cancelled && res.dir) {
+    await bindTemplatesDir(res.dir);
+    return;
+  }
+  if (res.available && res.cancelled) return;   // 用户主动取消：静默
+  const typed = window.prompt(t('template.dirPastePrompt'), el('tplDirPath').textContent || '');
+  if (typed === null) return;
+  const picked = typed.trim();
+  if (picked) await bindTemplatesDir(picked);
+}
 
 function renderTemplateState(text, kind) {
   const host = el('templateList');
@@ -730,16 +808,48 @@ function renderTemplateState(text, kind) {
   host.appendChild(li);
 }
 
-async function loadTemplateList() {
-  renderTemplateState(t('template.loading'));
+/* ---------- 模板列表轮询（V0.0.38 · 6E · MVP 2500ms） ---------- */
+
+/**
+ * 轮询间隔（毫秒）。设计文档第六节裁决：MVP 用**定时轮询**（零依赖；`watchdog` + SSE
+ * 等增强留后续）。2500ms 是「外部改动能被及时察觉」与「不做无谓请求」的折中。
+ */
+const TPL_POLL_MS = 2500;
+
+/** 最近一次渲染的签名；轮询据此判断「要不要重建 DOM」。 */
+let tplSignature = '';
+let tplPollTimer = null;
+
+/** 模板列表渲染签名（V0.0.38 · 6E）：`available` + 每条 `file + mtime + size`。 */
+function templateSignature(res) {
+  const items = (res && res.items) || [];
+  const avail = res && res.available === false ? '0' : '1';
+  return avail + '\n' + items.map((i) => `${i.file}|${i.mtime}|${i.size}`).join('\n');
+}
+
+/**
+ * 读取并渲染模板列表。
+ *
+ * `force`（默认）＝用户动作触发（启动 / 刷新 / 增删改后），无条件重建；
+ * `force=false` ＝轮询触发，**签名没变就完全不碰 DOM** —— 否则每 2.5s 重建一次列表，
+ * 正在浏览的用户会看到滚动位置被重置、hover 态丢失（设计文档第六节「避免抖动」）。
+ * 轮询失败**静默**：保留上一次渲染，不把界面打成「不可用」（不然网络抖一次就闪一下红字）。
+ */
+async function loadTemplateList({ force = true } = {}) {
+  if (force) renderTemplateState(t('template.loading'));
   let res;
   try {
     res = await api.listTemplates();
   } catch (err) {
+    if (!force) return;   // 轮询失败：保留现状，不打扰
     renderTemplateState(localizeError(err) || t('template.unavailable'), 'warn');
     return;
   }
   const items = (res && res.items) || [];
+  const sig = templateSignature(res);
+  if (!force && sig === tplSignature) return;
+  tplSignature = sig;
+
   // available=false：templates/ 不在版本清单内，预览副本中本就没有它 —— 不可用而非报错
   if (!res || res.available === false) {
     renderTemplateState(t('template.unavailable'), 'warn');
@@ -752,6 +862,10 @@ async function loadTemplateList() {
 
   const host = el('templateList');
   host.textContent = '';
+  // 「内置 / 用户」按**当前绑定层**判（V0.0.38 · 6E）：还绑在内置层 → 内置；
+  // 绑了外部目录 → 用户。列表整体同层，故徽标文案只需算一次。
+  const layerKey = (!lastDirRes || lastDirRes.source === 'default')
+    ? 'template.layerBuiltin' : 'template.layerUser';
   for (const item of items) {
     const li = document.createElement('li');
     li.className = 'tpl-row';
@@ -762,32 +876,162 @@ async function loadTemplateList() {
     const name = document.createElement('span');
     name.className = 'tpl-name';
     name.textContent = item.name;
+    const meta = document.createElement('span');
+    meta.className = 'tpl-meta';
+    const badge = document.createElement('span');
+    badge.className = 'tpl-badge';
+    badge.textContent = t(layerKey);
     const stats = document.createElement('span');
     stats.className = 'tpl-stats';
     stats.textContent = t('template.stats', { dirs: item.dirs, files: item.files });
-    btn.append(name, stats);
+    meta.append(badge, stats);
+    btn.append(name, meta);
     btn.addEventListener('click', () => applyTemplate(item));
 
-    // V0.0.20：模板 CRUD 补 U/D —— 重命名 / 删除（删除走服务端软删除入 .trash）
-    const ops = document.createElement('span');
-    ops.className = 'tpl-ops';
-    const renameBtn = document.createElement('button');
-    renameBtn.type = 'button';
-    renameBtn.className = 'tpl-op';
-    renameBtn.textContent = t('template.rename');
-    renameBtn.title = t('template.renameTip');
-    renameBtn.addEventListener('click', () => renameTemplateItem(item));
-    const delBtn = document.createElement('button');
-    delBtn.type = 'button';
-    delBtn.className = 'tpl-op is-danger';
-    delBtn.textContent = t('template.delete');
-    delBtn.title = t('template.deleteTip');
-    delBtn.addEventListener('click', () => deleteTemplateItem(item));
-    ops.append(renameBtn, delBtn);
+    // V0.0.38 · 6E：改名 / 删除等操作**收进右键菜单**（去常驻按钮），与目录树共用 `ctx-menu`
+    li.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      openTemplateContextMenu(item, event.clientX, event.clientY);
+    });
 
-    li.append(btn, ops);
+    li.append(btn);
     host.appendChild(li);
   }
+}
+
+/**
+ * 模板行右键菜单（V0.0.38 · 6E）：载入 / 重命名 / 复制 / 导出 / 删除。
+ * 与工具栏、目录树菜单同宗 —— `ctx-menu` 只管定位与开合，动作全在这里。
+ */
+function openTemplateContextMenu(item, x, y) {
+  ctxMenu.showAt(x, y, [
+    { label: t('template.load'), action: () => applyTemplate(item) },
+    { label: t('template.rename'), action: () => renameTemplateItem(item) },
+    { label: t('template.duplicate'), action: () => duplicateTemplateItem(item) },
+    { label: t('template.export'), action: () => exportTemplateItem(item) },
+    { label: t('template.delete'), danger: true, action: () => deleteTemplateItem(item) },
+  ]);
+}
+
+/**
+ * 复制模板为副本（V0.0.38 · 6E）。
+ *
+ * 【推断】设计文档只写「复制」。此处取「生成一份同内容、可编辑的新模板」——
+ * 与「导出（下载到本地）」互补：前者留在库里继续用，后者带出工具外。
+ * 落盘走 `saveTemplate`（目标恒为规范 `.json`），与「另存为」同一条路径。
+ */
+async function duplicateTemplateItem(item) {
+  const input = window.prompt(t('template.duplicatePrompt'),
+    t('template.copySuffix', { name: item.name }));
+  if (input === null) return;
+  const next = input.trim();
+  if (!next || next === item.name) return;
+  try {
+    const res = await api.loadTemplate(item.file);
+    await api.saveTemplate({ name: next, tree: res.tree });
+    toast(t('template.duplicated', { name: next }), 'ok');
+    await loadTemplateList();
+  } catch (err) {
+    toast(localizeError(err) || t('template.opFailed'), 'warn', 6000);
+  }
+}
+
+/**
+ * 导出模板（V0.0.38 · 6E）：取后端给的**原文**，按原扩展名触发下载。
+ * 不在前端二次序列化 —— 后端那份才是真源，故「导出 → 再导入」与原件一致。
+ */
+async function exportTemplateItem(item) {
+  try {
+    const res = await api.exportTemplate(item.file);
+    downloadText(res.file || item.file, res.text || '');
+    toast(t('template.exported', { name: item.name }), 'ok');
+  } catch (err) {
+    toast(t('template.exportFailed', { message: localizeError(err) }), 'warn', 6000);
+  }
+}
+
+/** 触发浏览器下载（纯前端、零依赖）。 */
+function downloadText(filename, text) {
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // 立刻回收会让部分浏览器拿不到数据，延后一拍再撤销
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/**
+ * 导入模板（V0.0.38 · 6E 接线）：浏览器原生文件选择 → 读文本 → 后端校验后落盘。
+ *
+ * 这里用 `<input type="file">` 而非后端对话框：读的是**文件内容**，浏览器本就能胜任；
+ * 只有「目录选择」才必须走后端（浏览器拿不到绝对路径，见 `chooseTemplatesDir`）。
+ */
+function importTemplateFlow() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,.md,application/json,text/markdown';
+  input.addEventListener('change', async () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    let text;
+    try {
+      text = await file.text();
+    } catch (err) {
+      toast(t('template.importFailed', { message: localizeError(err) }), 'warn', 6000);
+      return;
+    }
+    await submitImport(file.name, text);
+  });
+  input.click();
+}
+
+/** 提交导入；同名时询问是否覆盖（覆盖后旧模板由后端移入 `.trash/`，可找回）。 */
+async function submitImport(filename, text) {
+  try {
+    await api.importTemplate({ filename, content: text });
+  } catch (err) {
+    if (!err || err.code !== 'templateExists') {
+      toast(t('template.importFailed', { message: localizeError(err) }), 'warn', 6000);
+      return;
+    }
+    if (!window.confirm(t('template.importOverwriteConfirm', { name: filename }))) return;
+    try {
+      await api.importTemplate({ filename, content: text, overwrite: true });
+    } catch (err2) {
+      toast(t('template.importFailed', { message: localizeError(err2) }), 'warn', 6000);
+      return;
+    }
+  }
+  toast(t('template.imported', { name: filename }), 'ok');
+  await loadTemplateList();
+}
+
+/** 开/停轮询定时器（幂等：重复开不会叠出多个 interval）。 */
+function setTemplatePolling(on) {
+  if (on && !tplPollTimer) {
+    tplPollTimer = window.setInterval(() => loadTemplateList({ force: false }), TPL_POLL_MS);
+  } else if (!on && tplPollTimer) {
+    window.clearInterval(tplPollTimer);
+    tplPollTimer = null;
+  }
+}
+
+/**
+ * 起轮询：2.5s 静默对一次表；页面隐藏时暂停、回到前台先立即对一次不等下一个周期。
+ *
+ * 用 `visibilitychange` 而非无条件空转 —— 用户切走时本页既没人看，也没必要持续发请求。
+ */
+function startTemplatePolling() {
+  setTemplatePolling(true);
+  document.addEventListener('visibilitychange', () => {
+    const hidden = document.visibilityState === 'hidden';
+    setTemplatePolling(!hidden);
+    if (!hidden) loadTemplateList({ force: false });
+  });
 }
 
 /** 重命名模板（V0.0.20）：改文件名 + 文件内 name，服务端拒绝重名。 */
@@ -875,6 +1119,9 @@ async function saveAsTemplate() {
 }
 
 el('btnSaveTemplate').addEventListener('click', saveAsTemplate);
+el('btnImportTemplate').addEventListener('click', importTemplateFlow);
+el('btnPickDir').addEventListener('click', chooseTemplatesDir);
+el('btnRefreshTpl').addEventListener('click', () => { loadTemplatesDir(); loadTemplateList(); });
 
 /* 语言切换后刷新动态文案（静态文案由 applyStatic 在 setLocale 内处理） */
 document.addEventListener('qmlocalechange', () => {
@@ -882,6 +1129,7 @@ document.addEventListener('qmlocalechange', () => {
   renderGenBar();
   render();
   setServiceState(serviceState);   // 服务状态 chip 文案随语言刷新
+  renderTemplatesDir(lastDirRes);  // 绑定行提示是动态文案，须随语言重渲染
 });
 
 /* 换肤后重传启动图标（V0.0.15）：事件由 applySkin 在样式表 onload 后派发，

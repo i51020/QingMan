@@ -143,4 +143,50 @@ export const api = {
   deleteTemplate(name) {
     return request('/api/templates/' + encodeURIComponent(name), { method: 'DELETE' });
   },
+
+  /** 读取当前绑定的模板目录与元信息（V0.0.38 · 6E）。**只读**。 */
+  templatesDir() {
+    return request('/api/templates-dir', { method: 'GET' });
+  },
+
+  /**
+   * 绑定模板目录（V0.0.38 · 6E）。服务端会拒自绑 / 拒系统区 / 实测可写后才落盘；
+   * 被 `QM_TEMPLATES_DIR` 环境变量覆盖时返回 `applied=false`，调用方据此提示。
+   */
+  setTemplatesDir(dir) {
+    return request('/api/templates-dir', {
+      method: 'PUT',
+      body: JSON.stringify({ dir }),
+    });
+  },
+
+  /**
+   * 弹原生目录选择框并**只回报所选路径**（V0.0.38 · 6E），不落盘、不绑定。
+   * `available=false` = 本机用不了原生框（缺 tkinter / 无 GUI / env 关断）→ 调用方
+   * 降级为「手动粘贴路径」；`cancelled=true` = 用户取消。
+   */
+  pickTemplatesDir() {
+    return request('/api/templates-dir/pick', { method: 'POST', body: '{}' });
+  },
+
+  /**
+   * 导入一套模板（后端 V0.0.36 · 6C，前端接线 V0.0.38 · 6E）：上传 `.json` / `.md`
+   * 内容，服务端按扩展名分派解析 + `validate_template` 全量校验后落盘；
+   * `overwrite` 为真时同名旧模板先移入 `templates/.trash/`。
+   */
+  importTemplate(payload) {
+    return request('/api/templates/import', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * 导出模板**原文**（V0.0.38 · 6E）：返回盘上那份文件的文本（`text`）与原文件名
+   * （`file`）。由调用方按扩展名触发下载 —— 内容不在前端二次序列化，
+   * 后端那份才是真源，故「导出 → 再导入」与原件一致。
+   */
+  exportTemplate(name) {
+    return request('/api/templates-export/' + encodeURIComponent(name), { method: 'GET' });
+  },
 };

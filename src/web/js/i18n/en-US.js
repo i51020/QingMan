@@ -87,6 +87,37 @@ export const dict = {
   'template.deleted': 'Deleted template "{name}"',
   'template.opFailed': 'Template operation failed: {message}',
 
+  /* Template folder binding (V0.0.38 / 6E) */
+  'template.dirLabel': 'Template folder',
+  'template.dirUnknown': '(not loaded)',
+  'template.dirHintDefault': 'No external folder bound; using the built-in library (blank template only)',
+  'template.dirHintInvalid': 'The bound folder is unusable: {reason}',
+  'template.dirPick': 'Choose...',
+  'template.dirPickTip': 'Choose a folder as the template library (system folder picker)',
+  'template.dirPastePrompt': 'The system folder picker is unavailable here. Paste the absolute path of the template folder.',
+  'template.dirBound': 'Template folder bound: {dir}',
+  'template.dirEnvShadow': 'An environment variable overrides the binding; using: {dir}',
+  'template.dirBindFailed': 'Failed to bind template folder: {message}',
+  'template.refresh': 'Refresh',
+  'template.refreshTip': 'Reload the template list',
+
+  /* Template context menu, import & export (V0.0.38 / 6E) */
+  'template.load': 'Load',
+  'template.duplicate': 'Duplicate',
+  'template.duplicatePrompt': 'Name for the duplicated template',
+  'template.copySuffix': '{name} copy',
+  'template.duplicated': 'Duplicated as "{name}"',
+  'template.export': 'Export',
+  'template.exported': 'Exported "{name}"',
+  'template.exportFailed': 'Export failed: {message}',
+  'template.layerBuiltin': 'Built-in',
+  'template.layerUser': 'User',
+  'template.import': 'Import',
+  'template.importTip': 'Import a template from a .json / .md file',
+  'template.imported': 'Imported template "{name}"',
+  'template.importFailed': 'Import failed: {message}',
+  'template.importOverwriteConfirm': 'A template named "{name}" already exists. Overwriting moves the previous file to the recycle bin (recoverable). Overwrite?',
+
   /* ---------- Backend error codes -> localized text ----------
    * Keys are fixed as `err.<code>`; placeholders must match
    * src/shared/error-codes.json entry by entry, enforced by the
@@ -303,7 +334,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.37',
+  'help.versionFallback': 'V0.0.38',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

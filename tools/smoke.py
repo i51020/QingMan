@@ -250,6 +250,39 @@ def run_checks(client: Client, sandbox: Path) -> None:
     check(status == 400 and data and data.get("code") == "templateBadMarkdown",
           "导入非法 md → 400 templateBadMarkdown", f"{status} {data.get('code') if data else '?'}")
 
+    # 14. 模板导出 + 原生框降级 + 列表元字段（V0.0.38 · 6E）
+    # 导出的语义是「盘上那份**原文**」—— 故断言与**盘上内容**逐字符相同，而不是与导入
+    # 时提交的原文相同（导入会归一化重序列化，两者本就可能不同）。
+    status, data, _ = client.request("GET", "/api/templates-export/" + quote("冒烟模板.md"))
+    check(status == 200 and data and data.get("ok") and data.get("file") == "冒烟模板.md",
+          "GET /api/templates-export → 200",
+          f"{status} file={data.get('file') if data else '?'}")
+    on_disk = (bind_dir / "冒烟模板.md").read_text(encoding="utf-8")
+    check(bool(data) and data.get("text") == on_disk,
+          "导出文本 == 盘上原文（成环前提）",
+          f"len={len(data.get('text') or '') if data else '?'} vs {len(on_disk)}")
+
+    status, data, _ = client.request("GET", "/api/templates-export/" + quote("../x.json"))
+    check(status == 404 and data and data.get("code") == "templateNotFound",
+          "导出拒路径穿越 → 404", f"{status} {data.get('code') if data else '?'}")
+
+    # 原生目录框在本冒烟里被 QM_NO_GUI_PICK 关断 → available=false（能力缺失，非请求失败）
+    status, data, _ = client.post_json("/api/templates-dir/pick", {})
+    check(status == 200 and data and data.get("ok") is True and data.get("available") is False
+          and data.get("reason") == "disabled",
+          "POST /api/templates-dir/pick 关断后 → available=false",
+          f"{status} available={data.get('available') if data else '?'}"
+          f" reason={data.get('reason') if data else '?'}")
+
+    # 列表每项须带 mtime / size —— 前端轮询的「变化判据」正靠这两个字段（缺则轮询无法判变）
+    status, data, _ = client.request("GET", "/api/templates")
+    items = (data or {}).get("items") or []
+    meta_ok = bool(items) and all(
+        isinstance(it.get("mtime"), (int, float)) and isinstance(it.get("size"), int)
+        for it in items)
+    check(status == 200 and meta_ok,
+          "列表每项带 mtime / size（轮询判据）", f"{status} 项数 {len(items)}")
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="青蔓 QingMan 端到端冒烟")
@@ -291,9 +324,11 @@ def main() -> int:
 
     port = args.port or free_port()
     env = dict(os.environ, QM_PORT=str(port), QM_OPEN_BROWSER="0", PYTHONDONTWRITEBYTECODE="1",
-               QM_SETTINGS=str(sandbox / "settings.json"))
+               QM_SETTINGS=str(sandbox / "settings.json"), QM_NO_GUI_PICK="1")
     # 绑定用例要落 settings；env 优先级更高，若外部设了会遮蔽 → 测试恒 applied=false
     env.pop("QM_TEMPLATES_DIR", None)
+    # 原生目录选择框会**阻塞到有人去点它** —— 自动化里必须关断，否则本冒烟会永久挂起。
+    # 关断后端点返回 available=false，正是「本机用不了原生框 → 前端降级手动粘贴」那条分支。
 
     print(f"[冒烟] 服务：{SRC_DIR}  端口：{port}")
     print(f"[冒烟] 沙盒：{sandbox}")

@@ -7,6 +7,40 @@
 
 ---
 
+## V0.0.38 — 2026-10-12
+
+**主题**：**P3 · 6E 模板前端**（《项目手册》§十.3 落地末步）—— 把 6A~6D 已在**后端**就绪的能力**接到界面上**：**目录绑定 UI**（原生目录选择 + 手动粘贴降级）、**2500ms 轮询**（`file+mtime+size` 变化判据 + `visibilitychange` 暂停）、**模板行右键菜单**（载入 / 重命名 / 复制 / 导出 / 删除，**去掉常驻按钮**）、**导入接线**，并新增**保真导出**端点。**升 patch `V0.0.37` → `V0.0.38`**。**无新增错误码**。
+
+> 依据：用户「**采纳推荐，分步，依次进行**」+ 设计文档 §六（前端交互）/ §七（6E 行）+ 既有四项裁决（`%APPDATA%` 持久化 · 全量 6A→6E · 保留 `.json` 等价 · 轮询 **2500ms**）。本批性质是**接线**，不是新能力：导入端点 **6C 就有了**，直到 6E 才接上前端。
+
+| # | 文件 | 项 | 处置 |
+|---|---|---|---|
+| 1 | `src/server/routes.py` | **列表补字段** | `list_templates` 每项加 **`mtime`** + **`size`** —— 这是前端轮询「变化判据」的**前提**（此前只有 `file/name/description/dirs/files/source`，无从判断「变没变」）。统计失败（列表期间文件被外部删除）只跳过该套 |
+| 2 | `src/server/routes.py` | **新增端点** | `POST /api/templates-dir/pick` + `pick_templates_dir()` + `_ask_directory()`（`tkinter.filedialog.askdirectory`，`withdraw` + `-topmost`）；**只回报所选路径 —— 不落盘、不绑定**（「选择」与「绑定」是两个独立动作，挑错目录不会立刻改写 settings）。不可用（缺 `tkinter` / 无 GUI / env 关断）**一律 `available:false` 降级**，响应恒 `ok=true` |
+| 3 | `src/server/routes.py` | **新增端点** | `GET /api/templates-export/<name>` + `export_template()` —— 返回**盘上原文文本**，**不做任何再序列化**（故「导出 → 再导入」与原件一致；若前端另写一套 `.md` 渲染器，两侧迟早漂移）。用**独立前缀** `templates-export`（≠ `templates/`），刻意避开「集合路由吞掉具体路由」的顺序坑 |
+| 4 | `src/server/routes.py` | **关断开关** | `NO_GUI_PICK_ENV = "QM_NO_GUI_PICK"` —— 原生框会**阻塞到有人去点它**，无头 / CI 会**永久挂起**，必须能关断 |
+| 5 | `src/server/app.py` | 路由 | POST 白名单 + 分派加 `is_pick`；GET 加 `templates-export` 分支（独立前缀，无需顺序 hack） |
+| 6 | `src/web/js/core/api.js` | **接线** | `templatesDir()` / `setTemplatesDir()` / `pickTemplatesDir()` / **`importTemplate()`**（6C 端点迟到一版才接）/ `exportTemplate()` |
+| 7 | `src/web/index.html` | 结构 | 模板库面板加**绑定行**（`#tplDirRow`：标签 + 路径 + 「选择…」「刷新」）+ 提示行 `#tplDirHint`；`panel-head` 加「导入」按钮并包进 `.panel-actions`（否则 `space-between` 把它们摊开在标题与右缘之间） |
+| 8 | `src/web/js/main.js` | **绑定 UI** | `renderTemplatesDir` / `loadTemplatesDir` / `bindTemplatesDir` / `chooseTemplatesDir`（原生框不可用 → **手动粘贴降级**）；被 env 遮蔽时按 `applied=false` 如实提示「环境变量已覆盖」 |
+| 9 | `src/web/js/main.js` | **轮询** | `TPL_POLL_MS = 2500` + `templateSignature(res)`（`available` + 每条 `file|mtime|size`）+ `setTemplatePolling` / `startTemplatePolling`；**签名没变则完全不碰 DOM**（否则每 2.5s 重建一次列表，滚动位置与 hover 态全丢）；`visibilitychange` 切走暂停、回来先立即对一次；**轮询失败静默**（别把界面打成「不可用」） |
+| 10 | `src/web/js/main.js` | **右键菜单** | `openTemplateContextMenu`（载入/重命名/复制/导出/删除）+ `duplicateTemplateItem`（副本走 `loadTemplate`+`saveTemplate`）+ `exportTemplateItem` + `downloadText`（Blob 下载）+ `importTemplateFlow` / `submitImport`（`<input type=file>` → 读文本 → 同名询问覆盖）；**移除行内常驻按钮** `.tpl-ops` |
+| 11 | i18n + CSS | 文案 / 样式 | 两语言各新增 **27 键**（绑定 12 + 菜单与导入导出 15）；`layout.css` 加 `.tpl-dir` / `.tpl-badge` / `.tpl-meta` / `.panel-actions`，**删 `.tpl-ops` / `.tpl-op` 整段** |
+| 12 | `tools/verify.py` | **守卫** | 新增检查段「模板前端批 V0.0.38」（**7af**）：main.js 7 token + api.js 2 + index.html 3 + routes 5 + browser_smoke 3 + **反锚**（`tpl-ops` 不得在 JS/HTML 复活）+ smoke 必关断原生框 → **90 → 91 项** |
+| 13 | `tools/smoke.py` | HTTP 层 | 新增第 14 组 **5 项**（导出文本==盘上原文 / 拒路径穿越 / pick 关断降级 / 列表带 `mtime`+`size`）；启动 env 加 `QM_NO_GUI_PICK=1` → **29 → 34 项** |
+| 14 | `tools/browser_smoke.py` | 页面层 | 探针新增：绑定 UI 骨架 / **右键菜单项数+文案**（真实派发 `contextmenu`）/ **轮询实证**（导入 → 等 ≥1 周期 → 列表自动 **1 → 2**）→ **17 → 20 项** |
+| 15 | `tests/` | 同步 | `test_routes.py` **+10**（picker 6 / export 4）；`test_browser_smoke.py` 基线 metrics 补 6E **七字段** + 项数 **14 → 17** |
+
+**设计要点**：**「变化判据」必须在后端有数据可依** —— 轮询若无 `mtime`/`size` 就只能靠 `file` 名单，改内容不换名则永远判不出来（这正是本批先补两个字段的原因）。**导出必须原样交回**：前端再序列化等于造第二套渲染器，`.md` 的围栏自适应等规则一旦两处实现就会漂移（与 6D 的「等价性由机器强制」同一取舍）。**原生目录框必须可关断**：模态框会阻塞请求线程直到有人点它 —— 自动化里不给关断开关，冒烟就会**挂死**而不是失败。
+
+**过程发现（据实，→ §三.56）**：① **改守卫函数的判据，必须同步它的单元测试** —— `verify_metrics` 新增三条页面断言后，`tests/test_browser_smoke.py` 的基线 `NORMAL` 缺新字段 → 首轮 `unittest` 直接 `FAILED (failures=22)`（全部集中在 `VerifyMetricsTests`）；② **串行多一个网络往返会让无头探针在渲染前 dump** —— `boot()` 里 `await loadTemplatesDir(); await loadTemplateList();` 串行执行时 `tplRows` 变 **0**（列表还没渲染就被 dump），改 `Promise.all` 并发后恢复 **1**（`--virtual-time-budget` 不等待未决 Promise）。
+
+**反向验证**：在 `E:\qm_revcheck_6E\` **临时副本**（基线 `verify` **87/0**，副本不含 `docs/`）逐项注入 → **9/9 恰该项被捕获**：N1 删轮询启动（browser）· N2 轮询周期 2500 → 60000（browser）· N3 菜单少一项（browser）· N4 删「导入」按钮（verify，且**连带**触发「JS 引用的 id 均已定义」）· N5 pick 关断 `reason` 改名（smoke）· N6 导出在后多一个换行（smoke）· N7 列表去掉 `mtime`（smoke）· N8 摘掉 `visibilitychange`（verify）· N9 `api.js` 里 pick 路径写错（verify）。**N1 / N2 最有价值**：证明「轮询实证」那条断言**真在测轮询**（摘掉或拖慢 → 导入后仍 1 行 → FAIL），而不是只断「界面没坏」那种摘掉轮询也照样通过的空壳。
+
+**四件套**：`verify .` **91 项失败 1**（唯一红项＝「接续说明实况段 已过期」，待 `handoff.py` 刷新）· `unittest` **361 OK**（**351 → 361**：routes +10）· `smoke` **34/0** · `browser_smoke` **20/0**（三条新断言实机 PASS：绑定行 **3 入口** / 菜单 **`Load/Rename/Duplicate/Export/Delete`** / 导入后 **1 → 2 行**）。
+
+---
+
 ## V0.0.37 — 2026-10-12
 
 **主题**：**P3 · 6D 模板迁移 + 打包**（《项目手册》§十.3 **E 分发层**）—— 交付形态从「工具内置 17 套业务模板」改为「**内置只留 `P0` + 独立可分发的模板包**」：16 套业务模板迁入 `templates-pack/`（`.md` 为**主分发格式** + `.json` **逐字节等价**副本），并新增 `tools/pack_templates.py` 把包固化为**可复算**产物（逐套 `md↔json` **逐节点等价** · 清单 `digest` **独立复算** · **确定性 zip**）。**升 patch `V0.0.36` → `V0.0.37`**。**无新增错误码** —— `src/` 只动**三处版本戳**（否则工具会「内置 17 套业务模板」的隐含前提仍在）。

@@ -1752,6 +1752,72 @@ def main() -> int:
           f"缺失：{', '.join(pack_bad)}" if pack_bad
           else "内置仅 P0 / 包 17 套 .md+16 .json / 清单 digest 独立复算一致 / zip 收口 齐备")
 
+    # 7af. 模板前端批（V0.0.38，§十.3 6E）——「绑定 UI / 轮询 / 右键菜单 / 导入导出」四件事。
+    #      本段守的是**接线**（后端能力另有单测与 smoke），因为 6E 的性质恰恰是「后端早就
+    #      就绪、前端一直没接」：导入端点 6C 就有了，直到 6E 才接线。故：
+    #      ① 目录绑定 UI 的入口与轮询参数必须在；
+    #      ② 模板行操作必须真的挂在**右键菜单**上，且 `.tpl-ops` 那套常驻按钮**不得复活**；
+    #      ③ 导入 / 导出 / 目录选择必须接线（含「原生框用不了 → 手动粘贴」的降级）；
+    #      ④ 页面级断言不得被削（「轮询**实证**」那条尤其容易在重构里被删成弱断言，
+    #         删掉后「轮询被整个摘除」也照样通过）。
+    fe_bad: list[str] = []
+    main_js = _read("src/web/js/main.js")
+    api_js = _read("src/web/js/core/api.js")
+    idx_html = _read("src/web/index.html")
+    rt_tpl = _read("src/server/routes.py")
+    bs_front = _read("tools/browser_smoke.py")
+    for token, why in (
+        ("const TPL_POLL_MS = 2500", "6E 轮询间隔被改（设计裁决 2500ms）"),
+        ("addEventListener('visibilitychange'", "6E 轮询未在页面隐藏时暂停（纯空转）"),
+        ("function templateSignature", "6E 缺 file+mtime+size 变化判据（轮询会每 2.5s 重建 DOM）"),
+        ("function openTemplateContextMenu", "6E 模板右键菜单缺失"),
+        ("function chooseTemplatesDir", "6E 目录选择（含手动粘贴降级）缺失"),
+        ("function importTemplateFlow", "6E 导入未接线"),
+        ("function exportTemplateItem", "6E 导出未接线"),
+    ):
+        if token not in main_js:
+            fe_bad.append(why)
+    for token, why in (
+        ("'/api/templates-dir/pick'", "api.js 未接线原生目录选择端点"),
+        ("'/api/templates-export/'", "api.js 未接线导出端点"),
+    ):
+        if token not in api_js:
+            fe_bad.append(why)
+    for token, why in (
+        ('id="tplDirRow"', "index.html 缺绑定行"),
+        ('id="btnPickDir"', "index.html 缺「选择…」按钮"),
+        ('id="btnImportTemplate"', "index.html 缺「导入」按钮"),
+    ):
+        if token not in idx_html:
+            fe_bad.append(why)
+    for token, why in (
+        ("TEMPLATES_DIR_PICK_PATH", "routes 缺原生目录选择端点常量"),
+        ("TEMPLATES_EXPORT_PATH", "routes 缺导出端点常量"),
+        ('NO_GUI_PICK_ENV = "QM_NO_GUI_PICK"', "routes 缺原生框关断 env（自动化会弹窗挂起）"),
+        ("def export_template(", "routes 缺导出实现"),
+        ("def pick_templates_dir(", "routes 缺选择实现"),
+    ):
+        if token not in rt_tpl:
+            fe_bad.append(why)
+    for token, why in (
+        ("tplDirBtns", "browser_smoke 缺绑定 UI 断言"),
+        ("tplMenuN", "browser_smoke 缺右键菜单项断言"),
+        ("function pollProbe", "browser_smoke 缺轮询实证（删掉后「轮询被摘除」也照样通过）"),
+    ):
+        if token not in bs_front:
+            fe_bad.append(why)
+    # 反锚：常驻按钮那套类名不得在 JS / HTML 里复活（V0.0.38 起操作走右键菜单）。
+    # 只查这两处 —— CSS 里保留了「为何移除」的说明性注释，含该类名属正常。
+    if "tpl-ops" in main_js or "tpl-ops" in idx_html:
+        fe_bad.append("模板行常驻按钮（.tpl-ops）复活 —— 6E 的「去按钮」被回退")
+    # smoke 侧：原生框必须被关断，否则 CI / 沙盒里会**弹窗挂起**。
+    if "QM_NO_GUI_PICK" not in _read("tools/smoke.py"):
+        fe_bad.append("smoke 未关断原生目录框（自动化环境会弹窗挂起）")
+
+    check(not fe_bad, "模板前端批 V0.0.38",
+          f"缺失：{', '.join(fe_bad)}" if fe_bad
+          else "绑定 UI / 2500ms 轮询+变化判据 / 右键菜单 / 导入导出接线 / 页面断言 齐备")
+
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
     if handoff_file.is_file():

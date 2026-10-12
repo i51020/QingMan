@@ -192,6 +192,17 @@ class Handler(BaseHTTPRequestHandler):
                 # 模板目录绑定（V0.0.35）：只读查询当前绑定，不走写门槛
                 self._json(200, routes.get_templates_dir())
                 return
+            if path.startswith(routes.TEMPLATES_EXPORT_PATH + "/"):
+                # 模板导出（V0.0.38 · 6E）：独立前缀 `templates-export`，与 `templates/`
+                # 不共享前缀，故无需像 import 那样先判具体路由。
+                name = unquote(path[len(routes.TEMPLATES_EXPORT_PATH) + 1:])
+                try:
+                    self._json(200, routes.export_template(name))
+                except TreeError as exc:
+                    self._fail(404, exc.code, **exc.detail)
+                except OSError as exc:
+                    self._fail(500, "ioError", message=str(exc))
+                return
             if path == routes.TEMPLATES_PATH:
                 self._json(200, routes.list_templates())
                 return
@@ -221,9 +232,15 @@ class Handler(BaseHTTPRequestHandler):
         # —— 与生成、快捷方式同为写操作。
         # ⚠️ `/api/templates/import` **必须先于** `is_rename` 判定：否则会被 `startswith`
         # 当成「重命名一个叫 import 的模板」（V0.0.36 接线时的顺序坑）。
+        # `/api/templates-dir/pick`（V0.0.38 · 6E）弹原生目录框 —— 不落盘，但会开 GUI，
+        # 与写操作同过 `_guard_write`（否则跨站盲发可反复弹窗骚扰用户）。
+        # 注意它**不是** `/api/templates/` 的子路径（`templates-dir` ≠ `templates/`），
+        # 不会与 `is_rename` 相撞；仍显式排除，免得日后改动误判。
         is_import = path == routes.TEMPLATES_IMPORT_PATH
-        is_rename = (not is_import) and path.startswith(routes.TEMPLATES_PATH + "/")
-        if not (is_import or is_rename) and path not in (
+        is_pick = path == routes.TEMPLATES_DIR_PICK_PATH
+        is_rename = ((not is_import) and (not is_pick)
+                     and path.startswith(routes.TEMPLATES_PATH + "/"))
+        if not (is_import or is_rename or is_pick) and path not in (
                 routes.GENERATE_PATH, routes.SHORTCUT_PATH,
                 routes.TEMPLATES_PATH, routes.ICON_PATH):
             self._fail(404, "notFound", path=path)
@@ -244,6 +261,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if is_import:
                 self._json(200, routes.import_template(payload))
+            elif is_pick:
+                self._json(200, routes.pick_templates_dir())
             elif is_rename:
                 name = unquote(path[len(routes.TEMPLATES_PATH) + 1:])
                 self._json(200, routes.rename_template(name, payload))

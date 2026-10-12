@@ -6,7 +6,7 @@
 **不验证判定逻辑本身是否正确**。本文件把「一次性反向验证」变成**常态回归网**。
 
 重点（复刻上一轮反向验证的逻辑，但固化为单测）：
-  * 喂「正常指标」→ 14 项全 PASS；
+  * 喂「正常指标」→ 17 项全 PASS（V0.0.38 起含 6E 的绑定 UI / 右键菜单 / 轮询实证）；
   * 喂「P1-1 回归指标（分节 7 → 14 → 21）」→ **恰好**「帮助页·分节渲染幂等」一项 FAIL；
   * 喂「P1-2 回归指标（示例含中文名 6 个）」→ **恰好**「主界面·默认示例随语言」一项 FAIL；
   * 喂「C-P3-5 回归指标（非法皮肤名被直接采用）」/「D-P3-2 回归指标（箭头色仍是旧灰）」→ 各恰好一项 FAIL；
@@ -51,6 +51,10 @@ NORMAL = {
     "dragSelf": "1", "dragDesc": "1", "dragOk": "1",
     "dlChild": "1", "dlOut": "1",
     "toastN": str(bs.toast_cap()),
+    # V0.0.38 新增：6E（绑定 UI / 右键菜单项 / 轮询实证）
+    "tplDirRow": "1", "tplDirPath": "D:/x/templates", "tplDirBtns": "3",
+    "tplMenuN": "5", "tplMenu": "Load/Rename/Duplicate/Export/Delete",
+    "pollBefore": "1", "pollAfter": "2",
 }
 
 FAIL = "帮助页·分节渲染幂等"
@@ -175,7 +179,7 @@ class VerifyMetricsTests(unittest.TestCase):
     def test_normal_all_pass(self):
         results = run_metrics(NORMAL)
         self.assertEqual(failed_names(results), [], "正常指标不应有任何失败项")
-        self.assertEqual(len(results), 14, "verify_metrics 应产生 14 项判定")
+        self.assertEqual(len(results), 17, "verify_metrics 应产生 17 项判定（14 + 6E 三项）")
 
     def test_p1_1_regression_fails_exactly_section_idempotence(self):
         """P1-1 回归：帮助页切语言累积分节（7 → 14 → 21）→ 恰好那项 FAIL。"""

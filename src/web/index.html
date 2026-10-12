@@ -44,10 +44,28 @@
         <div class="panel-block">
           <div class="panel-head">
             <h3 class="panel-sub" data-i18n="template.listTitle"></h3>
-            <button type="button" class="btn btn-ghost btn-mini" id="btnSaveTemplate"
-                    data-i18n="template.saveAs" data-i18n-title="template.saveAsTip"></button>
+            <!-- Grouped so the head keeps exactly two flex children (title / actions) -->
+            <span class="panel-actions">
+              <button type="button" class="btn btn-ghost btn-mini" id="btnImportTemplate"
+                      data-i18n="template.import" data-i18n-title="template.importTip"></button>
+              <button type="button" class="btn btn-ghost btn-mini" id="btnSaveTemplate"
+                      data-i18n="template.saveAs" data-i18n-title="template.saveAsTip"></button>
+            </span>
           </div>
-          <!-- items are rendered by main.js from the backend templates/ data -->
+          <!-- Template folder binding row (V0.0.38 / 6E): path + "Choose..." / "Refresh"
+               buttons; the hint line (unbound / invalid) is filled by main.js into tplDirHint -->
+          <div class="tpl-dir" id="tplDirRow">
+            <span class="tpl-dir-label" data-i18n="template.dirLabel"></span>
+            <code class="tpl-dir-path" id="tplDirPath"></code>
+            <span class="tpl-dir-actions">
+              <button type="button" class="btn btn-ghost btn-mini" id="btnPickDir"
+                      data-i18n="template.dirPick" data-i18n-title="template.dirPickTip"></button>
+              <button type="button" class="btn btn-ghost btn-mini" id="btnRefreshTpl"
+                      data-i18n="template.refresh" data-i18n-title="template.refreshTip"></button>
+            </span>
+          </div>
+          <p class="tpl-dir-hint" id="tplDirHint" hidden></p>
+          <!-- items are rendered by main.js from the resolved templates directory -->
           <ul class="tpl-list" id="templateList"></ul>
         </div>
       </aside>

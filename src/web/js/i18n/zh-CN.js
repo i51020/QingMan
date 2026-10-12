@@ -96,6 +96,37 @@ export const dict = {
   'template.deleted': '已删除模板「{name}」',
   'template.opFailed': '模板操作失败：{message}',
 
+  /* 模板目录绑定（V0.0.38 · 6E） */
+  'template.dirLabel': '模板目录',
+  'template.dirUnknown': '（未读取）',
+  'template.dirHintDefault': '未绑定外部目录，当前使用内置模板库（仅空白模板）',
+  'template.dirHintInvalid': '当前绑定的目录不可用：{reason}',
+  'template.dirPick': '选择…',
+  'template.dirPickTip': '选择一个目录作为模板库（本机原生目录选择框）',
+  'template.dirPastePrompt': '本机无法打开目录选择框，请粘贴模板目录的绝对路径',
+  'template.dirBound': '已绑定模板目录：{dir}',
+  'template.dirEnvShadow': '环境变量已覆盖目录绑定，实际使用：{dir}',
+  'template.dirBindFailed': '模板目录绑定失败：{message}',
+  'template.refresh': '刷新',
+  'template.refreshTip': '重新读取模板列表',
+
+  /* 模板右键菜单 + 导入导出（V0.0.38 · 6E） */
+  'template.load': '载入',
+  'template.duplicate': '复制为副本',
+  'template.duplicatePrompt': '为新模板命名（副本）',
+  'template.copySuffix': '{name} 副本',
+  'template.duplicated': '已复制为「{name}」',
+  'template.export': '导出',
+  'template.exported': '已导出「{name}」',
+  'template.exportFailed': '导出失败：{message}',
+  'template.layerBuiltin': '内置',
+  'template.layerUser': '用户',
+  'template.import': '导入',
+  'template.importTip': '从 .json / .md 文件导入一套模板',
+  'template.imported': '已导入模板「{name}」',
+  'template.importFailed': '导入失败：{message}',
+  'template.importOverwriteConfirm': '同名模板「{name}」已存在。覆盖后原模板将移入回收站（可找回）。确认覆盖？',
+
   /* ---------- 后端错误码 → 本地化文案 ----------
    * 键名固定为 `err.<code>`，占位符必须与 src/shared/error-codes.json 逐条一致，
    * 由 tools/verify.py 的「错误码本地化闭包」与「占位符一致性」两道守卫把关。
@@ -309,7 +340,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.37',
+  'help.versionFallback': 'V0.0.38',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',

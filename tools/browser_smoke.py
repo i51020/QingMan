@@ -254,9 +254,56 @@ frame('./index.html', function (doc) {
       }
       m.toastN = doc.querySelectorAll('#toastHost .toast').length;
     }
+    /* 6E：模板目录绑定行 + 三个入口按钮必须在位（绑定 UI 的骨架） */
+    m.tplDirRow = doc ? doc.querySelectorAll('#tplDirRow').length : -1;
+    m.tplDirPath = (doc && doc.getElementById('tplDirPath'))
+      ? doc.getElementById('tplDirPath').textContent : '';
+    m.tplDirBtns = doc
+      ? doc.querySelectorAll('#btnPickDir, #btnRefreshTpl, #btnImportTemplate').length : -1;
+    /* 6E：模板行右键菜单项齐备 —— 在行上派发 contextmenu，读 #ctxMenu 的按钮数 / 文案。
+       走真实监听器（li 上的 contextmenu → openTemplateContextMenu → ctx-menu.showAt），
+       不做静态断言。 */
+    var tplFirstRow = doc ? doc.querySelector('#templateList li.tpl-row') : null;
+    if (tplFirstRow && win) {
+      tplFirstRow.dispatchEvent(new win.MouseEvent('contextmenu', {
+        bubbles: true, cancelable: true, clientX: 40, clientY: 40,
+      }));
+      var menu = doc.getElementById('ctxMenu');
+      var mbtns = menu ? menu.querySelectorAll('button') : [];
+      m.tplMenuN = mbtns.length;
+      var labels = [];
+      for (var bi = 0; bi < mbtns.length; bi += 1) { labels.push(mbtns[bi].textContent); }
+      m.tplMenu = labels.join('/');
+      doc.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));   /* 关掉菜单 */
+    }
   } catch (e) { m.err1 = String(e && e.message ? e.message : e); }
-  phase2();
+  pollProbe(doc);
 });
+
+/* 6E 轮询**实证**：向模板库导入一套 → 等 ≥1 个轮询周期（虚拟时间会把 2.5s 定时器快进）
+   → 列表须**自动**变成 2 行。这才证明轮询真的在干活，而不仅仅是「没把界面弄坏」。 */
+function pollProbe(doc) {
+  var list = doc ? doc.getElementById('templateList') : null;
+  var win = doc ? doc.defaultView : null;
+  if (!list || !win || typeof win.fetch !== 'function') {
+    m.pollBefore = -1;
+    return phase2();
+  }
+  m.pollBefore = list.querySelectorAll('li.tpl-row').length;
+  win.fetch('/api/templates/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-QingMan': '1' },
+    body: JSON.stringify({ filename: '探针轮询.md', content: '# 探针轮询\\n- 甲/\\n' }),
+  }).then(function () {
+    setTimeout(function () {
+      m.pollAfter = list.querySelectorAll('li.tpl-row').length;
+      phase2();
+    }, 2600);
+  }).catch(function (e) {
+    m.pollErr = String(e && e.message ? e.message : e);
+    phase2();
+  });
+}
 
 /* 阶段 2：帮助页分节幂等（P1-1 回归位）+ 语言切换 + 版本徽标。
    探针只等「后端实测值已回来」（help-stale 摘除），随后用页面自己的语言下拉驱动切换 ——
@@ -549,6 +596,34 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
         # **恰好 1** —— 否则业务模板被放回 templates/ 也照样通过，「工具不带业务模板」失守。
         check(tpl == 1, "主界面·内置模板仅 P0（V0.0.37）",
               f"模板行 {tpl} 条（应恰好 1；业务模板归 templates-pack/）")
+
+        # V0.0.38 · 6E：绑定行骨架 —— 行本身 + 路径文本 + 三个入口按钮（选择/刷新/导入）
+        dir_row = as_int(metrics.get("tplDirRow"), -1)
+        dir_path = metrics.get("tplDirPath", "")
+        dir_btns = as_int(metrics.get("tplDirBtns"), -1)
+        bind_ok = dir_row == 1 and bool(dir_path) and dir_btns == 3
+        check(bind_ok, "主界面·模板目录绑定 UI（V0.0.38）",
+              f"行 {dir_row} / 路径 {dir_path!r} / 入口按钮 {dir_btns} 个（应 3）"
+              + ("" if bind_ok else "（6E 回归：绑定行或入口按钮缺失）"))
+
+        # V0.0.38 · 6E：模板行右键菜单项齐备（载入 / 重命名 / 复制 / 导出 / 删除 = 5 项）。
+        # 断言项数**加**文案，避免「挂了 5 个空壳按钮」也被判过。
+        menu_n = as_int(metrics.get("tplMenuN"), -1)
+        menu_text = metrics.get("tplMenu", "")
+        menu_ok = menu_n == 5 and "Export" in menu_text
+        check(menu_ok, "主界面·模板行右键菜单项齐备（V0.0.38）",
+              f"{menu_n} 项：{menu_text or '(空)'}"
+              + ("" if menu_ok else "（6E 回归：菜单项缺失或未挂到模板行）"))
+
+        # V0.0.38 · 6E：轮询**实证** —— 导入一套后等 ≥1 个周期，列表须自动 1 → 2。
+        # 只断言「界面没坏」是不够的：轮询被整个摘掉时该断言同样成立。
+        poll_before = as_int(metrics.get("pollBefore"), -1)
+        poll_after = as_int(metrics.get("pollAfter"), -2)
+        poll_ok = poll_before == 1 and poll_after == 2
+        check(poll_ok, "主界面·模板列表轮询生效（V0.0.38）",
+              f"导入后 {poll_before} → {poll_after} 行（应 1 → 2）"
+              + (f"；异常 {metrics.get('pollErr')}" if metrics.get("pollErr") else "")
+              + ("" if poll_ok else "（6E 回归：轮询未生效或未刷新列表）"))
 
     sec_before = as_int(metrics.get("secBefore"), 0)
     sec_en = as_int(metrics.get("secEn"), 0)
