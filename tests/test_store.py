@@ -147,6 +147,26 @@ class CommitIntegrationTests(unittest.TestCase):
         self.assertEqual(store.list_versions(self.root), ["V0.0.1"])
         self.assertEqual(store.do_fsck(self.root), 0)
 
+    def test_dry_run_writes_nothing(self):
+        """V0.0.41 回归：`commit --dry-run` 不得落任何文件（blob 池 / versions / 清单）。
+
+        此前 `--dry-run` 的早退只写在 `do_checkout` 内，`commit --dry-run` 会**静默真提交**
+        —— 参数名是「演练」、行为却是真写，属最坏的一类误导（《项目手册》§十二 #18）。
+        """
+        self.assertEqual(store.do_commit(self.root, self.root, "演练", "", dry_run=True), 0)
+        self.assertFalse((self.root / "versions").exists(), "dry-run 不得建 versions/")
+        self.assertEqual(store.list_versions(self.root), [], "dry-run 后不应有任何版本")
+        objects = self.root / "store" / "objects"
+        self.assertFalse(objects.exists() and any(objects.rglob("*")),
+                         "dry-run 不得写 blob 池")
+
+    def test_dry_run_does_not_consume_the_first_revision(self):
+        """演练不算一次提交：随后真提交仍应是 r1（而非被演练顶成 r2）。"""
+        store.do_commit(self.root, self.root, "演练", "", dry_run=True)
+        self.assertEqual(store.do_commit(self.root, self.root, "真提交", ""), 0)
+        self.assertEqual(self._manifest()["revision"], 1)
+        self.assertEqual(store.latest_revision(self.root, "V0.0.1"), 1)
+
 
 class FingerprintDiffTests(unittest.TestCase):
     """§P2-9：指纹比对单点（handoff 与 verify 复用同一实现）。"""

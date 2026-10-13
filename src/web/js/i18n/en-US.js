@@ -376,9 +376,10 @@ export const dict = {
   'about.backendOn': 'Connected',
   'about.backendOff': 'Offline',
   'about.app': 'App name',
-  'about.docs': 'Documentation',
-  'about.docsValue': 'docs/项目手册.md · docs/项目约定.md · docs/任务进度.md · CHANGELOG.md',
-  'about.note': 'Version is shown only on the help page to avoid clutter.',
+  /* "Documentation" and the version-note line were removed per manual 10.2 #10 (V0.0.41):
+     the former is a developer-doc entry (not user-facing), the latter is a design rule
+     rather than text meant for users. about.docs / about.docsValue / about.note are gone
+     from both locales together to keep 7b-3 (key parity) green. */
 
   'help.lead': 'QingMan is an offline directory-structure design tool: edit a directory tree visually, then generate real folders on disk with one click.',
 
@@ -429,7 +430,7 @@ export const dict = {
 
   'help.about.title': 'Version & About',
   'help.disclaimer.title': 'Disclaimer',
-  'help.disclaimer.1': 'This software is provided free of charge, without warranty of any kind. Use at your own risk.',
+  'help.disclaimer.1': 'This software is provided free of charge, without warranty of any kind. Use at your own risk. Tips are voluntary goodwill support; they do not constitute a transaction and provide no additional services.',
 
   /* ---------- Support page (split in V0.0.18) ---------- */
   'support.titleTag': '· Support',

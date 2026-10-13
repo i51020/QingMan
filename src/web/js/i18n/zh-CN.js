@@ -382,9 +382,9 @@ export const dict = {
   'about.backendOn': '已连接',
   'about.backendOff': '未连接',
   'about.app': '应用名称',
-  'about.docs': '文档入口',
-  'about.docsValue': 'docs/项目手册.md · docs/项目约定.md · docs/任务进度.md · CHANGELOG.md',
-  'about.note': '版本号只在帮助页展示，主界面不再显示，以免干扰日常操作。',
+  /* 「文档入口」与「版本号说明行」按手册 10.2 节 #10 删除（V0.0.41）—— 前者是开发文档
+     入口（不开放给用户），后者是设计纪律而非给用户读的文字。故 about.docs /
+     about.docsValue / about.note 三键一并退场（中英同步删，保 7b-3 键对齐）。 */
 
   'help.lead': '青蔓 QingMan 是一个本地离线运行的目录结构设计工具：可视化编辑目录树，一键在磁盘上生成真实目录。',
 
@@ -435,7 +435,7 @@ export const dict = {
 
   'help.about.title': '版本与关于',
   'help.disclaimer.title': '免责声明',
-  'help.disclaimer.1': '本软件免费提供，不保证无缺陷，使用风险由使用者自行承担。',
+  'help.disclaimer.1': '本软件免费提供，不保证无缺陷，使用风险由使用者自行承担。赞赏属于无偿心意支持，不构成交易，不提供任何额外服务。',
 
   /* ---------- 支持页（V0.0.18 拆分） ---------- */
   'support.titleTag': '· 支持',

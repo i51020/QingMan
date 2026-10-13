@@ -51,7 +51,6 @@ function buildAbout() {
     { label: 'about.app', value: t('app.nameZh') + ' ' + t('app.nameEn') },
     { label: 'about.version', value: '', cellId: 'aboutVersion' },
     { label: 'about.backend', value: '', cellId: 'aboutBackend' },
-    { label: 'about.docs', value: t('about.docsValue') },
     { label: 'help.support.title', value: '', link: { href: './support.html', text: t('help.support.goto'), tip: t('help.support.gotoTip') } },
   ];
 
@@ -76,13 +75,9 @@ function buildAbout() {
     table.appendChild(tr);
   }
 
-  const note = document.createElement('p');
-  note.className = 'help-foot-note';
-  note.textContent = t('about.note');
-
-  const box = document.createElement('div');
-  box.append(table, note);
-  return box;
+  // 「版本号只在帮助页展示，主界面不再显示」是**设计纪律**，不是给用户读的说明
+  // （手册 10.2 节 #10 补充说明）—— 故此处不再附 about.note 那段脚注，V0.0.41 随 #10 删。
+  return table;
 }
 
 function buildSection(section) {

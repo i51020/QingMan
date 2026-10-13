@@ -118,12 +118,8 @@
 .help-table td { color: var(--qm-text); word-break: break-all; }
 .help-table tr:last-child th, .help-table tr:last-child td { border-bottom: none; }
 
-.help-foot-note {
-  margin: 8px 0 0;
-  font-size: 12px;
-  line-height: 1.8;
-  color: var(--qm-text-dim);
-}
+/* .help-foot-note 随 about.note 一并删除（V0.0.41 · 手册 10.2 节 #10）——
+   那条脚注是设计纪律而非给用户读的文字，帮助页不再渲染，样式亦无引用。 */
 .help-stale { color: var(--qm-warn); }
 
 /* 支持区块 */

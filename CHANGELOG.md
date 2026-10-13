@@ -9,9 +9,9 @@
 
 ## V0.0.41 — 2026-10-14
 
-**主题**：**模板「新建」入口**（UI 定版差集 D 组）—— 模板编辑区由「仅另存为」补上**从零新建**：`#btnNewTemplate` → 应用内弹窗 `#dlgNewTemplate`（名称 + 说明 + **起点**：空白 / 当前模板库中任一模板）。**后端零改动**（复用 `POST /api/templates`）。**升 patch `V0.0.40` → `V0.0.41`**。**无新增错误码**。单次提交。
+**主题**：**模板「新建」入口**（UI 定版差集 D 组）—— 模板编辑区由「仅另存为」补上**从零新建**：`#btnNewTemplate` → 应用内弹窗 `#dlgNewTemplate`（名称 + 说明 + **起点**：空白 / 当前模板库中任一模板）。**后端零改动**（复用 `POST /api/templates`）。**升 patch `V0.0.40` → `V0.0.41`**。**无新增错误码**。**分两次提交**：`@r1`（D 组·新建模板）／`@r2`（低风险收口批 + `store --dry-run` 修复）。
 
-> 依据：用户「**采纳建议，分步，依次执行**」（采纳上轮报告的三步建议）＋ D 组形态裁决「**A · 应用内弹窗 + 起点选择**」。落地明细 → `docs/UI定版说明_20261014.md` §七。
+> 依据：用户「**采纳建议，分步，依次执行**」（采纳上轮报告的三步建议）＋ D 组形态裁决「**A · 应用内弹窗 + 起点选择**」＋ 免责声形态裁决「**单条（维持现有结构）**」。落地明细 → `docs/UI定版说明_20261014.md` §七。
 
 ### 新增
 
@@ -30,12 +30,30 @@
 - `tools/browser_smoke.py`：新断言 **2 条**（按钮就位 + 取词刷新；**弹窗可开、起点已填充、可关**——后者是本轮唯一的运行时交互实证）→ **24 项**。
 - `tests/test_browser_smoke.py`：NORMAL 基线增 9 字段；项数 `19→21` / `15→17`；新增 **3 项回归**。
 
+### 第 2 批（`@r2`）：低风险收口批 + `store --dry-run` 修复
+
+**依据**：用户「采纳建议，分步，依次执行」中的第 ②③ 步。
+
+| # | 项 | 改动 | 依据 |
+|---|---|---|---|
+| 1 | **帮助去文档入口** | `src/web/js/help.js` 删 `about.docs` 行。独立页此前**仍**展示开发文档入口，而应用内弹窗 `help-doc.js` 本就无此行 —— 两侧**已经漂移**，本次对齐 | 手册 §10.2 #10 / D |
+| 2 | **删「版本号说明行」** | `src/web/js/help.js` 删 `about.note` 脚注（「版本号只在帮助页展示…」是**设计纪律**，非给用户读的文字）；`src/web/css/help.css` 随之删已无引用的 `.help-foot-note` 死样式 | 手册 §10.2 #10 补充说明 |
+| 3 | **取词键退场** | `about.docs` / `about.docsValue` / `about.note` 中英**同步删**（保 7b-3 键对齐） | — |
+| 4 | **免责声明改文案** | `help.disclaimer.1` 补赞赏声明；形态＝**单条**（用户裁决：维持现有结构，不动 `helpSections` 的 items 数组） | 手册 §10.2 #11 + §10.2 登记的目标文案 |
+| 5 | **`store.py --dry-run` 修复** | `do_commit` 加 `dry_run` 参数：① blob 池不落对象；② 在**建目录之前**早退。此前早退只写在 `do_checkout` 内，`commit --dry-run` **会静默真提交** | 手册 §十二 #18 |
+| 6 | **`tests/test_store.py`** | 新增 2 项回归：dry-run 零写入 / 演练不占用 r1 | — |
+
+> **关于 `help.html` / `support.html`**：主界面入口改弹窗后，两页**不再由主界面可达**，但**仍互为链路**（`help.js` 的 about 表 → `support.html`；`support.html` → `help.html`），且 `verify` 7o 守卫已明确「`support.html` 作为独立页**保留**」。故本轮**维持既定裁决、不退役**，只把两侧 about 表的漂移对齐。
+
+**英文免责声明**（用户未改，采用我方草案）：
+> This software is provided free of charge, without warranty of any kind. Use at your own risk. Tips are voluntary goodwill support; they do not constitute a transaction and provide no additional services.
+
 ### 验证（四件套）
 
 | 件 | 结果 |
 |---|---|
 | `verify.py` | **94 / 0** · 体积 **463K / 512K** · 关键 id **57** |
-| `unittest` | **`Ran 368 tests · OK`** |
+| `unittest` | **`Ran 370 tests · OK`**（`@r1` 时 368；`@r2` 新增 `test_store` 2 项） |
 | `tools/smoke.py` | **34 / 0** |
 | `tools/browser_smoke.py` | **24 / 0**（新断言实机 PASS：`en='New' → zh='新建'`；弹窗 `open=1 起点 2 项 首项='Blank (root only)' closing=0 closed=1`） |
 

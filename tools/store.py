@@ -8,7 +8,8 @@
 修订引用语法：`V0.0.1`（= 该版本最高修订）／`V0.0.1@r1`（基线）／`V0.0.1@r2`（第 2 次修订）
 
 命令：
-    commit   [--note 说明] [--alias 旧编号]   扫 src/ + start.bat + VERSION，写 blob，追加修订
+    commit   [--note 说明] [--alias 旧编号] [--dry-run]
+                                              扫 src/ + start.bat + VERSION，写 blob，追加修订
     checkout <版本[@rN]> [--dry-run]          按清单重建；多余文件移入 store/.trash/
     log                                       列出版本链（含同版本各修订）
     diff     <版本[@rN]> <版本[@rN]>          输出 改动 / 新增 / 缺失
@@ -18,6 +19,8 @@
     * 只复制不删除。checkout 的多余文件先复制进回收区并逐字节校验，通过后才移除原文件。
     * 同一版本的清单文件永不覆盖：已存在 MANIFEST.json 时，新改动一律追加为 MANIFEST-r<N>.json，
       使「不升版但要留回退点」的场景也能从 blob 池完整取回。
+    * `--dry-run` 对 **commit 与 checkout 都生效**，只报告将要发生什么、**不写任何文件**
+      （V0.0.41 修：此前早退只写在 `do_checkout` 内，`commit --dry-run` 会**静默真提交**）。
 """
 
 from __future__ import annotations
@@ -197,7 +200,7 @@ def load_manifest(root: Path, version: str, rev: int | None = None) -> dict | No
 
 # ---------- commit ----------
 
-def do_commit(root: Path, source: Path, note: str, alias: str) -> int:
+def do_commit(root: Path, source: Path, note: str, alias: str, dry_run: bool = False) -> int:
     raw = (root / "VERSION").read_text(encoding="utf-8").strip()
     try:
         version = versioning.format_version(versioning.parse(raw))
@@ -221,8 +224,10 @@ def do_commit(root: Path, source: Path, note: str, alias: str) -> int:
         if target.is_file():
             reused += 1
         else:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(data)
+            # dry-run 下**不落 blob**：否则「演练」仍会往池里写对象（检测到却未阻止的旧行为）。
+            if not dry_run:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(data)
             new_blobs += 1
         files_map[rel] = "sha256:" + blob_digest
 
@@ -238,6 +243,14 @@ def do_commit(root: Path, source: Path, note: str, alias: str) -> int:
 
     rev = (prev_rev or 0) + 1
     filename = manifest_filename(rev)
+
+    # dry-run 早退：放在**建目录之前**，保证演练真的是零写入（blob 已在上面跳过）。
+    if dry_run:
+        label = f"{version}" if rev == 1 else f"{version}@r{rev}"
+        print(f"[演练] --dry-run：将提交 {label}（{len(files_map)} 文件："
+              f"新增 blob {new_blobs} 个，复用已有 {reused} 个），未写入任何文件")
+        return 0
+
     dest = root / "versions" / version
     dest.mkdir(parents=True, exist_ok=True)
 
@@ -458,7 +471,7 @@ def main() -> int:
             print(f"[警告] --from 不在 --root 之下：{source}")
             print("        清单相对路径以顶层 src/start.bat/VERSION 为锚，")
             print("        请确认该目录布局与主线同构，否则 verify --against 会失配。")
-        return do_commit(root, source, opts.note, opts.alias)
+        return do_commit(root, source, opts.note, opts.alias, opts.dry_run)
     if opts.action == "checkout":
         if not opts.args:
             parser.error("checkout 需要一个版本号，如 V0.0.1 或 V0.0.1@r2")
