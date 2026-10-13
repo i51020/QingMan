@@ -125,11 +125,17 @@ select option { background: var(--qm-surface-2); color: var(--qm-text); }
   font-size: 12px;
   color: var(--qm-text-dim);
 }
+/* 通用下拉包裹层（V0.0.41）：顶栏之外的 <select> 用它包裹，与 .topbar-select 共用箭头。
+   加它的起因就是下面那条「新增 <select> 须另配箭头」的约定 —— 弹窗里的「起点」下拉
+   正是不在顶栏的一例，抽成共用选择器比再抄一遍箭头规则更不易漂移。 */
+.select-wrap { position: relative; display: block; }
+.select-wrap > select { width: 100%; }
+
 /* D-P3-2：下拉箭头用**遮罩**上色 —— 颜色取 --qm-text-dim，随皮肤 / 主题自动变化
    （旧版把颜色烘死在 background-image 的 SVG 里，只随 light/dark，不随皮肤）。
-   全部 <select> 都落在 .topbar-select 内，故箭头由包裹层统一绘制。
-   注意：日后若新增不在 .topbar-select 内的 <select>，须另配箭头。 */
-.topbar-select::after {
+   <select> 由包裹层统一绘制箭头：顶栏用 .topbar-select，别处用 .select-wrap（V0.0.41）。 */
+.topbar-select::after,
+.select-wrap::after {
   content: '';
   position: absolute;
   right: 7px;

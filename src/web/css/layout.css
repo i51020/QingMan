@@ -204,7 +204,7 @@
 
 .field { display: flex; flex-direction: column; gap: 3px; min-width: 150px; }
 .field-wide { flex: 1 1 240px; }
-.field > span { font-size: 11px; color: var(--qm-text-dim); }
+.field > span:not(.select-wrap) { font-size: 11px; color: var(--qm-text-dim); }
 
 /* 字段内联行（V0.0.40）：输入框与其后的微型按钮同行；输入框吃掉剩余宽度。
    复用模板目录行（.tpl-dir-actions）的「输入 + 选择…」形态，不另造一套按钮样式。 */

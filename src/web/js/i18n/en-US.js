@@ -33,6 +33,7 @@ export const dict = {
 
   /* ---------- Top-bar popovers & dialogs (V0.0.40 · manual 10.2 #6 / #7 / #9) ---------- */
   'dlg.close': 'Close',
+  'dlg.cancel': 'Cancel',
   'popMore.service': 'Service settings',
   'popMore.support': 'Support QingMan',
   'popMore.help': 'Usage guide',
@@ -85,6 +86,18 @@ export const dict = {
   'template.loaded': 'Loaded template "{name}"',
   'template.noteAdopted': ' (note adopted from {file})',
   'template.loadFailed': 'Failed to load template: {message}',
+
+  /* New template (V0.0.41 · manual 9.2 #7 / 10.2 #4) */
+  'template.new': 'New',
+  'template.newTip': 'Create a template from scratch (blank or any template in the library as a starting point)',
+  'template.newTitle': 'New template',
+  'template.newNameLabel': 'Template name',
+  'template.newNamePlaceholder': 'e.g. My project template',
+  'template.newDescLabel': 'Description (optional)',
+  'template.newDescPlaceholder': 'One line about what this template is for',
+  'template.newBaseLabel': 'Starting point',
+  'template.newBaseBlank': 'Blank (root only)',
+  'template.newCreate': 'Create',
 
   /* Save as template (V0.0.13) */
   'template.saveAs': 'Save as template',
@@ -355,7 +368,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.40',
+  'help.versionFallback': 'V0.0.41',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

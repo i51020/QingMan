@@ -7,6 +7,42 @@
 
 ---
 
+## V0.0.41 — 2026-10-14
+
+**主题**：**模板「新建」入口**（UI 定版差集 D 组）—— 模板编辑区由「仅另存为」补上**从零新建**：`#btnNewTemplate` → 应用内弹窗 `#dlgNewTemplate`（名称 + 说明 + **起点**：空白 / 当前模板库中任一模板）。**后端零改动**（复用 `POST /api/templates`）。**升 patch `V0.0.40` → `V0.0.41`**。**无新增错误码**。单次提交。
+
+> 依据：用户「**采纳建议，分步，依次执行**」（采纳上轮报告的三步建议）＋ D 组形态裁决「**A · 应用内弹窗 + 起点选择**」。落地明细 → `docs/UI定版说明_20261014.md` §七。
+
+### 新增
+
+- **模板编辑区「新建」按钮**（`#btnNewTemplate`，侧栏 `panel-actions` 首位，`aria-haspopup="dialog"`）→ `#dlgNewTemplate`（modal-md）：名称（必填，≤60 字符，服务端判定）/ 说明（选填）/ **起点**（`#newTplBase`：空白 + 当前模板库中的每一套）。
+- **`src/web/css/base.css` 通用类 `.select-wrap`**：把 `.topbar-select::after` 的箭头规则**抽为两者共用**（`.topbar-select::after, .select-wrap::after`），落实该文件内既有约定「新增不在 `.topbar-select` 内的 `<select>` 须另配箭头」。同步 `layout.css` 的 `.field > span` → `.field > span:not(.select-wrap)`，避免包裹层被当成字段标签渲染。
+- **i18n**：`template.new` / `newTip` / `newTitle` / `newNameLabel` / `newNamePlaceholder` / `newDescLabel` / `newDescPlaceholder` / `newBaseLabel` / `newBaseBlank` / `newCreate` + `dlg.cancel`（中英各 **11 键**，键严格对齐）。
+
+### 两条设计抉择
+
+- **起点选项取「当前模板库」而非写死内置 P0 文件名** —— 模板库可绑定外部目录（`QM_TEMPLATES_DIR` > settings > 默认 `templates/`），写死名字换库后必然失效；默认态下库中唯一一套即 P0，行为与「空白 / 内置 P0」的预期一致。顺带规避「JS 硬编码中文文件名」会触发的 7b 守卫。
+- **落盘后不自动载入编辑器** —— 载入会丢掉内存里那棵尚未落盘的树（《项目约定》§P0-3）。
+
+### 守卫适配
+
+- `tools/verify.py`：`REQUIRED_IDS` 增 `btnNewTemplate` / `dlgNewTemplate` / `newTplName` / `newTplDesc` / `newTplBase` / `newTplConfirm`（关键 id 51 → **57**；校验项数仍 94）。
+- `tools/browser_smoke.py`：新断言 **2 条**（按钮就位 + 取词刷新；**弹窗可开、起点已填充、可关**——后者是本轮唯一的运行时交互实证）→ **24 项**。
+- `tests/test_browser_smoke.py`：NORMAL 基线增 9 字段；项数 `19→21` / `15→17`；新增 **3 项回归**。
+
+### 验证（四件套）
+
+| 件 | 结果 |
+|---|---|
+| `verify.py` | **94 / 0** · 体积 **463K / 512K** · 关键 id **57** |
+| `unittest` | **`Ran 368 tests · OK`** |
+| `tools/smoke.py` | **34 / 0** |
+| `tools/browser_smoke.py` | **24 / 0**（新断言实机 PASS：`en='New' → zh='新建'`；弹窗 `open=1 起点 2 项 首项='Blank (root only)' closing=0 closed=1`） |
+
+> **实测注**：过程中真机暴露过一处**探针时序缺陷**（非产品缺陷）—— `layer.js` 的 `hide()` 先同步摘 `.is-open`、再等 **170ms** 动画才置 `hidden`，而探针原本点完 `[data-close]` **立即**读 `hidden`，读到 `false`。已把关闭拆成**两拍**读（同步 `is-open` + 延时 `hidden`），修正后 PASS。
+
+---
+
 ## V0.0.40 — 2026-10-14
 
 **主题**：**UI 定版**（第 1 步 A+B：顶栏图标化 + 应用内弹层；第 2 步 E：目标位置选路径）—— 顶栏由「`<select>` + 文字按钮 + 只读 chip + 新标签开页」改为「**图标按钮 + 浮层**／**可点状态按钮** + **应用内弹窗**」，窄窗低频入口折入「更多 ⋮」；生成栏「目标位置」增「选择…」按钮（复用原生目录选择器）。**升 patch `V0.0.39` → `V0.0.40`**。**无新增错误码**。**分两次提交**：`@r1`（第 1 步 A+B）／`@r2`（第 2 步 E）—— 同一版本内修订，符合「不升版也要留回退点」。

@@ -42,6 +42,7 @@ export const dict = {
 
   /* ---------- 顶栏浮层与弹窗（V0.0.40 · 手册 10.2 节 #6 / #7 / #9） ---------- */
   'dlg.close': '关闭',
+  'dlg.cancel': '取消',
   'popMore.service': '服务设置',
   'popMore.support': '支持青蔓',
   'popMore.help': '使用说明',
@@ -94,6 +95,18 @@ export const dict = {
   'template.loaded': '已载入模板「{name}」',
   'template.noteAdopted': '（说明取自 {file}）',
   'template.loadFailed': '模板载入失败：{message}',
+
+  /* 新建模板（V0.0.41 · 手册 9.2 节 #7 / 10.2 节 #4） */
+  'template.new': '新建',
+  'template.newTip': '从零创建一套模板（可选空白或库中任一模板作起点）',
+  'template.newTitle': '新建模板',
+  'template.newNameLabel': '模板名称',
+  'template.newNamePlaceholder': '例如：我的项目模板',
+  'template.newDescLabel': '说明（选填）',
+  'template.newDescPlaceholder': '一句话描述这套模板的用途',
+  'template.newBaseLabel': '起点',
+  'template.newBaseBlank': '空白（仅根节点）',
+  'template.newCreate': '创建',
 
   /* 另存为模板（V0.0.13） */
   'template.saveAs': '另存为模板',
@@ -361,7 +374,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.40',
+  'help.versionFallback': 'V0.0.41',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',

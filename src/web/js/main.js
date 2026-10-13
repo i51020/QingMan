@@ -1246,6 +1246,92 @@ async function saveAsTemplate() {
   }
 }
 
+/**
+ * 新建模板（V0.0.41 · 手册 9.2 节 #7 / 10.2 节 #4）：**从零**创建一套模板写进模板库。
+ *
+ * 与「另存为」的分工：另存为把**正在编辑的树**存成模板；本入口不依赖编辑态，
+ * 只取「名称 + 说明 + 起点」，起点即骨架（空白 / 库中任一模板）。
+ *
+ * 起点选项**取当前模板库**而非写死内置文件名：模板库可被绑定到外部目录
+ * （`PUT /api/templates-dir`），写死名字在换库后必然失效。
+ *
+ * **落盘后不自动载入编辑器** —— 载入会丢掉内存里那棵尚未落盘的树（《项目约定》§P0-3）。
+ * 要编辑新模板，在列表里点它即可；那条路径本就有未保存确认。
+ */
+async function newTemplateFlow() {
+  if (!layers) return;
+  el('newTplName').value = '';
+  el('newTplDesc').value = '';
+  await fillTemplateBaseOptions();
+  // 焦点由 #newTplName 的 data-autofocus 交给 layer.js 处理 —— 不要在这里手动 focus，
+  // layer.open() 会在 30ms 后按 [data-autofocus] 定焦，手动那次会被覆盖（白写）。
+  layers.open(el('dlgNewTemplate'), el('btnNewTemplate'));
+}
+
+/**
+ * 填「起点」下拉：空白恒为首项，其后是当前模板库中的每一套。
+ * 列表拉取失败**不阻塞**新建 —— 仍可用空白起点（否则列表一挂就建不了模板）。
+ */
+async function fillTemplateBaseOptions() {
+  const sel = el('newTplBase');
+  const keep = sel.value;
+  sel.textContent = '';
+  const blank = document.createElement('option');
+  blank.value = '';
+  blank.textContent = t('template.newBaseBlank');
+  sel.appendChild(blank);
+  try {
+    const res = await api.listTemplates();
+    for (const item of (res && res.items) || []) {
+      const opt = document.createElement('option');
+      opt.value = item.file;
+      opt.textContent = item.name;
+      sel.appendChild(opt);
+    }
+  } catch (_) { /* 起点可退化为「空白」 */ }
+  // 语言切换会重建选项，尽量保住用户已选的那一项
+  sel.value = keep && Array.prototype.some.call(sel.options, (o) => o.value === keep) ? keep : '';
+}
+
+/** 提交「新建模板」：按起点取骨架 → 落盘；同名默认拒写，用户确认后方可覆盖。 */
+async function submitNewTemplate() {
+  const nameEl = el('newTplName');
+  const trimmed = nameEl.value.trim();
+  if (!trimmed) {
+    toast(t('template.nameEmpty'), 'warn');
+    nameEl.focus();
+    return;
+  }
+  const base = el('newTplBase').value;
+  const description = el('newTplDesc').value.trim();
+  try {
+    let tree = {};
+    if (base) {
+      const src = await api.loadTemplate(base);   // 起点＝既有模板：取其 tree 当骨架
+      tree = (src && src.tree) || {};
+    }
+    let res;
+    try {
+      res = await api.saveTemplate({ name: trimmed, description, tree });
+    } catch (err) {
+      // 与「另存为」同一套同名取舍：默认拒写，显式确认后才覆盖（旧模板入回收站）
+      if (!err || err.code !== 'templateExists') throw err;
+      if (!window.confirm(t('template.overwriteConfirm', { name: trimmed }))) return;
+      res = await api.saveTemplate({ name: trimmed, description, tree, overwrite: true });
+    }
+    const saved = res.name || trimmed;
+    const key = res.overwritten ? 'template.overwritten' : 'template.saved';
+    setStatus(t(key, { name: saved }));
+    toast(t(key, { name: saved }), 'info');
+    if (layers) layers.closeAll();
+    await loadTemplateList();   // 新模板要立刻出现在列表里，否则用户以为没生效
+  } catch (err) {
+    toast(t('template.saveFailed', { message: localizeError(err) }), 'error', 6000);
+  }
+}
+
+el('btnNewTemplate').addEventListener('click', newTemplateFlow);
+el('newTplConfirm').addEventListener('click', submitNewTemplate);
 el('btnSaveTemplate').addEventListener('click', saveAsTemplate);
 el('btnImportTemplate').addEventListener('click', importTemplateFlow);
 el('btnPickDir').addEventListener('click', chooseTemplatesDir);
@@ -1265,6 +1351,9 @@ document.addEventListener('qmlocalechange', () => {
   render();
   setServiceState(serviceState);   // 服务状态 chip 文案随语言刷新
   renderTemplatesDir(lastDirRes);  // 绑定行提示是动态文案，须随语言重渲染
+  // 「新建模板」弹窗若开着：起点下拉的「空白」项是取词键，须重填（其余项是模板名，与语言无关）。
+  // 用 isOpenNode（判**具体**那个层）而非 isOpen —— 后者只答「有没有层开着」。
+  if (layers && layers.isOpenNode(el('dlgNewTemplate'))) fillTemplateBaseOptions();
 });
 
 /* 换肤后重传启动图标（V0.0.15）：事件由 applySkin 在样式表 onload 后派发，

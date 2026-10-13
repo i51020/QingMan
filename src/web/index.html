@@ -71,6 +71,9 @@
             <h3 class="panel-sub" data-i18n="template.listTitle"></h3>
             <!-- Grouped so the head keeps exactly two flex children (title / actions) -->
             <span class="panel-actions">
+              <button type="button" class="btn btn-ghost btn-mini" id="btnNewTemplate"
+                      aria-haspopup="dialog"
+                      data-i18n="template.new" data-i18n-title="template.newTip"></button>
               <button type="button" class="btn btn-ghost btn-mini" id="btnImportTemplate"
                       data-i18n="template.import" data-i18n-title="template.importTip"></button>
               <button type="button" class="btn btn-ghost btn-mini" id="btnSaveTemplate"
@@ -238,6 +241,41 @@
              data-i18n-alt="help.support.qrAlt" alt="">
       </figure>
       <p class="sup-note" data-i18n="support.note"></p>
+    </div>
+  </div>
+
+  <!-- M7 · New template (modal-md · manual 9.2 #7 / 10.2 #4): name + description + starting point.
+       Options of #newTplBase are filled by main.js from the CURRENT template library
+       (blank first, then every template found there) -- never hardcoded in markup, because
+       the library can be bound to an external folder via PUT /api/templates-dir. -->
+  <div class="layer modal modal-md" id="dlgNewTemplate" role="dialog" aria-modal="true"
+       aria-labelledby="dlgNewTemplateT" hidden>
+    <div class="lay-head">
+      <span class="ic ic-check" aria-hidden="true"></span>
+      <h3 id="dlgNewTemplateT" data-i18n="template.newTitle"></h3>
+      <button type="button" class="icon-btn" data-close data-i18n-aria-label="dlg.close">
+        <span class="ic ic-close" aria-hidden="true"></span>
+      </button>
+    </div>
+    <div class="lay-body">
+      <label class="field">
+        <span data-i18n="template.newNameLabel"></span>
+        <input type="text" id="newTplName" maxlength="60" data-autofocus
+               data-i18n-placeholder="template.newNamePlaceholder">
+      </label>
+      <label class="field">
+        <span data-i18n="template.newDescLabel"></span>
+        <input type="text" id="newTplDesc" data-i18n-placeholder="template.newDescPlaceholder">
+      </label>
+      <label class="field">
+        <span data-i18n="template.newBaseLabel"></span>
+        <span class="select-wrap"><select id="newTplBase"></select></span>
+      </label>
+    </div>
+    <div class="lay-foot">
+      <button type="button" class="btn btn-ghost" data-close data-i18n="dlg.cancel"></button>
+      <button type="button" class="btn btn-primary" id="newTplConfirm"
+              data-i18n="template.newCreate"></button>
     </div>
   </div>
 

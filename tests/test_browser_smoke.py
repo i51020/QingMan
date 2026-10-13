@@ -6,8 +6,9 @@
 **不验证判定逻辑本身是否正确**。本文件把「一次性反向验证」变成**常态回归网**。
 
 重点（复刻上一轮反向验证的逻辑，但固化为单测）：
-  * 喂「正常指标」→ 19 项全 PASS（V0.0.38 起含 6E 的绑定 UI / 右键菜单 / 轮询实证；
-    V0.0.40 起含目标位置「选择…」按钮的就位与取词刷新）；
+  * 喂「正常指标」→ 21 项全 PASS（V0.0.38 起含 6E 的绑定 UI / 右键菜单 / 轮询实证；
+    V0.0.40 起含目标位置「选择…」按钮的就位与取词刷新；
+    V0.0.41 起含模板「新建」按钮 + 弹窗开合/起点填充的运行时实证）；
   * 喂「P1-1 回归指标（分节 7 → 14 → 21）」→ **恰好**「帮助页·分节渲染幂等」一项 FAIL；
   * 喂「P1-2 回归指标（示例含中文名 6 个）」→ **恰好**「主界面·默认示例随语言」一项 FAIL；
   * 喂「C-P3-5 回归指标（非法皮肤名被直接采用）」/「D-P3-2 回归指标（顶栏图标色仍是旧灰）」→ 各恰好一项 FAIL；
@@ -64,6 +65,13 @@ NORMAL = {
     # V0.0.40 新增：目标位置「选择…」按钮（手册 10.2 节 #13）—— 证「在位 + 文案随语言刷新」。
     #   文案取自 i18n 的 gen.targetPick（en 'Choose...' / zh '选择…'）；改文案须同步此处基线。
     "pickTargetBtn": "1", "pickTargetEn": "Choose...", "pickTargetZh": "选择…",
+    # V0.0.41 新增：模板编辑区「新建模板」（手册 9.2 节 #7 / 10.2 节 #4）。
+    #   文案取自 i18n 的 template.new（en 'New' / zh '新建'）；起点首项是 template.newBaseBlank
+    #   （探针读时语言已复位 en-US，故基线为英文文案）。改文案须同步此处基线。
+    "tplNewBtn": "1", "tplNewDlg": "1",
+    "tplNewEn": "New", "tplNewZh": "新建",
+    "tplNewOpen": "1", "tplNewBaseN": "2", "tplNewBaseText": "Blank (root only)",
+    "tplNewClosing": "0", "tplNewClosed": "1",
 }
 
 FAIL = "帮助页·分节渲染幂等"
@@ -75,6 +83,9 @@ FAIL_TOAST = "主界面·提示条数量上限（C-P3-4）"
 TPL_CHECK = "主界面·内置模板仅 P0（V0.0.37）"
 # V0.0.40（手册 10.2 节 #13）：目标位置「选择…」按钮的判定名
 FAIL_PICK = "主界面·目标位置「选择…」按钮就位且随语言刷新（V0.0.40）"
+# V0.0.41（手册 9.2 节 #7 / 10.2 节 #4）：「新建模板」按钮 / 弹窗的两条判定名
+FAIL_TPLNEW = "主界面·模板「新建」按钮就位且随语言刷新（V0.0.41）"
+FAIL_TPLDLG = "主界面·「新建模板」弹窗可开、起点已填充、可关（V0.0.41）"
 
 
 def run_metrics(metrics: dict, expected_version: str = VERSION,
@@ -190,7 +201,7 @@ class VerifyMetricsTests(unittest.TestCase):
     def test_normal_all_pass(self):
         results = run_metrics(NORMAL)
         self.assertEqual(failed_names(results), [], "正常指标不应有任何失败项")
-        self.assertEqual(len(results), 19, "verify_metrics 应产生 19 项判定（14 + 6E 三项 + V0.0.39 一项 + V0.0.40 一项）")
+        self.assertEqual(len(results), 21, "verify_metrics 应产生 21 项判定（14 + 6E 三项 + V0.0.39 一项 + V0.0.40 一项 + V0.0.41 两项）")
 
     def test_p1_1_regression_fails_exactly_section_idempotence(self):
         """P1-1 回归：帮助页切语言累积分节（7 → 14 → 21）→ 恰好那项 FAIL。"""
@@ -224,7 +235,7 @@ class VerifyMetricsTests(unittest.TestCase):
 
     def test_templates_check_skipped_when_not_expected(self):
         results = run_metrics(NORMAL, expect_templates=False)
-        self.assertEqual(len(results), 15, "不期望模板时不应产生模板判定项")
+        self.assertEqual(len(results), 17, "不期望模板时不应产生模板判定项（V0.0.41 的两项与模板库无关，仍在）")
         self.assertNotIn(TPL_CHECK, [n for _o, n, _x in results])
 
     def test_6d_business_templates_in_builtin_fails_exactly(self):
@@ -332,6 +343,30 @@ class VerifyMetricsTests(unittest.TestCase):
         """V0.0.40 回归：按钮文案未随语言刷新 → 恰好那项 FAIL（说明未走 i18n 取词）。"""
         metrics = dict(NORMAL, pickTargetZh="Choose...")
         self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_PICK])
+
+    def test_v0041_new_template_button_missing_fails_exactly(self):
+        """V0.0.41 回归：模板「新建」按钮缺失（如误删 `#btnNewTemplate`）→ 恰好那项 FAIL。"""
+        metrics = dict(NORMAL, tplNewBtn="0")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_TPLNEW])
+
+    def test_v0041_new_template_text_frozen_fails_exactly(self):
+        """V0.0.41 回归：按钮文案未随语言刷新 → 恰好那项 FAIL（说明未走 i18n 取词）。"""
+        metrics = dict(NORMAL, tplNewZh="New")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_TPLNEW])
+
+    def test_v0041_new_template_dialog_regression_fails_exactly(self):
+        """V0.0.41 回归：弹窗没开 / 起点下拉为空 / 关不掉 —— 三种各恰好那项 FAIL。
+
+        这条断言是本轮**唯一**的运行时交互实证（其余只证「元素在位 + 取词」）：
+        它同时覆盖 `newTemplateFlow` 的 async 流程（await 列表 → open）与 `[data-close]` 接线。
+        """
+        for bad in (dict(NORMAL, tplNewOpen="0"),
+                    dict(NORMAL, tplNewBaseN="0"),
+                    dict(NORMAL, tplNewBaseText=""),
+                    dict(NORMAL, tplNewClosing="1"),
+                    dict(NORMAL, tplNewClosed="0")):
+            with self.subTest(metrics=bad):
+                self.assertEqual(failed_names(run_metrics(bad)), [FAIL_TPLDLG])
 
 
 class SandboxBaseTests(unittest.TestCase):

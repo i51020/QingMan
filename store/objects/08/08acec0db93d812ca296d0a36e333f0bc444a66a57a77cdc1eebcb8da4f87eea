@@ -1,0 +1,275 @@
+/* 青蔓 QingMan · 基础元素样式（锐利新拟物） */
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--qm-bg);
+  color: var(--qm-text);
+  font-family: var(--qm-font);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { margin: 0; font-weight: 600; }
+
+code, .prop-mono, .result {
+  font-family: var(--qm-mono);
+  font-size: 12px;
+}
+
+code {
+  background: var(--qm-line-soft);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+/* ---------- 按钮：锐利新拟物 ---------- */
+.btn {
+  appearance: none;
+  border: 1px solid var(--qm-line);
+  background: var(--qm-surface-2);
+  color: var(--qm-text);
+  border-radius: var(--qm-r-sm);
+  padding: 5px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow:
+    1px 1px 2px var(--qm-shadow-dark),
+    -1px -1px 1px var(--qm-shadow-light),
+    inset .5px .5px 1px var(--qm-edge-hi);
+  transition: background .12s ease, border-color .12s ease, color .12s ease, box-shadow .12s ease;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--qm-accent);
+  color: var(--qm-accent-ink);
+  box-shadow:
+    1.5px 1.5px 3px var(--qm-shadow-dark),
+    -1px -1px 1px var(--qm-shadow-light),
+    inset .5px .5px 1px var(--qm-edge-hi);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: var(--qm-inset);
+}
+.btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-primary {
+  /* 用 --qm-btn-bg 而非 --qm-accent：白字在其上需 ≥4.5（§P2 第 13 项） */
+  background: var(--qm-btn-bg);
+  border-color: var(--qm-btn-bg);
+  color: var(--qm-on-accent);
+  box-shadow:
+    1px 1px 2px var(--qm-shadow-dark),
+    inset .5px .5px 1px var(--qm-btn-hi);
+}
+.btn-primary:hover:not(:disabled) {
+  /* hover 底色用专用 token --qm-btn-bg-hi，不用 --qm-accent-ink：
+     后者语义是「强调色的墨色」（暗色皮肤下为浅色），拿它当按钮底再配
+     --qm-on-accent 会与本皮肤的字色撞车 —— 详见《错误笔记》里「把墨色当
+     按钮底色」一条（对比度由 tools/verify.py 的皮肤 WCAG 守卫把关）。 */
+  background: var(--qm-btn-bg-hi);
+  border-color: var(--qm-btn-bg-hi);
+  color: var(--qm-on-accent);
+}
+.btn-primary:active:not(:disabled) { box-shadow: inset 1px 1px 3px var(--qm-btn-lo); }
+
+.btn-ghost {
+  background: transparent;
+  box-shadow: none;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--qm-line-soft);
+  box-shadow: inset 1px 1px 2px var(--qm-shadow-light), inset -1px -1px 2px var(--qm-shadow-dark);
+}
+.btn-danger { color: var(--qm-danger); border-color: var(--qm-line); }
+.btn-danger:hover:not(:disabled) { background: var(--qm-danger-soft); border-color: var(--qm-danger); color: var(--qm-danger); }
+
+/* ---------- 表单：下拉框 ---------- */
+select {
+  appearance: none;
+  border: 1px solid var(--qm-line);
+  background: var(--qm-surface-2);
+  color: var(--qm-text);
+  border-radius: var(--qm-r-sm);
+  padding: 4px 22px 4px 8px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow:
+    1px 1px 2px var(--qm-shadow-dark),
+    -1px -1px 1px var(--qm-shadow-light),
+    inset .5px .5px 1px var(--qm-edge-hi);
+  /* 箭头不再由 select 自绘：改由包裹层 .topbar-select::after 用遮罩上色（D-P3-2）。
+     右侧 padding 仍为箭头预留位置。 */
+}
+select:focus { outline: 2px solid var(--qm-accent-soft); border-color: var(--qm-accent); }
+select option { background: var(--qm-surface-2); color: var(--qm-text); }
+
+.topbar-select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--qm-text-dim);
+}
+/* 通用下拉包裹层（V0.0.41）：顶栏之外的 <select> 用它包裹，与 .topbar-select 共用箭头。
+   加它的起因就是下面那条「新增 <select> 须另配箭头」的约定 —— 弹窗里的「起点」下拉
+   正是不在顶栏的一例，抽成共用选择器比再抄一遍箭头规则更不易漂移。 */
+.select-wrap { position: relative; display: block; }
+.select-wrap > select { width: 100%; }
+
+/* D-P3-2：下拉箭头用**遮罩**上色 —— 颜色取 --qm-text-dim，随皮肤 / 主题自动变化
+   （旧版把颜色烘死在 background-image 的 SVG 里，只随 light/dark，不随皮肤）。
+   <select> 由包裹层统一绘制箭头：顶栏用 .topbar-select，别处用 .select-wrap（V0.0.41）。 */
+.topbar-select::after,
+.select-wrap::after {
+  content: '';
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  width: 10px;
+  height: 6px;
+  transform: translateY(-50%);
+  background-color: var(--qm-text-dim);
+  -webkit-mask: var(--qm-select-arrow-mask) center / 10px 6px no-repeat;
+  mask: var(--qm-select-arrow-mask) center / 10px 6px no-repeat;
+  pointer-events: none;
+}
+.select-label { font-size: 11px; letter-spacing: .5px; }
+
+input[type="text"] {
+  width: 100%;
+  border: 1px solid var(--qm-line);
+  background: var(--qm-surface-2);
+  color: var(--qm-text);
+  border-radius: var(--qm-r-sm);
+  padding: 5px 8px;
+  font-family: inherit;
+  font-size: 13px;
+  box-shadow: var(--qm-inset);
+}
+input[type="text"]::placeholder { color: var(--qm-text-dim); opacity: .8; }
+input[type="text"]:focus { outline: 2px solid var(--qm-accent-soft); border-color: var(--qm-accent); }
+
+.chip {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--qm-accent-soft);
+  color: var(--qm-accent-ink);
+  font-size: 11px;
+  font-family: var(--qm-mono);
+}
+.chip-ghost { background: transparent; color: var(--qm-text-dim); border: 1px solid var(--qm-line); }
+.chip-ok { background: var(--qm-accent-soft); color: var(--qm-accent-ink); }
+.chip-bad { background: var(--qm-danger-soft); color: var(--qm-danger); }
+
+.hint { color: var(--qm-text-dim); font-size: 12px; margin: 6px 0 0; }
+.divider { width: 1px; align-self: stretch; background: var(--qm-line); margin: 0 2px; }
+.spacer { flex: 1; }
+
+/* 品牌区（主界面与帮助页共用，故置于 base.css 而非某一页的布局表）
+ *
+ * 标记走 CSS mask 而非 <img>/内联 SVG：
+ *   - <img> 引用的 SVG 是独立文档，currentColor 不继承，无法跟随主题与皮肤（违反 §P0-3 L4/L5）
+ *   - 跨文档 <use href="x.svg#id"> 在现代浏览器已不支持
+ *   - mask 只取形状，颜色由 background-color 给，色值仍单一来源于 --qm-*
+ */
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+  color: inherit;
+}
+.brand:hover { opacity: .85; }
+.brand-logo {
+  align-self: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  background-color: var(--qm-accent-ink);
+  -webkit-mask-image: url("../assets/logo.svg");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-image: url("../assets/logo.svg");
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}
+.brand-mark { font-size: 16px; font-weight: 700; letter-spacing: 2px; color: var(--qm-accent-ink); }
+.brand-sub { font-size: 12px; color: var(--qm-text-dim); font-family: var(--qm-mono); }
+
+/* ===================== V0.0.40 · 设计提案层（图标 / 图标按钮） =====================
+ * 来源：设计稿 prototype.html 的提案样式块第 1 / 2 节（顶栏三区分组）。
+ * 纪律不变（§P0-3 L4）：色值一律 var(--qm-*)，本节无任何裸色值。
+ * 图标全部为 **currentColor SVG mask**，禁用第三方图标字体（版权合规）；
+ * 每个图标只声明 `--m`（局部变量，非 --qm-*），由 .ic 统一取用。
+ */
+
+/* ---------- 图标系统 ---------- */
+.ic {
+  display: inline-block; width: 18px; height: 18px; background-color: currentColor;
+  -webkit-mask: var(--m) center / 18px 18px no-repeat;
+          mask: var(--m) center / 18px 18px no-repeat;
+}
+.ic-sm { width: 14px; height: 14px; -webkit-mask-size: 14px 14px; mask-size: 14px 14px; }
+.ic-globe { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M3 12h18M12 3c2.4 2.5 3.7 5.6 3.7 9S14.4 18.5 12 21c-2.4-2.5-3.7-5.6-3.7-9S9.6 5.5 12 3z'/%3E%3C/svg%3E"); }
+.ic-heart { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20.2s-7.2-4.6-7.2-9.8A4.6 4.6 0 0 1 12 7.2a4.6 4.6 0 0 1 7.2 3.2c0 5.2-7.2 9.8-7.2 9.8z'/%3E%3C/svg%3E"); }
+.ic-help { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M9.6 9.4a2.5 2.5 0 0 1 4.6 1.4c0 1.7-2.2 2-2.2 3.4'/%3E%3Ccircle cx='12' cy='17.4' r='1'/%3E%3C/svg%3E"); }
+.ic-gear { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='3.2'/%3E%3Cpath d='M12 2.8v2.4M12 18.8v2.4M4.5 7.5l2.1 1.2M17.4 15.3l2.1 1.2M4.5 16.5l2.1-1.2M17.4 8.7l2.1-1.2'/%3E%3C/svg%3E"); }
+.ic-close { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round'%3E%3Cpath d='M6.5 6.5l11 11M17.5 6.5l-11 11'/%3E%3C/svg%3E"); }
+.ic-check { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+/* 「更多 ⋮」：窄窗顶栏折叠入口（非皮肤按钮，勿与 .sw-dots 混用） */
+.ic-more { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Ccircle cx='12' cy='5.4' r='1.7'/%3E%3Ccircle cx='12' cy='12' r='1.7'/%3E%3Ccircle cx='12' cy='18.6' r='1.7'/%3E%3C/svg%3E"); }
+
+/* ---------- 图标按钮：32×32，与 .btn 同高（顶栏成一条整齐基线） ---------- */
+.icon-btn {
+  appearance: none; cursor: pointer; background: transparent; color: var(--qm-text-dim);
+  width: 32px; height: 32px; border-radius: var(--qm-r-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid transparent;
+  /* 必须重置 UA 对 button 的默认 padding(1px 6px)：否则内容盒只剩 18px，
+     19px 图标会被 flex 收缩回 18px，声明尺寸静默失效（设计稿实测缺陷）。 */
+  padding: 0;
+}
+.icon-btn:hover { color: var(--qm-accent-ink); background: var(--qm-surface-2); border-color: var(--qm-line-soft); }
+.icon-btn:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: 1px; }
+.icon-btn[aria-expanded="true"] { color: var(--qm-accent-ink); background: var(--qm-accent-soft); border-color: var(--qm-accent); }
+/* 顶栏图标比正文图标大半档（19px），flex:0 0 auto 保证「声明 19px = 实际 19px」 */
+.icon-btn .ic { width: 19px; height: 19px; flex: 0 0 auto; -webkit-mask-size: 19px 19px; mask-size: 19px 19px; }
+
+/* ---------- 状态按钮：可点的服务状态 chip（实线边框 + hover 抬升，32px 与按钮齐平） ---------- */
+.chip-btn {
+  appearance: none; font: inherit; font-size: 12px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 32px; padding: 0 11px; border-radius: 999px;
+  border: 1px solid var(--qm-line); background: var(--qm-surface); color: var(--qm-text-dim);
+}
+.chip-btn:hover { color: var(--qm-accent-ink); border-color: var(--qm-accent); }
+.chip-btn:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: 1px; }
+.chip-btn .caret { font-size: 9px; }
+/* 状态点：就绪=强调色、离线=危险色（离线态由 JS 加 .is-offline） */
+.chip-btn .dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; background: var(--qm-accent); }
+.chip-btn.is-offline { color: var(--qm-danger); border-color: var(--qm-danger); }
+.chip-btn.is-offline .dot { background: var(--qm-danger); }
+

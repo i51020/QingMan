@@ -1,0 +1,124 @@
+{
+  "$comment": "青蔓 QingMan · 前后端共享数据契约。前端、后端、CLI 均以本文件为准。",
+  "version": "V0.0.41",
+  "template": {
+    "$comment": "模板文件格式，与 templates/*.json 一致。schemaVersion 自 V0.0.13「另存为模板」起写入；既有 17 套模板无该字段，读取时一律视为 1（§P2 第 7 项）",
+    "schemaVersion": 1,
+    "name": "模板名（中文）",
+    "description": "中文说明",
+    "updated": "YYYY-MM-DD",
+    "tree": {
+      "目录名": { "子目录": {} },
+      "文件名.md": "文件内容"
+    },
+    "rule": "值为 {} 对象 → 目录；值为字符串 → 文件（字符串即文件内容）"
+  },
+  "templateSaveRequest": {
+    "$comment": "POST /api/templates 请求体（V0.0.13 另存为模板；overwrite 字段自 V0.0.21 起）",
+    "name": "模板名（不含 .json；仅中英文、数字、下划线、连字符，上限 60 字符）",
+    "description": "中文说明（选填）",
+    "overwrite": "布尔（选填，默认 false）。同名模板已存在时：非严格 true → 拒写并返回 templateExists；严格 true → 旧模板先移入 templates/.trash/<时间戳>/ 再写新文件（§P0-1「只复制不删除」，误覆盖可人工找回）",
+    "tree": {}
+  },
+  "templateSaveResponse": {
+    "$comment": "POST /api/templates 响应。同名已存在且未带 overwrite:true 时返回 templateExists（不覆盖）；带 overwrite:true 时覆盖成功并以 overwritten=true 标记",
+    "ok": true,
+    "file": "名称.json",
+    "name": "模板名",
+    "path": "模板文件绝对路径",
+    "bytes": 0,
+    "stats": { "dirs": 0, "files": 0 },
+    "schemaVersion": 1,
+    "overwritten": "布尔。true 表示本次覆盖了同名既有模板（旧文件已入回收站）"
+  },
+  "templateListResponse": {
+    "$comment": "GET /api/templates 响应。templates/ 不在版本交付清单内，预览副本缺失时 available=false 且 items 为空（不报错）；单套损坏只跳过该套",
+    "ok": true,
+    "available": true,
+    "items": [
+      { "file": "名称.json", "name": "模板名", "description": "中文说明", "dirs": 0, "files": 0 }
+    ],
+    "path": "templates 目录绝对路径",
+    "schemaVersion": 1
+  },
+  "templateRenameRequest": {
+    "$comment": "POST /api/templates/<name> 请求体（V0.0.20 重命名）。同时改文件名与文件内 name 字段；新旧同名时以 unchanged=true 短路返回",
+    "name": "新模板名（不含 .json；与另存为同规则）"
+  },
+  "templateRenameResponse": {
+    "$comment": "POST /api/templates/<name> 响应。目标名已存在返回 templateExists 拒改；旧文件移入回收站保底",
+    "ok": true,
+    "file": "新名称.json",
+    "name": "新模板名",
+    "unchanged": "布尔（仅新旧同名、无需改名时出现）"
+  },
+  "templateDeleteResponse": {
+    "$comment": "DELETE /api/templates/<name> 响应（V0.0.20 软删除：移入 templates/.trash/<时间戳>/，不真删）",
+    "ok": true,
+    "file": "名称.json",
+    "trashedTo": "回收站中的绝对路径"
+  },
+  "generateRequest": {
+    "$comment": "POST /api/generate 请求体",
+    "target": "目标位置绝对路径（必填，字符串）",
+    "root": "根文件夹名（选填；留空表示直接写入 target）",
+    "dryRun": false,
+    "tree": {}
+  },
+  "generateResponse": {
+    "ok": true,
+    "root": "最终写入的根路径",
+    "dryRun": false,
+    "plannedDirs": 0,
+    "plannedFiles": 0,
+    "createdDirs": [],
+    "createdFiles": [],
+    "existed": []
+  },
+  "errorResponse": {
+    "ok": false,
+    "code": "错误码，见 error-codes.json",
+    "message": "中文可读信息",
+    "detail": {}
+  },
+  "editorNode": {
+    "$comment": "编辑态节点。目录有 children、无 content；文件有 content、无 children。id 全树唯一，前缀 d=目录 / f=文件。note 自 V0.0.17 起为可选字段（老文档缺失视为空串）",
+    "id": "d<时间基36><计数36> | f<时间基36><计数36>",
+    "type": "dir | file",
+    "name": "节点名（单段，不含路径分隔符）",
+    "note": "节点说明（可选，纯文本；编辑态元数据，随文档持久化，不参与 /api/generate 落盘）",
+    "children": ["…（仅 type=dir；同层名称不得重复，大小写不敏感）"],
+    "content": "…（仅 type=file）"
+  },
+  "editorDocument": {
+    "$comment": "编辑态文档。GET /api/editor 返回、PUT /api/editor 接收；落盘于项目根 data/editor.json（不入 git）。V0.0.26 起每次保存前把上一版轮转进 data/.bak/（保留最近 5 份，多出的软删除到 data/.bak/.trash/）",
+    "schemaVersion": 1,
+    "savedAt": "YYYY-MM-DDTHH:mm:ss+08:00",
+    "root": {
+      "$comment": "整棵目录树的根，type 必须为 dir；节点结构见 editorNode",
+      "id": "d…",
+      "type": "dir",
+      "name": "根文件夹名",
+      "children": []
+    }
+  },
+  "editorResponse": {
+    "$comment": "GET /api/editor 与 PUT /api/editor 的响应。doc 为 null 表示尚无文档（前端改用默认示例）",
+    "ok": true,
+    "doc": "editorDocument | null（仅 GET）",
+    "path": "文档落盘的绝对路径",
+    "savedAt": "YYYY-MM-DDTHH:mm:ss+08:00（仅 PUT）",
+    "bytes": 0,
+    "stats": {
+      "dirs": 0,
+      "files": 0
+    },
+    "backup": {
+      "$comment": "仅 PUT（V0.0.26）。落盘前把**上一版**轮转进 data/.bak/editor-<时间戳>.json（保留最近 QM_EDITOR_BACKUP_KEEP 份，默认 5；超出的移入 data/.bak/.trash/<时间戳>/ **软删除**，不真删）的结果；备份是增强，失败**不影响保存本身**",
+      "ok": true,
+      "file": "editor-YYYYMMDD-HHMMSS.json | null（此前无文档可备时为 null）",
+      "pruned": 0,
+      "reason": "仅 backup.ok=false 时出现：失败原因（磁盘不可写等）"
+    }
+  }
+}

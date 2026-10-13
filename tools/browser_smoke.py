@@ -187,6 +187,11 @@ frame('./index.html', function (doc) {
     var pickBtn = doc ? doc.getElementById('btnPickTarget') : null;
     var pickBtnText = function () { return pickBtn ? (pickBtn.textContent || '').trim() : ''; };
     m.pickTargetBtn = pickBtn ? 1 : 0;
+    /* V0.0.41 · 手册 9.2 节 #7 / 10.2 节 #4：模板编辑区「新建模板」按钮 —— 与上面同理，
+       这里只采集「在位」与「取词文案」（弹窗开合放在阶段 1 末尾实测，见下）。 */
+    var newBtnEl = doc ? doc.getElementById('btnNewTemplate') : null;
+    var newBtnText = function () { return newBtnEl ? (newBtnEl.textContent || '').trim() : ''; };
+    m.tplNewBtn = newBtnEl ? 1 : 0;
     var pickLocale = function (value) {
       var items = langMenu ? langMenu.querySelectorAll('.menu-item') : [];
       for (var li = 0; li < items.length; li += 1) {
@@ -200,9 +205,11 @@ frame('./index.html', function (doc) {
     if (langMenu && skinGrid && skinGrid.children.length) {
       m.skinEn = firstSkinName();
       m.pickTargetEn = pickBtnText();
+      m.tplNewEn = newBtnText();
       pickLocale('zh-CN');
       m.skinZh = firstSkinName();
       m.pickTargetZh = pickBtnText();
+      m.tplNewZh = newBtnText();
       pickLocale('en-US');   /* 复位，避免影响阶段 2 的初始语言 */
     }
     /* V0.0.39 / 十三.4：swatch 在页面上的**唯一可见效果**就是网格卡片的**排列顺序**
@@ -308,7 +315,38 @@ frame('./index.html', function (doc) {
       doc.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));   /* 关掉菜单 */
     }
   } catch (e) { m.err1 = String(e && e.message ? e.message : e); }
-  pollProbe(doc);
+  /* V0.0.41 · 手册 9.2 节 #7 / 10.2 节 #4：「新建模板」弹窗**实测**（不是静态断言）。
+     走真实路径：点 #btnNewTemplate → newTemplateFlow() 是 async（先 await /api/templates
+     填起点下拉，再 layers.open），故点完等一拍再读。读完**立刻**用 [data-close] 关窗 ——
+     弹窗开着会给 #app 置 inert，阶段 2 要驱动页面其余部分。 */
+  var newBtn = doc ? doc.getElementById('btnNewTemplate') : null;
+  var newDlg = doc ? doc.getElementById('dlgNewTemplate') : null;
+  m.tplNewDlg = newDlg ? 1 : 0;
+  if (newBtn && newDlg && win) {
+    newBtn.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
+    setTimeout(function () {
+      try {
+        m.tplNewOpen = newDlg.hidden ? 0 : 1;
+        var sel = doc.getElementById('newTplBase');
+        m.tplNewBaseN = sel ? sel.options.length : -1;
+        m.tplNewBaseText = sel && sel.options.length ? sel.options[0].textContent : '';
+        var closer = newDlg.querySelector('[data-close]');
+        if (closer) { closer.dispatchEvent(new win.MouseEvent('click', { bubbles: true })); }
+        /* layer.js 的 hide() 先**同步**摘 .is-open，再等 170ms 动画后才置 hidden。
+           故分两拍读：同步态证明「点了就立刻响应」，延时态证明「真的 display:none 了」。 */
+        m.tplNewClosing = newDlg.classList.contains('is-open') ? 1 : 0;
+        setTimeout(function () {
+          m.tplNewClosed = newDlg.hidden ? 1 : 0;
+          pollProbe(doc);
+        }, 260);
+      } catch (e) {
+        m.errNew = String(e && e.message ? e.message : e);
+        pollProbe(doc);
+      }
+    }, 260);
+  } else {
+    pollProbe(doc);
+  }
 });
 
 /* 6E 轮询**实证**：向模板库导入一套 → 等 ≥1 个轮询周期（虚拟时间会把 2.5s 定时器快进）
@@ -611,6 +649,31 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
     check(pick_ok, "主界面·目标位置「选择…」按钮就位且随语言刷新（V0.0.40）",
           f"en={pick_en!r} → zh={pick_zh!r}"
           + ("" if pick_ok else "（按钮缺失或未走取词）"))
+
+    # V0.0.41 · 手册 9.2 节 #7 / 10.2 节 #4：模板编辑区「新建模板」。
+    # 两个层次：① 按钮在位且文案随语言刷新（同 pickTarget 的取词闭包证明）；
+    # ② 弹窗**实测**：点按钮 → 真开 → 起点下拉非空 → 关得掉。②比①强得多 ——
+    # 它证明 newTemplateFlow 的 async 流程（await 列表 → open）与 [data-close] 接线
+    # 都真的在页面上跑通了，而不只是「元素存在」。
+    tplnew_en = metrics.get("tplNewEn", "")
+    tplnew_zh = metrics.get("tplNewZh", "")
+    tplnew_ok = (as_int(metrics.get("tplNewBtn")) == 1 and as_int(metrics.get("tplNewDlg")) == 1
+                 and bool(tplnew_en) and bool(tplnew_zh) and tplnew_en != tplnew_zh)
+    check(tplnew_ok, "主界面·模板「新建」按钮就位且随语言刷新（V0.0.41）",
+          f"en={tplnew_en!r} → zh={tplnew_zh!r}"
+          + ("" if tplnew_ok else "（按钮/弹窗缺失或未走取词）"))
+
+    open_ok = as_int(metrics.get("tplNewOpen")) == 1
+    base_n = as_int(metrics.get("tplNewBaseN"))
+    base_text = metrics.get("tplNewBaseText", "")
+    # 关闭分两拍：closing = 点后 .is-open 已同步摘除；closed = 170ms 动画后真的 display:none
+    close_ok = (as_int(metrics.get("tplNewClosing")) == 0
+                and as_int(metrics.get("tplNewClosed")) == 1)
+    dlg_ok = open_ok and base_n >= 1 and bool(base_text) and close_ok
+    check(dlg_ok, "主界面·「新建模板」弹窗可开、起点已填充、可关（V0.0.41）",
+          f"open={metrics.get('tplNewOpen')} 起点 {base_n} 项 首项={base_text!r} "
+          f"closing={metrics.get('tplNewClosing')} closed={metrics.get('tplNewClosed')}"
+          + ("" if dlg_ok else "（弹窗未开 / 起点为空 / 关不掉）"))
 
     # C-P3-5（V0.0.29）：非法皮肤偏好须回落出厂默认 —— 若被直接采用，会去加载不存在的
     # `./css/skins/not-a-real-skin.css`（装载失败 → 落 tokens.css 裸色，与选择器显示不符）。
