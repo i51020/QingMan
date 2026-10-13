@@ -1,0 +1,213 @@
+/* 青蔓 QingMan · 软光皮肤层（Soft UI / Neomorphism）· V0.0.40 并入
+ * ---------------------------------------------------------------------------
+ * 来源：设计稿 prototype.html 的 `<style id="qmSoftSkin">`，2026-10-13/14 定稿并入。
+ *
+ * 定位 —— **只管光影与形状，不管配色**。
+ *   配色一律来自 tokens.css 的 :root 与 15 款皮肤；本层只统一「语法」：
+ *     ① 光源固定左上、两侧镜像对称；② 模糊 = 位移 × 2。
+ *   早先本层用 `html[data-soft]` 直接定义了 16 个配色变量，而该选择器特异性 (0,1,1)
+ *   高于皮肤文件的 `:root` (0,1,0)，把 15 款皮肤的颜色整层压死 —— 实测「15 款唯一
+ *   渲染组合数 = 1、像素级完全相同」，即用户报的「皮肤选择器切了没反应」。
+ *   修复：配色交回皮肤，影/光颜色改引用皮肤自带的 --qm-shadow-light / --qm-shadow-dark。
+ *
+ * 挂载 —— `<html data-soft>` 属性开关。
+ *   **保留该前缀是刻意的**：去掉前缀会把本层的特异性从 (0,2,1) 降到 (0,1,0)，
+ *   于是 layout.css 的 `.tpl-item:hover` (0,2,0) 等规则会反超本层。
+ *   保留后本层可整块摘除 = 删本文件 + 去掉 <html> 上的 data-soft。
+ *
+ * 变量 —— --qm-soft-dark / --qm-raise / --qm-raise-hi / --qm-sink /
+ *         --qm-tap / --qm-tap-hi / --qm-tap-in / --qm-scrim 均定义在 tokens.css 的 :root。
+ *
+ * 三条硬化规则（来自实测教训，不是审美偏好）：
+ *   ① 有底才有影 —— 透明底元素配 box-shadow 会投出一个方形影框。
+ *   ② 父子不能都浮起 —— 父层浅底+柔光、子按钮再浮起，两层影会叠成一圈白晕。
+ *   ③ 小控件的光影必须比大区块短 —— 偏移 2–4px、模糊 5–10px。
+ *
+ * ⚠ 本节部分选择器对应的元素（.icon-btn / .tb-status / .ob-group / .layer.* /
+ *   .sup-qr-img / .tpl-more / .tpl-badge）由 v4–v7 设计提案引入，
+ *   主界面尚未实现，规则暂不命中；实现后自动生效，故一并保留。
+ */
+
+/* ---------- 1. 板块：三栏 / 顶栏 —— 结构线保留，投影换成柔性 ---------- */
+html[data-soft] #sidebar,
+html[data-soft] #center,
+html[data-soft] #inspector {
+  background: var(--qm-surface);
+  border-color: var(--qm-line);
+  box-shadow: var(--qm-raise), inset .5px .5px 1px var(--qm-edge-hi);
+}
+html[data-soft] #topbar {
+  background: var(--qm-surface);
+  border-bottom-color: transparent;
+  box-shadow: 0 5px 10px var(--qm-soft-dark);
+}
+html[data-soft] #statusBar { box-shadow: none; }
+html[data-soft] .opband { border-bottom-color: var(--qm-line-soft); }
+
+/* ---------- 2. 通用按钮：柔性凸起（全站统一语言） ---------- */
+html[data-soft] .btn {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-tap);
+}
+html[data-soft] .btn:hover:not(:disabled) { box-shadow: var(--qm-tap-hi); }
+html[data-soft] .btn:active:not(:disabled) { box-shadow: var(--qm-tap-in); }
+html[data-soft] .btn:disabled {
+  background: transparent; border-color: transparent; box-shadow: none;
+}
+
+/* ---------- 3. 图标钮族：浅底 + 淡边 + 短程柔光 ----------
+   ⚠ `:not(.tpl-more)` 必须要有：左栏模板行右端的 ⋮ 类名正是
+     `.btn.btn-ghost.btn-mini.btn-ic`，不加排除会被本组规则退回「外挂描边方块」。 */
+html[data-soft] .icon-btn,
+html[data-soft] .btn.btn-ghost.btn-ic:not(.tpl-more),
+html[data-soft] .btn.btn-ghost.btn-mini.btn-ic:not(.tpl-more) {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-tap);
+}
+html[data-soft] .icon-btn:hover:not(:disabled),
+html[data-soft] .btn.btn-ghost.btn-ic:not(.tpl-more):hover:not(:disabled),
+html[data-soft] .btn.btn-ghost.btn-mini.btn-ic:not(.tpl-more):hover:not(:disabled) {
+  box-shadow: var(--qm-tap-hi);
+}
+html[data-soft] .icon-btn:active:not(:disabled),
+html[data-soft] .btn.btn-ghost.btn-ic:not(.tpl-more):active:not(:disabled),
+html[data-soft] .btn.btn-ghost.btn-mini.btn-ic:not(.tpl-more):active:not(:disabled) {
+  box-shadow: var(--qm-tap-in);
+}
+html[data-soft] .icon-btn[aria-expanded="true"] {
+  background: var(--qm-accent-soft); color: var(--qm-accent-ink);
+  border-color: transparent; box-shadow: var(--qm-tap-in);
+}
+
+/* ---------- 4. 顶栏状态组：被动槽凹陷，组内可点 chip 反向凸起 ---------- */
+html[data-soft] .tb-status {
+  background: var(--qm-bg);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-sink);
+}
+html[data-soft] .tb-status .chip-btn {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-tap);
+}
+
+/* ---------- 5. 主操作「一键生成」：父层完全退场，主色块一次性塑形 ----------
+   （旧结构 = 父层浅底 + 大柔光 ⇒ 子块再浮起 ⇒ 两层影叠成一圈白晕） */
+html[data-soft] .ob-group.ob-gen {
+  background: transparent; border: 0; border-radius: 0; padding: 0; box-shadow: none;
+}
+html[data-soft] .ob-group.ob-gen .btn-ic { width: 34px; height: 32px; padding: 0; }
+html[data-soft] .btn.btn-primary {
+  /* v14：底色交回 --qm-btn-bg（各皮肤自带主色，已按 WCAG 配 --qm-on-accent），
+     不再写死黄色渐变 —— 否则切任何皮肤它都是黄块，等于「切了没反应」。
+     立体感由「对称柔光 + 顶部内高光」承担，不依赖渐变。 */
+  background: var(--qm-btn-bg);
+  border-color: var(--qm-btn-bg);
+  color: var(--qm-on-accent);
+  border-radius: var(--qm-r-sm);
+  box-shadow: -2px -2px 4px  var(--qm-shadow-light),
+               2px  2px 4px  var(--qm-shadow-dark),
+               inset 0 1px 0 var(--qm-edge-hi);
+}
+html[data-soft] .btn.btn-primary:hover:not(:disabled) {
+  background: var(--qm-btn-bg-hi);
+  border-color: var(--qm-btn-bg-hi);
+  box-shadow: -3px -3px 6px var(--qm-shadow-light),
+               3px  3px 6px var(--qm-shadow-dark),
+               inset 0 1px 0 var(--qm-edge-hi);
+}
+html[data-soft] .btn.btn-primary:active:not(:disabled) {
+  box-shadow: inset  3px  3px 6px var(--qm-shadow-dark),
+              inset -3px -3px 6px var(--qm-shadow-light);
+}
+
+/* ---------- 6. 操作带分组：凹陷胶囊（分段控件语言） ---------- */
+html[data-soft] .ob-group {
+  background: transparent; border: 0;
+  box-shadow: var(--qm-sink);
+}
+html[data-soft] .ob-group.ob-edit { box-shadow: none; }
+html[data-soft] .obband-sep { background: var(--qm-line-soft); }
+
+/* ---------- 7. 左栏模板行（卡片已上移到 .tpl-row） ---------- */
+html[data-soft] .tpl-row {
+  background: var(--qm-surface);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-tap);
+}
+html[data-soft] .tpl-row:hover { box-shadow: var(--qm-tap-hi); }
+html[data-soft] .tpl-row.is-active,
+html[data-soft] .tpl-row.is-checked {
+  background: var(--qm-accent-soft); border-color: var(--qm-accent);
+  box-shadow: var(--qm-tap-hi);
+}
+html[data-soft] .tpl-item { background: transparent; border-color: transparent; box-shadow: none; }
+html[data-soft] .tpl-row .tpl-item:active { box-shadow: var(--qm-tap-in); }
+/* ⋮ 保持 v7.1 的透明圆形 —— 两处都得挡：本组 :not(.tpl-more) 排除不了第 2 节的
+   通用 `.btn` 规则（⋮ 本身是 `.btn.btn-ghost.btn-mini.btn-ic`），故此处再给一条
+   (0,3,1) 的复位，高于 `.btn` 的 (0,2,1)。 */
+html[data-soft] .tpl-row .tpl-more {
+  background: transparent; border-color: transparent; box-shadow: none;
+}
+html[data-soft] .tpl-row .tpl-more:hover:not(:disabled) {
+  background: var(--qm-surface-2); border-color: transparent; box-shadow: var(--qm-tap);
+}
+html[data-soft] .tpl-row .tpl-badge { background: var(--qm-surface-2); border-color: transparent; }
+
+/* ---------- 8. 目录树 ---------- */
+html[data-soft] .tree-row:hover { background: transparent; box-shadow: var(--qm-tap-in); }
+/* 选中态 = 强调底色（识别度）+ 向外凸起（触感）+ 强调描边（钉边界）。
+   实测：纯凸起在 ~24px 真实行高下光影铺不开、几乎看不出选中；纯内陷方向与
+   参考图相反（参考图里所有「激活」都是凸的）。 */
+html[data-soft] .tree-row.is-selected {
+  background: var(--qm-accent-soft); color: var(--qm-accent-ink);
+  border-color: var(--qm-accent); border-radius: 10px;
+  box-shadow: -2px -2px 4px var(--qm-shadow-light), 2px 2px 4px var(--qm-shadow-dark);
+}
+
+/* ---------- 9. 表单 / 文本域 ---------- */
+html[data-soft] input[type="text"],
+html[data-soft] select,
+html[data-soft] .prop-input {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line);
+  box-shadow: var(--qm-tap-in);
+}
+html[data-soft] .prop-note {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line);
+  box-shadow: var(--qm-tap-in);
+}
+html[data-soft] .prop-note:focus { box-shadow: none; border-color: var(--qm-accent); }
+
+/* ---------- 10. 浮层：暗影 + 外圈 ring ----------
+   浮层不套白高光柔光 —— 实测：弱白高光就把弹窗左缘梯度从 84.8 打到 42.9，
+   完整对称双影只剩 20.0（并在遮罩上留 +68.9 外亮晕）。白高光属于「内嵌元素」的
+   语言（按钮/卡片），浮层与背景是**不同材质的分离关系**，靠暗影 + 描边区分。
+   影色引用皮肤 --qm-shadow-dark 并**叠层**以累积浓度（浅色皮肤 α.15 ×3 ≈ .386；
+   深色皮肤 α.62 ×3 ≈ .945）；ring 用皮肤描边色 --qm-line（深色皮肤下为白 α.14）。 */
+html[data-soft] #scrim { background: var(--qm-scrim); }
+html[data-soft] .layer.modal {
+  box-shadow: 0 3px 6px var(--qm-shadow-dark),
+              0 8px 16px var(--qm-shadow-dark),
+              0 18px 36px var(--qm-shadow-dark),
+              0 0 0 1px var(--qm-line);
+}
+html[data-soft] .layer.popover,
+html[data-soft] #ctxMenu {
+  box-shadow: 0 3px 6px var(--qm-shadow-dark),
+              0 10px 20px var(--qm-shadow-dark),
+              0 0 0 1px var(--qm-line);
+}
+html[data-soft] .sup-qr-img { box-shadow: 0 2px 8px var(--qm-soft-dark); }
+html[data-soft] .toast {
+  box-shadow: 0 3px 6px var(--qm-shadow-dark),
+              0 10px 20px var(--qm-shadow-dark),
+              0 0 0 1px var(--qm-line);
+}
+
+/* ---------- 11. 皮肤色块 ----------
+   皮肤色块**刻意不在此处写样式**：verify.py §P0-3 L5 规定组件 CSS 不得出现
+   `.skin-` 前缀的选择器（换肤只靠覆盖变量），故其外观由色块自身与其容器承担。 */

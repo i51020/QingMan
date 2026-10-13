@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neomorphism 新拟物 UI Demo</title>
+  <style>
+    :root {
+      --bg: #ececec;
+      --shadow-dark: #d1d1d1;
+      --shadow-light: #ffffff;
+      --accent: #ffd073;
+      --radius: 20px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui, sans-serif}
+    body{
+      background: var(--bg);
+      padding:40px;
+      display:flex;
+      flex-direction:column;
+      gap:40px;
+    }
+    h1{color:#444;font-size:32px;font-weight:500}
+    .subtitle{color:#666;margin-bottom:20px}
+
+    /* ===== 新拟物基础样式 凸起 ===== */
+    .neo-raise{
+      background: var(--bg);
+      border-radius: var(--radius);
+      box-shadow: 6px 6px 12px var(--shadow-dark),
+                  -6px -6px 12px var(--shadow-light);
+    }
+    /* 按下凹陷样式 */
+    .neo-press{
+      background: var(--bg);
+      border-radius: var(--radius);
+      box-shadow: inset 4px 4px 8px var(--shadow-dark),
+                  inset -4px -4px 8px var(--shadow-light);
+    }
+
+    .container-row{
+      display:flex;
+      gap:32px;
+      flex-wrap:wrap;
+      align-items:flex-start;
+    }
+
+    /* 环形仪表盘卡片 */
+    .card-gauge{
+      width:320px;
+      padding:30px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:24px;
+    }
+    .circle-wrap{
+      position:relative;
+      width:200px;height:200px;
+    }
+    .circle-bg{
+      width:100%;height:100%;border-radius:50%;
+      box-shadow: inset 4px 4px 8px var(--shadow-dark),inset -4px -4px 8px var(--shadow-light);
+      display:grid;place-items:center;
+    }
+    .circle-progress{
+      position:absolute;
+      width:200px;height:200px;border-radius:50%;
+      background: conic-gradient(var(--accent) 28%, transparent 0);
+      mask: radial-gradient(transparent 70%, black 71%);
+      -webkit-mask: radial-gradient(transparent 70%, black 71%);
+    }
+    .circle-text{text-align:center}
+    .circle-text .num{font-size:42px;color:#ffb844}
+    .circle-text .desc{color:#777}
+
+    .tab-group{
+      width:100%;
+      display:flex;gap:4px;padding:8px;border-radius:16px;
+      box-shadow: inset 3px 3px 6px var(--shadow-dark),inset -3px -3px 6px var(--shadow-light);
+    }
+    .tab-item{flex:1;text-align:center;padding:10px 0;border-radius:12px;cursor:pointer}
+    .tab-item.active{background:var(--bg);box-shadow: 2px 2px 5px var(--shadow-dark),-2px -2px 5px var(--shadow-light)}
+
+    /* 控件组：开关，按钮，滑块 */
+    .control-card{
+      padding:24px;
+      width:300px;
+      display:flex;flex-direction:column;gap:24px;
+    }
+    .toggle-row{display:flex;align-items:center;gap:16px}
+    .toggle{
+      width:60px;height:32px;border-radius:999px;
+      box-shadow: inset 3px 3px 6px var(--shadow-dark),inset -3px -3px 6px var(--shadow-light);
+      position:relative;cursor:pointer;
+    }
+    .toggle-dot{
+      position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;
+      background:var(--accent);
+      box-shadow: 2px 2px 4px var(--shadow-dark),-2px -2px 4px var(--shadow-light);
+      transition:0.3s;
+    }
+    .toggle.on .toggle-dot{left:32px}
+
+    .neo-btn{
+      padding:14px 24px;border-radius:14px;border:none;cursor:pointer;
+      background:var(--bg);
+      box-shadow: 4px 4px 8px var(--shadow-dark),-4px -4px 8px var(--shadow-light);
+      transition:0.2s;
+    }
+    .neo-btn:active{
+      box-shadow: inset 3px 3px 6px var(--shadow-dark),inset -3px -3px 6px var(--shadow-light);
+    }
+
+    .slider-wrap{padding:10px;border-radius:14px}
+    .slider{
+      width:100%;height:10px;border-radius:999px;
+      box-shadow: inset 2px 2px 4px var(--shadow-dark),inset -2px -2px 4px var(--shadow-light);
+      position:relative
+    }
+    .slider-dot{
+      width:22px;height:22px;border-radius:50%;background:var(--accent);
+      box-shadow: 2px 2px 4px var(--shadow-dark),-2px -2px 4px var(--shadow-light);
+      position:absolute;top:-6px;left:40%;
+    }
+
+    /* 播放器组件 */
+    .player-card{
+      padding:24px;
+      width:400px;
+      display:flex;flex-direction:column;gap:16px;
+    }
+    .player-buttons{display:flex;gap:12px;justify-content:center}
+
+  </style>
+</head>
+<body>
+  <div>
+    <h1>neomorphism 新拟物主义</h1>
+    <p class="subtitle">让数字界面重新拥有触感 | Soft UI / Tactile minimal ui</p>
+  </div>
+
+  <div class="container-row">
+    <!-- 温度仪表盘卡片 -->
+    <div class="card-gauge neo-raise">
+      <div class="circle-wrap">
+        <div class="circle-progress"></div>
+        <div class="circle-bg">
+          <div class="circle-text">
+            <div class="num">28°</div>
+            <div class="desc">sunny</div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-group">
+        <div class="tab-item active">☀️</div>
+        <div class="tab-item">☁️</div>
+        <div class="tab-item">🌙</div>
+      </div>
+    </div>
+
+    <!-- 开关与按钮控件 -->
+    <div class="control-card neo-raise">
+      <div class="toggle-row">
+        <div class="toggle on">
+          <div class="toggle-dot"></div>
+        </div>
+        <span>开关 Toggle</span>
+      </div>
+      <button class="neo-btn">Neo 凸起按钮</button>
+      <div class="slider-wrap neo-press">
+        <div class="slider">
+          <div class="slider-dot"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 音乐播放器 -->
+    <div class="player-card neo-raise">
+      <div class="player-buttons">
+        <button class="neo-btn">◀◀</button>
+        <button class="neo-btn">▶</button>
+        <button class="neo-btn">▶▶</button>
+      </div>
+      <div class="slider-wrap neo-press">
+        <div class="slider">
+          <div class="slider-dot"></div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;color:#777;font-size:12px">
+        <span>1:45</span>
+        <span>3:40</span>
+      </div>
+    </div>
+  </div>
+
+<script>
+// 简单交互：点击开关切换状态
+const toggleDom = document.querySelector('.toggle')
+toggleDom.onclick = ()=> toggleDom.classList.toggle('on')
+</script>
+</body>
+</html>

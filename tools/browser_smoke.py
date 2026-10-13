@@ -140,21 +140,22 @@ frame('./index.html', function (doc) {
     m.idxCjk = names(doc).filter(function (s) { return CJK.test(s); }).length;
     m.idxSkin = doc && doc.getElementById('skinLink') ? 1 : 0;
     m.tplRows = doc ? doc.querySelectorAll('#templateList li.tpl-row').length : -1;
-    /* C-P3-5 / D-P3-2（V0.0.29）：偏好已写入**非法**皮肤名 ——
+    /* C-P3-5 / D-P3-2（V0.0.29；V0.0.40 迁移）：偏好已写入**非法**皮肤名 ——
        ① skinLink.href 不得指向该非法名，须回落出厂默认（否则装载失败 → 落裸色）；
-       ② 下拉箭头伪元素的 background-color 须等于 --qm-text-dim 的计算实色
-          （旧版把箭头色烘死在 SVG 里，恒为 #6d7278 = rgb(109, 114, 120)，不随皮肤）。 */
+       ② 顶栏配色随皮肤变量：下拉（.topbar-select）已退场，改钉图标按钮 #btnLang 的 color
+          —— .icon-btn 的 color 取自 --qm-text-dim，须等于探针实色，且非旧版烘死的
+          #6d7278 = rgb(109, 114, 120)（图标是 currentColor mask，故 color 即图标色）。 */
     var skinLink = doc ? doc.getElementById('skinLink') : null;
     m.badSkinHref = skinLink ? (skinLink.getAttribute('href') || '') : '';
     var win = doc ? doc.defaultView : null;
-    var wrap = doc ? doc.querySelector('.topbar-select') : null;
-    if (win && wrap) {
+    var iconBtn = doc ? doc.getElementById('btnLang') : null;
+    if (win && iconBtn) {
       var probeEl = doc.createElement('i');
       probeEl.style.color = 'var(--qm-text-dim)';
       doc.body.appendChild(probeEl);
       m.dimColor = win.getComputedStyle(probeEl).color;
       probeEl.parentNode.removeChild(probeEl);
-      m.arrowColor = win.getComputedStyle(wrap, '::after').backgroundColor;
+      m.arrowColor = win.getComputedStyle(iconBtn).color;
     }
     /* C-P3-1（V0.0.29）：全量重建不得把目录树滚动位置弹回顶部。
        默认示例较短、正常高度下不滚动，故用内联 max-height 把滚动容器压到 60px 逼出滚动；
@@ -171,25 +172,46 @@ frame('./index.html', function (doc) {
       m.scrollAfter = tw.scrollTop;
       m.reRendered = (doc.querySelector('.tree-row') !== firstRow) ? 1 : 0;
     }
-    /* C-P2-1 回归位：皮肤名是取词键（skin.N）→ 换语言须重填 <option>。
-       走真实用户路径：页面自己的语言下拉 change → setLocale → qmlocalechange → skin-picker.fill()。 */
-    var lsel = doc ? doc.getElementById('langSelect') : null;
-    var ssel = doc ? doc.getElementById('skinSelect') : null;
-    m.hasSkinSel = ssel ? 1 : 0;
-    if (lsel && ssel && ssel.options.length) {
-      m.skinEn = ssel.options[0].textContent;
-      lsel.value = 'zh-CN';
-      lsel.dispatchEvent(new Event('change'));
-      m.skinZh = ssel.options[0].textContent;
-      lsel.value = 'en-US';   /* 复位，避免影响阶段 2 的初始语言 */
-      lsel.dispatchEvent(new Event('change'));
+    /* C-P2-1 回归位：皮肤名是取词键（skin.N）→ 换语言须重建网格卡片。
+       V0.0.40：下拉退场，走「点 #popLang 的 menu-item → setLocale → qmlocalechange →
+       skin-picker.build()」这条**真实用户路径**（menu-item 的 click 监听器与手动点击同源）。 */
+    var langMenu = doc ? doc.getElementById('popLang') : null;
+    var skinGrid = doc ? doc.getElementById('skinGrid') : null;
+    m.hasSkinGrid = skinGrid ? 1 : 0;
+    var firstSkinName = function () {
+      var nm = skinGrid ? skinGrid.querySelector('.sw-card .nm') : null;
+      return nm ? nm.textContent : '';
+    };
+    /* V0.0.40 · 手册 10.2 节 #13：目标位置「选择…」按钮 —— 只采集「在位」与「取词文案」，
+       不伪造点击（真点会弹原生目录框，自动化环境不可控）。 */
+    var pickBtn = doc ? doc.getElementById('btnPickTarget') : null;
+    var pickBtnText = function () { return pickBtn ? (pickBtn.textContent || '').trim() : ''; };
+    m.pickTargetBtn = pickBtn ? 1 : 0;
+    var pickLocale = function (value) {
+      var items = langMenu ? langMenu.querySelectorAll('.menu-item') : [];
+      for (var li = 0; li < items.length; li += 1) {
+        if (items[li].getAttribute('data-locale') === value) {
+          items[li].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          return true;
+        }
+      }
+      return false;
+    };
+    if (langMenu && skinGrid && skinGrid.children.length) {
+      m.skinEn = firstSkinName();
+      m.pickTargetEn = pickBtnText();
+      pickLocale('zh-CN');
+      m.skinZh = firstSkinName();
+      m.pickTargetZh = pickBtnText();
+      pickLocale('en-US');   /* 复位，避免影响阶段 2 的初始语言 */
     }
-    /* V0.0.39 / §十三.4：swatch 在页面上的**唯一可见效果**就是下拉的**排列顺序**
+    /* V0.0.39 / 十三.4：swatch 在页面上的**唯一可见效果**就是网格卡片的**排列顺序**
        （skin-picker 按 swatch[0] 背景明度亮 → 暗排序）；把它整条抓出来，
        与 Python 侧按同一公式复算的期望序列逐项比对。 */
-    if (ssel) {
+    if (skinGrid) {
+      var cards = skinGrid.querySelectorAll('.sw-card');
       var order = [];
-      for (var oi = 0; oi < ssel.options.length; oi += 1) { order.push(ssel.options[oi].value); }
+      for (var oi = 0; oi < cards.length; oi += 1) { order.push(cards[oi].getAttribute('data-file')); }
       m.skinOrder = order.join(',');
       m.skinCount = order.length;
     }
@@ -448,7 +470,7 @@ def as_int(value, default: int = -1) -> int:
 
 
 def expected_skin_order() -> str:
-    """按 `skins.js` 的 `swatch[0]`（背景色）明度**亮 → 暗**复算期望的下拉顺序。
+    """按 `skins.js` 的 `swatch[0]`（背景色）明度**亮 → 暗**复算期望的网格顺序。
 
     与 `src/web/js/ui/skin-picker.js` 的 `luma()` 用**同一公式**（WCAG 相对亮度）。
     此处**独立复算**，不调用页面函数 —— 调页面函数等于「拿页面证明它自己」
@@ -562,11 +584,11 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
     skin_zh = metrics.get("skinZh", "")
     skin_i18n_ok = bool(skin_en and skin_zh and skin_en != skin_zh
                         and re.search(r"[\u4e00-\u9fff]", skin_zh or ""))
-    check(skin_i18n_ok, "主界面·皮肤下拉随语言刷新",
+    check(skin_i18n_ok, "主界面·皮肤网格随语言刷新",
           f"en={skin_en!r} → zh={skin_zh!r}"
-          + ("" if skin_i18n_ok else "（C-P2-1 回归：换语言后皮肤名未重填）"))
+          + ("" if skin_i18n_ok else "（C-P2-1 回归：换语言后皮肤名未重建）"))
 
-    # V0.0.39 / §十三.4：swatch 在页面上的**唯一可见效果** = 下拉的排列顺序（按 swatch[0]
+    # V0.0.39 / 十三.4：swatch 在页面上的**唯一可见效果** = 网格卡片的排列顺序（按 swatch[0]
     # 背景明度亮 → 暗）。期望序列由 Python 侧按同一公式独立复算（见 expected_skin_order）。
     # 它同时锁住三件事：15 款全在册 · swatch 数据正确 · 排序逻辑未被改坏。
     skin_order = metrics.get("skinOrder", "")
@@ -577,7 +599,18 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
         order_note = f"{len(parts)} 款 · 首 {parts[0]} · 末 {parts[-1]}"
     else:
         order_note = f"实得={skin_order or '(空)'} 期望={exp_order or '(空)'}"
-    check(order_ok, "主界面·皮肤下拉按背景明度排序（V0.0.39）", order_note)
+    check(order_ok, "主界面·皮肤网格按背景明度排序（V0.0.39）", order_note)
+
+    # V0.0.40 · 手册 10.2 节 #13：目标位置「选择…」按钮。不伪造点击（真点会弹原生目录框，
+    # 自动化环境不可控），改证「按钮在位 + 文案随语言刷新」—— 后者即证明该按钮走 i18n
+    # 取词（键闭包成立）且 applyStatic 覆盖到它（data-i18n / data-i18n-title 均被替换）。
+    pick_en = metrics.get("pickTargetEn", "")
+    pick_zh = metrics.get("pickTargetZh", "")
+    pick_ok = (as_int(metrics.get("pickTargetBtn")) == 1 and bool(pick_en) and bool(pick_zh)
+               and pick_en != pick_zh)
+    check(pick_ok, "主界面·目标位置「选择…」按钮就位且随语言刷新（V0.0.40）",
+          f"en={pick_en!r} → zh={pick_zh!r}"
+          + ("" if pick_ok else "（按钮缺失或未走取词）"))
 
     # C-P3-5（V0.0.29）：非法皮肤偏好须回落出厂默认 —— 若被直接采用，会去加载不存在的
     # `./css/skins/not-a-real-skin.css`（装载失败 → 落 tokens.css 裸色，与选择器显示不符）。
@@ -587,13 +620,14 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
           f"href={bad_href or '(空)'}"
           + ("" if fallback_ok else "（C-P3-5 回归：非法皮肤名被直接采用）"))
 
-    # D-P3-2（V0.0.29）：下拉箭头颜色须取自 --qm-text-dim（随皮肤），而非旧版烘死的 #6d7278。
+    # D-P3-2（V0.0.29；V0.0.40 迁移）：顶栏配色须取自 --qm-text-dim（随皮肤），而非旧版烘死的
+    # #6d7278 = rgb(109, 114, 120)。下拉已退场，改钉图标按钮 #btnLang 的 color（currentColor mask）。
     arrow = metrics.get("arrowColor", "")
     dim = metrics.get("dimColor", "")
     arrow_ok = bool(arrow) and bool(dim) and arrow == dim and arrow != "rgb(109, 114, 120)"
-    check(arrow_ok, "主界面·下拉箭头随 --qm-text-dim（D-P3-2）",
-          f"箭头 {arrow or '(空)'} vs --qm-text-dim {dim or '(空)'}"
-          + ("" if arrow_ok else "（D-P3-2 回归：箭头色未随皮肤变量）"))
+    check(arrow_ok, "主界面·顶栏图标随 --qm-text-dim（D-P3-2）",
+          f"图标 {arrow or '(空)'} vs --qm-text-dim {dim or '(空)'}"
+          + ("" if arrow_ok else "（D-P3-2 回归：图标色未随皮肤变量）"))
 
     # C-P3-1（V0.0.29）：目录树全量重建后须保持滚动位置（否则每次编辑都跳回顶部）。
     # 须同时满足「确实重建了」（reRendered=1），否则重建未发生时的相等是假通过。

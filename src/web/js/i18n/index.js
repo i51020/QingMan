@@ -214,7 +214,7 @@ export function t(key, vars) {
     (Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : whole));
 }
 
-/** 静态文案填充：`data-i18n` 填文本，另三个变体填对应属性。 */
+/** 静态文案填充：`data-i18n` 填文本，另四个变体填对应属性。 */
 export function applyStatic(root) {
   const scope = root || (typeof document !== 'undefined' ? document : null);
   if (!scope) return;
@@ -225,6 +225,10 @@ export function applyStatic(root) {
     'data-i18n-title': 'title',
     'data-i18n-placeholder': 'placeholder',
     'data-i18n-aria-label': 'aria-label',
+    // V0.0.40：`alt` 是 <img> 的无障碍文本，不能省（支持弹窗的赞赏码）。
+    // 注意：新增变体时须同步 `tools/verify.py` 7b-2 的采集正则，否则该键
+    // 不会被「取词键闭包」校验覆盖，漏翻会静默溜过。
+    'data-i18n-alt': 'alt',
   };
   for (const attr of Object.keys(ATTRS)) {
     for (const node of scope.querySelectorAll('[' + attr + ']')) {

@@ -212,3 +212,58 @@ input[type="text"]:focus { outline: 2px solid var(--qm-accent-soft); border-colo
 }
 .brand-mark { font-size: 16px; font-weight: 700; letter-spacing: 2px; color: var(--qm-accent-ink); }
 .brand-sub { font-size: 12px; color: var(--qm-text-dim); font-family: var(--qm-mono); }
+
+/* ===================== V0.0.40 · 设计提案层（图标 / 图标按钮） =====================
+ * 来源：设计稿 prototype.html 的提案样式块第 1 / 2 节（顶栏三区分组）。
+ * 纪律不变（§P0-3 L4）：色值一律 var(--qm-*)，本节无任何裸色值。
+ * 图标全部为 **currentColor SVG mask**，禁用第三方图标字体（版权合规）；
+ * 每个图标只声明 `--m`（局部变量，非 --qm-*），由 .ic 统一取用。
+ */
+
+/* ---------- 图标系统 ---------- */
+.ic {
+  display: inline-block; width: 18px; height: 18px; background-color: currentColor;
+  -webkit-mask: var(--m) center / 18px 18px no-repeat;
+          mask: var(--m) center / 18px 18px no-repeat;
+}
+.ic-sm { width: 14px; height: 14px; -webkit-mask-size: 14px 14px; mask-size: 14px 14px; }
+.ic-globe { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M3 12h18M12 3c2.4 2.5 3.7 5.6 3.7 9S14.4 18.5 12 21c-2.4-2.5-3.7-5.6-3.7-9S9.6 5.5 12 3z'/%3E%3C/svg%3E"); }
+.ic-heart { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20.2s-7.2-4.6-7.2-9.8A4.6 4.6 0 0 1 12 7.2a4.6 4.6 0 0 1 7.2 3.2c0 5.2-7.2 9.8-7.2 9.8z'/%3E%3C/svg%3E"); }
+.ic-help { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M9.6 9.4a2.5 2.5 0 0 1 4.6 1.4c0 1.7-2.2 2-2.2 3.4'/%3E%3Ccircle cx='12' cy='17.4' r='1'/%3E%3C/svg%3E"); }
+.ic-gear { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='3.2'/%3E%3Cpath d='M12 2.8v2.4M12 18.8v2.4M4.5 7.5l2.1 1.2M17.4 15.3l2.1 1.2M4.5 16.5l2.1-1.2M17.4 8.7l2.1-1.2'/%3E%3C/svg%3E"); }
+.ic-close { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round'%3E%3Cpath d='M6.5 6.5l11 11M17.5 6.5l-11 11'/%3E%3C/svg%3E"); }
+.ic-check { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+/* 「更多 ⋮」：窄窗顶栏折叠入口（非皮肤按钮，勿与 .sw-dots 混用） */
+.ic-more { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Ccircle cx='12' cy='5.4' r='1.7'/%3E%3Ccircle cx='12' cy='12' r='1.7'/%3E%3Ccircle cx='12' cy='18.6' r='1.7'/%3E%3C/svg%3E"); }
+
+/* ---------- 图标按钮：32×32，与 .btn 同高（顶栏成一条整齐基线） ---------- */
+.icon-btn {
+  appearance: none; cursor: pointer; background: transparent; color: var(--qm-text-dim);
+  width: 32px; height: 32px; border-radius: var(--qm-r-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid transparent;
+  /* 必须重置 UA 对 button 的默认 padding(1px 6px)：否则内容盒只剩 18px，
+     19px 图标会被 flex 收缩回 18px，声明尺寸静默失效（设计稿实测缺陷）。 */
+  padding: 0;
+}
+.icon-btn:hover { color: var(--qm-accent-ink); background: var(--qm-surface-2); border-color: var(--qm-line-soft); }
+.icon-btn:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: 1px; }
+.icon-btn[aria-expanded="true"] { color: var(--qm-accent-ink); background: var(--qm-accent-soft); border-color: var(--qm-accent); }
+/* 顶栏图标比正文图标大半档（19px），flex:0 0 auto 保证「声明 19px = 实际 19px」 */
+.icon-btn .ic { width: 19px; height: 19px; flex: 0 0 auto; -webkit-mask-size: 19px 19px; mask-size: 19px 19px; }
+
+/* ---------- 状态按钮：可点的服务状态 chip（实线边框 + hover 抬升，32px 与按钮齐平） ---------- */
+.chip-btn {
+  appearance: none; font: inherit; font-size: 12px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 32px; padding: 0 11px; border-radius: 999px;
+  border: 1px solid var(--qm-line); background: var(--qm-surface); color: var(--qm-text-dim);
+}
+.chip-btn:hover { color: var(--qm-accent-ink); border-color: var(--qm-accent); }
+.chip-btn:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: 1px; }
+.chip-btn .caret { font-size: 9px; }
+/* 状态点：就绪=强调色、离线=危险色（离线态由 JS 加 .is-offline） */
+.chip-btn .dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; background: var(--qm-accent); }
+.chip-btn.is-offline { color: var(--qm-danger); border-color: var(--qm-danger); }
+.chip-btn.is-offline .dot { background: var(--qm-danger); }
+

@@ -7,6 +7,48 @@
 
 ---
 
+## V0.0.40 — 2026-10-14
+
+**主题**：**UI 定版**（第 1 步 A+B：顶栏图标化 + 应用内弹层；第 2 步 E：目标位置选路径）—— 顶栏由「`<select>` + 文字按钮 + 只读 chip + 新标签开页」改为「**图标按钮 + 浮层**／**可点状态按钮** + **应用内弹窗**」，窄窗低频入口折入「更多 ⋮」；生成栏「目标位置」增「选择…」按钮（复用原生目录选择器）。**升 patch `V0.0.39` → `V0.0.40`**。**无新增错误码**。**分两次提交**：`@r1`（第 1 步 A+B）／`@r2`（第 2 步 E）—— 同一版本内修订，符合「不升版也要留回退点」。
+
+> 依据：用户「**UI 这版先定下来，更新文档然后写对应功能的代码**」+ 四项裁决（落地范围＝**按建议分步，先做第 1 步** · 体积上限＝**放宽到 512K** · 版本收口＝**升 V0.0.40，两步合并提交** · 文档范围＝**全面更新**）。定版基准 → `docs/UI定版说明_20261014.md`。
+
+| # | 文件 | 项 | 处置 |
+|---|---|---|---|
+| 1 | `src/web/index.html` | **顶栏重构** | `label.topbar-select` + `<select id="langSelect"/#skinSelect>` → 状态区（`#chipSave` + `button.chip-btn#chipBackend`）+ 操作区（`#btnLang`/`#btnSkin`/`#btnSupport`/`#btnHelp`/`#btnMore`）；`#app` **之外**追加 overlay 层（`#scrim` + 3 modal + 3 popover） |
+| 2 | `src/web/css/base.css` | **图标系统** | `.ic` + 7 枚 `currentColor` SVG mask 图标（`ic-globe/heart/help/gear/close/check/more`）；`.icon-btn`（32×32，`padding:0` 防 UA 收缩）；`.chip-btn`（可点服务状态，`.is-offline` 双态） |
+| 3 | `src/web/css/layout.css` | **弹层 / 浮层** | `#scrim`、`.layer`（`modal`/`popover`，含 `[hidden]` 真 `display:none`）、`.lay-*`、`.menu-item`、`.help-2col`/`.help-toc`/`.help-doc`、`.sup-qr`、`.sw-grid`/`.sw-card`（三色带 44:32:24）、窄窗顶栏；`.ctx-menu` z 1000→**1100**、`.toast-host` 50→**1500** |
+| 4 | `src/web/js/ui/layer.js` | **新建** | 弹层基元：开合 / 锚定定位 / 焦点陷阱 / `#app` inert / 三条关闭路径（× · Esc · 遮罩）**统一接线** |
+| 5 | `src/web/js/ui/help-doc.js` | **新建** | 帮助弹窗正文与目录（与帮助页**同一份** `helpSections`，两处版式不同、内容不可能漂移） |
+| 6 | `src/web/js/ui/lang-picker.js` | **新增** | `createLangMenu()`（浮层版 `menu-item[role=menuitemradio]`）；与 `<select>` 版**同源同档**（`SUPPORTED_LOCALES`） |
+| 7 | `src/web/js/ui/skin-picker.js` | **重写** | 下拉 → `#skinGrid` 三列 `.sw-card` 色块网格（卡片＝配色缩影）；**排序仍是 `browser_smoke` 的数据契约**（按 `swatch[0]` 明度亮 → 暗） |
+| 8 | `src/web/js/main.js` | **接线** | `initTopbar()` 重写（弹层管理 + 全部触发器 + `target` 回指）；`setServiceState` 双态（顶栏 / 更多层 / 帮助弹窗**三落点**）；新增 `testService()`（服务弹窗「测试连接」复用健康检查） |
+| 9 | `src/web/js/i18n/zh-CN.js` · `en-US.js` | **取词** | 新增 `topbar.more`/`topbar.backendTip`/`popMore.*`/`svc.*`/`dlg.close`/`support.note`；改 `topbar.helpTip`/`supportTip`；`help.versionFallback` → `V0.0.40`（**各 349 键**，中英对齐） |
+| 10 | `tools/verify.py` | **守卫适配** | `SRC_TOTAL_LIMIT` 400K → **512K**；`REQUIRED_IDS` 更替（删 `langSelect`/`skinSelect`/`qmTip`，增弹层与图标 id）；7b-2 采集正则加 `-alt`；7m 判据 `SERVICE_CHIP_CLASS` → `chipBackend`/`is-offline`；7o 判据 `./support.html` → `dlgSupport` |
+| 11 | `tools/browser_smoke.py` | **探针迁移** | 皮肤抓取 `#skinSelect options` → `#skinGrid .sw-card[data-file]`；「下拉箭头随 `--qm-text-dim`」→「**顶栏图标**随 `--qm-text-dim`」（落点 `#btnLang` 的 `color`）；**期望序列独立复算不变** |
+| 12 | `tests/test_browser_smoke.py` | **单测同步** | 5 处断言标题 + 探针字段名（`hasSkinSel` → `hasSkinGrid`）同步。**反向验证**：改前 **`FAILED (failures=4)`** → 改后 **`Ran 363 tests · OK`**（《项目手册》§十二 #17 同型） |
+| 13 | `docs/UI定版说明_20261014.md` | **新建** | UI 定版基准：定版纪律 / 本轮落地（A+B）/ 未落地差集 / 守卫适配记录 / 验证结果 |
+| 14 | `docs/项目手册.md` | **同步** | 头部版本行 → V0.0.40；§9.1 顶栏描述；§9.2 #2/#3/#4/#5 状态；§10.2 #6/#7/#8/#9 状态；文档索引（新增《UI 定版说明》）；§P2 体积预算 400K → 512K；i18n 键数 302 → 349 |
+
+**验证（四件套 · 两步合计）**：`verify .` **94 / 0** · `unittest` **365 OK**（首轮 363 + 第 2 步 2 项新回归） · `tools/smoke.py` **34 / 0** · `tools/browser_smoke.py` **22 / 0**（第 2 步新增「目标位置『选择…』按钮就位且随语言刷新」**实机** PASS：`en='Choose...'` → `zh='选择…'`）。
+
+### 第 2 步（@r2）· E 组「目标位置选路径」
+
+> 路线：**纯前端复用**（用户裁决）—— 后端零改动，复用 V0.0.38 的 `POST /api/templates-dir/pick`。
+
+| # | 文件 | 项 | 处置 |
+|---|---|---|---|
+| 15 | `src/web/index.html` | **DOM** | `#inTarget` 外裹 `.field-inline`，新增 `button.btn.btn-ghost.btn-mini#btnPickTarget`（`data-i18n` + `data-i18n-title` 双属性） |
+| 16 | `src/web/css/layout.css` | **样式** | 新增 `.field-inline`（输入框与按钮同行；输入框 `flex:1 1 auto; min-width:0`）—— 无裸色值 / 不感知皮肤（过 7c · 7d） |
+| 17 | `src/web/js/main.js` | **接线** | 新增 `chooseTargetDir()`（复用 `api.pickTemplatesDir()`；降级同「选择模板目录」走 `window.prompt`）+ `applyTargetDir()`；接线处 `preventDefault()` 拦 label 的点击转发 |
+| 18 | `src/web/js/i18n/*.js` | **取词** | 新增 `gen.targetPick` / `gen.targetPickTip` / `gen.targetPastePrompt`（中英各 3 键，中英对齐） |
+| 19 | `tools/verify.py` | **守卫** | `REQUIRED_IDS` 增 `btnPickTarget`（关键 id 50 → **51**；校验项数仍 94） |
+| 20 | `tools/browser_smoke.py` · `tests/test_browser_smoke.py` | **探针 + 单测** | 新断言「目标位置『选择…』按钮就位且随语言刷新」→ **22 项**；单测 NORMAL 增 3 字段 + 计数 `18→19` / `14→15` + 2 项新回归 |
+
+**语义边界（实测）**：后端 `_ask_directory()` 为 `filedialog.askdirectory(mustexist=True)` 且不接受 `initialdir` —— 点选**只能选已存在目录**、打开时**不定位**到 `#inTarget` 现值。属复用路线的既定代价，已记入《项目手册》§9.2-9。
+
+---
+
 ## V0.0.39 — 2026-10-12
 
 **主题**：**皮肤体系守卫批**（《项目手册》§十三.3 对比度缺口 + §十三.4 swatch 无绑定）—— 给 15 款皮肤 + `tokens.css` 的**浅/深两套基线**建 **WCAG AA 对比度机器守卫**（17 基座 × 16 组配对），并把「swatch 与 CSS 脱钩」由**静默漂移**变成**立刻报错**。修守卫过程中实测出**三组真实不达标配对**（`危险·软底` **15/15 全部不达标** · `主按钮字·悬停` 3/15 · `描边` 非文本 3:1 6/15），**一并修到达标**。**升 patch `V0.0.38` → `V0.0.39`**。**无新增错误码**。

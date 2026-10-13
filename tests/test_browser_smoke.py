@@ -6,10 +6,11 @@
 **不验证判定逻辑本身是否正确**。本文件把「一次性反向验证」变成**常态回归网**。
 
 重点（复刻上一轮反向验证的逻辑，但固化为单测）：
-  * 喂「正常指标」→ 17 项全 PASS（V0.0.38 起含 6E 的绑定 UI / 右键菜单 / 轮询实证）；
+  * 喂「正常指标」→ 19 项全 PASS（V0.0.38 起含 6E 的绑定 UI / 右键菜单 / 轮询实证；
+    V0.0.40 起含目标位置「选择…」按钮的就位与取词刷新）；
   * 喂「P1-1 回归指标（分节 7 → 14 → 21）」→ **恰好**「帮助页·分节渲染幂等」一项 FAIL；
   * 喂「P1-2 回归指标（示例含中文名 6 个）」→ **恰好**「主界面·默认示例随语言」一项 FAIL；
-  * 喂「C-P3-5 回归指标（非法皮肤名被直接采用）」/「D-P3-2 回归指标（箭头色仍是旧灰）」→ 各恰好一项 FAIL；
+  * 喂「C-P3-5 回归指标（非法皮肤名被直接采用）」/「D-P3-2 回归指标（顶栏图标色仍是旧灰）」→ 各恰好一项 FAIL；
   * V0.0.32 三项（C-P3-2 子孙落点误收 / C-P3-3 划过子元素误摘 / C-P3-4 提示条无上限）→ 各恰好一项 FAIL。
 """
 
@@ -55,11 +56,14 @@ NORMAL = {
     "tplDirRow": "1", "tplDirPath": "D:/x/templates", "tplDirBtns": "3",
     "tplMenuN": "5", "tplMenu": "Load/Rename/Duplicate/Export/Delete",
     "pollBefore": "1", "pollAfter": "2",
-    # V0.0.39 新增：皮肤 swatch 绑定（下拉按 swatch[0] 背景明度亮 → 暗排序）
+    # V0.0.39 新增：皮肤 swatch 绑定（网格按 swatch[0] 背景明度亮 → 暗排序）
     #   期望序列由 tools/browser_smoke.py 的 expected_skin_order() 独立复算，
     #   与 src/web/js/ui/skin-picker.js 的 luma() 同公式（改皮肤背景色须同步此处基线）。
     "skinOrder": bs.expected_skin_order(),
     "skinCount": "15",
+    # V0.0.40 新增：目标位置「选择…」按钮（手册 10.2 节 #13）—— 证「在位 + 文案随语言刷新」。
+    #   文案取自 i18n 的 gen.targetPick（en 'Choose...' / zh '选择…'）；改文案须同步此处基线。
+    "pickTargetBtn": "1", "pickTargetEn": "Choose...", "pickTargetZh": "选择…",
 }
 
 FAIL = "帮助页·分节渲染幂等"
@@ -69,6 +73,8 @@ FAIL_DL = "主界面·拖拽高亮不因划过子元素闪烁（C-P3-3）"
 FAIL_TOAST = "主界面·提示条数量上限（C-P3-4）"
 # V0.0.37（6D）：模板判定项由「模板库已接入（≥1）」收紧为「内置模板仅 P0（恰好 1）」
 TPL_CHECK = "主界面·内置模板仅 P0（V0.0.37）"
+# V0.0.40（手册 10.2 节 #13）：目标位置「选择…」按钮的判定名
+FAIL_PICK = "主界面·目标位置「选择…」按钮就位且随语言刷新（V0.0.40）"
 
 
 def run_metrics(metrics: dict, expected_version: str = VERSION,
@@ -184,7 +190,7 @@ class VerifyMetricsTests(unittest.TestCase):
     def test_normal_all_pass(self):
         results = run_metrics(NORMAL)
         self.assertEqual(failed_names(results), [], "正常指标不应有任何失败项")
-        self.assertEqual(len(results), 18, "verify_metrics 应产生 18 项判定（14 + 6E 三项 + V0.0.39 一项）")
+        self.assertEqual(len(results), 19, "verify_metrics 应产生 19 项判定（14 + 6E 三项 + V0.0.39 一项 + V0.0.40 一项）")
 
     def test_p1_1_regression_fails_exactly_section_idempotence(self):
         """P1-1 回归：帮助页切语言累积分节（7 → 14 → 21）→ 恰好那项 FAIL。"""
@@ -218,7 +224,7 @@ class VerifyMetricsTests(unittest.TestCase):
 
     def test_templates_check_skipped_when_not_expected(self):
         results = run_metrics(NORMAL, expect_templates=False)
-        self.assertEqual(len(results), 14, "不期望模板时不应产生模板判定项")
+        self.assertEqual(len(results), 15, "不期望模板时不应产生模板判定项")
         self.assertNotIn(TPL_CHECK, [n for _o, n, _x in results])
 
     def test_6d_business_templates_in_builtin_fails_exactly(self):
@@ -231,10 +237,10 @@ class VerifyMetricsTests(unittest.TestCase):
         self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_LANG])
 
     def test_c1_skin_picker_i18n_regression_fails_exactly(self):
-        """C-P2-1 回归：换语言后皮肤下拉未重填（文案前后一致）→ 恰好那项 FAIL。"""
+        """C-P2-1 回归：换语言后皮肤网格未重建（文案前后一致）→ 恰好那项 FAIL。"""
         metrics = dict(NORMAL, skinZh="Paper")
         self.assertEqual(failed_names(run_metrics(metrics)),
-                         ["主界面·皮肤下拉随语言刷新"])
+                         ["主界面·皮肤网格随语言刷新"])
 
     def test_c3_5_illegal_skin_adopted_fails_exactly(self):
         """C-P3-5 回归：非法皮肤名被直接采用（href 指向不存在的 .css）→ 恰好那项 FAIL。"""
@@ -243,10 +249,13 @@ class VerifyMetricsTests(unittest.TestCase):
                          ["主界面·非法皮肤回落出厂默认（C-P3-5）"])
 
     def test_d3_2_arrow_stale_color_fails_exactly(self):
-        """D-P3-2 回归：箭头色未随皮肤变量（仍是旧版烘死的 #6d7278）→ 恰好那项 FAIL。"""
+        """D-P3-2 回归：顶栏图标色未随皮肤变量（仍是旧版烘死的 #6d7278）→ 恰好那项 FAIL。
+
+        V0.0.40 起落点由「下拉箭头伪元素」迁移为「图标按钮 #btnLang 的 color」。
+        """
         metrics = dict(NORMAL, arrowColor="rgb(109, 114, 120)")
         self.assertEqual(failed_names(run_metrics(metrics)),
-                         ["主界面·下拉箭头随 --qm-text-dim（D-P3-2）"])
+                         ["主界面·顶栏图标随 --qm-text-dim（D-P3-2）"])
 
     def test_c3_1_scroll_reset_fails_exactly(self):
         """C-P3-1 回归：重建后滚动位置回顶（scrollTop 40 → 0）→ 恰好那项 FAIL。"""
@@ -255,22 +264,23 @@ class VerifyMetricsTests(unittest.TestCase):
                          ["主界面·重建后滚动位置保持（C-P3-1）"])
 
     def test_skin_order_regression_fails_exactly(self):
-        """V0.0.39 回归：下拉顺序与按 swatch[0] 明度复算的期望序列不符 → 恰好那项 FAIL。
+        """V0.0.39 回归：网格顺序与按 swatch[0] 明度复算的期望序列不符 → 恰好那项 FAIL。
 
         这是 §十三.4「swatch 与 CSS 无绑定」的**页面层**回归位：swatch 在页面上唯一
-        可见的效果就是排序，把顺序锁死即等于把 swatch 数据锁死。
+        可见的效果就是排序，把顺序锁死即等于把 swatch 数据锁死。V0.0.40 起落点由
+        下拉 options 迁移为 `#skinGrid` 的 `.sw-card[data-file]` 顺序。
         """
         wrong = ",".join(reversed(NORMAL["skinOrder"].split(",")))
         metrics = dict(NORMAL, skinOrder=wrong)
         self.assertEqual(failed_names(run_metrics(metrics)),
-                         ["主界面·皮肤下拉按背景明度排序（V0.0.39）"])
+                         ["主界面·皮肤网格按背景明度排序（V0.0.39）"])
 
     def test_skin_count_regression_fails_exactly(self):
         """V0.0.39 回归：皮肤少注册一款（如漏掉 swatch 字段被过滤）→ 恰好那项 FAIL。"""
         parts = NORMAL["skinOrder"].split(",")
         metrics = dict(NORMAL, skinOrder=",".join(parts[:-1]), skinCount=str(len(parts) - 1))
         self.assertEqual(failed_names(run_metrics(metrics)),
-                         ["主界面·皮肤下拉按背景明度排序（V0.0.39）"])
+                         ["主界面·皮肤网格按背景明度排序（V0.0.39）"])
 
     def test_c3_1_no_rebuild_is_not_vacuous_pass(self):
         """C-P3-1：未真正重建（reRendered=0）时，即使 scrollTop 相等也不得判定通过。"""
@@ -312,6 +322,16 @@ class VerifyMetricsTests(unittest.TestCase):
         """C-P3-4：上限须从 `toast.js` 读（单一事实源），而非硬编码在判定里。"""
         self.assertGreater(bs.toast_cap(), 0)
         self.assertEqual(NORMAL["toastN"], str(bs.toast_cap()))
+
+    def test_v0040_target_pick_button_missing_fails_exactly(self):
+        """V0.0.40 回归：目标位置「选择…」按钮缺失（如误删 `#btnPickTarget`）→ 恰好那项 FAIL。"""
+        metrics = dict(NORMAL, pickTargetBtn="0")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_PICK])
+
+    def test_v0040_target_pick_text_frozen_fails_exactly(self):
+        """V0.0.40 回归：按钮文案未随语言刷新 → 恰好那项 FAIL（说明未走 i18n 取词）。"""
+        metrics = dict(NORMAL, pickTargetZh="Choose...")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_PICK])
 
 
 class SandboxBaseTests(unittest.TestCase):

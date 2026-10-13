@@ -24,10 +24,28 @@ export const dict = {
   'topbar.backend.ready': 'Service ready',
   'topbar.backend.offline': 'Service unavailable',
   'topbar.help': 'Help',
-  'topbar.helpTip': 'Open usage guide in a new tab',
+  'topbar.helpTip': 'View the usage guide',
   'topbar.support': 'Support',
   'topbar.supportTip': 'Sponsor & support',
+  'topbar.more': 'More',
+  'topbar.backendTip': 'View service status & settings',
   'topbar.logoTip': 'Click to create a desktop shortcut',
+
+  /* ---------- Top-bar popovers & dialogs (V0.0.40 · manual 10.2 #6 / #7 / #9) ---------- */
+  'dlg.close': 'Close',
+  'popMore.service': 'Service settings',
+  'popMore.support': 'Support QingMan',
+  'popMore.help': 'Usage guide',
+
+  'svc.title': 'Service settings',
+  'svc.intro': 'QingMan runs on a local service on this machine: tree validation, generation to disk and editor-state saving all go through it.',
+  'svc.addr': 'Service address',
+  'svc.idle': 'Not tested yet. Use the button below to probe it now.',
+  'svc.test': 'Test connection',
+  'svc.testing': 'Testing…',
+  'svc.testOk': 'Connected. Service version {version}.',
+  'svc.testFail': 'Connection failed: {message}',
+  'svc.note': 'The service listens only on the loopback address (127.0.0.1), so other devices on the LAN cannot reach it. If it is unreachable, re-run start.bat in the project root.',
 
   /* ---------- Language & skin ---------- */
   'lang.label': 'Language',
@@ -204,6 +222,9 @@ export const dict = {
   'gen.rootPlaceholder': 'Leave empty to write directly to target',
   'gen.targetLabel': 'Target path',
   'gen.targetPlaceholder': 'e.g. E:\\MyProject',
+  'gen.targetPick': 'Choose...',
+  'gen.targetPickTip': 'Choose an existing folder as the target path (system folder picker)',
+  'gen.targetPastePrompt': 'The system folder picker is unavailable here. Paste the absolute path of the target folder.',
   'gen.dryRun': 'Dry run only (do not write)',
   'gen.button': 'Generate',
 
@@ -334,7 +355,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.39',
+  'help.versionFallback': 'V0.0.40',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',
@@ -403,6 +424,7 @@ export const dict = {
   'support.back': 'Back to Editor',
   'support.toHelp': 'User Guide',
   'support.lead': 'QingMan is a free offline tool. If you find it useful, a voluntary tip helps keep it maintained.',
+  'support.note': 'QingMan is completely free and runs offline; tips are entirely voluntary. Thanks for every bit of support — bug fixes are best-effort.',
 };
 
 export const helpSections = [

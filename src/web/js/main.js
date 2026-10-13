@@ -22,8 +22,10 @@ import {
 import { createTreeView } from './ui/tree-view.js';
 import { createInspector, copyText } from './ui/inspector.js';
 import { createSkinPicker } from './ui/skin-picker.js';
-import { createLangPicker } from './ui/lang-picker.js';
+import { createLangMenu } from './ui/lang-picker.js';
 import { createContextMenu } from './ui/ctx-menu.js';
+import { createLayerManager, placeUnder } from './ui/layer.js';
+import { createHelpDoc } from './ui/help-doc.js';
 import { toast } from './ui/toast.js';
 import { renderLaunchIcon, ensureLaunchIcon } from './ui/launch-icon.js';
 
@@ -75,17 +77,93 @@ function setGenBarCollapsed(next) {
   renderGenBar();
 }
 
-/* ---------- 顶栏：语言 / 皮肤 / 支持 ---------- */
+/* ---------- 顶栏：语言 / 皮肤 / 支持 / 帮助 / 服务（V0.0.40 · 手册 10.2 节 #6 / #7 / #9） ----------
+   四项入口由「`<select>` + 新标签开页」改为「图标按钮 + 应用内弹层」：
+   - 语言 / 皮肤 / 更多 → popover（贴按钮下沿，点外部自动收起）
+   - 支持 / 帮助 / 服务 → modal（居中 + 遮罩 + 焦点陷阱）
+   三条关闭路径（右上角 × / Esc / 点遮罩）统一由 ui/layer.js 接线，避免各写各的。 */
+
+/** 弹层管理器：全应用共用一个 —— 弹层之间互斥打开，关闭时焦点归还各自的触发器。 */
+let layers = null;
+/** 帮助弹窗正文渲染器；服务状态变化时用它覆盖版本号 / 连接状态（见 setServiceState）。 */
+let helpDoc = null;
+
+/** 图标按钮 → 浮层：已开则关（点同一颗按钮收回），否则锚到按钮下沿再开。 */
+function togglePopover(trigger, node, width) {
+  if (layers.isOpenNode(node)) {
+    layers.closeAll();
+    return;
+  }
+  placeUnder(trigger, node, width);
+  layers.open(node, trigger);
+}
+
+/**
+ * 服务弹窗的「测试连接」：复用 boot() 同一支健康检查，结果**就地**显示。
+ * 不走 toast —— toast 悬浮在遮罩之上，会盖住正要看的弹窗内容。
+ */
+async function testService() {
+  const btn = el('btnSvcTest');
+  const out = el('svcResult');
+  if (!btn || !out) return;
+  btn.disabled = true;
+  out.textContent = t('svc.testing');
+  try {
+    const info = await api.health();
+    store.set({ version: info.version, connected: true });
+    setServiceState('ready');
+    out.textContent = t('svc.testOk', { version: info.version });
+  } catch (err) {
+    setServiceState('offline');
+    out.textContent = t('svc.testFail', { message: localizeError(err) });
+  } finally {
+    btn.disabled = false;
+  }
+}
 
 function initTopbar() {
-  createLangPicker(el('langSelect'));
+  layers = createLayerManager();
 
-  createSkinPicker(el('skinSelect'));
-
-  el('btnSupport').addEventListener('click', () => {
-    // V0.0.18：支持拆为独立页（赞赏码），帮助页只留使用说明
-    window.open('./support.html', '_blank', 'noopener');
+  createLangMenu(el('popLang'));
+  createSkinPicker(el('skinGrid'), {
+    // 选定后收起浮层；焦点由 layer 的关闭逻辑归还给触发器（#btnSkin）。
+    onPick: () => layers.closeAll(),
   });
+  helpDoc = createHelpDoc(el('dlgHelpToc'), el('dlgHelpDoc'), {
+    // 弹窗里的「支持」一行是按钮：切到支持弹窗，不再新标签开页（手册 10.2 节 #9）。
+    onSupport: () => layers.open(el('dlgSupport'), el('btnSupport')),
+  });
+
+  // 浮层：语言 / 皮肤 / 更多。stopPropagation 防止本次点击立刻被「点外部关闭」逻辑收回。
+  el('btnLang').addEventListener('click', (event) => {
+    event.stopPropagation();
+    togglePopover(el('btnLang'), el('popLang'), 148);
+  });
+  el('btnSkin').addEventListener('click', (event) => {
+    event.stopPropagation();
+    togglePopover(el('btnSkin'), el('popSkin'), 344);
+  });
+  el('btnMore').addEventListener('click', (event) => {
+    event.stopPropagation();
+    togglePopover(el('btnMore'), el('popMore'), 200);
+  });
+
+  // 模态：支持 / 帮助 / 服务。支持与帮助在「新标签开页」与「应用内弹窗」之间统一切到
+  // **弹窗** —— 同标签跳转会丢掉内存里尚未落盘的目录树（见 docs/项目约定.md §P0-3）。
+  el('btnSupport').addEventListener('click', () => layers.open(el('dlgSupport'), el('btnSupport')));
+  el('btnHelp').addEventListener('click', () => layers.open(el('dlgHelp'), el('btnHelp')));
+  el('chipBackend').addEventListener('click', () => layers.open(el('dlgService'), el('chipBackend')));
+
+  // 「更多」浮层里的三个低频入口：窄窗折入后复用同一批弹窗。
+  // 触发器一律回指 #btnMore —— 窄窗下 #btnSupport / #btnHelp 已 display:none，
+  // 焦点若归还给隐藏元素会丢失，须有可见落点。
+  el('moreService').addEventListener('click', () => layers.open(el('dlgService'), el('btnMore')));
+  el('moreSupport').addEventListener('click', () => layers.open(el('dlgSupport'), el('btnMore')));
+  el('moreHelp').addEventListener('click', () => layers.open(el('dlgHelp'), el('btnMore')));
+
+  // 服务弹窗：地址取自 api.js 的同一基址（window.location.origin），测试按钮走后端健康检查。
+  el('svcAddr').textContent = window.location.origin;
+  el('btnSvcTest').addEventListener('click', testService);
 }
 
 /* ---------- 撤销 / 重做（上限 50 步） ---------- */
@@ -552,11 +630,8 @@ el('btnGenerate').addEventListener('click', async () => {
   }
 });
 
-/* 帮助页在新标签打开：主界面内存里可能正握着一棵尚未落盘的目录树，
-   同标签跳转会丢掉编辑态（见 docs/项目约定.md §P0-3）。 */
-el('btnHelp').addEventListener('click', () => {
-  window.open('./help.html', '_blank', 'noopener');
-});
+/* 帮助入口改为应用内弹窗（V0.0.40）：接线集中在 initTopbar()，
+   理由同 §P0-3 —— 同标签跳转会丢掉内存里尚未落盘的目录树。 */
 
 async function createShortcut() {
   if (!window.confirm(t('shortcut.confirm'))) return;
@@ -676,23 +751,40 @@ function setStatus(text) {
   el('statusText').textContent = text;
 }
 
-/* ---------- 服务状态（V0.0.16：左栏自检收敛为顶栏服务状态三态） ---------- */
-
-const SERVICE_CHIP_CLASS = {
-  connecting: 'chip-ghost',
-  ready: 'chip-ok',
-  offline: 'chip-bad',
-};
+/* ---------- 服务状态（V0.0.16 起收敛为顶栏三态；V0.0.40 由只读 chip 升级为可点按钮） ---------- */
 
 let serviceState = 'connecting';
 
-/** 设置顶栏「服务状态」chip 的三态：connecting / ready / offline。 */
+/**
+ * 同步「服务状态」的三处落点，各取所需：
+ *   - 顶栏 #chipBackend：可点按钮（点开服务弹窗），离线加 .is-offline；
+ *   - 更多浮层 #popMoreStatus：窄窗下顶栏状态文案被收进这里，须与顶栏一致；
+ *   - 帮助弹窗：版本号与「后端」一行的实测值（离线时回落到本机记录值）。
+ */
 function setServiceState(state) {
   serviceState = state;
-  const chip = el('chipBackend');
-  if (!chip) return;
-  chip.className = 'chip ' + (SERVICE_CHIP_CLASS[state] || '');
-  chip.textContent = t('topbar.backend.' + state);
+
+  const btn = el('chipBackend');
+  if (btn) {
+    btn.classList.toggle('is-offline', state === 'offline');
+    const txt = btn.querySelector('.btn-txt');
+    if (txt) txt.textContent = t('topbar.backend.' + state);
+  }
+
+  const moreText = el('popMoreStatus');
+  if (moreText) {
+    moreText.textContent = t('topbar.backend.' + state);
+    const wrap = moreText.closest('.pop-more-status');
+    if (wrap) wrap.classList.toggle('is-offline', state === 'offline');
+  }
+
+  if (helpDoc) {
+    // 只有真连上才把实测版本号写进帮助弹窗；否则传空值，回落 versionFallback（本机记录值）。
+    helpDoc.setStatus({
+      version: state === 'ready' ? store.get().version : '',
+      backendOk: state === 'ready',
+    });
+  }
 }
 
 async function boot() {
@@ -797,6 +889,42 @@ async function chooseTemplatesDir() {
   if (typed === null) return;
   const picked = typed.trim();
   if (picked) await bindTemplatesDir(picked);
+}
+
+/**
+ * 「选择…」（生成栏·目标位置，V0.0.40 · 手册 10.2 节 #13）：**复用**模板目录的原生选择器
+ * （`POST /api/templates-dir/pick`，V0.0.38 · 6E 提供），本机用不了则降级为**手动粘贴路径**
+ * —— 与上方的「选择模板目录」同一套降级范式。
+ *
+ * 与「选择模板目录」的差别只在**落点**：选中后写进 `#inTarget` 并刷新摘要行，
+ * **不落盘、不绑定** —— `target` 的规范化与安全边界（§P0-1）全在生成时由服务端
+ * `check_target` 把关，前端这里只负责「把用户挑的路径填进输入框」。
+ *
+ * ⚠ 原生框是 `mustexist=True`：只能选**已存在**的目录。想指定一个尚不存在、交由
+ * 生成器创建的路径，仍走键盘输入（输入框本就允许）。
+ */
+async function chooseTargetDir() {
+  let res;
+  try {
+    res = await api.pickTemplatesDir();
+  } catch (err) {
+    res = { available: false };   // 端点异常按能力缺失处理，走同一降级路径
+  }
+  if (res.available && !res.cancelled && res.dir) {
+    applyTargetDir(res.dir);
+    return;
+  }
+  if (res.available && res.cancelled) return;   // 用户主动取消：静默
+  const typed = window.prompt(t('gen.targetPastePrompt'), el('inTarget').value.trim());
+  if (typed === null) return;
+  const picked = typed.trim();
+  if (picked) applyTargetDir(picked);
+}
+
+/** 把选中的目录写进「目标位置」输入框，并刷新折叠摘要行（否则收起态下看不到已选值）。 */
+function applyTargetDir(dir) {
+  el('inTarget').value = dir;
+  renderGenBar();
 }
 
 function renderTemplateState(text, kind) {
@@ -1121,6 +1249,13 @@ async function saveAsTemplate() {
 el('btnSaveTemplate').addEventListener('click', saveAsTemplate);
 el('btnImportTemplate').addEventListener('click', importTemplateFlow);
 el('btnPickDir').addEventListener('click', chooseTemplatesDir);
+/* 目标位置「选择…」：与模板目录共用同一原生选择器（V0.0.40 · 手册 10.2 节 #13）。
+   按钮位于 <label> 内，先阻止 label 把该次点击转发给输入框 —— 否则原生框弹出前
+   输入框会被顺手聚焦，收起键盘态时视觉上像「没反应」。 */
+el('btnPickTarget').addEventListener('click', (event) => {
+  event.preventDefault();
+  chooseTargetDir();
+});
 el('btnRefreshTpl').addEventListener('click', () => { loadTemplatesDir(); loadTemplateList(); });
 
 /* 语言切换后刷新动态文案（静态文案由 applyStatic 在 setLocale 内处理） */

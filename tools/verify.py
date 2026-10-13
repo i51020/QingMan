@@ -16,7 +16,7 @@
  7b. 双语与皮肤预留（§P0-3）：主界面无硬编码中文 / JS 无中文串字面量 / 组件 CSS 无裸色值 /
      组件 CSS 不感知皮肤 / 皮肤目录契约 / 偏好键名 qm.lang · qm.skin
  7e. CSS 类名形态（§P2 第 1 项）：一律 kebab-case，不得含下划线或大写
- 7f. 体积上限（§P2 第 4 项）：src/** 合计 ≤ 400K，单文件 ≤ 64K
+ 7f. 体积上限（§P2 第 4 项）：src/** 合计 ≤ 512K，单文件 ≤ 64K
  7g. 帮助页键位登记（§P2 第 8 项）：源码若有修饰键快捷键监听（ctrlKey/metaKey/altKey），
      帮助页键位小节必须登记至少一条**具体键位**，不得只留「待定 / 留空」占位
  8. 接续说明实况段与盘上一致（§P1-6 H4；文件未建立则跳过）
@@ -68,9 +68,14 @@ PAIRED_TAGS = (
 
 REQUIRED_IDS = (
     "topbar", "chipSave", "chipBackend", "btnHelp", "btnSupport", "btnLogo",
-    "langSelect", "skinSelect",
+    # V0.0.40：语言 / 皮肤由 `<select>` 改为「图标按钮 + 浮层」（设计提案 §2）；
+    # 窄窗低频入口折入 btnMore。故 langSelect / skinSelect 退场，换为下列 id。
+    "btnLang", "btnSkin", "btnMore",
+    "popLang", "popSkin", "popMore", "skinGrid",
     "sidebar", "templateList",
     "center", "genBar", "inRoot", "inTarget", "inDryRun",
+    # V0.0.40：目标位置「选择…」按钮（手册 §10.2 #13；复用模板目录的原生目录选择器）
+    "btnPickTarget",
     "toolbar", "btnAddChild", "btnRename", "btnDelete",
     "btnUndo", "btnRedo",
     "btnExpandAll", "btnCollapseAll", "btnGenerate",
@@ -78,6 +83,8 @@ REQUIRED_IDS = (
     "inspector", "propName", "propType", "propPath", "propDirs", "propFiles", "propDepth",
     "propNote", "btnCopyName", "btnCopyPath", "btnCopyNote",
     "genResult", "toastHost", "ctxMenu",
+    # V0.0.40：应用内弹层（需求 §10.2 #9 支持/帮助内嵌；#7 服务设置）
+    "scrim", "dlgHelp", "dlgSupport", "dlgService",
 )
 
 REQUIRED_FILES = (
@@ -559,7 +566,7 @@ def main() -> int:
         if not page_file.is_file():
             continue
         for key in re.findall(
-                r'''data-i18n(?:-title|-placeholder|-aria-label)?="([^"]+)"''',
+                r'''data-i18n(?:-title|-placeholder|-aria-label|-alt)?="([^"]+)"''',
                 page_file.read_text(encoding="utf-8")):
             used_keys.setdefault(key, page)
     for js in sorted((root / "src/web/js").rglob("*.js")):
@@ -849,8 +856,12 @@ def main() -> int:
           f"违反 kebab-case：{', '.join(sorted(set(bad_names))[:4])}" if bad_names
           else "类名全部 kebab-case（无下划线、无大写）")
 
-    # 7f. 体积上限（§P2 第 4 项）：src/** 合计 ≤ 400K，单文件 ≤ 64K
-    SRC_TOTAL_LIMIT = 400 * 1024
+    # 7f. 体积上限（§P2 第 4 项）：src/** 合计 ≤ 512K，单文件 ≤ 64K
+    #     400K → 512K（V0.0.40，用户裁决）：设计提案层（顶栏图标化 / 弹窗内嵌 /
+    #     模板批处理 / 检视器双模式）是一整块**新功能层**，不是零散修补。
+    #     并入软皮肤层后 src 已达 411K，本来就压线；再叠 808 行提案 CSS 与配套
+    #     DOM/JS，预估峰值约 480K。放宽到 512K 既容纳该层、又保留守门本意。
+    SRC_TOTAL_LIMIT = 512 * 1024
     SRC_FILE_LIMIT = 64 * 1024
     # 仅统计**源码**：排除运行/测试生成的编译产物（__pycache__/*.pyc）。
     # 这些产物已被 .gitignore 忽略、不进版本，计入体积上限会与「源码预算」本意相悖
@@ -1130,7 +1141,8 @@ def main() -> int:
 
     # 7m. 服务状态三态（V0.0.16：左栏自检收敛为顶栏「服务状态」三态）
     #     判据三端：① 左栏 checklist 已移除（页面不再有该清单元素）；
-    #     ② 顶栏接线三态（SERVICE_CHIP_CLASS + setServiceState）；
+    #     ② 顶栏接线三态（#chipBackend + .is-offline + setServiceState，V0.0.40 由
+    #        只读 chip 升级为可点按钮，故以 chipBackend / is-offline 替下旧的类常量名）；
     #     ③ 三态取词键齐备。防「删了清单却忘了接线三态」或反向回归。
     svc_bad: list[str] = []
     idx_html = root / "src/web/index.html"
@@ -1139,7 +1151,7 @@ def main() -> int:
         svc_bad.append("index.html 仍含 checklist")
     mjs = root / "src/web/js/main.js"
     mtext = mjs.read_text(encoding="utf-8") if mjs.is_file() else ""
-    for token in ("SERVICE_CHIP_CLASS", "setServiceState"):
+    for token in ("chipBackend", "is-offline", "setServiceState"):
         if token not in mtext:
             svc_bad.append(f"main.js:{token}")
     for name in ("zh-CN.js", "en-US.js"):
@@ -1188,9 +1200,11 @@ def main() -> int:
           else "note 序列化往返 / 模板提炼 / 三粒度复制 / 纯文本边界（无 innerHTML、生成不含 note） 齐备")
 
     # 7o. 帮助/支持拆两页（V0.0.18）：支持=独立页，帮助=纯使用说明
-    #     判据：① helpSections 中英两份都不再含 support 分节；② support.html/js 存在且接线
-    #     （main.js 打开 support.html）；③ 互链齐备（about 表跳转 + 支持页回链）；④ 取词键闭包
-    #     由 7b-2 守卫统一覆盖，此处只查结构。
+    #     判据：① helpSections 中英两份都不再含 support 分节；② support.html/js 仍存在；
+    #     ③ 互链齐备（help.js about 表跳转 ./support.html + 主界面支持入口）。
+    #     V0.0.40（§10.2 #9）：主界面的支持入口由「新标签打开 support.html」改为**应用内弹窗**
+    #     （#dlgSupport），故判据③的主界面一侧改钉 dlgSupport；support.html 作为独立页保留，
+    #     仍由 help.html 的 about 表可达（判据第三条不变）。取词键闭包由 7b-2 统一覆盖。
     split_bad: list[str] = []
     for name in ("zh-CN.js", "en-US.js"):
         p = root / "src/web/js/i18n" / name
@@ -1203,8 +1217,8 @@ def main() -> int:
                 split_bad.append(f"{name}:{k}")
     mjs18 = root / "src/web/js/main.js"
     m18 = mjs18.read_text(encoding="utf-8") if mjs18.is_file() else ""
-    if "./support.html" not in m18:
-        split_bad.append("main.js 未打开 support.html")
+    if "dlgSupport" not in m18:
+        split_bad.append("main.js 缺应用内支持弹窗 dlgSupport")
     if "'help.html#support'" in m18:
         split_bad.append("main.js 仍用旧锚点 #support")
     hj = root / "src/web/js/help.js"

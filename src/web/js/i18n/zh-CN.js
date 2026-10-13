@@ -33,10 +33,28 @@ export const dict = {
   'topbar.backend.ready': '服务就绪',
   'topbar.backend.offline': '服务不可用',
   'topbar.help': '帮助',
-  'topbar.helpTip': '使用说明（新标签打开）',
+  'topbar.helpTip': '查看使用说明',
   'topbar.support': '支持',
   'topbar.supportTip': '赞赏与支持',
+  'topbar.more': '更多',
+  'topbar.backendTip': '查看服务状态与设置',
   'topbar.logoTip': '点击生成桌面快捷方式',
+
+  /* ---------- 顶栏浮层与弹窗（V0.0.40 · 手册 10.2 节 #6 / #7 / #9） ---------- */
+  'dlg.close': '关闭',
+  'popMore.service': '服务设置',
+  'popMore.support': '支持青蔓',
+  'popMore.help': '使用说明',
+
+  'svc.title': '服务设置',
+  'svc.intro': '青蔓由本机的一个本地服务驱动：目录树校验、生成落盘、编辑态保存都经由它。',
+  'svc.addr': '服务地址',
+  'svc.idle': '尚未测试。点下方按钮可立即探测一次。',
+  'svc.test': '测试连接',
+  'svc.testing': '正在测试…',
+  'svc.testOk': '连接正常，服务版本 {version}。',
+  'svc.testFail': '连接失败：{message}',
+  'svc.note': '服务只监听本机回环地址（127.0.0.1），局域网内其他设备无法访问；如无法连接，请重新运行项目根目录的 start.bat。',
 
   /* ---------- 语言与皮肤 ---------- */
   'lang.label': '语言',
@@ -210,6 +228,9 @@ export const dict = {
   'gen.rootPlaceholder': '留空则直接写入目标位置',
   'gen.targetLabel': '目标位置',
   'gen.targetPlaceholder': '例如：E:\\我的项目',
+  'gen.targetPick': '选择…',
+  'gen.targetPickTip': '选择一个已存在的目录作为目标位置（本机原生目录选择框）',
+  'gen.targetPastePrompt': '本机无法打开目录选择框，请粘贴目标位置的绝对路径',
   'gen.dryRun': '仅演练（不写盘）',
   'gen.button': '一键生成',
 
@@ -340,7 +361,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.39',
+  'help.versionFallback': 'V0.0.40',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',
@@ -409,6 +430,7 @@ export const dict = {
   'support.back': '返回编辑器',
   'support.toHelp': '使用说明',
   'support.lead': '青蔓是本地离线免费工具。如果你觉得它有帮助，欢迎自愿投喂支持持续维护。',
+  'support.note': '青蔓完全免费、离线运行，赞赏纯属自愿。感谢每一份支持，BUG 佛修。',
 };
 
 /**
