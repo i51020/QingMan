@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>根名方案预览原型 · 青蔓 QingMan</title>
+<style>
+  :root{
+    --bg:#f5f8f7; --panel:#ffffff; --ink:#1f2937; --ink2:#5b6675; --ink3:#8b96a3;
+    --line:#e3e9e7; --accent:#2f7d6a; --accent-soft:#e7f3ef; --accent-ink:#1d5a4c;
+    --warn:#a85a0a; --warn-soft:#fdf2e3; --warn-line:#f0d9b5;
+    --ok:#2f7d6a; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.65 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;}
+  .wrap{max-width:1160px;margin:0 auto;padding:26px 20px 64px}
+  h1{font-size:20px;margin:0 0 4px;letter-spacing:.2px}
+  .sub{color:var(--ink2);font-size:13px;margin:0 0 6px}
+  .badge{display:inline-block;font-size:12px;padding:1px 9px;border-radius:999px;
+    background:var(--accent-soft);color:var(--accent-ink);margin-left:6px;vertical-align:2px;font-weight:600}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:880px){.grid{grid-template-columns:1fr}}
+  h2{font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+  h2 .n{width:20px;height:20px;border-radius:6px;background:var(--accent);color:#fff;
+    font-size:12px;display:inline-flex;align-items:center;justify-content:center;font-weight:700}
+  .muted{color:var(--ink2);font-size:12.5px}
+  code,.mono{font-family:var(--mono);font-size:12.5px}
+  code{background:#eef2f1;padding:1px 5px;border-radius:4px;color:var(--accent-ink)}
+
+  /* 现状症结 */
+  .issue{background:var(--warn-soft);border:1px solid var(--warn-line);border-radius:12px;padding:14px 18px;margin:16px 0 22px}
+  .issue h3{margin:0 0 8px;font-size:13.5px;color:var(--warn)}
+  .issue ul{margin:0;padding-left:20px;font-size:13px;color:#6b4a1f}
+  .issue li{margin:3px 0}
+
+  /* tabs */
+  .tabs{display:flex;gap:10px;margin:20px 0 16px;flex-wrap:wrap}
+  .tab{flex:1;min-width:200px;text-align:left;cursor:pointer;border:1px solid var(--line);
+    background:var(--panel);border-radius:12px;padding:12px 15px;transition:.15s}
+  .tab:hover{border-color:#cfe0da}
+  .tab.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);background:#fbfdfc}
+  .tab .t{font-weight:700;font-size:14px;display:flex;align-items:center;gap:7px}
+  .tab .t .k{width:20px;height:20px;border-radius:6px;background:#eef2f1;color:var(--ink2);
+    font-size:12px;display:inline-flex;align-items:center;justify-content:center;font-weight:700}
+  .tab.on .t .k{background:var(--accent);color:#fff}
+  .tab .d{font-size:12.5px;color:var(--ink2);margin-top:4px}
+
+  /* mock UI */
+  .mock{border:1px dashed #cddad6;border-radius:10px;padding:12px;background:#fbfdfc}
+  .mock .bar{height:8px;border-radius:4px;background:#e8eeec;margin-bottom:10px}
+  .treemock{font-size:13px}
+  .tree-row{display:flex;align-items:center;gap:7px;padding:4px 6px;border-radius:6px}
+  .tree-row .ico{width:16px;text-align:center;color:var(--accent-ink)}
+  .tree-row.root{background:var(--accent-soft)}
+  .tree-ind{color:var(--ink3)}
+  .rn{border:1px solid var(--accent);border-radius:5px;padding:0 6px;font:inherit;
+    font-size:13px;width:130px;background:#fff;color:var(--ink)}
+  .fixed-name{font-weight:600}
+  .pill{font-size:11px;padding:1px 7px;border-radius:999px;background:#eef2f1;color:var(--ink2)}
+  .pill.warnp{background:var(--warn-soft);color:var(--warn)}
+  .lock{color:var(--ink3);font-size:11px}
+
+  /* params */
+  .params{border:1px dashed #cddad6;border-radius:10px;padding:12px;background:#fbfdfc}
+  .field{margin-bottom:10px}
+  .field:last-child{margin-bottom:0}
+  .field label{display:block;font-size:12.5px;color:var(--ink2);margin-bottom:4px}
+  .field input[type=text]{width:100%;border:1px solid var(--line);border-radius:7px;
+    padding:7px 10px;font:inherit;font-size:13px;background:#fff;color:var(--ink)}
+  .field input:disabled{background:#f1f4f3;color:var(--ink3)}
+  .chk{display:flex;align-items:center;gap:8px;font-size:13px}
+  .hint{font-size:12px;color:var(--ink3);margin-top:4px}
+
+  /* output tree */
+  .out{background:#fbfdfc;border:1px solid var(--line);border-radius:10px;padding:12px 14px;
+    font-family:var(--mono);font-size:12.5px;line-height:1.9}
+  .out .lvl{border-left:1px dashed #d6e2de;margin-left:5px;padding-left:14px}
+  .out .dir{color:var(--accent-ink)}
+  .out .dir.rootl{color:#0f3f34;font-weight:700}
+  .out .file{color:var(--ink2)}
+  .out .none{color:var(--warn);font-style:italic;font-family:inherit}
+  .out .base{color:var(--ink3);font-size:11.5px;display:block;margin-bottom:6px}
+
+  /* rules */
+  .rules{margin-top:16px}
+  .rules table{width:100%;border-collapse:collapse;font-size:13px}
+  .rules th,.rules td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  .rules th{background:#f0f5f3;font-weight:600;font-size:12.5px;color:var(--ink2)}
+  .rules td b{color:var(--accent-ink)}
+  .cmp td:first-child{font-weight:600;background:#fafcfb;width:130px}
+  .foot{margin-top:26px;color:var(--ink3);font-size:12px;border-top:1px solid var(--line);padding-top:12px}
+  .src{font-size:11.5px;color:var(--ink3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>根文件夹名 · 逻辑重设计 — 方案预览 <span class="badge">供选型</span></h1>
+  <p class="sub">青蔓 QingMan · 纯前端原型，零后端改动 · 切换 A / B / C 实时渲染「将生成的结构树」。</p>
+  <p class="sub src">依据：《项目手册》§十一 #3（A=保持+理清 / B=参考文件式「不建根」勾选 / C=根名即树根）· §十四 #7。本页不入 <code>src/</code> 交付，随文档存档。</p>
+
+  <div class="issue">
+    <h3>现状症结（代码实测，非推断）</h3>
+    <ul>
+      <li>树编辑区自带一个<b>根节点</b>（默认名 <code>sample.root</code>），<b>不可改名</b>（<code>main.js</code> L527 拦截）。</li>
+      <li>参数区另有「<b>根文件夹名</b>」输入框（<code>#inRoot</code>）；生成时只认它 → <code>base = target/root</code>，留空则直接写入 <code>target</code>（<code>routes.py</code> L140-148）。</li>
+      <li>树编辑区的根节点名<b>完全不参与生成</b>；但提示文案却称「根节点名称由『根文件夹名』决定」——<b>与实现不符</b>。</li>
+      <li>结果：界面出现<b>两个「根」</b>（树区的 / 参数区的），语义割裂 —— 三个方案即围绕「如何统一」展开。</li>
+    </ul>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="grid">
+    <div class="card">
+      <h2><span class="n">1</span>界面形态</h2>
+      <div id="uiMock"></div>
+    </div>
+    <div class="card">
+      <h2><span class="n">2</span>将生成的结构树</h2>
+      <div class="out" id="outTree"></div>
+    </div>
+  </div>
+
+  <div class="card rules">
+    <h2><span class="n">3</span>当前方案规则</h2>
+    <div id="ruleBody"></div>
+  </div>
+
+  <div class="card rules" style="margin-top:16px">
+    <h2><span class="n">4</span>三方案横向对比</h2>
+    <table class="cmp">
+      <thead><tr><th>维度</th><th>A · 保持 + 理清</th><th>B · 不建根勾选</th><th>C · 根名即树根</th></tr></thead>
+      <tbody>
+        <tr><td>根文件夹名真源</td><td>参数区 <code>#inRoot</code>（树区根节点仅显示）</td><td>参数区 <code>#inRoot</code> + 勾选</td><td><b>树编辑区的根节点本身</b>（单一真源）</td></tr>
+        <tr><td>「不建根」怎么表达</td><td>根名<b>留空</b>（隐式）</td><td>取消<b>勾选</b>（显式）</td><td>根节点名<b>清空</b> → 显示「不建根」</td></tr>
+        <tr><td>树区根节点</td><td>保留，与参数框<b>双向联动</b>（新增）</td><td>保留，仍为显示容器</td><td>保留且<b>可直接改名</b>（=生成根名）</td></tr>
+        <tr><td>改动量</td><td>小（新增联动 + 文案订正）</td><td>中（新增勾选控件 + 状态）</td><td>大（取消参数框、树根语义变更、迁移）</td></tr>
+        <tr><td>解决症结</td><td>缓解（文案/联动对齐）</td><td>部分（显式化「不建根」）</td><td>彻底（消除第二个「根」）</td></tr>
+        <tr><td>风险</td><td>低</td><td>低-中（多一个状态要持久化）</td><td>中（编辑态数据契约/模板载入受影响）</td></tr>
+      </tbody>
+    </table>
+    <p class="hint">「改动量 / 风险」为<b>评估</b>（主观），非实测；最终以选型后编码时的实测为准。</p>
+  </div>
+
+  <p class="foot">
+    原型说明：本页面交互（输入 / 勾选 / 改名）均在前端内存中，刷新即复位，不触碰文件系统、不调用任何后端接口。选定方案后，再按该方案写产品代码并纳入 <code>src/</code> 交付（届时过 <code>verify</code> 四件套）。
+  </p>
+</div>
+
+<script>
+"use strict";
+
+const SCHEMES = [
+  { id:'A', name:'保持 + 理清', desc:'保留两个输入，但把语义对齐（树区根名 ⇄ 参数框联动）' },
+  { id:'B', name:'参考文件式「不建根」勾选', desc:'把「留空=不建根」改为显式勾选框' },
+  { id:'C', name:'根名即树根', desc:'取消参数框，树根节点名即生成的根文件夹名' },
+];
+
+const state = {
+  scheme: 'A',
+  target: 'E:\\我的项目',
+  rootA: '青蔓示例',
+  rootB: '青蔓示例',
+  buildRoot: true,
+  rootC: '我的项目',
+};
+
+const $ = (s, el=document) => el.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- tabs ---------- */
+function renderTabs(){
+  $('#tabs').innerHTML = SCHEMES.map(s => `
+    <button class="tab ${state.scheme===s.id?'on':''}" data-scheme="${s.id}">
+      <div class="t"><span class="k">${s.id}</span>${esc(s.name)}</div>
+      <div class="d">${esc(s.desc)}</div>
+    </button>`).join('');
+  $('#tabs').querySelectorAll('.tab').forEach(b =>
+    b.addEventListener('click', () => { state.scheme = b.dataset.scheme; render(); }));
+}
+
+/* ---------- mock 界面 ---------- */
+function treeMock(){
+  // 示例树：根 → 素材(原始素材/整理后素材) / 成品
+  if (state.scheme === 'C'){
+    const val = state.rootC;
+    const label = val.trim() ? '' : '<span class="none" style="font-family:inherit">（不建根）</span>';
+    return `
+      <div class="treemock">
+        <div class="tree-row root">
+          <span class="ico">▸</span>
+          <input class="rn" id="cRoot" value="${esc(val)}" placeholder="根名（清空=不建根）">
+          <span id="cRootMark">${label}</span><span class="pill">可改名 ✎</span>
+        </div>
+        <div class="tree-row"><span class="tree-ind">　├</span><span class="ico">▸</span><span>素材</span></div>
+        <div class="tree-row"><span class="tree-ind">　│　├</span><span>原始素材</span></div>
+        <div class="tree-row"><span class="tree-ind">　│　└</span><span>整理后素材</span></div>
+        <div class="tree-row"><span class="tree-ind">　└</span><span class="ico">▸</span><span>成品</span></div>
+      </div>`;
+  }
+  const rn = state.scheme === 'A' ? state.rootA : state.rootB;
+  const linked = state.scheme === 'A';
+  const showName = (state.scheme === 'B' && !state.buildRoot) ? '（不建根）' : (rn.trim() || '（未命名）');
+  return `
+    <div class="treemock">
+      <div class="tree-row root">
+        <span class="ico">▸</span>
+        <span class="fixed-name" id="treeRootName">${esc(showName)}</span>
+        <span class="lock">🔒 不可改名</span>
+        ${linked ? '<span class="pill">← 与参数框联动</span>' : ''}
+      </div>
+      <div class="tree-row"><span class="tree-ind">　├</span><span class="ico">▸</span><span>素材</span></div>
+      <div class="tree-row"><span class="tree-ind">　│　├</span><span>原始素材</span></div>
+      <div class="tree-row"><span class="tree-ind">　│　└</span><span>整理后素材</span></div>
+      <div class="tree-row"><span class="tree-ind">　└</span><span class="ico">▸</span><span>成品</span></div>
+    </div>`;
+}
+
+function paramsMock(){
+  const tgt = `
+    <div class="field">
+      <label>目标位置</label>
+      <input type="text" id="pTarget" value="${esc(state.target)}">
+    </div>`;
+  if (state.scheme === 'A'){
+    return `<div class="params">${tgt}
+      <div class="field">
+        <label>根文件夹名</label>
+        <input type="text" id="pRoot" value="${esc(state.rootA)}" placeholder="留空则直接写入目标位置">
+        <div class="hint">留空 = 直接写入目标位置（<b>隐式</b>「不建根」）</div>
+      </div>
+    </div>`;
+  }
+  if (state.scheme === 'B'){
+    return `<div class="params">${tgt}
+      <div class="field">
+        <label class="chk"><input type="checkbox" id="pBuild" ${state.buildRoot?'checked':''}> 建立根文件夹</label>
+      </div>
+      <div class="field">
+        <label>根文件夹名</label>
+        <input type="text" id="pRoot" value="${esc(state.rootB)}" ${state.buildRoot?'':'disabled'}>
+        <div class="hint">取消勾选 = 树内容直接铺在目标位置（<b>显式</b>）</div>
+      </div>
+    </div>`;
+  }
+  return `<div class="params">${tgt}
+    <div class="field">
+      <span class="pill warnp">本方案无「根文件夹名」输入框</span>
+      <div class="hint" style="margin-top:8px">根文件夹名 = 左侧树编辑区的<b>根节点名</b>（在上方直接改）</div>
+    </div>
+  </div>`;
+}
+
+/* ---------- 产物结构树 ---------- */
+function renderOut(){
+  const t = state.target.replace(/[\\\/]+$/,'') || '(未填目标位置)';
+  let rootLayer = '';
+  if (state.scheme === 'A') rootLayer = state.rootA.trim();
+  else if (state.scheme === 'B') rootLayer = state.buildRoot ? state.rootB.trim() : '';
+  else rootLayer = state.rootC.trim();
+
+  const rows = [];
+  rows.push(`<div class="base">目标位置：${esc(t)}\\</div>`);
+  if (rootLayer){
+    rows.push(`<div class="dir rootl">▸ ${esc(rootLayer)}\\</div>`);
+    const inner = `
+      <div class="dir">▸ 素材\\</div>
+      <div class="dir">　▸ 原始素材\\</div>
+      <div class="dir">　▸ 整理后素材\\</div>
+      <div class="dir">▸ 成品\\</div>`;
+    rows.push(`<div class="lvl">${inner}</div>`);
+  } else {
+    rows.push(`<div class="none">（未建根文件夹 —— 树内容直接铺在目标位置下）</div>`);
+    rows.push(`<div class="lvl">
+      <div class="dir">▸ 素材\\</div>
+      <div class="dir">　▸ 原始素材\\</div>
+      <div class="dir">　▸ 整理后素材\\</div>
+      <div class="dir">▸ 成品\\</div>
+    </div>`);
+  }
+  $('#outTree').innerHTML = rows.join('');
+}
+
+/* ---------- 规则 ---------- */
+function renderRules(){
+  const map = {
+    A: `<b>规则：</b>生成产物最外层 = 参数区「根文件夹名」（可留空）。树编辑区根节点<b>仅作显示容器</b>。
+        <br><b>「理清」两项（本方案新增）：</b>① 树区根节点名与参数框<b>双向联动</b>，任一处修改另一处同步；
+        ② 根名留空时，树区根节点旁显示「未建根」角标；③ 订正 <code>toast.rootRenameBlocked</code> 文案使其与实现一致。`,
+    B: `<b>规则：</b>勾选「建立根文件夹」→ 在目标位置下建一层根文件夹（用输入的名字）；取消勾选 → 树内容<b>直接铺在目标位置</b>。
+        <br><b>要点：</b>把 A 中「留空 = 不建根」的<b>隐式</b>语义改为<b>显式勾选</b>，贴近「参考文件」类工具的操作习惯；勾选态需持久化。`,
+    C: `<b>规则：</b>取消参数区「根文件夹名」框；<b>树编辑区的根节点名即生成的根文件夹名</b>（可直接改名）。
+        <br><b>「不建根」：</b>把根节点名<b>清空</b> → 显示「（不建根）」，树内容直接铺在目标位置。
+        <br><b>要点：</b>消除「第二个根」，实现<b>单一真源</b>；代价是编辑态数据契约与模板载入（<code>fromNestedTree</code> 的 <code>rootName</code>）需一并调整。`,
+  };
+  $('#ruleBody').innerHTML = map[state.scheme];
+}
+
+function updateTreeRootName(){
+  const el = $('#treeRootName');
+  if (el){
+    if (state.scheme === 'A') el.textContent = state.rootA.trim() || '（未命名）';
+    else if (state.scheme === 'B') el.textContent = state.buildRoot ? (state.rootB.trim() || '（未命名）') : '（不建根）';
+  }
+  const mark = $('#cRootMark');
+  if (mark) mark.innerHTML = state.rootC.trim() ? '' : '<span class="none" style="font-family:inherit">（不建根）</span>';
+}
+
+/* ---------- 事件绑定 ---------- */
+function bind(){
+  const t = $('#pTarget');
+  if (t) t.addEventListener('input', () => { state.target = t.value; renderOut(); });
+
+  // 根名输入：只做局部更新，不整块重绘（否则输入框失焦）
+  const r = $('#pRoot');
+  if (r) r.addEventListener('input', () => {
+    if (state.scheme === 'A') state.rootA = r.value; else state.rootB = r.value;
+    updateTreeRootName(); renderOut();
+  });
+
+  const b = $('#pBuild');
+  if (b) b.addEventListener('change', () => {
+    state.buildRoot = b.checked;
+    const r2 = $('#pRoot'); if (r2) r2.disabled = !b.checked;
+    updateTreeRootName(); renderOut();
+  });
+
+  const c = $('#cRoot');
+  if (c) c.addEventListener('input', () => {
+    state.rootC = c.value;
+    updateTreeRootName(); renderOut(); renderRules();
+  });
+}
+
+function renderUIMock(){
+  $('#uiMock').innerHTML = treeMock() +
+    '<div style="height:12px"></div>' +
+    '<div class="muted" style="margin-bottom:6px">生成参数区</div>' +
+    paramsMock();
+  bind();
+}
+
+function render(){
+  renderTabs();
+  renderUIMock();
+  renderOut();
+  renderRules();
+}
+
+render();
+</script>
+</body>
+</html>
