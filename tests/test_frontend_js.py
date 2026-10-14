@@ -7,6 +7,8 @@
 覆盖批 4B：B-P3-1（网络失败归一）/ B-P3-3（renameNode 自校验）/ B-P3-4（toPlainTree
 重名告警）/ B-P3-5（查询族深树不爆栈）/ B-P3-6（bus.off 后不再触发）。
 覆盖批 4C：C-P3-3（`leftRow`「算不算离开」判定，含 relatedTarget 为 null 的坐标兜底）。
+覆盖 V0.0.43 · F 组：`modules/selection.js` 的选择集合语义（净化 / 多选门槛 /
+最外层祖先去重 / 批量移动预检）。
 覆盖批 4D：4D-1（`toDocumentNode` 深链不爆栈）/ 4D-2（`fromDocumentNode` 深链不爆栈
 + 往返结构保真），20000 层 = `MAX_EDITOR_NODES`，旧递归版在此必 `RangeError`。
 B-P3-2（saveNow 在途保护）与 C-P3-2/C-P3-4（拖拽落点、提示条上限）依赖真实页面，
@@ -206,6 +208,49 @@ const tm = await import(SRC + '/modules/tree-model.js');
     back.children.length);
 }
 
+/* ---------- V0.0.43 · F 组：选择集合语义（modules/selection.js，纯函数） ----------
+   本组最重的不变式是 outermostIds ——「父子同选只作用于最外层祖先」。
+   注意「删掉的行数」在这条规则上**不具判别力**（逐个删时子节点已随父消失，
+   第二次 removeNode 返回 false，最终行数相同），故必须在纯函数层直接钉住。 */
+{
+  const sel = await import(SRC + '/modules/selection.js');
+  /* 选择语义用一棵专用小树：r → a → a1 → a11 ；r → b */
+  const sr = tm.createDir('r');
+  const sa = tm.createDir('a'); tm.addChild(sr, sa);
+  const sa1 = tm.createDir('a1'); tm.addChild(sa, sa1);
+  const sa11 = tm.createDir('a11'); tm.addChild(sa1, sa11);
+  const sb = tm.createDir('b'); tm.addChild(sr, sb);
+
+  ok('F/liveIds-dropsRoot', sel.liveIds(sr, [sr.id, sa.id]).join() === sa.id);
+  ok('F/liveIds-dropsGhost', sel.liveIds(sr, [sa.id, 'nope']).join() === sa.id);
+  ok('F/multiSel-needsTwo',
+    sel.multiSel(sr, [sa.id]).length === 0 && sel.multiSel(sr, [sa.id, sb.id]).length === 2);
+  ok('F/outermost-childFirst', sel.outermostIds(sr, [sa1.id, sa.id]).join() === sa.id);
+  ok('F/outermost-parentFirst', sel.outermostIds(sr, [sa.id, sa1.id]).join() === sa.id);
+  ok('F/outermost-deepGrandchild',
+    sel.outermostIds(sr, [sa11.id, sa.id, sa1.id]).join() === sa.id);
+  ok('F/outermost-siblingsKept',
+    sel.outermostIds(sr, [sa.id, sb.id]).join() === [sa.id, sb.id].join());
+  ok('F/outermost-empty', sel.outermostIds(sr, []).length === 0);
+  const all = sel.allNodeIds(sr);
+  ok('F/allNodeIds-excludesRoot', all.indexOf(sr.id) < 0 && all.length === 4, all.length);
+
+  /* canBatchMove：每个案子单独建树，避免相互干扰 */
+  const mr = tm.createDir('r');
+  const ma = tm.createDir('a'); tm.addChild(mr, ma);
+  const ma1 = tm.createDir('a1'); tm.addChild(ma, ma1);
+  const mb = tm.createDir('b'); tm.addChild(mr, mb);
+  const mf = tm.createFile('f.txt', 'x'); tm.addChild(mr, mf);
+  ok('F/canBatchMove-cycle', sel.canBatchMove(mr, [ma.id], ma1.id).code === 'cycle');
+  ok('F/canBatchMove-notDir', sel.canBatchMove(mr, [mb.id], mf.id).code === 'notDir');
+  ok('F/canBatchMove-missing', sel.canBatchMove(mr, ['nope'], mb.id).code === 'missing');
+  const mx = tm.createDir('a'); tm.addChild(mb, mx);   /* 目标下已有一个同名 'a' */
+  ok('F/canBatchMove-exists', sel.canBatchMove(mr, [ma.id], mb.id).code === 'exists');
+  /* 同名者本身就是「已在目标下、又要移到目标下」的那一个 → 排除后不算冲突 */
+  ok('F/canBatchMove-sameParentNoConflict', sel.canBatchMove(mr, [mx.id], mb.id).ok === true);
+  ok('F/canBatchMove-ok', sel.canBatchMove(mr, [ma1.id], mb.id).ok === true);
+}
+
 process.stdout.write('RESULT ' + JSON.stringify(results) + '\n');
 """
 
@@ -281,6 +326,20 @@ class FrontendJsTests(unittest.TestCase):
     def test_4d_error_order_and_roundtrip(self):
         """批 4D · 前序报错顺序保真（更深子树的错先抛）+ 小树往返保真。"""
         for n in ("4D-2/errorOrder", "4D-2/roundtrip"):
+            self._ok(n)
+
+    def test_v043_selection_semantics(self):
+        """V0.0.43 · F 组：选择集合语义（净化 / 多选门槛 / 最外层祖先去重 / 批量移动预检）。
+
+        `outermostIds` 是本组唯一「行为上不可从结果反推」的规则 —— 见 HARNESS 里的注释。
+        """
+        for n in ("F/liveIds-dropsRoot", "F/liveIds-dropsGhost", "F/multiSel-needsTwo",
+                  "F/outermost-childFirst", "F/outermost-parentFirst",
+                  "F/outermost-deepGrandchild", "F/outermost-siblingsKept", "F/outermost-empty",
+                  "F/allNodeIds-excludesRoot",
+                  "F/canBatchMove-cycle", "F/canBatchMove-notDir", "F/canBatchMove-missing",
+                  "F/canBatchMove-exists", "F/canBatchMove-sameParentNoConflict",
+                  "F/canBatchMove-ok"):
             self._ok(n)
 
 

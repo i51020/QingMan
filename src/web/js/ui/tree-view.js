@@ -36,14 +36,17 @@ export function createTreeView(container, { onSelect, onMove, onContext }) {
   let currentRoot = null;
   /** 渲染时的选中 id 快照：拖拽/折叠等视图内重渲染时用它，避免闭包取旧值 */
   let currentSelectedId = null;
+  /** 渲染时的**多选集合**快照（V0.0.43 · F 组）：同上，供视图内重渲染复用 */
+  let currentSelectedIds = [];
   /** 当前拖拽中的节点 id（dragover 时判定合法性用） */
   let draggingId = null;
   /** 当前拖拽中的**节点对象**：C-P3-2 预判「落点是否在被拖子树内」时用（见 dragover） */
   let draggingNode = null;
 
-  function render(root, selectedId) {
+  function render(root, selectedId, selectedIds) {
     currentRoot = root;
     currentSelectedId = selectedId;
+    currentSelectedIds = Array.isArray(selectedIds) ? selectedIds : [];
     /* C-P3-1：本函数是**全量重建**（编辑 / 折叠 / 选中任一操作都走到这里），
        清空容器会让滚动位置回到顶部。滚动条长在**父节点** `#treeWrap` 上
        （见 css/layout.css：`#treeWrap { overflow: auto }`），`container`（`#treeCanvas`）
@@ -52,12 +55,12 @@ export function createTreeView(container, { onSelect, onMove, onContext }) {
     const keepTop = scroller.scrollTop;
     const keepLeft = scroller.scrollLeft;
     container.textContent = '';
-    if (root) container.appendChild(buildRow(root, selectedId));
+    if (root) container.appendChild(buildRow(root, selectedId, currentSelectedIds));
     scroller.scrollTop = keepTop;
     scroller.scrollLeft = keepLeft;
   }
 
-  function buildRow(node, selectedId) {
+  function buildRow(node, selectedId, selectedIds) {
     const wrap = document.createElement('div');
     wrap.className = 'tree-node';
 
@@ -66,9 +69,13 @@ export function createTreeView(container, { onSelect, onMove, onContext }) {
     const isCollapsed = collapsed.has(node.id);
 
     const row = document.createElement('div');
-    row.className = 'tree-row' + (node.id === selectedId ? ' is-selected' : '');
+    const isSelected = node.id === selectedId;
+    const isMulti = selectedIds.includes(node.id);
+    row.className = 'tree-row' + (isSelected ? ' is-selected' : '') + (isMulti ? ' is-multi' : '');
     row.dataset.id = node.id;
     row.setAttribute('role', 'treeitem');
+    /* aria-selected 是 role="treeitem" 的选择语义；单选与多选都算「选中」 */
+    row.setAttribute('aria-selected', isSelected || isMulti ? 'true' : 'false');
     row.draggable = node.id !== (currentRoot && currentRoot.id);
 
     const toggle = document.createElement('span');
@@ -79,7 +86,7 @@ export function createTreeView(container, { onSelect, onMove, onContext }) {
       if (!hasChildren) return;
       if (collapsed.has(node.id)) collapsed.delete(node.id);
       else collapsed.add(node.id);
-      render(currentRoot, currentSelectedId);
+      render(currentRoot, currentSelectedId, currentSelectedIds);
     });
     row.appendChild(toggle);
 
@@ -100,7 +107,9 @@ export function createTreeView(container, { onSelect, onMove, onContext }) {
     }
     row.appendChild(name);
 
-    row.addEventListener('click', () => onSelect(node.id));
+    /* V0.0.43 · F 组：把事件一并回传 —— 调用方据 ctrl/meta/shift 修饰键决定
+       「离散多选 / 范围选择 / 单选」。视图层不自己解释修饰键（那属于选择模型）。 */
+    row.addEventListener('click', (event) => onSelect(node.id, event));
     wrap.appendChild(row);
 
     /* ---------- 拖拽（V0.0.19）：根节点不可拖；目录可作落点 ---------- */
@@ -156,7 +165,7 @@ export function createTreeView(container, { onSelect, onMove, onContext }) {
       const box = document.createElement('div');
       box.className = 'tree-children' + (isCollapsed ? ' is-collapsed' : '');
       for (const child of node.children) {
-        box.appendChild(buildRow(child, selectedId));
+        box.appendChild(buildRow(child, selectedId, selectedIds));
       }
       wrap.appendChild(box);
     }
@@ -180,5 +189,17 @@ export function createTreeView(container, { onSelect, onMove, onContext }) {
     for (const child of node.children) walkDirs(child, visit);
   }
 
-  return { render, expandAll, collapseAll };
+  /**
+   * 当前**可视行**的 id 序列（V0.0.43 · F 组）。
+   *
+   * Shift 范围选择要「从锚点到当前节点」——折叠的子树不在序列里，语义即
+   * 「只计看得见的行」（需求草案 2.6 节的裁定）。直接读 DOM 而非遍历模型，
+   * 是因为「哪一行可见」正是渲染的产物，模型侧无从得知折叠态（视图层私有）。
+   */
+  function visibleIds() {
+    return Array.prototype.map.call(
+      container.querySelectorAll('.tree-row'), (row) => row.dataset.id);
+  }
+
+  return { render, expandAll, collapseAll, visibleIds };
 }

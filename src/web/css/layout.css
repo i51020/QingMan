@@ -156,6 +156,26 @@
 }
 #toolbar { align-items: center; border-bottom: 1px solid var(--qm-line-soft); }
 
+/* 工具栏语义分组（V0.0.43 · G 组）：编辑 / 视图 / 输出。
+   组间用软竖线分隔（原先手写的两处 .divider 退场）—— 组内一律不留分隔，
+   因为「撤销 · 重做」与「加子节点 · 重命名 · 删除」同属「改数据」，被分开才是错位。
+   role="group" + aria-label 让这三组对读屏也可辨（原先读作一长串按钮）。
+   注意：不要用 .skin- 前缀命名（会触发 7d「组件不得感知皮肤」）。 */
+.tb-group { display: inline-flex; align-items: center; gap: 6px; }
+.tb-group + .tb-group {
+  margin-left: 2px;
+  padding-left: 12px;
+  border-left: 1px solid var(--qm-line);
+}
+
+/* 批量操作条（V0.0.43 · F 组）：多选 ≥2 项时才出现，紧贴工具栏下方。
+   计数用强调色，操作提示用弱化色；动作按钮一律复用既有 .btn 变体，不新造视觉语言。 */
+#batchBar { align-items: center; gap: 8px; border-bottom: 1px solid var(--qm-line-soft); }
+/* .bar 已声明 display:flex，会盖掉 [hidden] 的 UA 默认 none —— 显式提回来（同 .layer[hidden]） */
+#batchBar[hidden] { display: none; }
+.batch-info { font-size: 12px; color: var(--qm-accent-ink); }
+.batch-hint { font-size: 11px; color: var(--qm-text-dim); }
+
 /* 生成参数区：可折叠。
    参数是"一个项目设一次"的低频项，却长期占据一整行 —— 折叠后只留摘要行，
    关键设定（目标位置 / 根名 / 演练或写盘）仍一眼可见。 */
@@ -236,6 +256,13 @@
 .tree-row:hover {
   background: var(--qm-line-soft);
   box-shadow: inset 1px 1px 2px var(--qm-shadow-light), inset -1px -1px 2px var(--qm-shadow-dark);
+}
+/* 多选命中（V0.0.43 · F 组）。与单选的「实底 + 内阴影」刻意区分：多选只是「加入集合」，
+   用淡底 + 描边更轻。**必须排在 .is-selected 之前** —— 两者特异性相同，
+   同时命中时（锚点行）由后写的 .is-selected 胜出，锚点才看得出是「主选中」。 */
+.tree-row.is-multi {
+  background: var(--qm-line-soft);
+  border-color: var(--qm-accent);
 }
 .tree-row.is-selected {
   background: var(--qm-accent-soft);
@@ -318,6 +345,39 @@
 .prop-key { flex: 0 0 56px; color: var(--qm-text-dim); font-size: 12px; }
 .prop-val { flex: 1 1 auto; word-break: break-all; }
 .prop-mono { font-size: 11px; color: var(--qm-text-dim); }
+
+/* 检视器标题行（V0.0.43 · H 组）：标题左、模式分段控件右。
+   复用 .panel-head 的 flex + space-between，只把基线对齐改为居中 ——
+   分段控件是带边框的块，与 12px 文字按基线对齐会偏低。 */
+.insp-head { align-items: center; }
+.insp-head .panel-title { margin-bottom: 0; }
+#inspPropPane, #inspSrcPane { margin-top: 8px; }
+/* 分段控件（属性 ⇄ 源码）：两个相邻 .seg-btn 共用一圈外框，中间一条缝。
+   注意类名不得带 .skin- 前缀（7d）。 */
+.seg {
+  display: inline-flex;
+  flex: 0 0 auto;
+  border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-sm);
+  overflow: hidden;
+}
+.seg-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--qm-text-dim);
+  font-family: inherit;
+  font-size: 11px;
+  padding: 3px 9px;
+  cursor: pointer;
+}
+.seg-btn + .seg-btn { border-left: 1px solid var(--qm-line); }
+.seg-btn:hover { color: var(--qm-accent-ink); background: var(--qm-surface-2); }
+.seg-btn.is-on { background: var(--qm-accent-soft); color: var(--qm-accent-ink); }
+.seg-btn:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: -2px; }
+/* [hidden] 是 UA 默认的 display:none，但只要上面给了 display 就会被盖掉 —— 显式提回来。
+   与 .layer[hidden]、#batchBar[hidden] 同一处理。 */
+#inspPropPane[hidden], #inspSrcPane[hidden] { display: none; }
 
 /* 节点说明（V0.0.17）：纯文本编辑，随选中节点切换；禁用态（未选中）置灰 */
 #propNote {

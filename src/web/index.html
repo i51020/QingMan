@@ -125,18 +125,38 @@
           </div>
         </div>
 
+        <!-- V0.0.43 · G group: three semantic groups (edit / view / output).
+             Splitting rule = "changes data / read-only view / produces output".
+             Undo+redo sit with add/rename/delete because all five change the tree;
+             the old layout separated them with a .divider, which was a mis-group. -->
         <div id="toolbar" class="bar">
-          <button type="button" id="btnUndo" class="btn btn-ghost" data-i18n="tree.undo" disabled></button>
-          <button type="button" id="btnRedo" class="btn btn-ghost" data-i18n="tree.redo" disabled></button>
-          <span class="divider"></span>
-          <button type="button" id="btnAddChild" class="btn" data-i18n="tree.addChild"></button>
-          <button type="button" id="btnRename" class="btn" data-i18n="tree.rename"></button>
-          <button type="button" id="btnDelete" class="btn btn-danger" data-i18n="tree.delete"></button>
-          <span class="divider"></span>
-          <button type="button" id="btnExpandAll" class="btn btn-ghost" data-i18n="tree.expandAll"></button>
-          <button type="button" id="btnCollapseAll" class="btn btn-ghost" data-i18n="tree.collapseAll"></button>
+          <span class="tb-group" role="group" data-i18n-aria-label="tree.groupEdit">
+            <button type="button" id="btnUndo" class="btn btn-ghost" data-i18n="tree.undo" disabled></button>
+            <button type="button" id="btnRedo" class="btn btn-ghost" data-i18n="tree.redo" disabled></button>
+            <button type="button" id="btnAddChild" class="btn" data-i18n="tree.addChild"></button>
+            <button type="button" id="btnRename" class="btn" data-i18n="tree.rename"></button>
+            <button type="button" id="btnDelete" class="btn btn-danger" data-i18n="tree.delete"></button>
+          </span>
+          <span class="tb-group" role="group" data-i18n-aria-label="tree.groupView">
+            <button type="button" id="btnExpandAll" class="btn btn-ghost" data-i18n="tree.expandAll"></button>
+            <button type="button" id="btnCollapseAll" class="btn btn-ghost" data-i18n="tree.collapseAll"></button>
+          </span>
           <span class="spacer"></span>
-          <button type="button" id="btnGenerate" class="btn btn-primary" data-i18n="gen.button"></button>
+          <span class="tb-group" role="group" data-i18n-aria-label="tree.groupOutput">
+            <button type="button" id="btnGenerate" class="btn btn-primary" data-i18n="gen.button"></button>
+          </span>
+        </div>
+
+        <!-- V0.0.43 · F group: batch bar. Only shown while 2+ nodes are selected,
+             so the multi-select gestures (Ctrl/Cmd-click, Shift-click, Ctrl+A) stay
+             invisible until they are actually useful. Row-count text is filled by JS. -->
+        <div id="batchBar" class="bar" hidden>
+          <span class="batch-info" id="batchInfo"></span>
+          <span class="batch-hint" data-i18n="tree.batchMoveHint"></span>
+          <span class="spacer"></span>
+          <button type="button" id="btnBatchCopy" class="btn btn-ghost" data-i18n="tree.batchCopy"></button>
+          <button type="button" id="btnBatchDelete" class="btn btn-danger" data-i18n="tree.batchDelete"></button>
+          <button type="button" id="btnBatchClear" class="btn btn-ghost" data-i18n="tree.batchClear"></button>
         </div>
 
         <div id="treeWrap">
@@ -150,19 +170,35 @@
       </section>
 
       <aside id="inspector">
-        <h2 class="panel-title" data-i18n="inspector.title"></h2>
-        <div class="prop-list">
-          <div class="prop"><span class="prop-key" data-i18n="inspector.name"></span><span class="prop-val" id="propName">—</span><button type="button" class="btn btn-ghost btn-mini" id="btnCopyName" data-i18n="inspector.copy" data-i18n-title="inspector.copyNameTip"></button></div>
-          <div class="prop"><span class="prop-key" data-i18n="inspector.type"></span><span class="prop-val" id="propType">—</span></div>
-          <div class="prop"><span class="prop-key" data-i18n="inspector.path"></span><span class="prop-val prop-mono" id="propPath">—</span><button type="button" class="btn btn-ghost btn-mini" id="btnCopyPath" data-i18n="inspector.copy" data-i18n-title="inspector.copyPathTip"></button></div>
-          <div class="prop"><span class="prop-key" data-i18n="inspector.depth"></span><span class="prop-val" id="propDepth">—</span></div>
-          <div class="prop"><span class="prop-key" data-i18n="inspector.dirs"></span><span class="prop-val" id="propDirs">0</span></div>
-          <div class="prop"><span class="prop-key" data-i18n="inspector.files"></span><span class="prop-val" id="propFiles">0</span></div>
+        <!-- V0.0.43 · H group: properties <-> source (the selected node's own subtree
+             serialized exactly as it will be handed to the generator, so the payload
+             can be verified before pressing Generate). Mode persists via qm.inspMode. -->
+        <div class="panel-head insp-head">
+          <h2 class="panel-title" data-i18n="inspector.title"></h2>
+          <div class="seg" id="inspMode" role="tablist" data-i18n-aria-label="inspector.modeLabel">
+            <button type="button" class="seg-btn" id="btnInspProp" role="tab"
+                    aria-selected="true" data-i18n="inspector.modeProp"></button>
+            <button type="button" class="seg-btn" id="btnInspSrc" role="tab"
+                    aria-selected="false" data-i18n="inspector.modeSrc"></button>
+          </div>
         </div>
-        <h3 class="panel-sub" data-i18n="inspector.noteTitle"></h3>
-        <textarea id="propNote" rows="6" data-i18n-placeholder="inspector.notePlaceholder" disabled></textarea>
-        <div class="note-actions">
-          <button type="button" class="btn btn-ghost btn-mini" id="btnCopyNote" data-i18n="inspector.copyNote" data-i18n-title="inspector.copyNoteTip"></button>
+        <div id="inspPropPane">
+          <div class="prop-list">
+            <div class="prop"><span class="prop-key" data-i18n="inspector.name"></span><span class="prop-val" id="propName">—</span><button type="button" class="btn btn-ghost btn-mini" id="btnCopyName" data-i18n="inspector.copy" data-i18n-title="inspector.copyNameTip"></button></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.type"></span><span class="prop-val" id="propType">—</span></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.path"></span><span class="prop-val prop-mono" id="propPath">—</span><button type="button" class="btn btn-ghost btn-mini" id="btnCopyPath" data-i18n="inspector.copy" data-i18n-title="inspector.copyPathTip"></button></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.depth"></span><span class="prop-val" id="propDepth">—</span></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.dirs"></span><span class="prop-val" id="propDirs">0</span></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.files"></span><span class="prop-val" id="propFiles">0</span></div>
+          </div>
+          <h3 class="panel-sub" data-i18n="inspector.noteTitle"></h3>
+          <textarea id="propNote" rows="6" data-i18n-placeholder="inspector.notePlaceholder" disabled></textarea>
+          <div class="note-actions">
+            <button type="button" class="btn btn-ghost btn-mini" id="btnCopyNote" data-i18n="inspector.copyNote" data-i18n-title="inspector.copyNoteTip"></button>
+          </div>
+        </div>
+        <div id="inspSrcPane" hidden>
+          <pre class="result" id="inspSource" data-i18n="inspector.sourceEmpty"></pre>
         </div>
         <h3 class="panel-sub" data-i18n="inspector.resultTitle"></h3>
         <pre class="result" id="genResult" data-i18n="inspector.resultEmpty"></pre>

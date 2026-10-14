@@ -272,9 +272,33 @@ export const dict = {
   'tree.rootNoName': '（不建根）',
   'tree.deleteConfirm': '确认删除「{name}」及其全部子节点？',
   'tree.copyPath': '复制路径',
+  /* V0.0.43 · G 组：工具栏三个语义组（读屏用，视觉上靠组间距 + 软竖线区分） */
+  'tree.groupEdit': '编辑',
+  'tree.groupView': '视图',
+  'tree.groupOutput': '输出',
+  /* V0.0.43 · F 组：多选批量 */
+  'tree.batchInfo': '已选 {n} 项',
+  'tree.batchMoveHint': '拖动其中一项可整组移动',
+  'tree.batchDelete': '删除选中',
+  'tree.batchCopy': '复制选中路径',
+  'tree.batchClear': '取消选择',
+  'tree.batchDeleteConfirm': '确认删除选中的 {n} 个节点及其全部子节点？（可用撤销恢复）',
+  'tree.batchDeleteRoot': '选中的项里含根节点，根节点不可删除',
+  'tree.addMultiBlocked': '多选状态下不可新建子节点，请先取消多选',
+  'tree.renameMultiBlocked': '多选状态下不可重命名，请先取消多选',
 
   /* ---------- 右栏：属性工作区 ---------- */
   'inspector.title': '属性工作区',
+  /* V0.0.43 · H 组：属性 ⇄ 源码 双模式 */
+  'inspector.modeLabel': '检视器视图',
+  'inspector.modeProp': '属性',
+  'inspector.modeSrc': '源码',
+  'inspector.sourceEmpty': '未选中节点',
+  /* V0.0.43 · F × H：多选时检视器进入聚合态 */
+  'inspector.multiTitle': '{n} 项选中',
+  'inspector.multiType': '多项',
+  'inspector.multiParents': '多个位置',
+  'inspector.multiNoteDisabled': '多选时不可编辑说明',
   'inspector.name': '名称',
   'inspector.type': '类型',
   'inspector.typeDir': '目录',
@@ -304,6 +328,9 @@ export const dict = {
   'status.renamed': '已重命名为「{name}」',
   'status.deleted': '已删除「{name}」',
   'status.moved': '已移动「{name}」至「{to}」',
+  /* V0.0.43 · F 组：批量操作回执 */
+  'status.batchDeleted': '已删除 {n} 个节点',
+  'status.batchMoved': '已移动 {n} 个节点至「{to}」',
   'status.dryRunning': '演练中…',
   'status.writing': '正在写入磁盘…',
   'status.dryDone': '演练完成：目录 {dirs} · 文件 {files} · 已存在 {existed}',
@@ -340,6 +367,7 @@ export const dict = {
   'toast.generatedTo': '已生成到 {root}',
   'toast.copied': '已复制到剪贴板',
   'toast.copyFailed': '复制失败（浏览器未授权剪贴板）',
+  'toast.batchCopied': '已复制 {n} 条路径',
   'toast.saveFailed': '保存失败：{message}',
   'toast.dupIdBlocked': '检测到重复 id（{ids}），已阻止保存',
   'toast.docDupId': '文档存在重复 id：{ids}',
@@ -373,7 +401,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.42',
+  'help.versionFallback': 'V0.0.43',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',
@@ -408,6 +436,7 @@ export const dict = {
   'help.tree.5': '「全部展开 / 全部折叠」批量切换层级',
   'help.tree.6': '拖拽节点到某个目录上，可把它移动到该目录下（不能移到自己的子目录里）',
   'help.tree.7': '在节点上单击右键可弹出菜单：新建子节点 / 重命名 / 删除 / 复制路径',
+  'help.tree.8': '按住 Ctrl / Cmd 单击可多选，Shift 单击选连续一段；Esc 或点空白处取消多选，Ctrl + A 选中除根以外的全部节点。多选后可整组删除、复制路径，或拖动其中一项整组移动',
 
   'help.kbd.title': '快捷键',
   'help.kbd.save': 'Ctrl / Cmd + S — 立即保存（跳过防抖，不等自动保存）',
@@ -462,7 +491,7 @@ export const helpSections = [
   ] },
   { id: 'tree', title: 'help.tree.title', kind: 'ul', items: [
     'help.tree.1', 'help.tree.2', 'help.tree.3', 'help.tree.4', 'help.tree.5',
-    'help.tree.6', 'help.tree.7',
+    'help.tree.6', 'help.tree.7', 'help.tree.8',
   ] },
   { id: 'kbd', title: 'help.kbd.title', kind: 'note', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.delete', 'help.kbd.rename', 'help.kbd.pending'] },
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [

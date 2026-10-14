@@ -11,6 +11,7 @@ import { localizeError, describeError } from './core/errors.js';
 import {
   t, applyStatic, initPrefs, watchLocale,
   getGenBarState, setGenBarState,
+  getInspMode, setInspMode,
 } from './i18n/index.js';
 import {
   createDir, createFile, findNode, findParent, addChild,
@@ -21,6 +22,9 @@ import {
 } from './modules/tree-model.js';
 import { createTreeView } from './ui/tree-view.js';
 import { createInspector, copyText } from './ui/inspector.js';
+import {
+  liveIds, multiSel, allNodeIds, outermostIds, canBatchMove,
+} from './modules/selection.js';
 import { createSkinPicker } from './ui/skin-picker.js';
 import { createLangMenu } from './ui/lang-picker.js';
 import { createContextMenu } from './ui/ctx-menu.js';
@@ -77,6 +81,29 @@ function renderGenBar() {
 function setGenBarCollapsed(next) {
   setGenBarState(next ? 'closed' : 'open');
   renderGenBar();
+}
+
+/* ---------- 检视器双模式：属性 ⇄ 源码（V0.0.43 · H 组） ----------
+   模式存偏好（qm.inspMode），走 i18n/index.js 的带降级读写路径 —— 那里是对外承诺的
+   单一偏好访问点，别处不得直访 localStorage。 */
+
+let inspMode = getInspMode();
+
+/** 把模式落到 DOM：换面板 + 分段控件选中态。纯视图动作，不碰 store。 */
+function applyInspMode() {
+  const src = inspMode === 'src';
+  el('inspPropPane').hidden = src;
+  el('inspSrcPane').hidden = !src;
+  el('btnInspProp').setAttribute('aria-selected', String(!src));
+  el('btnInspSrc').setAttribute('aria-selected', String(src));
+  el('btnInspProp').classList.toggle('is-on', !src);
+  el('btnInspSrc').classList.toggle('is-on', src);
+}
+
+function setInspModeUI(mode) {
+  inspMode = mode === 'src' ? 'src' : 'prop';
+  setInspMode(inspMode);
+  applyInspMode();
 }
 
 /* ---------- 顶栏：语言 / 皮肤 / 支持 / 帮助 / 服务（V0.0.40 · 手册 10.2 节 #6 / #7 / #9） ----------
@@ -204,7 +231,8 @@ function restoreHistory(doc) {
   noteHistoryId = null;   // 历史已变，原编辑会话作废（否则撤销后继续打字不入栈）
   // 同步作废属性栏的编辑暂存：否则 note 输入框仍显示回退前的旧文本（V0.0.20）
   if (typeof inspector.resetEditing === 'function') inspector.resetEditing();
-  store.set({ root, selectedId });
+  // V0.0.43 · F 组：撤销/重做后集合可能指向已不存在的节点 —— 一并清掉，回到单选
+  store.set({ root, selectedId, selectedIds: [] });
 }
 
 function undo() {
@@ -257,6 +285,10 @@ const rootNode = defaultRoot();
 const store = createStore({
   root: rootNode,
   selectedId: rootNode.id,
+  /* V0.0.43 · F 组：多选集合。**仅在多选（≥2）时非空** —— 单选仍只认 selectedId，
+     以保持 tree-view / inspector / 键盘操作既有调用点不变。纯内存，不落盘
+     （schema.json 的 editorDocument 契约里没有选中态）。 */
+  selectedIds: [],
   version: '—',
   connected: false,
   saveState: 'idle',   // idle | pending | saving | saved | error
@@ -266,23 +298,23 @@ const store = createStore({
 /* ---------- 视图 ---------- */
 
 const treeView = createTreeView(el('treeCanvas'), {
-  onSelect(id) {
-    store.set({ selectedId: id });
+  // V0.0.43 · F 组：事件一并传入，修饰键语义在选择模型里裁决（见 selectNode）
+  onSelect(id, event) {
+    selectNode(id, event);
   },
   // V0.0.19 拖拽：把 id 节点移到 targetDirId 下（模型层拦截非目录/成环/同名/根）
+  // V0.0.43 · F 组：拖动**多选集合内**的节点 → 整组移动（需求草案 2.4 节 #2）
   onMove(id, targetDirId) {
     const root = store.get().root;
+    const set = multiSelNow();
+    if (set.length >= 2 && set.includes(id)) {
+      batchMove(root, set, targetDirId);
+      return;
+    }
     const check = canMove(root, id, targetDirId);
     if (check !== true) {
-      const keys = {
-        missing: 'toast.moveMissing',
-        notDir: 'toast.moveNotDir',
-        cycle: 'toast.moveCycle',
-        exists: 'toast.siblingExists',
-        root: 'toast.moveRoot',
-      };
       const node = findNode(root, id);
-      toast(t(keys[check] || 'toast.moveNotDir', { name: node ? node.name : '' }), 'warn');
+      toast(t(MOVE_ERR_KEY[check] || 'toast.moveNotDir', { name: node ? node.name : '' }), 'warn');
       return;
     }
     const node = findNode(root, id);
@@ -298,20 +330,117 @@ const treeView = createTreeView(el('treeCanvas'), {
   },
   // V0.0.19 右键：选中并弹菜单；菜单项与工具栏同一组动作函数
   onContext(id, x, y) {
-    store.set({ selectedId: id });
     openTreeContextMenu(id, x, y);
   },
 });
+
+/** 移动失败的取词键（单节点移动与整组移动共用同一套原因码）。 */
+const MOVE_ERR_KEY = {
+  missing: 'toast.moveMissing',
+  notDir: 'toast.moveNotDir',
+  cycle: 'toast.moveCycle',
+  exists: 'toast.siblingExists',
+  root: 'toast.moveRoot',
+};
+
+/* ---------- 多选（V0.0.43 · F 组） ----------
+   选择模型：`selectedId` 恒为「锚点 / 主选中」，`selectedIds` 仅在多选（≥2）时承载
+   集合 —— 保留 selectedId 使 tree-view / inspector / 键盘的既有调用点无需改动。
+   集合的语义运算（净化 / 去重 / 批量移动预检）在 modules/selection.js（纯函数、可单测），
+   本节只管「读 store」与「写 store」。 */
+
+/** store 里的多选**原始值**（未净化）。 */
+function multiIds() {
+  const ids = store.get().selectedIds;
+  return Array.isArray(ids) ? ids : [];
+}
+
+/** 当前**生效**的多选集合（已净化、且 ≥2 项才成立）—— 通往 modules/selection.js 的唯一入口。 */
+function multiSelNow() {
+  return multiSel(store.get().root, multiIds());
+}
+
+/**
+ * 选择归约：修饰键 → 离散多选 / 范围选择 / 单选。
+ *
+ * - `Ctrl`/`Cmd` + 单击 → 切换该项的选中态（离散多选）
+ * - `Shift` + 单击     → 从锚点到当前节点的**连续一段**（取当前可视行序，
+ *                        折叠的子树不计入 —— 需求草案 2.6 节裁定）
+ * - 单击（无修饰）      → 清空多选，回到单选
+ */
+function selectNode(id, event) {
+  const root = store.get().root;
+  const mod = !!(event && (event.ctrlKey || event.metaKey));
+  const shift = !!(event && event.shiftKey);
+
+  if (shift) {
+    const visible = treeView.visibleIds();
+    const anchor = store.get().selectedId;
+    const to = visible.indexOf(id);
+    if (to < 0) return;
+    let from = visible.indexOf(anchor);
+    if (from < 0) from = to;
+    const ids = visible.slice(Math.min(from, to), Math.max(from, to) + 1);
+    applySelection(ids, anchor);
+    return;
+  }
+
+  if (mod) {
+    if (id === root.id) return;   // 根不可多选
+    const base = multiSelNow().length ? multiSelNow() : (store.get().selectedId ? [store.get().selectedId] : []);
+    const next = base.filter((x) => x !== root.id);
+    const at = next.indexOf(id);
+    if (at >= 0) next.splice(at, 1);
+    else next.push(id);
+    applySelection(next, id);
+    return;
+  }
+
+  store.set({ selectedIds: [], selectedId: id });
+}
+
+/** 把候选集合收口进 store：≥2 进多选态，否则塌回单选（锚点优先保留）。 */
+function applySelection(ids, anchor) {
+  const root = store.get().root;
+  const uniq = [...new Set(ids)].filter((x) => x !== root.id);
+  if (uniq.length >= 2) {
+    const keep = anchor && uniq.includes(anchor) ? anchor : uniq[uniq.length - 1];
+    store.set({ selectedIds: uniq, selectedId: keep });
+    return;
+  }
+  store.set({ selectedIds: [], selectedId: uniq[0] || anchor || root.id });
+}
 
 /* ---------- 右键菜单（V0.0.19）：动作与工具栏同函数，菜单只管收集与弹出 ---------- */
 
 const ctxMenu = createContextMenu();
 
+/**
+ * 树节点右键菜单（V0.0.19；多选语义 V0.0.43 · F 组）。
+ *
+ * 集合语义（需求草案 2.4 节 #3）：右键的节点**在**多选集合内 → 菜单作用于**整个集合**；
+ * **不在**集合内 → 作用于该节点，并清空多选（否则「右键别的节点」会留下一个
+ * 用户看不见的旧集合，下一次批量操作会误伤它）。
+ */
 function openTreeContextMenu(id, x, y) {
   const root = store.get().root;
   const node = findNode(root, id);
   if (!node) return;
+  const set = multiSelNow();
+  const inSet = set.includes(id);
+  if (!inSet && multiIds().length) store.set({ selectedIds: [] });
+  const scope = inSet ? set : [id];
   const isRoot = id === root.id;
+
+  if (scope.length >= 2) {
+    ctxMenu.showAt(x, y, [
+      { label: t('tree.batchDelete'), danger: true, action: () => batchDelete(scope) },
+      { label: t('tree.batchCopy'), action: () => batchCopy(scope) },
+      { label: t('tree.batchClear'), action: () => store.set({ selectedIds: [] }) },
+    ]);
+    return;
+  }
+
   ctxMenu.showAt(x, y, [
     { label: t('tree.addChild'), disabled: !isDir(node), action: () => doAddChild(id) },
     { label: t('tree.rename'), disabled: isRoot, action: () => doRename(id) },
@@ -323,6 +452,63 @@ function openTreeContextMenu(id, x, y) {
   ]);
 }
 
+/* ---------- 批量操作（V0.0.43 · F 组） ---------- */
+
+/**
+ * 批量删除。
+ *
+ * 只作用于**最外层祖先**，故对话框里报的是**实际将被摘除的顶层项数**，
+ * 可能与「已选 N 项」不等（父子同选时子被父覆盖）—— 报真实数才不至于误导。
+ * 删除整体**可撤销**：撤销栈是快照式的，一次批量操作只占一格历史。
+ */
+function batchDelete(ids) {
+  const root = store.get().root;
+  const targets = outermostIds(root, liveIds(root, ids));
+  if (!targets.length) return;
+  if (targets.includes(root.id)) {
+    toast(t('tree.batchDeleteRoot'), 'warn');
+    return;
+  }
+  if (!window.confirm(t('tree.batchDeleteConfirm', { n: targets.length }))) return;
+  pushHistory();
+  const anchor = findParent(root, targets[0]);
+  for (const id of targets) removeNode(root, id);
+  store.set({ selectedIds: [], selectedId: anchor ? anchor.id : root.id });
+  setStatus(t('status.batchDeleted', { n: targets.length }));
+  markDirty();
+}
+
+/** 批量复制路径（只读操作，不入撤销栈）：一行一条，便于直接贴进资源管理器。 */
+function batchCopy(ids) {
+  const root = store.get().root;
+  const targets = outermostIds(root, liveIds(root, ids));
+  const text = targets.map((id) => pathOf(root, id)).filter(Boolean).join('\n');
+  if (!text) return;
+  copyWithToast(text, 'toast.batchCopied', 'toast.copyFailed', { n: targets.length });
+}
+
+/**
+ * 整组移动（拖动多选集合内任一项时触发）。
+ *
+ * 预检 `canBatchMove` 来自 modules/selection.js（纯函数、可单测）——
+ * 必须在 pushHistory **之前**跑完，快照才是改动前的状态。id 跨移动稳定，
+ * 故移动后集合保持选中，用户可接着操作。
+ */
+function batchMove(root, ids, targetDirId) {
+  const check = canBatchMove(root, ids, targetDirId);
+  if (!check.ok) {
+    toast(t(MOVE_ERR_KEY[check.code] || 'toast.moveNotDir', { name: check.name }), 'warn');
+    return;
+  }
+  const target = findNode(root, targetDirId);
+  pushHistory();
+  for (const id of ids) moveNode(root, id, targetDirId);
+  treeView.expandAll();
+  store.set({ selectedIds: ids });
+  setStatus(t('status.batchMoved', { n: ids.length, to: target ? target.name : '' }));
+  markDirty();
+}
+
 const inspector = createInspector({
   name: el('propName'),
   type: el('propType'),
@@ -332,6 +518,7 @@ const inspector = createInspector({
   depth: el('propDepth'),
   note: el('propNote'),
   result: el('genResult'),
+  source: el('inspSource'),
   onNoteChange(id, value) {
     // note 编辑：与重命名同路入撤销栈，但**按编辑会话合并**（V0.0.20）——
     // 同一节点连续输入只在第一次入栈，失焦/切换节点/撤销后重新计一次。
@@ -349,17 +536,56 @@ const inspector = createInspector({
 
 function render() {
   const { root, selectedId } = store.get();
+
+  /* 多选集合可能因撤销 / 载入模板 / 恢复文档而指向已不存在的节点 → 先收敛。
+     收敛会再触发一次 render（store 同步派发），故这里直接返回，避免半渲染。 */
+  const raw = multiIds();
+  const live = liveIds(root, raw);
+  if (live.length !== raw.length || (live.length > 0 && live.length < 2)) {
+    store.set({ selectedIds: live.length >= 2 ? live : [] });
+    return;
+  }
+
   // 选中节点切换即结束 note 编辑会话（V0.0.20）：换回来重编辑时重新计一格历史
   if (selectedId !== lastRenderedSelectedId) {
     noteHistoryId = null;
     lastRenderedSelectedId = selectedId;
   }
-  treeView.render(root, selectedId);
-  inspector.render(root, selectedId);
+  treeView.render(root, selectedId, live);
+  inspector.render(root, selectedId, live);
+  inspector.renderSource(root, live.length >= 2 ? live : (selectedId ? [selectedId] : []));
+  applyInspMode();
+  renderBatchBar(live);
+  updateSelectionUI(live);
   const stats = countTree(root);
   el('statusCount').textContent = t('status.count', { dirs: stats.dirs, files: stats.files });
   renderSaveChip();
   updateUndoUI();
+}
+
+/** 批量条：多选 ≥2 项才出现（横幅式常驻说明「已选几项 + 怎么移动」）。 */
+function renderBatchBar(ids) {
+  const bar = el('batchBar');
+  const many = ids.length >= 2;
+  bar.hidden = !many;
+  if (many) el('batchInfo').textContent = t('tree.batchInfo', { n: ids.length });
+}
+
+/**
+ * 多选时把「只对单个节点成立」的按钮禁用并写明原因（需求草案 5.2 节）。
+ *
+ * 「加子节点」与「重命名」都要一个**唯一**的作用对象，多选下语义不明；
+ * 而「删除」在集合语义下有确定含义（见右键菜单与批量条），故只有这两颗被禁。
+ * 用 title 说明原因 —— 光禁用不给理由是常见的可用性缺陷。
+ */
+function updateSelectionUI(ids) {
+  const many = ids.length >= 2;
+  const add = el('btnAddChild');
+  const ren = el('btnRename');
+  add.disabled = many;
+  ren.disabled = many;
+  add.title = many ? t('tree.addMultiBlocked') : '';
+  ren.title = many ? t('tree.renameMultiBlocked') : '';
 }
 
 store.subscribe(render);
@@ -475,7 +701,7 @@ async function restoreDocument() {
         toast(t('toast.docDupId', { ids: idList(duplicated) }), 'warn', 8000);
       }
       const at = String(res.doc.savedAt || '').slice(11, 16);
-      store.set({ root, selectedId: root.id, saveState: 'saved', savedAt: at });
+      store.set({ root, selectedId: root.id, selectedIds: [], saveState: 'saved', savedAt: at });
       setStatus(at ? t('status.restoredAt', { at }) : t('status.restored'));
       return;
     }
@@ -496,6 +722,10 @@ function selectedId() {
 
 function doAddChild(id = selectedId()) {
   const root = store.get().root;
+  if (multiSelNow().length >= 2) {
+    toast(t('tree.addMultiBlocked'), 'warn');
+    return;
+  }
   const node = findNode(root, id);
   if (!node || node.type !== 'dir') {
     toast(t('toast.selectDirFirst'), 'warn');
@@ -527,6 +757,10 @@ function doAddChild(id = selectedId()) {
 
 function doRename(id = selectedId()) {
   const root = store.get().root;
+  if (multiSelNow().length >= 2) {
+    toast(t('tree.renameMultiBlocked'), 'warn');
+    return;
+  }
   const isRootNode = id === root.id;
   const node = findNode(root, id);
   if (!node) return;
@@ -568,6 +802,12 @@ function doRename(id = selectedId()) {
 
 function doDelete(id = selectedId()) {
   const root = store.get().root;
+  /* V0.0.43 · F 组：多选时「删除」作用于整个集合（工具栏 / Delete 键 / 右键菜单三处共用） */
+  const set = multiSelNow();
+  if (set.length >= 2 && set.includes(id)) {
+    batchDelete(set);
+    return;
+  }
   if (id === root.id) {
     toast(t('toast.rootDeleteBlocked'), 'warn');
     return;
@@ -680,9 +920,9 @@ el('btnLogo').addEventListener('click', createShortcut);
 
 /* ---------- 属性栏：三粒度复制（V0.0.17） ---------- */
 
-async function copyWithToast(text, okKey, failKey) {
+async function copyWithToast(text, okKey, failKey, vars) {
   const ok = await copyText(text);
-  toast(ok ? t(okKey) : t(failKey), ok ? 'info' : 'error');
+  toast(ok ? t(okKey, vars) : t(failKey), ok ? 'info' : 'error');
 }
 
 el('btnCopyName').addEventListener('click', () => {
@@ -704,6 +944,23 @@ el('btnCopyNote').addEventListener('click', () => {
 el('btnUndo').addEventListener('click', undo);
 el('btnRedo').addEventListener('click', redo);
 
+/* 检视器模式切换（V0.0.43 · H 组）：只切面板 + 存偏好，不动数据、不入撤销栈。 */
+el('btnInspProp').addEventListener('click', () => setInspModeUI('prop'));
+el('btnInspSrc').addEventListener('click', () => setInspModeUI('src'));
+
+/* 批量条（V0.0.43 · F 组）：三颗按钮各自再取一次当前集合 —— 不用闭包里的旧值，
+   因为面板可能在两次点击之间被别处（右键菜单 / Esc）改动过。 */
+el('btnBatchDelete').addEventListener('click', () => batchDelete(multiSelNow()));
+el('btnBatchCopy').addEventListener('click', () => batchCopy(multiSelNow()));
+el('btnBatchClear').addEventListener('click', () => store.set({ selectedIds: [] }));
+
+/* 点树区空白处取消多选（帮助页写明的路径之一）。点在行上时不处理 ——
+   行的 click 会冒泡到此处，由 closest 判掉。 */
+el('treeWrap').addEventListener('click', (event) => {
+  if (event.target.closest('.tree-row')) return;
+  if (multiIds().length) store.set({ selectedIds: [] });
+});
+
 // note 说明框失焦 = 编辑会话结束（V0.0.20）：下次聚焦重新计一格历史
 el('propNote').addEventListener('blur', () => {
   noteHistoryId = null;
@@ -711,6 +968,7 @@ el('propNote').addEventListener('blur', () => {
 
 /* Ctrl/Cmd + S 立即保存；Ctrl/Cmd + Z 撤销；Ctrl/Cmd + Y / Ctrl/Cmd + Shift + Z 重做；
    Delete 删除选中节点；F2 重命名选中节点。
+   V0.0.43 · F 组新增：Esc 取消多选；Ctrl/Cmd + A 选中除根以外的全部节点。
    在输入框内时保留原生行为，不拦截（typing 守卫）。 */
 document.addEventListener('keydown', (event) => {
   const tag = (event.target.tagName || '').toLowerCase();
@@ -728,6 +986,16 @@ document.addEventListener('keydown', (event) => {
     doRename();
     return;
   }
+  /* Esc：取消多选。弹层开着时**让给弹层** —— layer.js 有自己的 Esc 监听，
+     此处若也处理，会出现「关掉弹窗的同时把树区多选一并清掉」的连坐。 */
+  if (event.key === 'Escape') {
+    if (typing) return;
+    if (layers && layers.isOpen()) return;
+    if (!multiIds().length) return;
+    event.preventDefault();
+    store.set({ selectedIds: [] });
+    return;
+  }
 
   const mod = event.ctrlKey || event.metaKey;
   if (!mod || event.altKey) return;
@@ -739,6 +1007,14 @@ document.addEventListener('keydown', (event) => {
     return;
   }
   if (typing) return;
+  if (key === 'a') {
+    /* 全选「根之下」全部节点（需求草案 2.2 节）—— 含折叠在里面的，语义是「整棵树」 */
+    const all = allNodeIds(store.get().root);
+    if (!all.length) return;
+    event.preventDefault();
+    applySelection(all, all[0]);
+    return;
+  }
   if (key === 'z') {
     event.preventDefault();
     event.shiftKey ? redo() : undo();
@@ -1212,7 +1488,7 @@ async function applyTemplate(item) {
     // 模板说明提炼（V0.0.17）：根 note 为空时取「说明文档.md」（兜底首个 *.md）填入 ——
     // 独立副本：原 .md 文件保留不动，编辑 note 不回写
     const noteFrom = adoptTemplateNote(root);
-    store.set({ root, selectedId: root.id });
+    store.set({ root, selectedId: root.id, selectedIds: [] });
     setStatus(t('template.loaded', { name: res.name || item.name })
       + (noteFrom ? t('template.noteAdopted', { file: noteFrom }) : ''));
     markDirty();

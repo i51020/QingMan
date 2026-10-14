@@ -82,8 +82,12 @@ REQUIRED_IDS = (
     "btnUndo", "btnRedo",
     "btnExpandAll", "btnCollapseAll", "btnGenerate",
     "treeCanvas", "statusText", "statusCount",
+    # V0.0.43：F 组批量操作条（多选 ≥2 时出现）
+    "batchBar", "batchInfo", "btnBatchCopy", "btnBatchDelete", "btnBatchClear",
     "inspector", "propName", "propType", "propPath", "propDirs", "propFiles", "propDepth",
     "propNote", "btnCopyName", "btnCopyPath", "btnCopyNote",
+    # V0.0.43：H 组「属性 ⇄ 源码」双模式（分段控件 + 两个面板）
+    "inspMode", "btnInspProp", "btnInspSrc", "inspPropPane", "inspSrcPane", "inspSource",
     "genResult", "toastHost", "ctxMenu",
     # V0.0.40：应用内弹层（需求 §10.2 #9 支持/帮助内嵌；#7 服务设置）
     "scrim", "dlgHelp", "dlgSupport", "dlgService",
@@ -120,6 +124,8 @@ REQUIRED_FILES = (
     "src/web/js/core/store.js",
     "src/web/js/core/api.js",
     "src/web/js/modules/tree-model.js",
+    # V0.0.43：选择集合的语义运算（F 组）—— 从 main.js 拆出，兼解单文件体积上限
+    "src/web/js/modules/selection.js",
     "src/web/js/ui/tree-view.js",
     "src/web/js/ui/inspector.js",
     "src/web/js/ui/toast.js",
@@ -720,7 +726,7 @@ def main() -> int:
           else "缺少 src/web/css/skins/README.md")
 
     prefs_js = root / "src/web/js/i18n/index.js"
-    PREF_KEYS = ("qm.lang", "qm.skin", "qm.genBar")
+    PREF_KEYS = ("qm.lang", "qm.skin", "qm.genBar", "qm.inspMode")
     prefs_body = prefs_js.read_text(encoding="utf-8") if prefs_js.is_file() else ""
     prefs_missing = [key for key in PREF_KEYS if key not in prefs_body]
     check(not prefs_missing, "偏好键名 §P0-3 L6",

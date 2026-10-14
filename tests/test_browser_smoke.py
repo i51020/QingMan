@@ -6,13 +6,19 @@
 **不验证判定逻辑本身是否正确**。本文件把「一次性反向验证」变成**常态回归网**。
 
 重点（复刻上一轮反向验证的逻辑，但固化为单测）：
-  * 喂「正常指标」→ 23 项全 PASS（V0.0.38 起含 6E 的绑定 UI / 右键菜单 / 轮询实证；
+  * 喂「正常指标」→ 27 项全 PASS（V0.0.38 起含 6E 的绑定 UI / 右键菜单 / 轮询实证；
     V0.0.40 起含目标位置「选择…」按钮的就位与取词刷新；
-    V0.0.41 起含模板「新建」按钮 + 弹窗开合/起点填充的运行时实证）；
+    V0.0.41 起含模板「新建」按钮 + 弹窗开合/起点填充的运行时实证；
+    V0.0.42 起含根名方案 C 的两条；
+    V0.0.43 起含 UI 定版差集 G（工具栏三分组）/ H（检视器属性⇄源码）/ F（多选手势 + 批量删除只作用于最外层祖先）四条）；
   * 喂「P1-1 回归指标（分节 7 → 14 → 21）」→ **恰好**「帮助页·分节渲染幂等」一项 FAIL；
   * 喂「P1-2 回归指标（示例含中文名 6 个）」→ **恰好**「主界面·默认示例随语言」一项 FAIL；
   * 喂「C-P3-5 回归指标（非法皮肤名被直接采用）」/「D-P3-2 回归指标（顶栏图标色仍是旧灰）」→ 各恰好一项 FAIL；
-  * V0.0.32 三项（C-P3-2 子孙落点误收 / C-P3-3 划过子元素误摘 / C-P3-4 提示条无上限）→ 各恰好一项 FAIL。
+  * V0.0.32 三项（C-P3-2 子孙落点误收 / C-P3-3 划过子元素误摘 / C-P3-4 提示条无上限）→ 各恰好一项 FAIL；
+  * V0.0.43 四项（G 按钮离组 / H 源码栏非 JSON / F 手势断链 / F 父子同选去重失效）→ 各恰好一项 FAIL。
+
+NORMAL 里的 V0.0.43 各值取**真机实测原值**（`tools/browser_smoke.py` 一次真实运行），
+非手填 —— 以免基线自身与页面行为悄悄漂移；改探针须同步回此处。
 """
 
 from __future__ import annotations
@@ -78,6 +84,23 @@ NORMAL = {
     "rootSumBefore": "", "rootSumAfter": "Target X · Root QmRootX · Dry run",
     "rootSumBlank": "Target X · No root folder · Dry run",
     "rootNameBefore": "", "rootNameAfter": "QmRootX", "rootNameBlank": "(no root folder)",
+    # V0.0.43 新增：UI 定版差集 G / H / F 三条（真机实测原值）。
+    #   G：工具栏三分组 —— 锚点是 8 颗按钮的**归属序列**（见 bs.EXPECT_GROUP_MAP），
+    #      只数分组个数会被三个空壳 div 骗过，故同时钉「组数 / 带标签数 / 归属序列」。
+    "gGroups": "3", "gLabels": "3", "gMap": bs.EXPECT_GROUP_MAP,
+    #   H：检视器「属性 ⇄ 源码」—— hJson + hHasChild 是强证据（源码栏须为可解析 JSON
+    #      且真的含子节点名，证走的是 toPlainTree 序列化而非随手拼串）；hBack=2 证能复位。
+    "hSeg": "2", "hPropHidden": "1", "hSrcShown": "1", "hJson": "1", "hHasChild": "1",
+    "hBack": "2", "hPref": "src",
+    #   F：多选批量。fAll 与 fVisible 联动（全选除根 = 可见行数 - 1）；fDedupSet 证父子同选
+    #      在视图层确实标了 2 行「多选」。
+    "fBar0": "0", "fMulti": "2", "fBarOn": "1", "fInfo": "1", "fAgg": "1",
+    "fBarOff": "1", "fMultiOff": "0", "fShift": "3", "fVisible": "6", "fAll": "5",
+    "fAllBar": "1", "fBarOff2": "1", "fDedupSet": "2",
+    #   fConfirmMsg 是**取词**后的整句（随语言变化），判定只用 first_int 抽其中数字；
+    #   基线取真机英文原句，但改文案不会影响判定 —— 关键量是首个数字（= 最外层祖先数）。
+    "fConfirmMsg": "Delete the 1 selected nodes and all their children? (undoable)",
+    "fDropN": "3", "fBefore": "6", "fAfter": "3", "fCancelKept": "1", "fBarClear": "1",
 }
 
 FAIL = "帮助页·分节渲染幂等"
@@ -95,6 +118,11 @@ FAIL_TPLDLG = "主界面·「新建模板」弹窗可开、起点已填充、可
 # V0.0.42（手册 10.2 节 #12）：根名方案 C 的两条判定名
 FAIL_ROOTRENAME = "主界面·根名即树根：改名后摘要与树区同步（V0.0.42）"
 FAIL_ROOTBLANK = "主界面·根名即树根：清空即不建根（V0.0.42）"
+# V0.0.43（UI 定版差集 G / H / F）：四条判定名
+FAIL_GROUP3 = "主界面·工具栏三分组：按钮各归其组（V0.0.43 · G）"
+FAIL_INSPMODE = "主界面·检视器属性⇄源码：可切换且源码为同源 JSON（V0.0.43 · H）"
+FAIL_BATCHGEST = "主界面·多选手势与批量条（Ctrl/Shift/Esc/Ctrl+A）（V0.0.43 · F）"
+FAIL_BATCHDEL = "主界面·批量删除只作用于最外层祖先（V0.0.43 · F）"
 
 
 def run_metrics(metrics: dict, expected_version: str = VERSION,
@@ -210,7 +238,7 @@ class VerifyMetricsTests(unittest.TestCase):
     def test_normal_all_pass(self):
         results = run_metrics(NORMAL)
         self.assertEqual(failed_names(results), [], "正常指标不应有任何失败项")
-        self.assertEqual(len(results), 23, "verify_metrics 应产生 23 项判定（14 + 6E 三项 + V0.0.39 一项 + V0.0.40 一项 + V0.0.41 两项 + V0.0.42 两项）")
+        self.assertEqual(len(results), 27, "verify_metrics 应产生 27 项判定（23 + V0.0.43 的 G/H/F 四条）")
 
     def test_p1_1_regression_fails_exactly_section_idempotence(self):
         """P1-1 回归：帮助页切语言累积分节（7 → 14 → 21）→ 恰好那项 FAIL。"""
@@ -244,7 +272,7 @@ class VerifyMetricsTests(unittest.TestCase):
 
     def test_templates_check_skipped_when_not_expected(self):
         results = run_metrics(NORMAL, expect_templates=False)
-        self.assertEqual(len(results), 19, "不期望模板时不应产生模板判定项（V0.0.41 / V0.0.42 的项与模板库无关，仍在）")
+        self.assertEqual(len(results), 23, "不期望模板时不应产生模板判定项（V0.0.41 / V0.0.42 / V0.0.43 的项与模板库无关，仍在）")
         self.assertNotIn(TPL_CHECK, [n for _o, n, _x in results])
 
     def test_v042_root_rename_not_propagated_fails_exactly(self):
@@ -387,6 +415,107 @@ class VerifyMetricsTests(unittest.TestCase):
                     dict(NORMAL, tplNewClosed="0")):
             with self.subTest(metrics=bad):
                 self.assertEqual(failed_names(run_metrics(bad)), [FAIL_TPLDLG])
+
+    # ---- V0.0.43 · UI 定版差集 G / H / F 的反向验证 ----
+
+    def test_v043_group_map_off_fails_exactly(self):
+        """G 回归：某颗按钮被移出原分组（归属序列变了）→ 恰好 G 一项 FAIL。"""
+        metrics = dict(NORMAL, gMap="00000012")     # btnCollapseAll 被划入视图外
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_GROUP3])
+
+    def test_v043_group_count_or_label_off_fails_exactly(self):
+        """G 回归：只剩两组 / 某组丢了 aria-label（读屏还原成一长串按钮）→ 恰好 G 一项 FAIL。"""
+        for bad in (dict(NORMAL, gGroups="2"), dict(NORMAL, gLabels="2")):
+            with self.subTest(metrics=bad):
+                self.assertEqual(failed_names(run_metrics(bad)), [FAIL_GROUP3])
+
+    def test_v043_inspector_source_not_json_fails_exactly(self):
+        """H 回归：源码栏不是可解析 JSON（退化成随手拼的字符串）→ 恰好 H 一项 FAIL。"""
+        metrics = dict(NORMAL, hJson="0")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_INSPMODE])
+
+    def test_v043_inspector_source_lacks_child_fails_exactly(self):
+        """H 回归：源码栏是 JSON 但不含实际子节点名（序列化未贯通）→ 恰好 H 一项 FAIL。"""
+        metrics = dict(NORMAL, hHasChild="0")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_INSPMODE])
+
+    def test_v043_inspector_not_switched_back_fails_exactly(self):
+        """H 回归：切到源码后切不回属性面板（分段控件单向）→ 恰好 H 一项 FAIL。"""
+        metrics = dict(NORMAL, hBack="1")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_INSPMODE])
+
+    def test_v043_batch_gesture_break_fails_exactly(self):
+        """F 回归：Shift 范围选择只选中 2 行（未按可视序取连续段）→ 恰好 F 手势一项 FAIL。"""
+        metrics = dict(NORMAL, fShift="2")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_BATCHGEST])
+
+    def test_v043_batch_all_include_root_fails_exactly(self):
+        """F：Ctrl+A 若把根也选进去（fAll 不再等于可见行数 - 1）→ 恰好 F 手势一项 FAIL。"""
+        metrics = dict(NORMAL, fAll=NORMAL["fVisible"])     # 6 != 6-1
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_BATCHGEST])
+
+    def test_v043_batch_esc_not_clearing_fails_exactly(self):
+        """F 回归：Esc 未取消多选（集合残留 / 批量条不收）→ 恰好 F 手势一项 FAIL。"""
+        metrics = dict(NORMAL, fMultiOff="2")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_BATCHGEST])
+
+    def test_v043_batch_dedup_line_count_is_not_the_criterion(self):
+        """为何判据是「对话框报的顶层项数」而非「实删行数」——本用例把这点钉死。
+
+        逐个删除时，子节点在父被摘走后已随之消失，第二次 `removeNode` 自然返回 false，
+        最终行数**恰好与只删父相同**（故 `fBefore - fAfter == fDropN` 恒成立，不具判别力）。
+        本用例的指标里行数口径**完全自洽**（6 - 3 == 3），只有对话框报 2 项 ——
+        仍须**恰好**在批量删除一项 FAIL，证明判定用的确是对话框口径。
+        """
+        metrics = dict(NORMAL, fConfirmMsg="Delete the 2 selected nodes? (undoable)")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_BATCHDEL])
+
+    def test_v043_batch_dedup_reports_two_fails_exactly(self):
+        """F 回归：父子同选时对话框报 2 项（未去重）→ 恰好批量删除一项 FAIL。"""
+        metrics = dict(NORMAL, fConfirmMsg="Delete the 2 selected nodes and all their children? (undoable)")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_BATCHDEL])
+
+    def test_v043_batch_cancel_must_leave_tree_untouched(self):
+        """F 回归：取消路径没生效（树被动了 / 批量条未收）→ 各恰好批量删除一项 FAIL。"""
+        for bad in (dict(NORMAL, fCancelKept="0"), dict(NORMAL, fBarClear="0")):
+            with self.subTest(metrics=bad):
+                self.assertEqual(failed_names(run_metrics(bad)), [FAIL_BATCHDEL])
+
+    def test_v043_batch_over_deletion_fails_exactly(self):
+        """F 回归：删多了（实删行数 ≠ 父行子树行数）→ 恰好批量删除一项 FAIL。"""
+        metrics = dict(NORMAL, fAfter="0")      # 6 - 0 = 6 != 3
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_BATCHDEL])
+
+    def test_v043_probe_metrics_present(self):
+        """V0.0.43：探针须真的写出这 29 个新指标键（否则判定读到空值会静默 FAIL）。
+
+        与 `verify.py` 的静态 token 锚定互补：那里保证「探针源码里有这些赋值」，
+        这里保证「基线把每一个都当成了判定输入」—— 少一个就是判据缺口。
+        """
+        need = ("gGroups", "gLabels", "gMap",
+                "hSeg", "hPropHidden", "hSrcShown", "hJson", "hHasChild", "hBack", "hPref",
+                "fBar0", "fMulti", "fBarOn", "fInfo", "fAgg", "fBarOff", "fMultiOff",
+                "fShift", "fVisible", "fAll", "fAllBar", "fBarOff2", "fDedupSet",
+                "fConfirmMsg", "fDropN", "fBefore", "fAfter", "fCancelKept", "fBarClear")
+        for key in need:
+            self.assertIn(key, NORMAL, f"基线缺少 V0.0.43 指标 {key}")
+
+
+class FirstIntTests(unittest.TestCase):
+    """V0.0.43 · F：`first_int` 是批量删除判定的**解耦层**（只抽数字，不比对整句）。"""
+
+    def test_extracts_leading_number(self):
+        self.assertEqual(
+            bs.first_int("Delete the 1 selected nodes and all their children? (undoable)"), 1)
+        self.assertEqual(bs.first_int("确认删除选中的 1 个节点及其全部子节点？（可用撤销恢复）"), 1)
+
+    def test_default_when_no_digit(self):
+        self.assertEqual(bs.first_int("no digits here", default=-1), -1)
+        self.assertEqual(bs.first_int(""), -1)
+        self.assertEqual(bs.first_int(None), -1)
+
+    def test_returns_first_of_several(self):
+        self.assertEqual(bs.first_int("3 of 7 items"), 3)
 
 
 class SandboxBaseTests(unittest.TestCase):

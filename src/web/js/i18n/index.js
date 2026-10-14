@@ -27,6 +27,8 @@ export const AUTO_LOCALE = 'auto';
 export const LOCALE_KEY = 'qm.lang';
 export const SKIN_KEY = 'qm.skin';
 export const GENBAR_KEY = 'qm.genBar';
+/** 检视器显示模式（V0.0.43 · H 组）：`'prop'` 属性 / `'src'` 源码。 */
+export const INSP_KEY = 'qm.inspMode';
 /** 上次已上传的启动图标配色指纹（P3-9）：持久化后，页面重载不再无条件重传图标。 */
 export const ICON_KEY = 'qm.launchIcon';
 
@@ -323,6 +325,23 @@ export function getGenBarState() {
 /** 写折叠态；传入非法值时清除记录（下次启动重新按默认展开）。 */
 export function setGenBarState(state) {
   writePref(GENBAR_KEY, state === 'open' || state === 'closed' ? state : '');
+}
+
+/* ---------- 检视器显示模式（V0.0.43 · H 组） ---------- */
+
+/**
+ * 检视器显示模式：`'prop'`（属性表）或 `'src'`（源码）。
+ *
+ * 与语言 / 皮肤 / 折叠态同一条带降级的读写路径 —— 该路径是本模块对外承诺的
+ * **单一偏好访问点**（见文件头）。任何非法 / 缺失值一律回落 `'prop'`。
+ */
+export function getInspMode() {
+  return readPref(INSP_KEY) === 'src' ? 'src' : 'prop';
+}
+
+/** 写检视器模式；非 `'src'` 一律落回 `'prop'`（把值域收在此处，调用方不必自校验）。 */
+export function setInspMode(mode) {
+  writePref(INSP_KEY, mode === 'src' ? 'src' : 'prop');
 }
 
 /** 启动时恢复已保存的语言与皮肤。**必须在填充任何文案之前调用**。 */

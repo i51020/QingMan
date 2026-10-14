@@ -7,7 +7,9 @@
  * 编辑流：输入 → onNoteChange（调用方入撤销栈 + markDirty）→ 重渲染。
  */
 
-import { isDir, pathOf, depthOf, countTree, normalizeNote } from '../modules/tree-model.js';
+import {
+  isDir, pathOf, depthOf, countTree, normalizeNote, findParent, toPlainTree,
+} from '../modules/tree-model.js';
 import { localizeError } from '../core/errors.js';
 import { t } from '../i18n/index.js';
 
@@ -28,8 +30,17 @@ export function createInspector(refs) {
   });
 
   return {
-    render(root, selectedId) {
-      if (!root || !selectedId) {
+    render(root, selectedId, ids) {
+      if (!root) {
+        clear();
+        return;
+      }
+      /* V0.0.43 · F × H：多选（≥2）时没有「那个节点」可描述，切到聚合口径。 */
+      if (Array.isArray(ids) && ids.length >= 2) {
+        renderMulti(root, ids);
+        return;
+      }
+      if (!selectedId) {
         clear();
         return;
       }
@@ -49,6 +60,8 @@ export function createInspector(refs) {
       refs.dirs.textContent = String(stats.dirs);
       refs.files.textContent = String(stats.files);
       refs.depth.textContent = depth >= 0 ? String(depth) : '—';
+      /* 从聚合态切回来时必须还原占位提示（聚合态把它改成了「多选时不可编辑说明」） */
+      refs.note.placeholder = t('inspector.notePlaceholder');
 
       // Render note: skip overwrite while the user is editing this very node
       // (avoids clobbering the caret mid-typing on store-driven re-renders).
@@ -63,6 +76,38 @@ export function createInspector(refs) {
 
     showResult(result) {
       refs.result.textContent = JSON.stringify(result, null, 2);
+    },
+
+    /**
+     * 「源码」视图内容（V0.0.43 · H 组）：把选中节点的**子树**序列化成与落盘同构的纯对象。
+     *
+     * 复用 `toPlainTree` —— 与 `/api/generate` 的 payload **同源**，因此这一栏显示的
+     * 就是「按生成时这个节点会写成什么」，可用于生成前当场核验（H 组选该方案的理由）。
+     * 多选时按「完整路径 → 子树」合并成一份对象，键即路径，读起来就是一张映射表。
+     *
+     * 视图归属：源码面板属于检视器自身，故渲染留在这里而不是 main.js ——
+     * 主入口只管「何时重渲染」，不管「面板里写什么」。
+     */
+    renderSource(root, ids) {
+      const host = refs.source;
+      if (!host) return;
+      if (!ids.length) {
+        host.textContent = t('inspector.sourceEmpty');
+        return;
+      }
+      if (ids.length === 1) {
+        const node = findAny(root, ids[0]);
+        host.textContent = node
+          ? JSON.stringify(toPlainTree(node), null, 2)
+          : t('inspector.sourceEmpty');
+        return;
+      }
+      const merged = {};
+      for (const id of ids) {
+        const node = findAny(root, id);
+        if (node) merged[pathOf(root, id) || node.name] = toPlainTree(node);
+      }
+      host.textContent = JSON.stringify(merged, null, 2);
     },
 
     showError(err) {
@@ -80,6 +125,54 @@ export function createInspector(refs) {
     },
   };
 
+  /**
+   * 多选聚合态（V0.0.43 · F × H，需求草案 5.1 节）。
+   *
+   * 多选后若面板仍显示「最后点击的那个节点」，语义是错的 —— 改报**集合口径**：
+   * 计数取各项合计、路径取公共父目录（跨父则明说「多个位置」）、深度无从定义故留 `—`、
+   * note 无单一可编辑对象故**禁用**。选中集合本身的详表在「源码」视图（合并 JSON）。
+   */
+  function renderMulti(root, ids) {
+    currentId = null;
+    editing = { id: null, value: '' };
+    let dirs = 0;
+    let files = 0;
+    for (const id of ids) {
+      const node = findAny(root, id);
+      if (!node) continue;
+      if (isDir(node)) {
+        const sub = countTree(node);
+        dirs += sub.dirs;
+        files += sub.files;
+      } else {
+        files += 1;
+      }
+    }
+    refs.name.textContent = t('inspector.multiTitle', { n: ids.length });
+    refs.type.textContent = t('inspector.multiType');
+    refs.path.textContent = commonParentLabel(root, ids) || t('inspector.multiParents');
+    refs.dirs.textContent = String(dirs);
+    refs.files.textContent = String(files);
+    refs.depth.textContent = '—';
+    refs.note.value = '';
+    refs.note.placeholder = t('inspector.multiNoteDisabled');
+    refs.note.disabled = true;
+  }
+
+  /** 全部选中项的**公共父目录**标签；跨父返回空串（调用方据此显示「多个位置」）。 */
+  function commonParentLabel(root, ids) {
+    let shared = null;
+    for (const id of ids) {
+      const parent = findParent(root, id);
+      if (!parent) return '';
+      if (shared === null) shared = parent;
+      else if (shared.id !== parent.id) return '';
+    }
+    if (!shared) return '';
+    if (shared.id === root.id) return root.name || t('tree.rootNoName');
+    return pathOf(root, shared.id) || shared.name;
+  }
+
   function clear() {
     currentId = null;
     editing = { id: null, value: '' };
@@ -90,6 +183,7 @@ export function createInspector(refs) {
     refs.files.textContent = '0';
     refs.depth.textContent = '—';
     refs.note.value = '';
+    refs.note.placeholder = t('inspector.notePlaceholder');
     refs.note.disabled = true;
   }
 }

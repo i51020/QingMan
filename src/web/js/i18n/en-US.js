@@ -266,9 +266,33 @@ export const dict = {
   'tree.rootNoName': '(no root folder)',
   'tree.deleteConfirm': 'Delete "{name}" and all its children?',
   'tree.copyPath': 'Copy path',
+  /* V0.0.43 · G group: three semantic toolbar groups (screen-reader label only) */
+  'tree.groupEdit': 'Edit',
+  'tree.groupView': 'View',
+  'tree.groupOutput': 'Output',
+  /* V0.0.43 · F group: multi-select batch operations */
+  'tree.batchInfo': '{n} selected',
+  'tree.batchMoveHint': 'Drag one of them to move the whole set',
+  'tree.batchDelete': 'Delete selected',
+  'tree.batchCopy': 'Copy selected paths',
+  'tree.batchClear': 'Clear selection',
+  'tree.batchDeleteConfirm': 'Delete the {n} selected nodes and all their children? (undoable)',
+  'tree.batchDeleteRoot': 'The selection includes the root node, which cannot be deleted',
+  'tree.addMultiBlocked': 'A new child cannot be added while multiple nodes are selected - clear the selection first',
+  'tree.renameMultiBlocked': 'Rename is unavailable while multiple nodes are selected - clear the selection first',
 
   /* ---------- Right: property workspace ---------- */
   'inspector.title': 'Property Workspace',
+  /* V0.0.43 · H group: properties <-> source dual mode */
+  'inspector.modeLabel': 'Inspector view',
+  'inspector.modeProp': 'Properties',
+  'inspector.modeSrc': 'Source',
+  'inspector.sourceEmpty': 'No node selected',
+  /* V0.0.43 · F x H: inspector aggregates while multiple nodes are selected */
+  'inspector.multiTitle': '{n} selected',
+  'inspector.multiType': 'Multiple',
+  'inspector.multiParents': 'Multiple locations',
+  'inspector.multiNoteDisabled': 'Note editing is disabled while multiple nodes are selected',
   'inspector.name': 'Name',
   'inspector.type': 'Type',
   'inspector.typeDir': 'Directory',
@@ -298,6 +322,9 @@ export const dict = {
   'status.renamed': 'Renamed to "{name}"',
   'status.deleted': 'Deleted "{name}"',
   'status.moved': 'Moved "{name}" into "{to}"',
+  /* V0.0.43 · F group: batch operation receipts */
+  'status.batchDeleted': 'Deleted {n} nodes',
+  'status.batchMoved': 'Moved {n} nodes into "{to}"',
   'status.dryRunning': 'Dry running…',
   'status.writing': 'Writing to disk…',
   'status.dryDone': 'Dry run done: {dirs} dirs · {files} files · {existed} existed',
@@ -334,6 +361,7 @@ export const dict = {
   'toast.generatedTo': 'Generated to {root}',
   'toast.copied': 'Copied to clipboard',
   'toast.copyFailed': 'Copy failed (clipboard not granted)',
+  'toast.batchCopied': 'Copied {n} paths',
   'toast.saveFailed': 'Save failed: {message}',
   'toast.dupIdBlocked': 'Duplicate ids detected ({ids}), save blocked',
   'toast.docDupId': 'Document contains duplicate ids: {ids}',
@@ -367,7 +395,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.42',
+  'help.versionFallback': 'V0.0.43',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',
@@ -403,6 +431,7 @@ export const dict = {
   'help.tree.5': '"Expand all / Collapse all" toggles all levels',
   'help.tree.6': 'Drag a node onto a directory to move it there (cannot move into its own subdirectory)',
   'help.tree.7': 'Right-click a node to open a menu: New child / Rename / Delete / Copy path',
+  'help.tree.8': 'Ctrl/Cmd-click to add nodes to the selection, Shift-click to select a contiguous run; Esc (or a plain click) clears it, Ctrl+A selects everything but the root. With several selected you can delete them as a group, copy their paths, or drag one of them to move the whole set',
 
   'help.kbd.title': 'Keyboard shortcuts',
   'help.kbd.save': 'Ctrl / Cmd + S — Save immediately (skip debounce)',
@@ -450,7 +479,7 @@ export const helpSections = [
   ] },
   { id: 'tree', title: 'help.tree.title', kind: 'ul', items: [
     'help.tree.1', 'help.tree.2', 'help.tree.3', 'help.tree.4', 'help.tree.5',
-    'help.tree.6', 'help.tree.7',
+    'help.tree.6', 'help.tree.7', 'help.tree.8',
   ] },
   { id: 'kbd', title: 'help.kbd.title', kind: 'note', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.delete', 'help.kbd.rename', 'help.kbd.pending'] },
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [

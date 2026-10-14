@@ -7,6 +7,60 @@
 
 ---
 
+## V0.0.43 — 2026-10-14
+
+**主题**：**UI 定版差集 G → H → F 三组落地**（需求草案 §八 实施顺序：最轻 → 中等 → 最重）—— **G** 工具栏三分组（编辑/视图/输出）、**H** 检视器「属性 ⇄ 源码」双模式、**F** 目录树**多选批量**（Ctrl/Shift/Ctrl+A/Esc + 批量复制/删除/移动）。**升 patch `V0.0.42` → `V0.0.43`**。**无新增错误码**。**后端零改动**（三组均为前端；F 组的批量删除走既有 `POST /api/...` 删除路径，仅改为多节点循环 + 最外层祖先去重）。
+
+> 依据：用户「**采纳建议，分步，依次执行**」—— 采纳上轮报告的建议与《UI定版差集_需求草案_20261014.md》§七 **10 条待裁决点**的全部推荐值，按该草案 §八 的 **G → H → F** 顺序逐项编码落地。
+
+### G 组 · 工具栏三分组（最轻）
+
+**症结**：8 颗按钮平铺成一条无分组的工具带，撤销/重做与增改删之间被 `.divider` **错误分开**（改结构类操作与视图类操作混排），读屏时读作一长串按钮。
+
+- **`src/web/index.html`**：工具栏改三个 `.tb-group`（编辑 / 视图 / 输出），各带 `role="group"` + `data-i18n-aria-label`；**撤销/重做与增改删并入同一组**，`.divider` 退场。
+- **`src/web/css/layout.css`**：`.tb-group` / `.tb-group + .tb-group`（组间软竖线，用既有 token `--qm-line`，不新增视觉语言）。
+- **i18n**：新增 `tree.groupEdit` / `tree.groupView` / `tree.groupOutput`（中英严格对齐）。
+
+### H 组 · 检视器「属性 ⇄ 源码」双模式（中等）
+
+- **`src/web/index.html`**：`.panel-head.insp-head` 内嵌分段控件 `#inspMode[role="tablist"]` + `#btnInspProp` / `#btnInspSrc`（`role="tab"`）；属性内容包进 `#inspPropPane`，新增 `#inspSrcPane` + `<pre id="inspSource">`。
+- **`src/web/js/ui/inspector.js`**：新增 **`renderSource(root, ids)`** —— 复用 `toPlainTree` 序列化（与 `POST /api/generate` 的 payload **同源**），单选取当前子树、多选按「路径 → 子树」合并 JSON。
+- **`src/web/js/i18n/index.js`**：新增偏好键 `qm.inspMode`（`getInspMode` / `setInspMode`）—— 走既有**单一访问点** `readPref` / `writePref`。
+- **`src/web/css/layout.css`**：`.insp-head` / `.seg` / `.seg-btn` / `.seg-btn.is-on` / 两面板 `[hidden]` 规则（**类名避 `.skin-`**，不触 7d 皮肤守卫）。
+
+### F 组 · 多选批量操作（最重）
+
+- **新增 `src/web/js/modules/selection.js`**（选择集合语义纯函数，**从 `main.js` 拆出** —— 兼解单文件体积上限 64K）：`liveIds` / `multiSel` / `allNodeIds` / `outermostIds` / `canBatchMove`。
+- **`src/web/js/ui/tree-view.js`**：`render(root, selectedId, selectedIds)` 扩参；行增 `is-multi` / `aria-selected`；行 click 回调改为 `onSelect(id, event)`（**视图层不解释修饰键**）；新增导出 **`visibleIds()`**（读 DOM 得当前可视行序，供 Shift 范围选择）。
+- **`src/web/js/ui/inspector.js`**：多选**聚合态**（`renderMulti` / `commonParentLabel`：N 项计数合计、公共父目录或「多个位置」、深度 `—`、note 禁用并改 placeholder）。
+- **`src/web/index.html`**：批量条 `<div id="batchBar" class="bar" hidden>` + `#batchInfo` + `#btnBatchCopy` / `#btnBatchDelete` / `#btnBatchClear`。
+- **`src/web/js/main.js`**：`selectNode(id, event)`（Ctrl/Cmd 离散多选、**Shift 按可视序范围**、无修饰单选）/ `applySelection` / `batchDelete` / `batchCopy` / `batchMove` / `renderBatchBar`；键盘 **Esc 取消多选**（弹层打开时让给 `layer.js`）/ **Ctrl+A 全选除根**；多选时禁用「加子 / 改名」并给 `title` 理由；`doDelete` 多选时转 `batchDelete`。
+- **i18n**：`tree.batch*` / `inspector.mode*` / `status.batch*` / `toast.batchCopied` / `help.tree.8`（中英严格对齐）。
+
+### 两条关键裁定（写入判定，防「假通过」）
+
+- **父子同选取最外层祖先**（需求草案 2.4 节 #1）：批量删除的真实判别量是**对话框报的顶层项数**（父子同选须报 **1**），**而非「删掉的行数」** —— 后者**不具判别力**：逐个删除时子节点在父被摘走后已随之消失，第二次 `removeNode` 自然返回 `false`，最终行数恰好相同。
+- **范围选择只计可视行**（需求草案 2.6 节）：Shift 范围以 DOM 可视序为准（折叠的子孙不入选），故 `visibleIds()` 从 DOM 取值而非从模型树推算。
+
+### 一处工程处置（据实记录）
+
+`main.js` 落完 F 组后达 **68,349 B > 65,536**（`SRC_FILE_LIMIT`）。**按项目既有做法拆模块**而非放宽阈值：① 新建 `modules/selection.js` 迁走选择语义纯函数；② 把「源码面板渲染」**归位**到 `ui/inspector.js`（`renderSource` 本属检视器自己的视图）；③ 清掉随之未用的导入。最终 `main.js` **65,016 B**，`src/` 合计 **496K / 512K**。
+
+### 守卫适配
+
+- **`tools/verify.py`**：`REQUIRED_IDS` 增 11 个（`batchBar` / `batchInfo` / `btnBatchCopy` / `btnBatchDelete` / `btnBatchClear` / `inspMode` / `btnInspProp` / `btnInspSrc` / `inspPropPane` / `inspSrcPane` / `inspSource`，关键 id **56 → 67**）；`REQUIRED_FILES` 增 `src/web/js/modules/selection.js`（**校验项数 94 → 95**）；`PREF_KEYS` 增 `qm.inspMode`。
+- **`tools/browser_smoke.py`**：新断言 **4 条**（G 按钮归组 / H 属性⇄源码 / F 多选手势与批量条 / F 批量删除只作用于最外层祖先）→ **30 项**；新增 `EXPECT_GROUP_MAP = "00000112"` 常量与 `first_int()`（从确认文案抽数字，**与 i18n 解耦**）。
+- **`tests/test_browser_smoke.py`**：NORMAL 基线增 **29 字段**（取**真机实测原值**，非手填）；项数 `23→27` / `19→23`；新增 **13 项回归** + `first_int` 的 **3 项单测**；其中 `test_v043_batch_dedup_line_count_is_not_the_criterion` 把「行数不具判别力」这点**钉死**为回归。
+- **`tests/test_frontend_js.py`**：HARNESS 增 V0.0.43 · F 组块（15 条断言），新增 `test_v043_selection_semantics`（**9 tests OK**）。
+
+### 行为变更提示
+
+- **单选的既有行为不变**：`store.selectedId`（锚点）语义未动；`store.selectedIds` **仅 ≥2 时承载集合**，且**多选态纯内存不落盘**（`schema.json` 的 `editorDocument` 仍只有 `schemaVersion` / `savedAt` / `root`）—— 刷新页面后回到单选，不产生新的持久化字段。
+- **新增偏好键 `qm.inspMode`**：检视器停在「属性」还是「源码」会跨会话记住（与 `qm.lang` / `qm.skin` / `qm.genBar` 同一访问点）。
+
+---
+
+
 ## V0.0.42 — 2026-10-14
 
 **主题**：**根名方案 C「根名即树根」**（《项目手册》§十.2 #12 / §十一 #3）—— 消除界面上的**两个「根」**：树编辑区的根节点名**即**生成的根文件夹名（可右键/工具栏改名，改空 = 不建根），参数区独立的「根文件夹名」输入框（`#inRoot`）**退场**。**升 patch `V0.0.41` → `V0.0.42`**。**无新增错误码**。**分两次提交**：`@r1`（方案 C 代码）／`@r2`（文档同步后补记）。

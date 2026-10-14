@@ -346,6 +346,133 @@ frame('./index.html', function (doc) {
       win.prompt = realPrompt;
     }
   }
+  /* V0.0.43 · UI 定版差集 G 组：工具栏三分组（编辑 / 视图 / 输出）。
+     判定锚点是「每颗按钮落在第几个分组里」—— 只数分组个数会被三个空壳 div 骗过，
+     故把 8 颗按钮逐个回溯到所属 .tb-group，期望序列 00000112
+     （撤销/重做/加子/改名/删除 属编辑，展开/折叠 属视图，生成 属输出）。 */
+  var tbEl = doc ? doc.getElementById('toolbar') : null;
+  if (tbEl && win) {
+    var groups = tbEl.querySelectorAll('.tb-group');
+    m.gGroups = groups.length;
+    var labN = 0;
+    for (var gi = 0; gi < groups.length; gi += 1) {
+      if ((groups[gi].getAttribute('aria-label') || '').trim()) { labN += 1; }
+    }
+    m.gLabels = labN;
+    var gIds = ['btnUndo', 'btnRedo', 'btnAddChild', 'btnRename', 'btnDelete',
+                'btnExpandAll', 'btnCollapseAll', 'btnGenerate'];
+    var gCode = '';
+    for (var ga = 0; ga < gIds.length; ga += 1) {
+      var gb = doc.getElementById(gIds[ga]);
+      var gAt = -1;
+      for (var gj = 0; gb && gj < groups.length; gj += 1) {
+        if (groups[gj].contains(gb)) { gAt = gj; break; }
+      }
+      gCode += String(gAt);
+    }
+    m.gMap = gCode;
+  }
+  /* V0.0.43 · UI 定版差集 H 组：检视器「属性 ⇄ 源码」。
+     走真实按钮（#btnInspSrc / #btnInspProp）。四件事一起证：分段控件两档齐备、
+     切过去面板真的换、源码栏是**可解析的 JSON 且含实际子节点名**（证走的是
+     toPlainTree 序列化，而不是随手拼的字符串）、切回来复原。 */
+  var segEl = doc ? doc.getElementById('inspMode') : null;
+  var srcPane = doc ? doc.getElementById('inspSrcPane') : null;
+  var propPane = doc ? doc.getElementById('inspPropPane') : null;
+  var srcHost = doc ? doc.getElementById('inspSource') : null;
+  var hSrcBtn = doc ? doc.getElementById('btnInspSrc') : null;
+  var hPropBtn = doc ? doc.getElementById('btnInspProp') : null;
+  m.hSeg = segEl ? segEl.querySelectorAll('.seg-btn').length : -1;
+  if (segEl && srcPane && propPane && srcHost && hSrcBtn && hPropBtn && win) {
+    hSrcBtn.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
+    m.hPropHidden = propPane.hidden ? 1 : 0;      /* 期望 1 */
+    m.hSrcShown = srcPane.hidden ? 0 : 1;         /* 期望 1 */
+    var srcObj = null;
+    try { srcObj = JSON.parse((srcHost.textContent || '').trim()); } catch (e) { srcObj = null; }
+    m.hJson = (srcObj && typeof srcObj === 'object' && !Array.isArray(srcObj)) ? 1 : 0;
+    var firstChildName = doc.querySelector('.tree-children .tree-row .tree-name');
+    m.hHasChild = (m.hJson === 1 && firstChildName
+      && Object.prototype.hasOwnProperty.call(srcObj, firstChildName.textContent)) ? 1 : 0;
+    try { m.hPref = win.localStorage.getItem('qm.inspMode') || ''; } catch (e) { m.hPref = '?'; }
+    hPropBtn.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
+    m.hBack = (propPane.hidden ? 0 : 1) + (srcPane.hidden ? 1 : 0);   /* 期望 2 */
+  }
+  /* V0.0.43 · UI 定版差集 F 组：多选批量。
+     全部走真实用户路径（Ctrl+单击 / Shift+单击 / Esc / Ctrl+A / 批量条按钮 / window.confirm），
+     不直接改 store。注意：每次交互都会触发**全量重建**，旧行元素随即失效 ——
+     故每一拍都重新查询，只以「行下标」为稳定标识。 */
+  var fBar = doc ? doc.getElementById('batchBar') : null;
+  var fInfo = doc ? doc.getElementById('batchInfo') : null;
+  var fRowsFn = function () { return doc ? doc.querySelectorAll('.tree-row') : []; };
+  var fClick = function (node, ev) {
+    if (node) { node.dispatchEvent(new win.MouseEvent('click', ev || { bubbles: true })); }
+  };
+  var fEsc = function () {
+    doc.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  };
+  m.fBar0 = fBar ? (fBar.hidden ? 0 : 1) : -1;    /* 初始：无多选 → 不得显示，期望 0 */
+  if (fBar && fInfo && win) {
+    /* ① 离散多选：Ctrl+单击两行（根行不可多选，故从下标 1 起） */
+    fClick(fRowsFn()[1], { bubbles: true, ctrlKey: true });
+    fClick(fRowsFn()[2], { bubbles: true, ctrlKey: true });
+    m.fMulti = doc.querySelectorAll('.tree-row.is-multi').length;       /* 期望 2 */
+    m.fBarOn = fBar.hidden ? 0 : 1;                                     /* 期望 1 */
+    m.fInfo = (fInfo.textContent || '').trim() ? 1 : 0;
+    m.fAgg = doc.getElementById('propNote').disabled ? 1 : 0;           /* 聚合态禁用 note */
+    fEsc();
+    m.fBarOff = fBar.hidden ? 1 : 0;                                    /* 期望 1 */
+    m.fMultiOff = doc.querySelectorAll('.tree-row.is-multi').length;     /* 期望 0 */
+    /* ② Shift 范围选择：单击起点 → Shift+单击终点 → 取**可视序**连续一段 */
+    fClick(fRowsFn()[1]);
+    fClick(fRowsFn()[3], { bubbles: true, shiftKey: true });
+    m.fShift = doc.querySelectorAll('.tree-row.is-multi').length;        /* 期望 3 */
+    fEsc();
+    /* ③ Ctrl+A：全选「根之下」全部节点（树此时全展开，故 = 可见行数 - 1） */
+    m.fVisible = fRowsFn().length;
+    doc.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'a', ctrlKey: true, bubbles: true }));
+    m.fAll = doc.querySelectorAll('.tree-row.is-multi').length;
+    m.fAllBar = fBar.hidden ? 0 : 1;
+    fClick(doc.getElementById('btnBatchClear'));
+    m.fBarOff2 = fBar.hidden ? 1 : 0;
+    /* ④ 批量删除须**只作用于最外层祖先**（需求草案 2.4 节 #1）。
+       取「有子孙的第一行」+「它的第一个子孙」造父子同选，并记下父行子树的**行数**：
+       实现正确时删掉的行数应恰等于该值（子被父覆盖），而非「父 + 子各删一次」。
+       先跑一次取消路径（confirm=false）证「取消即不动树」，再跑确认路径。 */
+    var pIdx = -1;
+    var rs = fRowsFn();
+    for (var fi = 1; fi < rs.length; fi += 1) {
+      if (rs[fi].parentNode.querySelectorAll('.tree-row').length > 1) { pIdx = fi; break; }
+    }
+    var realConfirm = win.confirm;
+    if (pIdx >= 0) {
+      m.fDropN = fRowsFn()[pIdx].parentNode.querySelectorAll('.tree-row').length;
+      fClick(fRowsFn()[0]);                                   /* 先回到单选，避免残留集合参与 */
+      fClick(fRowsFn()[pIdx], { bubbles: true, ctrlKey: true });
+      fClick(fRowsFn()[pIdx].parentNode.querySelectorAll('.tree-row')[1], { bubbles: true, ctrlKey: true });
+      m.fDedupSet = doc.querySelectorAll('.tree-row.is-multi').length;   /* 期望 2（父 + 子） */
+      m.fBefore = fRowsFn().length;
+      var delBtn = doc.getElementById('btnBatchDelete');
+      try {
+        win.confirm = function (msg) {                       /* 取消路径：树不得变动 */
+          m.fConfirmMsg = String(msg == null ? '' : msg);    /* 文案里带「实际将摘除的项数」 */
+          return false;
+        };
+        fClick(delBtn);
+        m.fCancelKept = fRowsFn().length === m.fBefore ? 1 : 0;
+        win.confirm = function () { return true; };          /* 确认路径：按最外层祖先删 */
+        fClick(delBtn);
+        m.fAfter = fRowsFn().length;
+        m.fBarClear = fBar.hidden ? 1 : 0;
+      } catch (e) {
+        m.fErr = String(e && e.message ? e.message : e);
+      } finally {
+        win.confirm = realConfirm;
+      }
+    } else {
+      m.fDropN = -1; m.fDedupSet = -1; m.fBefore = -1; m.fAfter = -1;
+      m.fCancelKept = -1; m.fBarClear = -1;
+    }
+  }
   /* V0.0.41 · 手册 9.2 节 #7 / 10.2 节 #4：「新建模板」弹窗**实测**（不是静态断言）。
      走真实路径：点 #btnNewTemplate → newTemplateFlow() 是 async（先 await /api/templates
      填起点下拉，再 layers.open），故点完等一拍再读。读完**立刻**用 [data-close] 关窗 ——
@@ -538,6 +665,17 @@ def as_int(value, default: int = -1) -> int:
         return default
 
 
+def first_int(text: str, default: int = -1) -> int:
+    """取字符串里第一段数字。
+
+    用途：批量删除的确认文案是**取词**结果（`tree.batchDeleteConfirm`），随语言变化；
+    但其中「实际将摘除的顶层项数」是唯一随实现而异的量。故只抽数字、不比对整句 ——
+    与 i18n 解耦（改文案不会误伤本判定）。
+    """
+    m = re.search(r"\d+", text or "")
+    return int(m.group(0)) if m else default
+
+
 def expected_skin_order() -> str:
     """按 `skins.js` 的 `swatch[0]`（背景色）明度**亮 → 暗**复算期望的网格顺序。
 
@@ -637,6 +775,11 @@ def toast_cap() -> int:
     return int(match.group(1)) if match else -1
 
 
+# V0.0.43 · G 组：工具栏 8 颗按钮所属分组的期望序列（5 编辑 / 2 视图 / 1 输出）。
+#   顺序 = btnUndo, btnRedo, btnAddChild, btnRename, btnDelete, btnExpandAll,
+#   btnCollapseAll, btnGenerate —— 改分组即须同步此处。
+EXPECT_GROUP_MAP = "00000112"
+
 def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templates: bool) -> None:
     console_free = metrics.get("htmlLang") == "en-US"
     rows = as_int(metrics.get("idxRows"))
@@ -726,6 +869,70 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
     check(blank_ok, "主界面·根名即树根：清空即不建根（V0.0.42）",
           f"摘要={sum_blank!r} / 树区根名={name_blank!r}"
           + ("" if blank_ok else "（清空后未回到「不建根」）"))
+
+    # V0.0.43 · UI 定版差集 G 组：工具栏三分组。
+    # 锚点是**每颗按钮的归属**（序列 00000112）而非分组个数 —— 后者会被三个空壳容器骗过；
+    # 三组各有 aria-label 才说明分组对读屏也可辨（原先读作一长串按钮）。
+    g_map = metrics.get("gMap", "")
+    g_ok = (as_int(metrics.get("gGroups")) == 3 and as_int(metrics.get("gLabels")) == 3
+            and g_map == EXPECT_GROUP_MAP)
+    check(g_ok, "主界面·工具栏三分组：按钮各归其组（V0.0.43 · G）",
+          f"组数={metrics.get('gGroups')} 带标签={metrics.get('gLabels')} 归属={g_map or '(空)'}"
+          + ("" if g_ok else f"（期望 {EXPECT_GROUP_MAP} = 5 编辑 / 2 视图 / 1 输出）"))
+
+    # V0.0.43 · UI 定版差集 H 组：检视器「属性 ⇄ 源码」。
+    # 最强的一条是 hJson + hHasChild：源码栏必须是**可解析的 JSON 且真的含子节点名** ——
+    # 这才证明它走的是 toPlainTree 序列化（与 /api/generate 的 payload 同源），
+    # 而不是随手拼出来的一段文本。切回属性面板同理（hBack=2）。
+    h_ok = (as_int(metrics.get("hSeg")) == 2
+            and as_int(metrics.get("hPropHidden")) == 1
+            and as_int(metrics.get("hSrcShown")) == 1
+            and as_int(metrics.get("hJson")) == 1
+            and as_int(metrics.get("hHasChild")) == 1
+            and as_int(metrics.get("hBack")) == 2)
+    check(h_ok, "主界面·检视器属性⇄源码：可切换且源码为同源 JSON（V0.0.43 · H）",
+          f"分段 {metrics.get('hSeg')} 档 / 属性面板隐={metrics.get('hPropHidden')} "
+          f"/ JSON={metrics.get('hJson')} 含子节点={metrics.get('hHasChild')} "
+          f"/ 复位={metrics.get('hBack')} / 偏好={metrics.get('hPref')!r}"
+          + ("" if h_ok else "（未切换 / 源码非 JSON / 未复位）"))
+
+    # V0.0.43 · UI 定版差集 F 组：多选批量。
+    # 分五段实证：① 离散多选开条 + 聚合态禁 note；② Esc 与 Shift 范围选择；
+    # ③ Ctrl+A 全选除根；④ 批量删除**只作用于最外层祖先**（父子同选 → 只删父）；
+    # ⑤ 取消路径不动树。④ 是本组最重的一条 —— 它是「父子同选去重」唯一的运行时证据。
+    f_gest = (as_int(metrics.get("fBar0")) == 0
+              and as_int(metrics.get("fMulti")) == 2
+              and as_int(metrics.get("fBarOn")) == 1
+              and as_int(metrics.get("fInfo")) == 1
+              and as_int(metrics.get("fAgg")) == 1
+              and as_int(metrics.get("fBarOff")) == 1
+              and as_int(metrics.get("fMultiOff")) == 0
+              and as_int(metrics.get("fShift")) == 3
+              and as_int(metrics.get("fAll")) == as_int(metrics.get("fVisible")) - 1
+              and as_int(metrics.get("fAllBar")) == 1
+              and as_int(metrics.get("fBarOff2")) == 1)
+    check(f_gest, "主界面·多选手势与批量条（Ctrl/Shift/Esc/Ctrl+A）（V0.0.43 · F）",
+          f"初始条={metrics.get('fBar0')} Ctrl多选={metrics.get('fMulti')} 条={metrics.get('fBarOn')} "
+          f"Esc后={metrics.get('fMultiOff')}/{metrics.get('fBarOff')} Shift={metrics.get('fShift')} "
+          f"CtrlA={metrics.get('fAll')}/{metrics.get('fVisible')} 清空后={metrics.get('fBarOff2')}"
+          + ("" if f_gest else "（手势未生效 / 批量条未联动）"))
+
+    # 关键判别量是 fConfirmN：父子同选时对话框必须报**1**（最外层祖先数），而非 2。
+    # 注意「删掉的行数」**不是**判别量 —— 逐个删除时子节点在父被摘走后已随之消失，
+    # 第二次 removeNode 自然返回 false，最终行数恰好相同（假通过）。故此处只认对话框口径。
+    f_n = first_int(metrics.get("fConfirmMsg", ""))
+    f_del = (as_int(metrics.get("fDedupSet")) == 2
+             and f_n == 1
+             and as_int(metrics.get("fDropN")) >= 2
+             and as_int(metrics.get("fBefore")) - as_int(metrics.get("fAfter"))
+                 == as_int(metrics.get("fDropN"))
+             and as_int(metrics.get("fCancelKept")) == 1
+             and as_int(metrics.get("fBarClear")) == 1)
+    check(f_del, "主界面·批量删除只作用于最外层祖先（V0.0.43 · F）",
+          f"父子同选={metrics.get('fDedupSet')} 对话框报 {f_n} 项 / 父子树 {metrics.get('fDropN')} 行 / "
+          f"实删 {as_int(metrics.get('fBefore')) - as_int(metrics.get('fAfter'))} 行 / "
+          f"取消不动树={metrics.get('fCancelKept')} 条已收={metrics.get('fBarClear')}"
+          + ("" if f_del else "（对话框报的项数≠最外层祖先数，或取消未生效）"))
 
     # C-P3-5（V0.0.29）：非法皮肤偏好须回落出厂默认 —— 若被直接采用，会去加载不存在的
     # `./css/skins/not-a-real-skin.css`（装载失败 → 落 tokens.css 裸色，与选择器显示不符）。
