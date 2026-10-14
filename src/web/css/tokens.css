@@ -29,14 +29,18 @@
   --qm-gap: 10px;
 
   --qm-shadow: 0 1px 2px rgba(30, 39, 50, .07);
-  --qm-shadow-raise: 3px 3px 8px rgba(30, 39, 50, .10), -2px -2px 6px rgba(255, 255, 255, .85);
+  /* V0.0.45 形态统一：形态表达式**只此一份**，影/边色由变量**动态解析** ——
+     皮肤只提供 --qm-shadow-* / --qm-edge-* 的「颜色」，表达式随变量自动适配明暗，
+     故下方 @media(dark) 段**不再需要**升影 / 内陷的覆写。
+     （15 款皮肤中原本各自复制的同名表达式，实测 15 份**取值完全一致**，已全部剥离。） */
+  --qm-shadow-raise: 4px 4px 9px var(--qm-shadow-dark), -3px -3px 8px var(--qm-shadow-light), inset 1px 1px 1.5px var(--qm-edge-hi), inset -1px -1px 1.5px var(--qm-edge-lo);
 
   /* 新拟物锐利边缘变量（皮肤文件可覆盖；§P0-3 L4：仅 tokens.css 允许字面量色值） */
   --qm-edge-hi: rgba(255, 255, 255, .55);
   --qm-edge-lo: rgba(30, 39, 50, .10);
   --qm-shadow-dark: rgba(30, 39, 50, .12);
   --qm-shadow-light: rgba(255, 255, 255, .85);
-  --qm-inset: inset 2px 2px 5px rgba(30, 39, 50, .12), inset -2px -2px 5px rgba(255, 255, 255, .85);
+  --qm-inset: inset 2px 2px 5px var(--qm-shadow-dark), inset -2px -2px 5px var(--qm-shadow-light), inset .5px .5px 1px var(--qm-edge-lo), inset -.5px -.5px 1px var(--qm-edge-hi);
   /* 主按钮内高光 / 按下内阴影（D-P2-1：自 base.css 的裸 rgba 上移为变量；值不变 → 零视觉变更）。
      light / dark 同值：搬迁前 base.css 是**单一字面量**、本就不随主题变化，同值才是等价搬迁。 */
   --qm-btn-hi: rgba(255, 255, 255, .18);
@@ -58,6 +62,17 @@
   /* 遮罩：纯黑。原是暖灰 rgba(48,46,44,.5)，深色皮肤下会把背景压到与弹窗面同亮度 → 边界消失；
      改纯黑后浅色皮肤弹窗/背景落差 98 → 131，深色皮肤 −4 → +27（由反转转正向）。 */
   --qm-scrim: rgba(0, 0, 0, .5);
+
+  /* ---------- 形态语法变量（V0.0.45 · 「变量切换」）----------
+     soft.css 中原本**硬编码**的位移 / 模糊一律收敛到此处，使「形态」只有这一处出口 ——
+     要调整全站立体感（更平 / 更深）只改这里，不必翻组件规则。
+     影色仍引用皮肤变量，故各皮肤仅"配色不同、形态相同"。 */
+  --qm-card-edge:     inset .5px .5px 1px var(--qm-edge-hi);
+  --qm-topbar-shadow: 0 5px 10px var(--qm-soft-dark);
+  --qm-layer-shadow:  0 3px 6px var(--qm-shadow-dark), 0 8px 16px var(--qm-shadow-dark), 0 18px 36px var(--qm-shadow-dark), 0 0 0 1px var(--qm-line);
+  --qm-pop-shadow:    0 3px 6px var(--qm-shadow-dark), 0 10px 20px var(--qm-shadow-dark), 0 0 0 1px var(--qm-line);
+  --qm-qr-shadow:     0 2px 8px var(--qm-soft-dark);
+  --qm-btn-edge:      inset 0 1px 0 var(--qm-edge-hi);
 
   /* 下拉箭头**遮罩**（D-P3-2）：遮罩本身不带颜色，实际颜色由 base.css 的
      `.topbar-select::after` 以 `background-color: var(--qm-text-dim)` 上色 ——
@@ -91,13 +106,13 @@
     --qm-danger-soft: #3a2422;
     --qm-warn: #d9a45b;
     --qm-shadow: 0 1px 2px rgba(0, 0, 0, .35);
-    --qm-shadow-raise: 3px 3px 8px rgba(0, 0, 0, .45), -2px -2px 6px rgba(255, 255, 255, .03);
 
     --qm-edge-hi: rgba(255, 255, 255, .08);
     --qm-edge-lo: rgba(0, 0, 0, .35);
     --qm-shadow-dark: rgba(0, 0, 0, .45);
     --qm-shadow-light: rgba(255, 255, 255, .03);
-    --qm-inset: inset 2px 2px 5px rgba(0, 0, 0, .45), inset -2px -2px 5px rgba(255, 255, 255, .03);
+    /* --qm-shadow-raise / --qm-inset 在此**刻意不再覆写**（V0.0.45）：
+       二者已改为引用上面这几个影 / 边色变量，随本段自动切换，无需重复。 */
     --qm-btn-hi: rgba(255, 255, 255, .18);
     --qm-btn-lo: rgba(0, 0, 0, .25);
 

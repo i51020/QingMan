@@ -7,6 +7,68 @@
 
 ---
 
+## V0.0.45 — 2026-10-14
+
+**主题**：**皮肤体系重构 —— 形态归一 + 软光层转正**（用户三条需求中的**第 1、2 条**）—— ① **Soft（软光）正式化为「新默认」**：不再是可整块摘除的可选皮肤层，而是**唯一的设计语言 / 基础层**，无属性开关、直接生效（旧式的 15 款「旧皮肤」不保留）；② **所有皮肤统一设计风格，切换皮肤仅切换配色**：15 款皮肤里各自复制的形态表达式经实测**取值完全一致（纯冗余）**，全部剥离并上移为**单一来源**，皮肤从此只供**配色 + 影色**。**升 patch `V0.0.44` → `V0.0.45`**。**无新增错误码**。**后端零改动**（纯前端样式层）。
+
+> 依据：用户裁定「**UI 设计风格统一，切换皮肤仅是切换配色**」，并要求对前两项决策「**需要专业建议**」。第 3 条（动态语言包）已于 `V0.0.44` 收口，本轮不涉。
+
+### 一 · 形态归一：15 款皮肤剥离形态表达式（需求 2 的地基）
+
+**发现（实测）**：15 款 `css/skins/sNN-*.css` 的**变量集完全相同（各 23 个）**，且其中**形态类变量取值逐字符一致**——`--qm-shadow-raise` / `--qm-inset` 的**唯一取值数 = 1**。即：这 15 份是**同一份形态的 15 份冗余拷贝**，真正的差异**只在影色 + 配色**（`--qm-shadow-dark` 12 种、`--qm-edge-lo` 12 种、`--qm-bg` 15 种、`--qm-accent` 15 种）。
+
+- **改动**：15 款皮肤**剥离** `--qm-shadow-raise` / `--qm-inset` 两行（**变量数 23 → 21**，`CR = 0`，`write_bytes` 保 LF）；形态表达式**上移至 `tokens.css`**，其值**引用皮肤影色变量**（`var(--qm-shadow-dark)` 等）。
+- **为何零视觉差异**：CSS 的 `var()` 在**使用点**解析，故「表达式在皮肤上」与「表达式在 tokens、皮肤只供其引用的影色变量」**行为完全等价**。已用等价性脚本对 15 皮肤 × 2 变量 + 9 语法变量共 **39 组**做展开后逐字符比对 —— **零差异**，确认为**纯重构**。
+- **`@media (prefers-color-scheme: dark)`**：`tokens.css` 段内删除对 `--qm-shadow-raise` / `--qm-inset` 的覆写（已随影色变量自动适配），保留 `--qm-edge-hi/lo` / `--qm-shadow-dark/light`。
+
+### 二 · 软光层转正：`data-soft` 属性开关移除（需求 1）
+
+**症结**：软光层原靠 `<html data-soft>` 属性挂载，本文件全部规则带 `html[data-soft]` 前缀 —— 属「**可整块摘除的独立层**」，与「正式化为新默认」的定位矛盾。
+
+- **`src/web/css/soft.css`**：**53 处**行首 `html[data-soft]` 前缀 → `html`（**刻意保留 `html` 元素选择器** —— 它给本层 +1 元素级特异性，使去属性后仍能压住 base / layout 中的同名**常态**规则）；形态字面量全部换为变量；头注释重写为「基础层，默认生效」，记录挂载变更与特异性降档。
+- **`src/web/index.html` / `help.html` / `support.html`**：`<html lang="zh-CN" data-soft>` → `<html lang="zh-CN">`（各 1 处）。help / support 页**不注入 skinLink**（只用 tokens 默认配色 + soft 形态）。
+
+### 三 · 新增形态「语法变量」（单一来源）
+
+在 `tokens.css` 的 `:root` 新增 **6 个形态语法变量**，把 soft 层里的**形态字面量**收为变量（软光层从此**不含任何 `\d+px` 字面量**）：`--qm-card-edge` / `--qm-topbar-shadow` / `--qm-layer-shadow` / `--qm-pop-shadow` / `--qm-qr-shadow` / `--qm-btn-edge`。soft 层各处（第 1 节板块影、第 10 节弹层 / 浮层 / 二维码 / toast、`.btn.btn-primary` 系列、`.tree-row.is-selected`）改引这些变量。
+
+### 四 · 交互态特异性反转（本轮最重要教训，已记入《错误笔记》§三.67）
+
+**症状**：`[data-soft]` 是**属性**选择器 (0,1,0)，`html` 是**元素**选择器 (0,0,1)。去属性使 soft **全部规则特异性整体降一档**（`html[data-soft] .x` (0,2,1) → `html .x` (0,1,1)），于是 `layout.css` 的 `.tpl-item:hover` (0,2,0)、`base.css` 的 `input[type="text"]:focus` (0,2,0) 等**带伪类的高特异性规则反超**。
+
+- **盲区**：`getComputedStyle` 在**无鼠标**环境永远进不了 `:hover` —— **静态全元素比对零差异 ≠ 重构零差异**（564 元素静态探针**全绿**，差异只藏在交互态里）。
+- **定位法（本轮建立）**：`CSSStyleRule.selectorText` 把 `:hover` / `:active` / `:focus` **重写为同特异性的类**（`:hover` 与 `.__qh__` 同为 (0,1,0)），再 `querySelectorAll('*')` 全域施加类，然后取计算值 —— 在无头环境**逼出交互态层叠结果**。⚠ `:focus` 重写须用 `/:focus(?![-\w])/`，否则会把 `:focus-visible` 截成非法选择器（**静默失效**）。
+- **修法**：照出 **34 处** hover 回归（`.tpl-item:hover` 泄漏旧设计的 `--qm-accent-soft` 灰底 + `--qm-accent` 描边）；soft 第 7 节加压制规则 `html .tpl-row .tpl-item:hover { background: transparent; border-color: transparent; }`（(0,3,1)）→ **34 → 4**；余 4 处 focus 描边由第 9 节 `html input[type="text"]:focus, html select:focus, html .prop-input:focus { border-color: var(--qm-accent); }` 收口（与 base.css 及 soft 自身 `.prop-note:focus` 取值一致，属**改善**而非回归，且有 `outline` 焦点环兜底）。**补跑静态态复验：564 元素零差异。**
+
+### 五 · 守卫与反向验证
+
+- **`tools/verify.py`**：新增 **三条守卫** → **校验项数 97 → 100**：
+  - **7d-5「皮肤只供配色影色」**：15 款皮肤不得再定义 `--qm-shadow-raise` / `--qm-inset`。
+  - **7d-6「Soft 转基础层」**：三页无 `data-soft`；soft.css 无 `[data-soft]`（注释除外）；soft.css 的 `box-shadow` **无 `\d+px` 字面量**；两处实测补丁在位。
+  - **7d-7「形态语法变量」**：`tokens.css` 含 6 个语法变量。
+- **`tools/browser_smoke.py`**（**30 → 31 项**）：新增**运行时判据「柔光层生效 V0.0.45」** —— 同页自比对：`#sidebar` 影 == 临时元素施加 `var(--qm-raise), var(--qm-card-edge)` 的计算值，且含 `inset`。
+- **`tests/test_browser_smoke.py`**：`NORMAL` 增 `softShadow` / `softRef` 两键（真机原值入档），项数断言 27→28、23→24，新增 `test_v045_probe_metrics_present`。
+- **反向验证（实测，均带无条件还原）**：`verify` 三守卫 **5/5 命中**（皮肤重定义形态 → 7d-5；index 重挂 `data-soft` → 7d-6；soft 引入形态字面量 → 7d-6；删 tpl-item:hover 补丁 → 7d-6；删 `--qm-card-edge` → 7d-7）；`browser_smoke` 新判据 **1/1 命中**（选择器改错即 FAIL）。
+
+### 行为变更提示
+
+- **外观不变（除交互态修正）**：形态归一为**纯重构**（39 组等价性零差异）；软光层转正后**默认即是新外观** —— 15 款皮肤仍是 15 种配色，**形态统一**。
+- **皮肤契约收紧**：皮肤**只允许**覆盖配色 / 影色变量，**不得**定义形态（守卫 7d-5 强制）。
+- **移除的可整块开关**：旧 `<html data-soft>` 属性已无意义（写了也不影响，但已从三页删除）。
+
+### 交付校验
+
+| 套件 | 结果 |
+|---|---|
+| `tools/verify.py` | **100 项**通过（唯一 FAIL 为 handoff 实况段过期，收口时刷新） |
+| `tests/` unittest | **404 OK** |
+| `tools/smoke.py` | **35 / 0** |
+| `tools/browser_smoke.py` | **31 / 0** |
+
+本轮 `src/` 与工具改动 **28 文件，+242 / −132**。
+
+---
+
 ## V0.0.44 — 2026-10-14
 
 **主题**：**动态语言包（i18n 架构升级）** —— 语言包从「写死在中英两个文件里」升级为**可增删的外部数据**：新增一门语言**只需把语言包文件放进 `src/web/locales/`**，界面自动列出并可选用，**无需改动任何代码**。**升 patch `V0.0.43` → `V0.0.44`**。**无新增错误码**。

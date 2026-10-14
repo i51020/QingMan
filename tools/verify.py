@@ -903,6 +903,63 @@ def main() -> int:
           f"{len(contrast_errs)} 处不达标：" + "; ".join(contrast_errs[:4]) if contrast_errs
           else f"{base_n} 基座 × {n_pairs} 配对（文本 ≥4.5 / 非文本 ≥3.0）全部达标")
 
+    # 7d-5. 皮肤「只供配色 + 影色」（V0.0.45 · 形态归一）：15 款皮肤**不得**定义形态合成
+    #       表达式。实测它们原本各自复制、**取值完全一致**（纯冗余），已于 V0.0.45 剥离并上移
+    #       tokens.css（引用 --qm-shadow-* / --qm-edge-*，仍随皮肤明暗自动适配）。本守卫防
+    #       「新增皮肤时又抄一份形态表达式进来」，把刚统一的「设计风格」重新拆散。
+    SHAPE_VARS = ("--qm-shadow-raise", "--qm-inset")
+    shape_leak: list[str] = []
+    if skins_dir.is_dir():
+        for css in sorted(skins_dir.glob("s*.css")):
+            body = strip_comments(css.read_text(encoding="utf-8"), "css")
+            for v in SHAPE_VARS:
+                if re.search(rf"^\s*{re.escape(v)}\s*:", body, re.M):
+                    shape_leak.append(f"{css.name}:{v}")
+    check(not shape_leak, "皮肤只供配色影色 V0.0.45",
+          "皮肤不得定义形态变量：" + ", ".join(shape_leak[:4]) if shape_leak
+          else f"15 款皮肤均未定义 {' / '.join(SHAPE_VARS)}（形态唯一来源 = tokens.css）")
+
+    # 7d-6. Soft 转基础层（V0.0.45）：三页 <html> 不得再挂 data-soft；soft.css 选择器不得再带
+    #       [data-soft] 前缀；形态字面量（位移 / 模糊）必须已收敛为 var(--qm-*)。另外锚定两处
+    #       **实测补丁** —— 去属性使本层特异性整体降一档（(0,2,1) → (0,1,1)），实测**仅**这两处
+    #       被「其它文件带伪类的高特异性规则」反超（detail 见《错误笔记》第 67 条）。删掉即复发。
+    soft_path = root / "src/web/css/soft.css"
+    soft_errs: list[str] = []
+    for page in ("index.html", "help.html", "support.html"):
+        pg = root / "src/web" / page
+        if pg.is_file() and "data-soft" in pg.read_text(encoding="utf-8"):
+            soft_errs.append(f"{page} 仍挂 data-soft")
+    if soft_path.is_file():
+        # 先剥注释：本文件头注释里保留了「[data-soft] / 形态字面量」等历史说明文字，
+        # 不剥会把说明当成违规（§三.62 一族：观测手段的盲区 / 假阳性）。
+        sbody = strip_comments(soft_path.read_text(encoding="utf-8"), "css")
+        if "[data-soft]" in sbody:
+            soft_errs.append("soft.css 仍带 [data-soft] 前缀")
+        for m in re.finditer(r"box-shadow\s*:([^;]+);", sbody):
+            if re.search(r"\d+px", m.group(1)):
+                soft_errs.append("soft.css 含形态字面量：" + m.group(1).strip()[:40])
+                break
+        for pat, name in (("html .tpl-row .tpl-item:hover", "tpl-item:hover 压制"),
+                          ('html input[type="text"]:focus', "input:focus 描边")):
+            if pat not in sbody:
+                soft_errs.append(f"缺实测补丁：{name}")
+    else:
+        soft_errs.append("缺少 soft.css")
+    check(not soft_errs, "Soft 转基础层 V0.0.45",
+          "；".join(soft_errs[:4]) if soft_errs
+          else "三页无 data-soft / soft.css 无前缀与形态字面量 / 两处实测补丁在位")
+
+    # 7d-7. 形态语法变量齐备（V0.0.45 · 「变量切换」）：soft.css 里原本硬编码的位移 / 模糊
+    #       已全部收敛为这 6 个 tokens 变量 —— 删掉任一即「形态又有了第二处出口」。
+    SYNTAX_VARS = ("--qm-card-edge", "--qm-topbar-shadow", "--qm-layer-shadow",
+                   "--qm-pop-shadow", "--qm-qr-shadow", "--qm-btn-edge")
+    tokens_txt = (root / "src/web/css/tokens.css").read_text(encoding="utf-8") \
+        if (root / "src/web/css/tokens.css").is_file() else ""
+    missing_syntax = [v for v in SYNTAX_VARS if v not in tokens_txt]
+    check(not missing_syntax, "形态语法变量 V0.0.45",
+          "tokens.css 缺少：" + ", ".join(missing_syntax) if missing_syntax
+          else f"{len(SYNTAX_VARS)} 个形态语法变量齐备（形态只有一处出口）")
+
     # 7e. CSS 类名形态：kebab-case，不得含下划线或大写（§P2 第 1 项）
     #     先剥掉 url(...) —— 否则 url("../assets/logo.svg") 里的 `.svg` 会被当成类名。
     CLS_NAME = re.compile(r"\.([A-Za-z][A-Za-z0-9_-]*)")

@@ -6,7 +6,7 @@
 **不验证判定逻辑本身是否正确**。本文件把「一次性反向验证」变成**常态回归网**。
 
 重点（复刻上一轮反向验证的逻辑，但固化为单测）：
-  * 喂「正常指标」→ 27 项全 PASS（V0.0.38 起含 6E 的绑定 UI / 右键菜单 / 轮询实证；
+  * 喂「正常指标」→ 28 项全 PASS（V0.0.38 起含 6E 的绑定 UI / 右键菜单 / 轮询实证；
     V0.0.40 起含目标位置「选择…」按钮的就位与取词刷新；
     V0.0.41 起含模板「新建」按钮 + 弹窗开合/起点填充的运行时实证；
     V0.0.42 起含根名方案 C 的两条；
@@ -101,6 +101,12 @@ NORMAL = {
     #   基线取真机英文原句，但改文案不会影响判定 —— 关键量是首个数字（= 最外层祖先数）。
     "fConfirmMsg": "Delete the 1 selected nodes and all their children? (undoable)",
     "fDropN": "3", "fBefore": "6", "fAfter": "3", "fCancelKept": "1", "fBarClear": "1",
+    # V0.0.45 新增：Soft 转基础层（三页 <html> 不再挂 data-soft）—— 「柔光层被加载并**生效**」
+    #   的运行时证据。判定 = 侧栏影与**同页参照**（探针临时元素施加 `var(--qm-raise),
+    #   var(--qm-card-edge)`）**逐字符相等**且含 inset。基线取真机实测原值（默认皮肤 S06），
+    #   两者天然相等；改 soft 对 #sidebar 的表达式须同步此处。
+    "softShadow": "rgba(255, 255, 255, 0.55) -3px -3px 6px 0px, rgba(99, 99, 98, 0.15) 3px 3px 6px 0px, rgba(255, 255, 255, 0.62) 0.5px 0.5px 1px 0px inset",
+    "softRef": "rgba(255, 255, 255, 0.55) -3px -3px 6px 0px, rgba(99, 99, 98, 0.15) 3px 3px 6px 0px, rgba(255, 255, 255, 0.62) 0.5px 0.5px 1px 0px inset",
 }
 
 FAIL = "帮助页·分节渲染幂等"
@@ -238,7 +244,7 @@ class VerifyMetricsTests(unittest.TestCase):
     def test_normal_all_pass(self):
         results = run_metrics(NORMAL)
         self.assertEqual(failed_names(results), [], "正常指标不应有任何失败项")
-        self.assertEqual(len(results), 27, "verify_metrics 应产生 27 项判定（23 + V0.0.43 的 G/H/F 四条）")
+        self.assertEqual(len(results), 28, "verify_metrics 应产生 28 项判定（24 + V0.0.43 的 G/H/F 四条）")
 
     def test_p1_1_regression_fails_exactly_section_idempotence(self):
         """P1-1 回归：帮助页切语言累积分节（7 → 14 → 21）→ 恰好那项 FAIL。"""
@@ -272,7 +278,7 @@ class VerifyMetricsTests(unittest.TestCase):
 
     def test_templates_check_skipped_when_not_expected(self):
         results = run_metrics(NORMAL, expect_templates=False)
-        self.assertEqual(len(results), 23, "不期望模板时不应产生模板判定项（V0.0.41 / V0.0.42 / V0.0.43 的项与模板库无关，仍在）")
+        self.assertEqual(len(results), 24, "不期望模板时不应产生模板判定项（V0.0.41 / V0.0.42 / V0.0.43 的项与模板库无关，仍在）")
         self.assertNotIn(TPL_CHECK, [n for _o, n, _x in results])
 
     def test_v042_root_rename_not_propagated_fails_exactly(self):
@@ -499,6 +505,16 @@ class VerifyMetricsTests(unittest.TestCase):
                 "fConfirmMsg", "fDropN", "fBefore", "fAfter", "fCancelKept", "fBarClear")
         for key in need:
             self.assertIn(key, NORMAL, f"基线缺少 V0.0.43 指标 {key}")
+
+    def test_v045_probe_metrics_present(self):
+        """V0.0.45：探针须真的写出 2 个柔光层指标键（否则「柔光层生效」判定读到空值会静默 FAIL）。
+
+        与 `verify.py` 的 7d-6 静态锚定互补：那里保证「三页无 data-soft / soft.css 无前缀与
+        形态字面量 / 两处实测补丁在位」，这里保证「基线把这两个**运行时**量都当成了判定输入」——
+        静态守卫证不了「这份 CSS 真的被加载且特异性足以作用到 #sidebar」，只有它能。
+        """
+        for key in ("softShadow", "softRef"):
+            self.assertIn(key, NORMAL, f"基线缺少 V0.0.45 指标 {key}")
 
 
 class FirstIntTests(unittest.TestCase):

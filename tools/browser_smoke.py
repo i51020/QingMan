@@ -157,6 +157,22 @@ frame('./index.html', function (doc) {
       probeEl.parentNode.removeChild(probeEl);
       m.arrowColor = win.getComputedStyle(iconBtn).color;
     }
+    /* V0.0.45：Soft 已转「基础层」（三页 <html> 不再挂 data-soft）—— 「柔光层真的被加载
+       并**生效**」只有运行时能证：取侧栏的计算 box-shadow（soft 给 #sidebar 的是 --qm-raise
+       双影，必非 none 且含 rgba 影色）。静态守卫只能证明 CSS 文本与两处补丁在位，
+       证不了「这份 CSS 真的被加载、且特异性足以压住 base / layout」。 */
+    var sbEl = doc ? doc.getElementById('sidebar') : null;
+    m.softShadow = (win && sbEl) ? win.getComputedStyle(sbEl).boxShadow : '';
+    /* 同页**自比对**：临时元素直接施加 soft 给侧栏的那条表达式，取计算值作参照 ——
+       「#sidebar 的影 == 该表达式的展开值」即证明 soft 的规则真的作用到了侧栏
+       （不靠猜色值/影数，故不会与 layout.css 的影混淆）。 */
+    if (win && doc) {
+      var refEl = doc.createElement('i');
+      refEl.style.boxShadow = 'var(--qm-raise), var(--qm-card-edge)';
+      doc.body.appendChild(refEl);
+      m.softRef = win.getComputedStyle(refEl).boxShadow;
+      refEl.parentNode.removeChild(refEl);
+    }
     /* C-P3-1（V0.0.29）：全量重建不得把目录树滚动位置弹回顶部。
        默认示例较短、正常高度下不滚动，故用内联 max-height 把滚动容器压到 60px 逼出滚动；
        记下 scrollTop → 点一个行（store.set → 同步 render 全量重建）→ 重建后 scrollTop 须保持。
@@ -791,6 +807,17 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
 
     check(as_int(metrics.get("idxSkin")) == 1, "主界面·皮肤样式表已装载",
           f"skinLink={'有' if as_int(metrics.get('idxSkin')) == 1 else '无'}")
+
+    # V0.0.45：Soft 已转「基础层」（三页 <html> 不再挂 data-soft）—— 这是「柔光层真的被加载
+    #   并**生效**」的运行时证据。判据用同页**自比对**（探针临时元素施加 soft 给侧栏的表达式
+    #   `var(--qm-raise), var(--qm-card-edge)`，取计算值作参照）：相等 ⇒ soft 的规则确实作用到
+    #   了 #sidebar。若该 CSS 被漏加载、或特异性不足以压住 base / layout，两者会不等。
+    soft_shadow = metrics.get("softShadow", "")
+    soft_ref = metrics.get("softRef", "")
+    soft_ok = bool(soft_ref) and soft_shadow == soft_ref and "inset" in soft_ref
+    check(soft_ok, "柔光层生效 V0.0.45",
+          (soft_shadow[:68] or "(空)") if soft_ok
+          else f"侧栏影={soft_shadow[:40]!r} ≠ 参照={soft_ref[:40]!r}（未加载 / 被压制）")
 
     skin_en = metrics.get("skinEn", "")
     skin_zh = metrics.get("skinZh", "")

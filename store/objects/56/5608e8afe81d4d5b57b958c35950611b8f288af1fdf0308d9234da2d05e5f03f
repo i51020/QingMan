@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QingMan</title>
+  <link rel="stylesheet" href="./css/tokens.css">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/help.css">
+  <link rel="stylesheet" href="./css/soft.css">
+</head>
+<body class="help-page">
+  <div id="helpApp">
+
+    <header id="helpTopbar">
+      <div class="brand">
+        <span class="brand-logo" aria-hidden="true"></span>
+        <span class="brand-mark" data-i18n="app.nameZh"></span>
+        <span class="brand-sub" data-i18n="app.nameEn"></span>
+        <span class="brand-sub" data-i18n="support.titleTag"></span>
+      </div>
+      <div class="topbar-right">
+        <label class="topbar-select" data-i18n-title="lang.label">
+          <span class="select-label" data-i18n="lang.label"></span>
+          <select id="helpLangSelect"></select>
+        </label>
+        <span class="chip" id="helpChipVersion">—</span>
+        <a class="btn btn-ghost" id="btnBack" href="./index.html" data-i18n="support.back"></a>
+        <a class="btn btn-ghost" id="btnToHelp" href="./help.html" data-i18n="support.toHelp"></a>
+      </div>
+    </header>
+
+    <main id="helpMain">
+      <article id="helpBody" class="support-body">
+        <p class="help-lead" data-i18n="support.lead"></p>
+        <div id="supportContent"></div>
+      </article>
+    </main>
+
+    <footer id="helpFooter">
+      <span data-i18n="help.footer"></span>
+    </footer>
+  </div>
+
+  <script src="./api/env.js"></script>
+  <script src="./api/locales.js"></script>
+  <script type="module" src="./js/support.js"></script>
+</body>
+</html>
