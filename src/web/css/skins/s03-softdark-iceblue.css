@@ -1,11 +1,13 @@
 /* 青蔓 QingMan · 皮肤：柔暗·冰蓝（Soft Dark · Ice Blue）
  * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
- * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。
+ * V0.0.46：--qm-surface-2 由 #38465a 收窄至 #334052（ΔL* +3.79 → +1.16）——
+ *   它只作**填充色**、不承担凸凹语义（凸凹归 soft.css 的 --qm-tap / --qm-tap-in）；规则见 skins/README.md。 */
 
 :root {
   --qm-bg: #1f2c42;
   --qm-surface: #313d51;
-  --qm-surface-2: #38465a;
+  --qm-surface-2: #334052;
   --qm-line: rgba(255, 255, 255, 0.14);
   --qm-line-soft: rgba(255, 255, 255, 0.08);
   --qm-text: #fafaf8;

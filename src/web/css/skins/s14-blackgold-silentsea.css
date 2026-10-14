@@ -1,11 +1,13 @@
 /* 青蔓 QingMan · 皮肤：黑金·寂海（Black Gold · Silent Sea）
  * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
- * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。
+ * V0.0.46：--qm-surface-2 由 #383836 收窄至 #2e2e2d（ΔL* +5.45 → +0.90）——
+ *   它只作**填充色**、不承担凸凹语义（凸凹归 soft.css 的 --qm-tap / --qm-tap-in）；规则见 skins/README.md。 */
 
 :root {
   --qm-bg: #202020;
   --qm-surface: #2c2c2c;
-  --qm-surface-2: #383836;
+  --qm-surface-2: #2e2e2d;
   --qm-line: rgba(255, 255, 255, 0.14);
   --qm-line-soft: rgba(255, 255, 255, 0.08);
   --qm-text: #fafaf8;

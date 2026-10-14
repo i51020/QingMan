@@ -267,6 +267,12 @@ def rel_luminance(rgb: tuple[int, int, int]) -> float:
     return 0.2126 * ch(rgb[0]) + 0.7152 * ch(rgb[1]) + 0.0722 * ch(rgb[2])
 
 
+def _lstar(Y: float) -> float:
+    """CIE L*（D65，Yn = 1）。「三阶落差」用它而非相对亮度差 ΔL ——
+    后者**不是感知均匀量、不可跨明暗比较**（7d-8 的判据来源见《错误笔记》）。"""
+    return 116.0 * (Y ** (1.0 / 3.0)) - 16.0 if Y > (6.0 / 29.0) ** 3 else Y * 903.2963
+
+
 def contrast_ratio(fg: str, bg: str) -> float | None:
     """WCAG 对比度。任一侧不是 `#rgb` / `#rrggbb` 字面量 → None（调用方须显式报错）。"""
     rf, rb = _hex_rgb(fg), _hex_rgb(bg)
@@ -959,6 +965,41 @@ def main() -> int:
     check(not missing_syntax, "形态语法变量 V0.0.45",
           "tokens.css 缺少：" + ", ".join(missing_syntax) if missing_syntax
           else f"{len(SYNTAX_VARS)} 个形态语法变量齐备（形态只有一处出口）")
+
+    # 7d-8. 皮肤「三阶落差」统一（V0.0.46 · §十三.6 裁定 = 乙方案）。
+    #       --qm-surface-2 是**填充色**，不承担凸凹语义（凸凹归 soft.css 的
+    #       --qm-tap / --qm-tap-in 阴影 + 1px 描边），故它与 --qm-surface 的
+    #       **CIE L\* 落差必须小**：|ΔL*| ≤ 1.5，且方向随区制 ——
+    #       浅色区制为负（次级面略暗于面板）、深色区制为正（次级面略亮于面板）。
+    #       实测 2026-10-15：15 款原为浅色 −0.34~−1.37（合规）/ 深色 +3.79~+5.45（**过大**），
+    #       深色 4 款已收窄至 +0.89~+1.16。本守卫防「新增 / 修改皮肤时又把落差拉开」，
+    #       使 15 款长期保持同一套设计语言（§十三.6「疑似笔误」的机器化约定）。
+    TIER_LIMIT = 1.5
+    TIER_MID_L = 50.0          # L* 分界：面板 L* > 50 视为浅色区制
+    tier_errs: list[str] = []
+    tier_dls: list[float] = []
+    _tier_light = split_light_dark(tokens_txt)[0] if tokens_txt else {}
+    if skins_dir.is_dir():
+        for css in sorted(skins_dir.glob("s*.css")):
+            eff_t = dict(_tier_light)
+            eff_t.update(css_vars(css.read_text(encoding="utf-8")))
+            rs, r2 = _hex_rgb(eff_t.get("--qm-surface", "")), _hex_rgb(eff_t.get("--qm-surface-2", ""))
+            if rs is None or r2 is None:
+                tier_errs.append(f"{css.name}: surface / surface-2 非字面量色值")
+                continue
+            l_s, l_2 = _lstar(rel_luminance(rs)), _lstar(rel_luminance(r2))
+            d_l = l_2 - l_s
+            tier_dls.append(d_l)
+            if abs(d_l) > TIER_LIMIT:
+                tier_errs.append(f"{css.name}: |ΔL*|={abs(d_l):.2f} > {TIER_LIMIT}")
+            elif l_s > TIER_MID_L and d_l > 0:
+                tier_errs.append(f"{css.name}: 浅色区制 ΔL*={d_l:+.2f} 应为负")
+            elif l_s <= TIER_MID_L and d_l < 0:
+                tier_errs.append(f"{css.name}: 深色区制 ΔL*={d_l:+.2f} 应为正")
+    check(not tier_errs, "皮肤三阶落差统一 V0.0.46",
+          "；".join(tier_errs[:4]) if tier_errs
+          else f"{len(tier_dls)} 款 ΔL* {min(tier_dls):+.2f} ~ {max(tier_dls):+.2f}"
+               f"（|ΔL*| ≤ {TIER_LIMIT}，方向随区制）")
 
     # 7e. CSS 类名形态：kebab-case，不得含下划线或大写（§P2 第 1 项）
     #     先剥掉 url(...) —— 否则 url("../assets/logo.svg") 里的 `.svg` 会被当成类名。
@@ -2151,6 +2192,9 @@ def main() -> int:
     ):
         if token not in bs_skin:
             skin_bad.append(why)
+    # 7d-8 的「三阶落差」守卫本身也须防被静默摘除（§十三.6 的机器化约定）。
+    if "皮肤三阶落差统一" not in _read("tools/verify.py"):
+        skin_bad.append("verify.py 缺三阶落差守卫（V0.0.46 · §十三.6 的机器化约定）")
 
     check(not skin_bad, "皮肤体系守卫批 V0.0.39",
           f"缺失：{', '.join(skin_bad)}" if skin_bad

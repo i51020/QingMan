@@ -1,0 +1,29 @@
+/* 青蔓 QingMan · 皮肤：柔暗·冰蓝（Soft Dark · Ice Blue）
+ * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。
+ * V0.0.46：--qm-surface-2 由 #38465a 收窄至 #334052（ΔL* +3.79 → +1.16）——
+ *   它只作**填充色**、不承担凸凹语义（凸凹归 soft.css 的 --qm-tap / --qm-tap-in）；规则见 skins/README.md。 */
+
+:root {
+  --qm-bg: #1f2c42;
+  --qm-surface: #313d51;
+  --qm-surface-2: #334052;
+  --qm-line: rgba(255, 255, 255, 0.14);
+  --qm-line-soft: rgba(255, 255, 255, 0.08);
+  --qm-text: #fafaf8;
+  --qm-text-dim: #d4d5d3;
+  --qm-accent: #50b5e0;
+  --qm-accent-ink: #afcbd7;
+  --qm-accent-soft: #37556e;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #347691;
+  --qm-btn-bg-hi: #2f6a82;
+  --qm-danger: #f7b7b7;
+  --qm-danger-soft: #5b4e5e;
+  --qm-warn: #f5ce60;
+  --qm-edge-hi: rgba(255, 255, 255, 0.1);
+  --qm-edge-lo: rgba(0, 0, 0, 0.5);
+  --qm-shadow-dark: rgba(0, 0, 0, 0.62);
+  --qm-shadow-light: rgba(255, 255, 255, 0.06);
+  --qm-shadow: 0 1px 2px rgba(0, 0, 0, 0.62);
+}
