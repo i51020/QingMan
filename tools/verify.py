@@ -966,40 +966,49 @@ def main() -> int:
           "tokens.css 缺少：" + ", ".join(missing_syntax) if missing_syntax
           else f"{len(SYNTAX_VARS)} 个形态语法变量齐备（形态只有一处出口）")
 
-    # 7d-8. 皮肤「三阶落差」统一（V0.0.46 · §十三.6 裁定 = 乙方案）。
+    # 7d-8. 皮肤「三阶落差」统一（V0.0.46 立规 / V0.0.47 收口全域 · §十三.6 裁定 = 乙方案）。
     #       --qm-surface-2 是**填充色**，不承担凸凹语义（凸凹归 soft.css 的
     #       --qm-tap / --qm-tap-in 阴影 + 1px 描边），故它与 --qm-surface 的
     #       **CIE L\* 落差必须小**：|ΔL*| ≤ 1.5，且方向随区制 ——
     #       浅色区制为负（次级面略暗于面板）、深色区制为正（次级面略亮于面板）。
+    #       V0.0.46 只覆盖 15 款皮肤；V0.0.47 起**连 tokens 浅 / 深两段一并覆盖** ——
+    #       二者本就是 7d-4 的一等基座（help / support 无皮肤选择器，tokens 取值直接生效），
+    #       只查皮肤会让本项的「统一」二字**被静默架空**（§十三.6 的反面教材）。
     #       实测 2026-10-15：15 款原为浅色 −0.34~−1.37（合规）/ 深色 +3.79~+5.45（**过大**），
-    #       深色 4 款已收窄至 +0.89~+1.16。本守卫防「新增 / 修改皮肤时又把落差拉开」，
-    #       使 15 款长期保持同一套设计语言（§十三.6「疑似笔误」的机器化约定）。
+    #       深色 4 款已收窄至 +0.89~+1.16；tokens 两段 +2.49 / +3.70 于 V0.0.47 归位。
+    #       本守卫防「新增 / 修改皮肤、或调 tokens 基座时又把落差拉开」（§十三.6 机器化约定）。
     TIER_LIMIT = 1.5
     TIER_MID_L = 50.0          # L* 分界：面板 L* > 50 视为浅色区制
     tier_errs: list[str] = []
     tier_dls: list[float] = []
-    _tier_light = split_light_dark(tokens_txt)[0] if tokens_txt else {}
+    _tier_light, _tier_dark = split_light_dark(tokens_txt) if tokens_txt else ({}, {})
+    # 待查「配色面」= tokens 浅 / 深两段（无皮肤时的基座）+ 15 款皮肤（皮肤色叠在 tokens 浅色之上）。
+    tier_faces: list[tuple[str, dict[str, str]]] = [
+        ("tokens.css 浅色段", _tier_light), ("tokens.css 深色段", _tier_dark),
+    ]
     if skins_dir.is_dir():
         for css in sorted(skins_dir.glob("s*.css")):
             eff_t = dict(_tier_light)
             eff_t.update(css_vars(css.read_text(encoding="utf-8")))
-            rs, r2 = _hex_rgb(eff_t.get("--qm-surface", "")), _hex_rgb(eff_t.get("--qm-surface-2", ""))
-            if rs is None or r2 is None:
-                tier_errs.append(f"{css.name}: surface / surface-2 非字面量色值")
-                continue
-            l_s, l_2 = _lstar(rel_luminance(rs)), _lstar(rel_luminance(r2))
-            d_l = l_2 - l_s
-            tier_dls.append(d_l)
-            if abs(d_l) > TIER_LIMIT:
-                tier_errs.append(f"{css.name}: |ΔL*|={abs(d_l):.2f} > {TIER_LIMIT}")
-            elif l_s > TIER_MID_L and d_l > 0:
-                tier_errs.append(f"{css.name}: 浅色区制 ΔL*={d_l:+.2f} 应为负")
-            elif l_s <= TIER_MID_L and d_l < 0:
-                tier_errs.append(f"{css.name}: 深色区制 ΔL*={d_l:+.2f} 应为正")
+            tier_faces.append((css.name, eff_t))
+    for face, eff_t in tier_faces:
+        rs, r2 = _hex_rgb(eff_t.get("--qm-surface", "")), _hex_rgb(eff_t.get("--qm-surface-2", ""))
+        if rs is None or r2 is None:
+            tier_errs.append(f"{face}: surface / surface-2 非字面量色值")
+            continue
+        l_s, l_2 = _lstar(rel_luminance(rs)), _lstar(rel_luminance(r2))
+        d_l = l_2 - l_s
+        tier_dls.append(d_l)
+        if abs(d_l) > TIER_LIMIT:
+            tier_errs.append(f"{face}: |ΔL*|={abs(d_l):.2f} > {TIER_LIMIT}")
+        elif l_s > TIER_MID_L and d_l > 0:
+            tier_errs.append(f"{face}: 浅色区制 ΔL*={d_l:+.2f} 应为负")
+        elif l_s <= TIER_MID_L and d_l < 0:
+            tier_errs.append(f"{face}: 深色区制 ΔL*={d_l:+.2f} 应为正")
     check(not tier_errs, "皮肤三阶落差统一 V0.0.46",
           "；".join(tier_errs[:4]) if tier_errs
-          else f"{len(tier_dls)} 款 ΔL* {min(tier_dls):+.2f} ~ {max(tier_dls):+.2f}"
-               f"（|ΔL*| ≤ {TIER_LIMIT}，方向随区制）")
+          else f"{len(tier_dls)} 个配色面 ΔL* {min(tier_dls):+.2f} ~ {max(tier_dls):+.2f}"
+               f"（含 tokens 浅/深；|ΔL*| ≤ {TIER_LIMIT}，方向随区制）")
 
     # 7e. CSS 类名形态：kebab-case，不得含下划线或大写（§P2 第 1 项）
     #     先剥掉 url(...) —— 否则 url("../assets/logo.svg") 里的 `.svg` 会被当成类名。

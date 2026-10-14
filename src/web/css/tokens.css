@@ -3,7 +3,11 @@
 :root {
   --qm-bg: #eceff4;
   --qm-surface: #f6f8fb;
-  --qm-surface-2: #ffffff;
+  /* V0.0.47：由 #ffffff 收窄至 #f3f5f8（CIE ΔL* +2.49 → −1.04）。--qm-surface-2 是**填充色**、
+     不承担凸凹语义（凸凹归 soft.css 的 --qm-tap / --qm-tap-in），故与 --qm-surface 的 CIE L*
+     落差须 ≤1.5 且**浅色区制为负**；原值 #ffffff 比面板更亮，方向与 11 款浅色皮肤全相反。
+     取面板同色相降一档（缩放 --qm-surface 而非 #ffffff，以保住冷调）。规则见 css/skins/README.md。 */
+  --qm-surface-2: #f3f5f8;
   --qm-line: #d5dbe5;
   --qm-line-soft: #e4e9f0;
   --qm-text: #1e2732;
@@ -89,7 +93,9 @@
   :root {
     --qm-bg: #161a1f;
     --qm-surface: #1d2229;
-    --qm-surface-2: #232a32;
+    /* V0.0.47：由 #232a32 收窄至 #1f242b（CIE ΔL* +3.70 → +0.97）。本段是 help / support
+       两页在深色系统下的**直接生效值**（两页无皮肤选择器）；取面板同色相升一档。 */
+    --qm-surface-2: #1f242b;
     --qm-line: #323a44;
     --qm-line-soft: #2a313a;
     --qm-text: #e7ecf2;
