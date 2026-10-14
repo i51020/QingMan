@@ -8,8 +8,9 @@
  * 其余语言包放 `src/web/locales/<tag>.js`，由后端 `/api/locales.js` 枚举、
  * 前端经 `loadLocale()` 按需动态加载 —— **新增一门语言无需改动任何代码**。
  *
- * 语言 / 皮肤 / 界面折叠态分别持久化在 localStorage 的
- * `qm.lang` / `qm.skin` / `qm.genBar`（§P0-3 L6）。
+ * 五个偏好键持久化在 localStorage（**§P0-3 L6 为权威清单**，`tools/verify.py` 的 7ai 守卫
+ * 绑死「实现 / 守卫 / 约定」三方一致）：
+ * `qm.lang`（语言）/ `qm.skin`（皮肤）/ `qm.genBar`（生成栏折叠）/ `qm.inspMode`（检视器模式，V0.0.43）/`qm.launchIcon`（皮肤联动启动图标，V0.0.15 —— 唯一消费者 `ui/launch-icon.js`）。
  * 本模块的 DOM / localStorage 访问全部发生在函数内部 —— 顶层导入是安全的，
  * 因此纯逻辑模块（如 modules/tree-model.js）也可以取词。
  *

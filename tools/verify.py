@@ -14,7 +14,9 @@
   6. Python 语法（ast 只读解析，不产生 __pycache__，保证校验不污染被校验目录）
  7. 帮助页无硬编码中文（§P0-3 L1：文案必须经取词表，页面只留 data-i18n 键名）
  7b. 双语与皮肤预留（§P0-3）：主界面无硬编码中文 / JS 无中文串字面量 / 组件 CSS 无裸色值 /
-     组件 CSS 不感知皮肤 / 皮肤目录契约 / 偏好键名 qm.lang · qm.skin
+     组件 CSS 不感知皮肤 / 皮肤目录契约 / 偏好键名（**5 键**，权威清单见 §P0-3 L6）
+ 7ai. 偏好键名「三方一致」（§P0-3 L6）：实现（`i18n/index.js` 的 `_KEY` 声明）/ 守卫
+     （本文件 `PREF_KEYS`）/ 文档（§P0-3 L6 规则行）三处键集合必须相等
  7e. CSS 类名形态（§P2 第 1 项）：一律 kebab-case，不得含下划线或大写
  7f. 体积上限（§P2 第 4 项）：src/** 合计 ≤ 576K，单文件 ≤ 64K
  7g. 帮助页键位登记（§P2 第 8 项）：源码若有修饰键快捷键监听（ctrlKey/metaKey/altKey），
@@ -758,20 +760,24 @@ def main() -> int:
           else "组件不引用皮肤，换肤只靠变量覆盖")
 
     # 7d-1. CSS 变量闭包（§P0-3 L4–L5）：组件 / 皮肤只能引用 tokens.css 已定义的 --qm-* 变量。
-    #       皮肤文件例外：允许声明未在 tokens.css 定义的新变量（由 skins/<name>.css 自身覆盖）。
+    #       **皮肤亦须遵守「只做重新赋值」**（`skins/README.md` 契约）：皮肤文件**声明**的
+    #       变量同样必须在 tokens.css 已有定义 —— 不得借皮肤引入新变量名（否则等于让皮肤
+    #       「定义」变量，与「皮肤 = 一组覆盖值」的定位相悖）。本段原注释误写「皮肤例外、
+    #       允许引入新变量」，与契约相反（2026-10-15 订正）。实测 15 款皮肤各声明 21 个
+    #       变量、越界 0 个，故本收紧零假阳性。
     tokens_file = root / "src/web/css/tokens.css"
     defined_vars: set[str] = set()
     if tokens_file.is_file():
         defined_vars = set(re.findall(r"(--qm-[\w-]+)\s*:",
                                       tokens_file.read_text(encoding="utf-8")))
     used_vars: dict[str, set[str]] = {}
+    skin_declared: dict[str, set[str]] = {}      # 皮肤**声明**的变量（契约：须 ⊆ tokens 定义域）
     for css in sorted((root / "src/web/css").rglob("*.css")):
         if css.name == "tokens.css":
             continue
-        if "skins" in css.parts:
-            # 皮肤文件只检查 var() 使用，允许引入新变量；但为保持契约，仍建议引用 tokens 变量。
-            pass
         body = strip_comments(css.read_text(encoding="utf-8"), "css")
+        if "skins" in css.parts:
+            skin_declared[css.name] = set(re.findall(r"(--qm-[\w-]+)\s*:", body))
         for m in re.finditer(r"var\(\s*(--qm-[\w-]+)\s*\)", body):
             used_vars.setdefault(css.name, set()).add(m.group(1))
     missing_vars = {
@@ -779,12 +785,22 @@ def main() -> int:
         for name, vars_ in used_vars.items()
         if vars_ - defined_vars
     }
+    # 皮肤**声明**的变量越界（契约：皮肤只做重新赋值，不得引入新变量名）。
+    skin_extra_vars = {
+        name: sorted(vars_ - defined_vars)
+        for name, vars_ in skin_declared.items()
+        if vars_ - defined_vars
+    }
+    closure_errs: list[str] = []
     if missing_vars:
-        detail = "; ".join(f"{name}:{', '.join(missing[:3])}"
-                           for name, missing in missing_vars.items())
-    check(not missing_vars, "CSS 变量闭包 §P0-3 L4",
-          f"引用未定义变量：{detail}" if missing_vars
-          else "所有 --qm-* 引用均有 tokens.css 定义")
+        closure_errs.append("引用未定义变量：" + "; ".join(
+            f"{name}:{', '.join(m[:3])}" for name, m in missing_vars.items()))
+    if skin_extra_vars:
+        closure_errs.append("皮肤引入新变量名：" + "; ".join(
+            f"{name}:{', '.join(v[:3])}" for name, v in skin_extra_vars.items()))
+    check(not closure_errs, "CSS 变量闭包 §P0-3 L4",
+          "；".join(closure_errs) if closure_errs
+          else "所有 --qm-* 引用均有 tokens.css 定义；皮肤亦未引入新变量名")
 
     skins_doc = root / "src/web/css/skins/README.md"
     check(skins_doc.is_file(), "皮肤目录契约 §P0-3 L5",
@@ -792,7 +808,9 @@ def main() -> int:
           else "缺少 src/web/css/skins/README.md")
 
     prefs_js = root / "src/web/js/i18n/index.js"
-    PREF_KEYS = ("qm.lang", "qm.skin", "qm.genBar", "qm.inspMode")
+    # V0.0.15 起的第五键 `qm.launchIcon`（快捷方式图标持久化）此前**不在守卫内** ——
+    # 属盲区：删掉 `ICON_KEY` 声明无人报错。2026-10-15 据实补齐（见表 §P0-3 L6）。
+    PREF_KEYS = ("qm.lang", "qm.skin", "qm.genBar", "qm.inspMode", "qm.launchIcon")
     prefs_body = prefs_js.read_text(encoding="utf-8") if prefs_js.is_file() else ""
     prefs_missing = [key for key in PREF_KEYS if key not in prefs_body]
     check(not prefs_missing, "偏好键名 §P0-3 L6",
@@ -2265,9 +2283,49 @@ def main() -> int:
                 prog_bad.append(f"{why}无版本号")
             elif m_ver.group(0) != ver_txt:
                 prog_bad.append(f"{why}首版本 {m_ver.group(0)} ≠ VERSION {ver_txt}")
+    # 同理：「偏好键名三方一致」守卫一旦被整体摘除，§P0-3 L6 的多处漂移会重新隐身，
+    # 而它自己无法自检（那段代码已不在）→ 由本段做元检查（同 7ag 对 7d-8 的做法）。
+    if "偏好键名三方一致" not in _read("tools/verify.py"):
+        prog_bad.append("verify.py 缺偏好键三方一致守卫（2026-10-15 · §P0-3 L6）")
     check(not prog_bad, "进度状态表与 VERSION 一致 V0.0.48",
           "；".join(prog_bad) if prog_bad
           else f"任务进度 3 行 + README + 手册头部，首版本均为 {ver_txt}")
+
+    # 7ai. 偏好键名「三方一致」（2026-10-15 · UI 设计约定检查 · §P0-3 L6）。
+    #      背景：§P0-3 L6 的偏好键清单有**三处载体** —— 实现（`i18n/index.js` 的
+    #      `export const *_KEY = 'qm.*'` 声明）、守卫（本文件 `PREF_KEYS`）、约定
+    #      （`docs/项目约定.md` §P0-3 L6 规则行）。实测三处曾各不相同（实现 5 / 守卫 4 /
+    #      文档 3 / 本文件摘要 2、`i18n` 头部注释 3 —— **同一约定出现五个数字**），且
+    #      `qm.launchIcon`（V0.0.15 引入）长期不在守卫覆盖面内（盲区）。故本守卫把三者
+    #      绑死：键**集合**相等（顺序无关），新增 / 删除偏好键必须三处同改。
+    #      教训同 §三.30：否定性断言要能被机器推翻 ——「文档说三键」与「守卫断言四键」
+    #      这种**描述与实现不符**，靠人读是发现不了的。
+    pref_bad: list[str] = []
+    _i18n_txt = _read("src/web/js/i18n/index.js")
+    # 引号类型须两种都认 —— `i18n` 的 `_KEY` 用**单引号**、`PREF_KEYS` 用**双引号**；
+    # 首版只认单引号，致守卫侧恒为空集（2026-10-15 本守卫首跑即自曝 → 《错误笔记》§三.72）。
+    pref_impl = set(re.findall(r"^export const \w+_KEY\s*=\s*['\"](qm\.[A-Za-z]+)['\"];",
+                               _i18n_txt, re.M))
+    _vf_txt = _read("tools/verify.py")
+    _m_pk = re.search(r"PREF_KEYS\s*=\s*\(([^)]*)\)", _vf_txt)
+    pref_guard = set(re.findall(r"['\"](qm\.[A-Za-z]+)['\"]", _m_pk.group(1))) if _m_pk else set()
+    _conv_txt = _read("docs/项目约定.md")
+    _l6_row = next((ln for ln in _conv_txt.splitlines() if ln.startswith("| L6 |")), "")
+    pref_doc = set(re.findall(r"`(qm\.[A-Za-z]+)`", _l6_row))
+    if not pref_impl:
+        pref_bad.append("i18n/index.js 未解析到 _KEY 声明")
+    if not pref_guard:
+        pref_bad.append("verify.py 未解析到 PREF_KEYS")
+    if not pref_doc:
+        pref_bad.append("§P0-3 L6 规则行未解析到键名")
+    if pref_impl and pref_guard and pref_impl != pref_guard:
+        pref_bad.append(f"实现 {sorted(pref_impl)} ≠ 守卫 {sorted(pref_guard)}")
+    if pref_impl and pref_doc and pref_impl != pref_doc:
+        pref_bad.append(f"实现 {sorted(pref_impl)} ≠ 文档 {sorted(pref_doc)}")
+    check(not pref_bad, "偏好键名三方一致 §P0-3 L6",
+          "；".join(pref_bad) if pref_bad
+          else f"实现 / 守卫 / §P0-3 L6 三方均 {len(pref_impl)} 键："
+               f"{' / '.join(sorted(pref_impl))}")
 
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
