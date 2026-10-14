@@ -127,6 +127,8 @@ REQUIRED_FILES = (
     "src/web/js/modules/tree-model.js",
     # V0.0.43：选择集合的语义运算（F 组）—— 从 main.js 拆出，兼解单文件体积上限
     "src/web/js/modules/selection.js",
+    # V0.0.48：模板库（目录绑定 / 列表与轮询 / 行操作 / 另存为·新建）—— 从 main.js 拆出，同一理由
+    "src/web/js/modules/templates.js",
     "src/web/js/ui/tree-view.js",
     "src/web/js/ui/inspector.js",
     "src/web/js/ui/toast.js",
@@ -449,14 +451,18 @@ def main() -> int:
         check(False, "HTML 标签闭合", "index.html 未读到")
         check(False, "HTML 关键 id", "index.html 未读到")
 
-    # 3. main.js 引用的 id 必须真实存在
-    main_js = root / "src/web/js/main.js"
-    if main_js.is_file() and html:
-        used = sorted(set(re.findall(r"el\(['\"]([\w-]+)['\"]\)", main_js.read_text(encoding="utf-8"))))
+    # 3. 主界面模块引用的 id 必须真实存在。
+    #    V0.0.48：扫描面 = **装配主界面的模块**（main.js + 自其拆出的 modules/templates.js）。
+    #    若漏掉拆出的那个，「引用面」会随搬迁悄悄变薄 —— 覆盖变薄看起来和「全过」一样（§三.33）。
+    id_srcs = [root / "src/web/js/main.js", root / "src/web/js/modules/templates.js"]
+    if all(p.is_file() for p in id_srcs) and html:
+        used = sorted(set(re.findall(r"el\(['\"]([\w-]+)['\"]\)",
+                                     "\n".join(p.read_text(encoding="utf-8") for p in id_srcs))))
         unknown = [i for i in used if f'id="{i}"' not in html]
-        check(not unknown, "JS 引用的 id 均已定义", ", ".join(unknown) if unknown else f"{len(used)} 个引用全部命中")
+        check(not unknown, "JS 引用的 id 均已定义",
+              ", ".join(unknown) if unknown else f"{len(used)} 个引用全部命中（main + modules/templates）")
     else:
-        check(False, "JS 引用的 id 均已定义", "main.js 或 index.html 未读到")
+        check(False, "JS 引用的 id 均已定义", "main.js / modules/templates.js 或 index.html 未读到")
 
     # 4. JS 语法（ESM）
     node = find_node()
@@ -1341,7 +1347,7 @@ def main() -> int:
     note_bad: list[str] = []
     for rel, token in (
         ("src/web/index.html", 'id="propNote"'),
-        ("src/web/js/main.js", "adoptTemplateNote"),
+        ("src/web/js/modules/templates.js", "adoptTemplateNote"),  # V0.0.48 随 applyTemplate 迁出
         ("src/web/js/main.js", "btnCopyNote"),
         ("src/shared/schema.json", '"note"'),
     ):
@@ -1491,13 +1497,16 @@ def main() -> int:
             crud_bad.append(f"api.js:缺 {token}")
     mjs20 = root / "src/web/js/main.js"
     m20 = mjs20.read_text(encoding="utf-8") if mjs20.is_file() else ""
-    for token, why in (
-        ("renameTemplateItem", "缺模板重命名接线"),
-        ("deleteTemplateItem", "缺模板删除接线"),
-        ("noteHistoryId", "缺 note 编辑会话（连续输入应只入栈一次）"),
-        ("resetEditing", "缺撤销后属性栏暂存作废（note 框会显示旧文本）"),
+    # V0.0.48：模板行操作迁至 modules/templates.js，note 编辑会话仍在 main.js —— 按归属分文件自查。
+    mjs20t = root / "src/web/js/modules/templates.js"
+    m20t = mjs20t.read_text(encoding="utf-8") if mjs20t.is_file() else ""
+    for token, why, where20 in (
+        ("renameTemplateItem", "缺模板重命名接线", m20t),
+        ("deleteTemplateItem", "缺模板删除接线", m20t),
+        ("noteHistoryId", "缺 note 编辑会话（连续输入应只入栈一次）", m20),
+        ("resetEditing", "缺撤销后属性栏暂存作废（note 框会显示旧文本）", m20),
     ):
-        if token not in m20:
+        if token not in where20:
             crud_bad.append(why)
     # note 会话：pushHistory 必须包在 noteHistoryId 守卫内（否则退化为每键入栈）
     m = re.search(r"onNoteChange\(id, value\) \{.*?\n  \}", m20, flags=re.S)
@@ -1541,9 +1550,12 @@ def main() -> int:
             overwrite_bad.append("覆盖分支未先入回收站（应紧跟 _template_trash_dir）")
         if "overwritten" not in body21:
             overwrite_bad.append("save_template 返回缺 overwritten 标记")
-    m = re.search(r"async function saveAsTemplate\(\) \{.*?\n\}", m20, flags=re.S)
+    # V0.0.48：saveAsTemplate 已迁至 modules/templates.js（AST 钉函数体的判据不变）。
+    tpl21 = root / "src/web/js/modules/templates.js"
+    t21 = tpl21.read_text(encoding="utf-8") if tpl21.is_file() else ""
+    m = re.search(r"async function saveAsTemplate\(\) \{.*?\n\}", t21, flags=re.S)
     if not m:
-        overwrite_bad.append("main.js:saveAsTemplate 体不可解析")
+        overwrite_bad.append("templates.js:saveAsTemplate 体不可解析")
     else:
         body21 = m.group(0)
         if "templateExists" not in body21:
@@ -1696,8 +1708,11 @@ def main() -> int:
         p3_bad.append("main.js:缺 toast.moveMissing 映射")
     if m3.count("from './ui/inspector.js'") != 1:
         p3_bad.append("main.js:inspector import 未合并为一条（P3-12 未修）")
-    if not re.search(r"^async function applyTemplate\(", m3, flags=re.M):
-        p3_bad.append("main.js:applyTemplate 行首空格未清（或函数缺失）")
+    # V0.0.48：applyTemplate 迁至 modules/templates.js（迁入时**保留原顶层缩进**，行首仍无空格）。
+    mjs_p3t = root / "src/web/js/modules/templates.js"
+    m3t = mjs_p3t.read_text(encoding="utf-8") if mjs_p3t.is_file() else ""
+    if not re.search(r"^async function applyTemplate\(", m3t, flags=re.M):
+        p3_bad.append("templates.js:applyTemplate 行首空格未清（或函数缺失）")
     for name in ("zh-CN.js", "en-US.js"):
         p = root / "src/web/locales" / name
         text = p.read_text(encoding="utf-8") if p.is_file() else ""
@@ -2108,6 +2123,8 @@ def main() -> int:
     #      ④ 页面级断言不得被削（「轮询**实证**」那条尤其容易在重构里被删成弱断言，
     #         删掉后「轮询被整个摘除」也照样通过）。
     fe_bad: list[str] = []
+    # V0.0.48：本批 7 个源码锚点随模板子系统整体迁至 modules/templates.js（main.js 只留装配）。
+    tpl_js = _read("src/web/js/modules/templates.js")
     main_js = _read("src/web/js/main.js")
     api_js = _read("src/web/js/core/api.js")
     idx_html = _read("src/web/index.html")
@@ -2122,7 +2139,7 @@ def main() -> int:
         ("function importTemplateFlow", "6E 导入未接线"),
         ("function exportTemplateItem", "6E 导出未接线"),
     ):
-        if token not in main_js:
+        if token not in tpl_js:
             fe_bad.append(why)
     for token, why in (
         ("'/api/templates-dir/pick'", "api.js 未接线原生目录选择端点"),
@@ -2155,7 +2172,7 @@ def main() -> int:
             fe_bad.append(why)
     # 反锚：常驻按钮那套类名不得在 JS / HTML 里复活（V0.0.38 起操作走右键菜单）。
     # 只查这两处 —— CSS 里保留了「为何移除」的说明性注释，含该类名属正常。
-    if "tpl-ops" in main_js or "tpl-ops" in idx_html:
+    if "tpl-ops" in main_js or "tpl-ops" in tpl_js or "tpl-ops" in idx_html:
         fe_bad.append("模板行常驻按钮（.tpl-ops）复活 —— 6E 的「去按钮」被回退")
     # smoke 侧：原生框必须被关断，否则 CI / 沙盒里会**弹窗挂起**。
     if "QM_NO_GUI_PICK" not in _read("tools/smoke.py"):
@@ -2208,6 +2225,43 @@ def main() -> int:
     check(not skin_bad, "皮肤体系守卫批 V0.0.39",
           f"缺失：{', '.join(skin_bad)}" if skin_bad
           else f"hover 专用底色 / {len(_skin_files_v)} 款皮肤显式取值 / 页面排序断言 齐备")
+
+    # 7ah. 进度状态表的版本字段与 VERSION 一致（V0.0.48）。
+    #      背景：`docs/任务进度.md` 的「当前状态」表是「当前做到哪一步」的权威答案，
+    #      但它是一大块**逐版追加的长散文**，行极易漏 —— 已**实质滞后两次**：
+    #      V0.0.39→V0.0.41（5 处，见该文件时间线）、V0.0.46→V0.0.47（当前版本 / 主线 /
+    #      回退点 / 已封存 四行全停在上版）。教训同 §三.30：**否定性断言要能被机器推翻**。
+    #      判据：三行各自**首个** V-版本号必须 == `VERSION`。
+    #      不纳入：已封存版本 / 未决事项 / 下一步候选（天然含大量历史版本号）；
+    #      也不纳入「N 项」计数 —— 它会随本文件新增守卫自变，属自指，机器无法自洽。
+    prog_bad: list[str] = []
+    ver_txt = _read("VERSION").strip()
+    if not ver_txt:
+        prog_bad.append("VERSION 未读到")
+    else:
+        for rel, row, why in (
+            ("docs/任务进度.md", "| 当前版本 |", "任务进度「当前版本」行"),
+            ("docs/任务进度.md", "| 主线 |", "任务进度「主线」行"),
+            ("docs/任务进度.md", "| 回退点 |", "任务进度「回退点」行"),
+            ("README.md", "- 当前版本：", "README「当前版本」行"),
+            ("docs/项目手册.md", "更新日期：", "手册头部行"),
+        ):
+            rel_txt = _read(rel)
+            if not rel_txt:
+                prog_bad.append(f"{rel} 未读到")
+                continue
+            row_txt = next((ln for ln in rel_txt.splitlines() if ln.startswith(row)), "")
+            if not row_txt:
+                prog_bad.append(f"未找到{why}")
+                continue
+            m_ver = re.search(r"V\d+\.\d+\.\d+", row_txt)
+            if not m_ver:
+                prog_bad.append(f"{why}无版本号")
+            elif m_ver.group(0) != ver_txt:
+                prog_bad.append(f"{why}首版本 {m_ver.group(0)} ≠ VERSION {ver_txt}")
+    check(not prog_bad, "进度状态表与 VERSION 一致 V0.0.48",
+          "；".join(prog_bad) if prog_bad
+          else f"任务进度 3 行 + README + 手册头部，首版本均为 {ver_txt}")
 
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"

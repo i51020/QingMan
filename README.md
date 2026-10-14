@@ -4,7 +4,7 @@
 
 - 中文名：**青蔓**
 - 英文名：**QingMan**
-- 当前版本：**V0.0.47**
+- 当前版本：**V0.0.48**
 - 运行环境：Windows 10/11 + Python 3.8+，完全离线，仅监听 `127.0.0.1`
 - 实测环境：**Windows 11**（鼠标 + 键盘）。触屏与其他操作系统**未验证**，故不做针对性适配
 
@@ -61,6 +61,7 @@ QingMan/
 │  │     │              + zh-CN.js / en-US.js 取词表（各 **296 键**，双语键集零差异）+ skins.js 皮肤注册表
 │  │     ├─ core/       bus.js 事件总线 · store.js 状态仓库 · api.js 后端调用唯一入口（其余模块禁用 fetch）· errors.js 错误码本地化
 │  │     ├─ modules/    tree-model.js 数据模型：增删改查 / 统计 / id 唯一性 / 文档序列化（纯数据，不碰 DOM 与网络）
+│  │     │              selection.js 选择集合语义（V0.0.43 拆出）· templates.js 模板库（V0.0.48 拆出）—— 均为解单文件 64K 上限
 │  │     └─ ui/         tree-view.js 目录树 · inspector.js 属性面板 · ctx-menu.js 右键菜单 · toast.js 轻提示
 │  │                    lang-picker.js 语言选择 · skin-picker.js 皮肤选择 · launch-icon.js 皮肤联动图标
 │  ├─ server/           后端：Python 标准库，零第三方依赖
@@ -69,8 +70,8 @@ QingMan/
 ├─ store/               内容寻址仓库
 │  ├─ objects/          blob 池：路径 = 内容的 SHA-256，跨版本自动去重
 │  └─ .trash/           checkout 时多余文件的回收区（不真删）
-├─ versions/            版本清单（**只增不改**，V0.0.1 … V0.0.46 每版一目录）
-│  ├─ V0.0.46/          MANIFEST.json（基线 r1，当前版本）＋ 必要的 MANIFEST-r<N>.json
+├─ versions/            版本清单（**只增不改**，V0.0.1 … V0.0.48 每版一目录）
+│  ├─ V0.0.48/          MANIFEST.json（基线 r1，当前版本）＋ 必要的 MANIFEST-r<N>.json
 │  └─ V0.0.1/           MANIFEST.json（基线 r1）+ MANIFEST-r<N>.json（同版本修订）
 ├─ preview/             试运行区（**只服务单次开发**：`promote` 后即清空，不跨版本保留 —— §P1-7）
 │  └─ README.md         用途与规则说明（占位，使目录保留在 git 跟踪内）
@@ -252,9 +253,9 @@ python tools/browser_smoke.py                 # 页面级冒烟（无头浏览�
 ## 回退
 
 ```bash
-python tools/store.py checkout V0.0.46        # 取当前版本（= 该版本最高修订）
+python tools/store.py checkout V0.0.48        # 取当前版本（= 该版本最高修订）
 python tools/store.py checkout V0.0.1@r1      # 精确回退到某个修订
-python tools/verify.py . --against V0.0.46    # 与当前版本清单比对
+python tools/verify.py . --against V0.0.48    # 与当前版本清单比对
 ```
 
 回退时「当前有、目标版本没有」的文件，会先复制进 `store/.trash/<时间戳>/` 并**逐字节校验**，通过后才移除原文件 —— 全程不真删。
