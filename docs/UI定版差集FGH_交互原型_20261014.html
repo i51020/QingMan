@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UI 定版差集 F/G/H · 交互原型 · 青蔓 QingMan</title>
+<style>
+  :root{
+    --bg:#f5f8f7; --panel:#ffffff; --ink:#1f2937; --ink2:#5b6675; --ink3:#8b96a3;
+    --line:#e3e9e7; --accent:#2f7d6a; --accent-soft:#e7f3ef; --accent-ink:#1d5a4c;
+    --warn:#a85a0a; --warn-soft:#fdf2e3; --warn-line:#f0d9b5;
+    --danger:#b3261e; --danger-soft:#fdecea; --danger-line:#f3c9c4;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.65 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;}
+  .wrap{max-width:1160px;margin:0 auto;padding:26px 20px 64px}
+  h1{font-size:20px;margin:0 0 4px;letter-spacing:.2px}
+  .sub{color:var(--ink2);font-size:13px;margin:0 0 6px}
+  .badge{display:inline-block;font-size:12px;padding:1px 9px;border-radius:999px;
+    background:var(--accent-soft);color:var(--accent-ink);margin-left:6px;vertical-align:2px;font-weight:600}
+  .badge.inf{background:var(--warn-soft);color:var(--warn)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:880px){.grid{grid-template-columns:1fr}}
+  h2{font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+  h2 .n{width:20px;height:20px;border-radius:6px;background:var(--accent);color:#fff;
+    font-size:12px;display:inline-flex;align-items:center;justify-content:center;font-weight:700}
+  .muted{color:var(--ink2);font-size:12.5px}
+  code,.mono{font-family:var(--mono);font-size:12.5px}
+  code{background:#eef2f1;padding:1px 5px;border-radius:4px;color:var(--accent-ink)}
+
+  .issue{background:var(--warn-soft);border:1px solid var(--warn-line);border-radius:12px;padding:14px 18px;margin:16px 0 22px}
+  .issue h3{margin:0 0 8px;font-size:13.5px;color:var(--warn)}
+  .issue ul{margin:0;padding-left:20px;font-size:13px;color:#6b4a1f}
+  .issue li{margin:3px 0}
+
+  .tabs{display:flex;gap:10px;margin:20px 0 16px;flex-wrap:wrap}
+  .tab{flex:1;min-width:200px;text-align:left;cursor:pointer;border:1px solid var(--line);
+    background:var(--panel);border-radius:12px;padding:12px 15px;transition:.15s}
+  .tab:hover{border-color:#cfe0da}
+  .tab.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);background:#fbfdfc}
+  .tab .t{font-weight:700;font-size:14px;display:flex;align-items:center;gap:7px}
+  .tab .t .k{width:20px;height:20px;border-radius:6px;background:#eef2f1;color:var(--ink2);
+    font-size:12px;display:inline-flex;align-items:center;justify-content:center;font-weight:700}
+  .tab.on .t .k{background:var(--accent);color:#fff}
+  .tab .d{font-size:12.5px;color:var(--ink2);margin-top:4px}
+
+  .mock{border:1px dashed #cddad6;border-radius:10px;padding:12px;background:#fbfdfc}
+  .rack{border:1px dashed #cddad6;border-radius:10px;padding:10px 12px;background:#fbfdfc;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .rack + .rack{margin-top:10px}
+  .rack .lb{width:100%;font-size:11.5px;color:var(--ink3);margin-bottom:2px}
+  .gfake{font-size:12.5px;padding:4px 10px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink2)}
+  .gfake.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .gfake.danger{color:var(--danger);border-color:var(--danger-line)}
+  .divi{width:1px;height:18px;background:var(--line);margin:0 3px}
+  .grp{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:9px;
+    border:1px solid transparent;position:relative}
+  .grp.on{border-color:#cfe0da;background:#f4faf8}
+  .grp .gl{position:absolute;top:-9px;left:10px;font-size:10.5px;font-weight:700;
+    color:var(--accent-ink);background:#fbfdfc;padding:0 5px;border-radius:4px}
+  .spacer{flex:1}
+
+  .treemock{font-size:13px}
+  .brow{display:flex;align-items:center;gap:7px;padding:4px 7px;border-radius:6px;cursor:pointer;
+    user-select:none;border:1px solid transparent}
+  .brow:hover{background:#f1f6f4}
+  .brow.sel{background:var(--accent-soft);border-color:#bfded5}
+  .brow.anchor{outline:2px solid var(--accent);outline-offset:-1px}
+  .brow.locked{cursor:not-allowed;opacity:.85}
+  .brow .ico{width:16px;text-align:center}
+  .brow .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .barmulti{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;padding:9px 12px;
+    border:1px solid #bfded5;background:var(--accent-soft);border-radius:10px;font-size:13px}
+  .barmulti b{color:var(--accent-ink)}
+  .btnm{font-size:12.5px;padding:4px 11px;border:1px solid var(--line);border-radius:7px;
+    background:#fff;color:var(--ink2);cursor:pointer}
+  .btnm:hover{border-color:#cfe0da}
+  .btnm.dg{color:var(--danger);border-color:var(--danger-line)}
+  .btnm.dg:hover{background:var(--danger-soft)}
+  .btnm.gh{margin-left:auto;color:var(--ink3)}
+
+  .scrim{position:fixed;inset:0;background:rgba(20,32,29,.42);display:flex;align-items:center;
+    justify-content:center;z-index:50;padding:20px}
+  .dlg{background:#fff;border-radius:14px;max-width:440px;width:100%;padding:20px 22px;
+    box-shadow:0 18px 50px rgba(15,40,34,.28)}
+  .dlg h3{margin:0 0 6px;font-size:16px;color:var(--danger)}
+  .dlg .cnt{font-family:var(--mono);font-size:13px;background:var(--danger-soft);color:#7d1a14;
+    padding:9px 11px;border-radius:8px;margin:10px 0;white-space:pre-wrap;word-break:break-all}
+  .dlg ul{margin:8px 0 14px;padding-left:20px;font-size:12.5px;color:var(--ink2)}
+  .dlg .acts{display:flex;gap:9px;justify-content:flex-end}
+  .dlg .acts .btnm{padding:6px 15px}
+
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff}
+  .seg button{border:0;background:transparent;padding:5px 15px;font:inherit;font-size:12.5px;
+    color:var(--ink2);cursor:pointer}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button.on{background:var(--accent);color:#fff;font-weight:600}
+
+  .prop{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:11px}
+  .prop .pr{display:flex;border-top:1px solid var(--line);font-size:12.5px}
+  .prop .pr:first-child{border-top:0}
+  .prop .pk{width:96px;flex:none;background:#f7faf9;color:var(--ink2);padding:7px 10px}
+  .prop .pv{padding:7px 10px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .prop .pv.mn{font-family:var(--mono);font-size:12px}
+  .json{background:#f7faf9;border:1px solid var(--line);border-radius:10px;padding:11px 13px;
+    margin-top:11px;font-family:var(--mono);font-size:12px;line-height:1.75;
+    white-space:pre-wrap;word-break:break-word;max-height:280px;overflow:auto;color:#26443c}
+  .json .kk{color:var(--accent-ink);font-weight:600}
+  .json .ss{color:#8a5a12}
+  .empty{color:var(--ink3);font-size:12.5px;padding:10px 0}
+
+  .rules{margin-top:16px}
+  .rules table{width:100%;border-collapse:collapse;font-size:13px}
+  .rules th,.rules td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  .rules th{background:#f0f5f3;font-weight:600;font-size:12.5px;color:var(--ink2)}
+  .rules td b{color:var(--accent-ink)}
+  .cmp td:first-child{font-weight:600;background:#fafcfb;width:130px}
+  .foot{margin-top:26px;color:var(--ink3);font-size:12px;border-top:1px solid var(--line);padding-top:12px}
+  .src{font-size:11.5px;color:var(--ink3)}
+  kbd{font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);border-bottom-width:2px;
+    border-radius:5px;padding:0 5px;background:#fff;color:var(--ink2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>UI 定版差集 F / G / H — 交互原型 <span class="badge">供批注</span></h1>
+  <p class="sub">青蔓 QingMan · 自包含单文件、零依赖、零后端 · F 多选可真实点选，G/H 可切换对比。</p>
+  <p class="sub src">依据 <code>docs/UI定版差集_需求草案_20261014.md</code>。本页不入 <code>src/</code> 交付，随文档存档。</p>
+
+  <div class="issue">
+    <h3>现状基线（本轮盘上实测）</h3>
+    <ul>
+      <li><b>选择模型</b>：store 中<b>单个 <code>selectedId</code> 字符串</b>，无多选能力（<code>main.js</code> L202/259/270）。</li>
+      <li><b>工具栏</b>：<code>[撤销][重做] │ [加子][改名][删除] │ [展开][折叠] ⋯ [生成]</code> —— 3 个 divider 却把<b>同属「改树」的撤销/重做与增改删分开了</b>。</li>
+      <li><b>检视器</b>：单视图，属性表 + note + <code>#genResult</code> 三段<b>挤在同一栏</b>。</li>
+      <li><b>已核实</b>：<code>editor.json</code> 契约只含 <code>schemaVersion/savedAt/root</code> —— <b>选中态不落盘</b>，故 F 的多选态<b>纯内存、零契约影响</b>。</li>
+    </ul>
+    <p class="muted" style="margin:8px 0 0">下方凡标 <span class="badge inf">待批注</span> 者为<b>我的解读</b>（【推断】），需你确认或改写。</p>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+  <div id="body"></div>
+
+  <p class="foot">
+    原型说明：全部交互仅在前端内存中，刷新即复位；不触碰文件系统、不调用任何后端接口。
+    选定后按草案 §八 的顺序（G → H → F）写入产品代码并纳入 <code>src/</code> 交付（届时过 <code>verify</code> 四件套）。
+  </p>
+</div>
+
+<script>
+"use strict";
+
+/* ================= 数据 ================= */
+/* 示例树（平铺，depth 决定缩进；root 不可选 —— 不可删/不可移） */
+const NODES = [
+  { id:'root', name:'青蔓示例项目', type:'dir',  depth:0, parent:null },
+  { id:'m',    name:'素材',         type:'dir',  depth:1, parent:'root' },
+  { id:'m1',   name:'原始素材',     type:'dir',  depth:2, parent:'m' },
+  { id:'m2',   name:'整理后素材',   type:'dir',  depth:2, parent:'m' },
+  { id:'m3',   name:'参考图.jpg',   type:'file', depth:2, parent:'m' },
+  { id:'p',    name:'成品',         type:'dir',  depth:1, parent:'root' },
+  { id:'p1',   name:'初稿.docx',    type:'file', depth:2, parent:'p' },
+  { id:'p2',   name:'终稿.docx',    type:'file', depth:2, parent:'p' },
+  { id:'r',    name:'说明.md',       type:'file', depth:1, parent:'root' },
+];
+const ROOT_ID = 'root';
+const byId = (id) => NODES.find(n => n.id === id) || null;
+const selectable = NODES.filter(n => n.id !== ROOT_ID);
+
+const state = {
+  scheme: 'F',
+  picked: new Set(),      /* F：多选集合 */
+  anchor: null,           /* F：范围选择锚点 */
+  confirmDel: false,      /* F：删除确认层 */
+  inspMode: 'prop',       /* H：属性 / 源码 */
+  inspId: 'm',            /* H：当前节点 */
+};
+
+const $ = (s, el=document) => el.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pad = (n) => '　'.repeat(n);
+
+/* ================= Tabs ================= */
+const SCHEMES = [
+  { id:'F', name:'多选批量操作', desc:'树区多选 → 批量删除 / 移动 / 复制路径。点树行可真实多选。' },
+  { id:'G', name:'工具栏三分组', desc:'编辑 · 视图 · 输出 —— 现状 4 段 → 语义三组。' },
+  { id:'H', name:'检视器双模式', desc:'属性 ⇄ 源码（子树 JSON）。可切换试用。' },
+];
+
+function renderTabs(){
+  $('#tabs').innerHTML = SCHEMES.map(s => `
+    <button class="tab ${state.scheme===s.id?'on':''}" data-scheme="${s.id}">
+      <div class="t"><span class="k">${s.id}</span>${esc(s.name)}</div>
+      <div class="d">${esc(s.desc)}</div>
+    </button>`).join('');
+  $('#tabs').querySelectorAll('.tab').forEach(b =>
+    b.addEventListener('click', () => { state.scheme = b.dataset.scheme; render(); }));
+}
+
+/* ================= F · 多选批量 ================= */
+/* 父子同选去重：只保留「最外层祖先」（草案 §2.4 #1） */
+function topLevel(ids){
+  const set = new Set(ids);
+  return NODES.filter(n => set.has(n.id) && !(n.parent && set.has(n.parent))).map(n => n.id);
+}
+function pathText(id){
+  const segs = [];
+  let cur = byId(id);
+  while (cur){ segs.unshift(cur.name); cur = cur.parent ? byId(cur.parent) : null; }
+  return segs.join(' / ');
+}
+function rangePick(fromId, toId){
+  const a = selectable.findIndex(n => n.id === fromId);
+  const b = selectable.findIndex(n => n.id === toId);
+  if (a < 0 || b < 0) return [];
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  return selectable.slice(lo, hi + 1).map(n => n.id);
+}
+
+function treeMockF(){
+  const rows = NODES.map(n => {
+    const isRoot = n.id === ROOT_ID;
+    const sel = state.picked.has(n.id);
+    const anc = state.anchor === n.id && sel;
+    const cls = ['brow', sel ? 'sel' : '', anc ? 'anchor' : '', isRoot ? 'locked' : ''].join(' ').trim();
+    const icon = n.type === 'dir' ? '▸' : '·';
+    const lock = isRoot ? '<span class="muted" style="font-size:11px">根 · 不可选</span>' : '';
+    return `<div class="${cls}" data-id="${n.id}">
+      <span class="ico">${icon}</span>
+      <span class="nm">${esc(pad(n.depth) + n.name)}</span>${lock}</div>`;
+  }).join('');
+
+  let bar = '';
+  if (state.picked.size >= 2){
+    const tl = topLevel([...state.picked]);
+    bar = `<div class="barmulti">
+      <span>已选 <b>${state.picked.size}</b> 项（顶层 <b>${tl.length}</b>）</span>
+      <button class="btnm" data-act="copy">复制路径</button>
+      <button class="btnm" data-act="move">移动到…</button>
+      <button class="btnm dg" data-act="del">删除 ${tl.length} 项</button>
+      <button class="btnm gh" data-act="clear">取消选择</button>
+    </div>`;
+  } else {
+    bar = `<div class="empty">用 <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + 单击 切换选中；<kbd>Shift</kbd> + 单击 范围选择；<kbd>Esc</kbd> 清空。选中 <b>≥ 2</b> 项出现批量操作条。</div>`;
+  }
+
+  return `<div class="mock">
+    <div class="muted" style="margin-bottom:7px">树编辑区（可点选）</div>
+    <div class="treemock" id="treeF">${rows}</div>
+    ${bar}
+  </div>`;
+}
+
+function fDetail(){
+  const tl = topLevel([...state.picked]);
+  const lines = tl.map(id => '· ' + pathText(id)).join('\n');
+  return `<div class="rules">
+    <h2><span class="n">3</span>批量操作清单 <span class="badge inf">待批注</span></h2>
+    <table>
+      <thead><tr><th>#</th><th>操作</th><th>价值</th><th>风险</th><th>建议</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>批量删除</td><td>高</td><td><b>高</b>（破坏性）</td><td>做 —— 必须带确认层</td></tr>
+        <tr><td>2</td><td>批量移动</td><td>高</td><td>中</td><td>做 —— 与现有拖拽衔接</td></tr>
+        <tr><td>3</td><td>批量复制路径 / 清单</td><td>中</td><td>零（只读）</td><td>做 —— 复用 <code>copyText</code></td></tr>
+        <tr><td>4</td><td>批量重命名</td><td>高</td><td>中</td><td><b>暂缓</b> —— 需「规则 UI」（前缀/后缀/查找替换），三项中最重</td></tr>
+        <tr><td>5</td><td>批量展开 / 折叠</td><td>低</td><td>零</td><td><b>不做</b> —— 全展/全折已覆盖，无增量</td></tr>
+      </tbody>
+    </table>
+    <p class="hint">删除确认层实际内容（当前选中 ${state.picked.size} 项）：</p>
+    <div class="cnt" style="font-family:var(--mono);font-size:12px;background:var(--danger-soft);color:#7d1a14;padding:9px 11px;border-radius:8px;white-space:pre-wrap">${esc(lines || '（未选中）')}</div>
+  </div>`;
+}
+
+function deleteDialog(){
+  const tl = topLevel([...state.picked]);
+  const lines = tl.map(id => '· ' + pathText(id)).join('\n');
+  return `<div class="scrim" id="scrim">
+    <div class="dlg" role="dialog" aria-modal="true">
+      <h3>确认删除 ${tl.length} 个顶层项？</h3>
+      <div class="muted">已选 ${state.picked.size} 项，其中嵌套项已归并到最外层祖先（避免重复操作）。</div>
+      <div class="cnt">${esc(lines)}</div>
+      <ul>
+        <li>此操作将<b>移除选中节点及其全部子节点</b>。</li>
+        <li>可用 <kbd>Ctrl</kbd>+<kbd>Z</kbd> 撤销（整批<b>只推一次快照</b>）。</li>
+        <li>根节点永不参与。</li>
+      </ul>
+      <div class="acts">
+        <button class="btnm" data-act="cancelDel">取消</button>
+        <button class="btnm dg" data-act="okDel">删除 ${tl.length} 项</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ================= G · 工具栏三分组 ================= */
+function rackNow(){
+  return `<div class="rack">
+    <span class="lb">现状（3 个 divider / 语义错位）</span>
+    <span class="gfake">撤销</span><span class="gfake">重做</span>
+    <span class="divi"></span>
+    <span class="gfake">加子节点</span><span class="gfake">重命名</span><span class="gfake danger">删除</span>
+    <span class="divi"></span>
+    <span class="gfake">全展开</span><span class="gfake">全折叠</span>
+    <span class="spacer"></span>
+    <span class="gfake primary">生成</span>
+  </div>`;
+}
+function rackNew(withLabels){
+  const L = (s) => withLabels ? `<span class="gl">${s}</span>` : '';
+  const tag = withLabels ? ' · 加微标签' : ' · 建议形态（不加标签，仅靠间距/底色分组）';
+  return `<div class="rack">
+    <span class="lb">改后（三分组 · 编辑 / 视图 / 输出${tag}）</span>
+    <span class="grp on">${L('编辑')}
+      <span class="gfake">撤销</span><span class="gfake">重做</span>
+      <span class="gfake">加子节点</span><span class="gfake">重命名</span><span class="gfake danger">删除</span>
+    </span>
+    <span class="grp on" style="margin-left:6px">${L('视图')}
+      <span class="gfake">全展开</span><span class="gfake">全折叠</span>
+    </span>
+    <span class="spacer"></span>
+    <span class="grp on">${L('输出')}<span class="gfake primary">生成</span></span>
+  </div>`;
+}
+function mockG(){
+  return `<div class="mock">${rackNow()}${rackNew(false)}</div>
+    <div class="empty" style="margin-top:10px">可选进阶（草案 §3.4）——加微标签的对照：</div>
+    <div class="mock" style="margin-top:8px">${rackNew(true)}</div>`;
+}
+function gDetail(){
+  return `<div class="rules">
+    <h2><span class="n">3</span>三组划分 <span class="badge inf">待批注</span></h2>
+    <table>
+      <thead><tr><th>组</th><th>名称</th><th>成员</th><th>语义</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><b>编辑</b></td><td>撤销 · 重做 · 加子节点 · 重命名 · 删除</td><td>改树（含历史）</td></tr>
+        <tr><td>2</td><td><b>视图</b></td><td>全展开 · 全折叠</td><td>只看不改（<b>不动数据</b>）</td></tr>
+        <tr><td>3</td><td><b>输出</b></td><td>生成</td><td>落盘 / 预览</td></tr>
+      </tbody>
+    </table>
+    <p class="hint">划分依据：<b>改动数据的 / 只看不改的 / 产生结果的</b> —— 三类行为在心理模型上互斥，是分组最稳的切法。</p>
+    <table style="margin-top:12px">
+      <thead><tr><th>待定项</th><th>说明</th><th>建议</th></tr></thead>
+      <tbody>
+        <tr><td>加微标签？</td><td>小字「编辑/视图/输出」，更清晰但占宽</td><td><b>不加</b> —— 省宽、窄窗稳，仅用间距区分</td></tr>
+        <tr><td>窄窗行为</td><td>前两组折入溢出菜单（复用 <code>#btnMore</code> 模式）</td><td>可延后，不阻塞</td></tr>
+      </tbody>
+    </table>
+  </div>`;
+}
+
+/* ================= H · 检视器双模式 ================= */
+function subtree(id){
+  const n = byId(id);
+  if (!n) return {};
+  const kids = NODES.filter(x => x.parent === id);
+  const o = { id: n.id, type: n.type, name: n.name };
+  if (n.type === 'dir') o.children = kids.map(k => {
+    if (k.type === 'dir'){
+      const kk = subtree(k.id);
+      return { id: kk.id, type: kk.type, name: kk.name, children: kk.children || [] };
+    }
+    return { id: k.id, type: k.type, name: k.name, content: '' };
+  });
+  return o;
+}
+function highlight(json){
+  return esc(json)
+    .replace(/"([^"]+)":/g, '<span class="kk">"$1"</span>:')
+    .replace(/: "([^"]*)"/g, ': "<span class="ss">$1</span>"');
+}
+function mockH(){
+  const n = byId(state.inspId) || byId('m');
+  const kids = NODES.filter(x => x.parent === n.id);
+  const propView = `<div class="prop">
+      <div class="pr"><div class="pk">名称</div><div class="pv">${esc(n.name)}</div></div>
+      <div class="pr"><div class="pk">类型</div><div class="pv">${n.type === 'dir' ? '目录' : '文件'}</div></div>
+      <div class="pr"><div class="pk">路径</div><div class="pv mn">${esc(pathText(n.id))}</div></div>
+      <div class="pr"><div class="pk">深度</div><div class="pv">${n.depth}</div></div>
+      <div class="pr"><div class="pk">子目录</div><div class="pv">${kids.filter(k=>k.type==='dir').length}</div></div>
+      <div class="pr"><div class="pk">子文件</div><div class="pv">${kids.filter(k=>k.type==='file').length}</div></div>
+    </div>`;
+  const srcView = `<div class="json">${highlight(JSON.stringify(subtree(n.id), null, 2))}</div>`;
+  return `<div class="mock">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+      <span class="seg">
+        <button class="${state.inspMode==='prop'?'on':''}" data-mode="prop">属性</button>
+        <button class="${state.inspMode==='src'?'on':''}" data-mode="src">源码</button>
+      </span>
+      <span class="muted">当前节点：<b>${esc(n.name)}</b></span>
+    </div>
+    <div class="muted" style="margin:9px 0 0">点左侧树的任意行可切换检视目标（此处用下拉替代）：</div>
+    <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+      ${NODES.filter(x=>x.id!==ROOT_ID).map(x =>
+        `<button class="btnm" data-pick="${x.id}" style="${x.id===state.inspId?'border-color:var(--accent);color:var(--accent-ink)':''}">${esc(x.name)}</button>`).join('')}
+    </div>
+    ${state.inspMode === 'prop' ? propView : srcView}
+  </div>`;
+}
+function hDetail(){
+  return `<div class="rules">
+    <h2><span class="n">3</span>四种可能的「双模式」 <span class="badge inf">必须由你选定</span></h2>
+    <table>
+      <thead><tr><th>方案</th><th>含义</th><th>价值</th><th>实现成本</th></tr></thead>
+      <tbody>
+        <tr><td><b>(a) 属性 ⇄ 源码</b></td><td>属性表 ⇄ 该节点子树 JSON（复用 <code>toPlainTree</code>）</td><td><b>高</b> —— 生成前可核验、可复制</td><td>低（零新逻辑）</td></tr>
+        <tr><td>(b) 属性 ⇄ 笔记</td><td>note + 生成结果提到第二视图</td><td>中</td><td>低</td></tr>
+        <tr><td>(c) 详细 ⇄ 紧凑</td><td>同一信息的两种密度</td><td>低（信息量相同）</td><td>低</td></tr>
+        <tr><td>(d) 单节点 ⇄ 全树摘要</td><td>单节点属性 ⇄ 整树统计（总量/深度分布/最深路径）</td><td>中高</td><td>中（<code>countTree</code> 已有）</td></tr>
+      </tbody>
+    </table>
+    <p class="hint">本原型按 <b>(a)</b> 呈现。理由：复用现成函数（零新逻辑）、对「生成前核验」有真实价值、与「根名方案」同一思路 —— <b>所见即所得的可验证性</b>。</p>
+    <p class="hint">状态存储：<b>已核实</b>须沿用 <code>src/web/js/i18n/index.js</code> 的统一 localStorage 路径（该文件明文约定「不要在别处直访 <code>window.localStorage</code>」），<b>不得新造</b>。</p>
+  </div>`;
+}
+
+/* ================= 渲染 ================= */
+function bodyF(){
+  return `<div class="grid">
+    <div class="card"><h2><span class="n">1</span>界面形态 <span class="badge inf">可点选</span></h2>${treeMockF()}</div>
+    <div class="card"><h2><span class="n">2</span>手势与边界 <span class="badge inf">待批注</span></h2>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr><th style="border:1px solid var(--line);padding:8px 10px;background:#f0f5f3;text-align:left">手势</th>
+        <th style="border:1px solid var(--line);padding:8px 10px;background:#f0f5f3;text-align:left">行为</th></tr></thead>
+        <tbody>
+          <tr><td style="border:1px solid var(--line);padding:8px 10px"><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+单击</td><td style="border:1px solid var(--line);padding:8px 10px">切换该节点选中态</td></tr>
+          <tr><td style="border:1px solid var(--line);padding:8px 10px"><kbd>Shift</kbd>+单击</td><td style="border:1px solid var(--line);padding:8px 10px">从锚点到当前<b>范围选择</b></td></tr>
+          <tr><td style="border:1px solid var(--line);padding:8px 10px">单击（无修饰）</td><td style="border:1px solid var(--line);padding:8px 10px">回到单选</td></tr>
+          <tr><td style="border:1px solid var(--line);padding:8px 10px"><kbd>Esc</kbd></td><td style="border:1px solid var(--line);padding:8px 10px">清空多选</td></tr>
+          <tr><td style="border:1px solid var(--line);padding:8px 10px"><kbd>Ctrl</kbd>+<kbd>A</kbd></td><td style="border:1px solid var(--line);padding:8px 10px">全选<b>根之下</b>全部节点</td></tr>
+        </tbody>
+      </table>
+      <p class="hint" style="margin-top:12px"><b>边界规则（必须提前定）：</b></p>
+      <ul class="muted" style="margin:0;padding-left:20px;font-size:12.5px">
+        <li>父子同选 → 只作用于<b>最外层祖先</b>（避免重复 + 统计错）</li>
+        <li>拖拽：拖「在集合内」的节点 = 移动<b>整个集合</b>；否则只移动该节点</li>
+        <li>右键：在集合内 → 作用于<b>集合</b>（文案「删除选中 N 项」）；不在 → 作用于自身并清空多选</li>
+        <li>根节点<b>永不可选</b></li>
+        <li>多选时<b>检视器进入聚合态</b>（见 H）</li>
+      </ul>
+    </div>
+  </div>${fDetail()}`;
+}
+function bodyG(){
+  return `<div class="grid">
+    <div class="card"><h2><span class="n">1</span>界面形态（现状 vs 改后）</h2>${mockG()}</div>
+    <div class="card"><h2><span class="n">2</span>现状诊断</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr><th style="border:1px solid var(--line);padding:8px 10px;background:#f0f5f3;text-align:left">问题</th>
+        <th style="border:1px solid var(--line);padding:8px 10px;background:#f0f5f3;text-align:left">说明</th></tr></thead>
+        <tbody>
+          <tr><td style="border:1px solid var(--line);padding:8px 10px">①</td><td style="border:1px solid var(--line);padding:8px 10px">撤销/重做与增改删被 divider <b>分开</b> —— 但两者同属「改树」，分错了</td></tr>
+          <tr><td style="border:1px solid var(--line);padding:8px 10px">②</td><td style="border:1px solid var(--line);padding:8px 10px">「生成」被 spacer 推到最右，<b>无分组感</b></td></tr>
+          <tr><td style="border:1px solid var(--line);padding:8px 10px">③</td><td style="border:1px solid var(--line);padding:8px 10px">用户读到的是「一串按钮」，而非「三组能力」</td></tr>
+        </tbody>
+      </table>
+      <p class="hint" style="margin-top:12px"><b>影响面：</b>零 JS 逻辑改动、零契约改动（纯 HTML/CSS + 可选 i18n）。风险<b>极低</b>。体积估算 <b>1–3K</b>。</p>
+    </div>
+  </div>${gDetail()}`;
+}
+function bodyH(){
+  return `<div class="grid">
+    <div class="card"><h2><span class="n">1</span>界面形态 <span class="badge inf">可切换</span></h2>${mockH()}</div>
+    <div class="card"><h2><span class="n">2</span>为什么是 (a)</h2>
+      <p class="muted">属性视图回答「<b>这个节点是什么</b>」；源码视图回答「<b>这棵子树将生成成什么</b>」——两者正交，覆盖「编辑中 / 落盘前」两个最需要确认的时刻。</p>
+      <p class="muted">与右下角既有的 <code>#genResult</code>（生成结果）形成互补：<code>#genResult</code> 是<b>运行后</b>的结果，源码视图是<b>运行前</b>的结构预览。</p>
+      <p class="hint"><b>影响面：</b>只读展示，零契约改动。风险低。体积估算 <b>6–10K</b>。</p>
+      <p class="hint"><b>守卫注意：</b>分段控件的类名<b>不得含 <code>.skin-</code></b>（触发 7d）；新增图标须为 currentColor SVG mask。</p>
+    </div>
+  </div>${hDetail()}`;
+}
+
+function render(){
+  renderTabs();
+  const map = { F: bodyF, G: bodyG, H: bodyH };
+  $('#body').innerHTML = map[state.scheme]() + (state.confirmDel && state.scheme === 'F' ? deleteDialog() : '');
+  bind();
+}
+
+/* ================= 事件 ================= */
+let dragging = false;
+
+function bind(){
+  /* ---- F ---- */
+  const tree = $('#treeF');
+  if (tree){
+    tree.querySelectorAll('.brow').forEach(row => {
+      const id = row.dataset.id;
+      if (id === ROOT_ID){
+        row.addEventListener('click', () => flashLock());
+        return;
+      }
+      row.addEventListener('click', (e) => {
+        if (e.shiftKey && state.anchor){
+          const ids = rangePick(state.anchor, id);
+          state.picked = new Set(ids);
+        } else if (e.ctrlKey || e.metaKey){
+          if (state.picked.has(id)) state.picked.delete(id); else state.picked.add(id);
+          state.anchor = id;
+        } else {
+          state.picked = new Set([id]);
+          state.anchor = id;
+        }
+        render();
+      });
+    });
+  }
+  document.querySelectorAll('[data-act]').forEach(b => {
+    b.addEventListener('click', () => {
+      const a = b.dataset.act;
+      if (a === 'clear'){ state.picked.clear(); state.anchor = null; render(); }
+      else if (a === 'del'){ state.confirmDel = true; render(); }
+      else if (a === 'cancelDel'){ state.confirmDel = false; render(); }
+      else if (a === 'okDel'){
+        const gone = topLevel([...state.picked]);
+        state.picked.clear(); state.anchor = null; state.confirmDel = false;
+        render(); toastNote('已模拟删除 ' + gone.length + ' 个顶层项（原型不真删）');
+      }
+      else if (a === 'copy') toastNote('已模拟复制 ' + topLevel([...state.picked]).length + ' 条路径');
+      else if (a === 'move') toastNote('已模拟「移动到…」——实际会打开目录选择（原型不真移）');
+    });
+  });
+  /* ---- H ---- */
+  document.querySelectorAll('.seg button').forEach(b =>
+    b.addEventListener('click', () => { state.inspMode = b.dataset.mode; render(); }));
+  document.querySelectorAll('[data-pick]').forEach(b =>
+    b.addEventListener('click', () => { state.inspId = b.dataset.pick; render(); }));
+}
+
+/* Esc 清空 + Ctrl+A 全选（仅 F 生效） */
+document.addEventListener('keydown', (e) => {
+  if (state.scheme !== 'F') return;
+  if (e.key === 'Escape'){
+    if (state.confirmDel){ state.confirmDel = false; render(); return; }
+    state.picked.clear(); state.anchor = null; render(); return;
+  }
+  if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 'a'){
+    e.preventDefault();
+    state.picked = new Set(selectable.map(n => n.id));
+    state.anchor = selectable.length ? selectable[0].id : null;
+    render();
+  }
+});
+
+function flashLock(){
+  const el = document.createElement('div');
+  el.textContent = '根节点不可选（不可删 / 不可移）';
+  el.style.cssText = 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#25322e;' +
+    'color:#fff;padding:8px 16px;border-radius:9px;font-size:13px;z-index:80';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1400);
+}
+function toastNote(msg){
+  const el = document.createElement('div');
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#25322e;' +
+    'color:#fff;padding:8px 16px;border-radius:9px;font-size:13px;z-index:80';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1800);
+}
+
+/* 深链：#F / #G / #H 直达（便于分享与逐项验证） */
+const hashOf = () => String(location.hash || '').replace('#', '').toUpperCase();
+if (SCHEMES.some(s => s.id === hashOf())) state.scheme = hashOf();
+window.addEventListener('hashchange', () => {
+  if (SCHEMES.some(s => s.id === hashOf())){
+    state.scheme = hashOf(); state.confirmDel = false; render();
+  }
+});
+
+render();
+</script>
+</body>
+</html>
