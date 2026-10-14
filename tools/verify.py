@@ -17,6 +17,9 @@
      组件 CSS 不感知皮肤 / 皮肤目录契约 / 偏好键名（**5 键**，权威清单见 §P0-3 L6）
  7ai. 偏好键名「三方一致」（§P0-3 L6）：实现（`i18n/index.js` 的 `_KEY` 声明）/ 守卫
      （本文件 `PREF_KEYS`）/ 文档（§P0-3 L6 规则行）三处键集合必须相等
+ 7aj. 图标契约（§P0-3 L8）：`.ic-*` 定义↔使用双向配对 / 形状类须声明 `--m` /
+     禁 `background-image`、`<img>` 引 SVG 与 `@font-face` / 图标按钮可访问名（顶栏另须 tooltip）/
+     字形图标白名单与图标册三方一致（实现 / 本文件 `ICON_SHAPES` / §P0-3 L8 规则行）
  7e. CSS 类名形态（§P2 第 1 项）：一律 kebab-case，不得含下划线或大写
  7f. 体积上限（§P2 第 4 项）：src/** 合计 ≤ 576K，单文件 ≤ 64K
  7g. 帮助页键位登记（§P2 第 8 项）：源码若有修饰键快捷键监听（ctrlKey/metaKey/altKey），
@@ -2287,6 +2290,9 @@ def main() -> int:
     # 而它自己无法自检（那段代码已不在）→ 由本段做元检查（同 7ag 对 7d-8 的做法）。
     if "偏好键名三方一致" not in _read("tools/verify.py"):
         prog_bad.append("verify.py 缺偏好键三方一致守卫（2026-10-15 · §P0-3 L6）")
+    # 同理：「图标系统契约」守卫被整体摘除后，图标册 / 字形白名单的漂移会重新隐身。
+    if "图标系统契约" not in _read("tools/verify.py"):
+        prog_bad.append("verify.py 缺图标系统守卫（2026-10-15 · §P0-3 L8）")
     check(not prog_bad, "进度状态表与 VERSION 一致 V0.0.48",
           "；".join(prog_bad) if prog_bad
           else f"任务进度 3 行 + README + 手册头部，首版本均为 {ver_txt}")
@@ -2326,6 +2332,149 @@ def main() -> int:
           "；".join(pref_bad) if pref_bad
           else f"实现 / 守卫 / §P0-3 L6 三方均 {len(pref_impl)} 键："
                f"{' / '.join(sorted(pref_impl))}")
+
+    # 7aj. 图标系统契约（2026-10-15 · UI 图标设计约定检查 · §P0-3 L8）。
+    #      背景：项目「图标」概念盘上有 **4 条并行实现路径**，而 §P0-3 L8 原只覆盖
+    #      「SVG 资源」两支，且**无任何机器判据**：
+    #        A 形状内联 data-URI（`base.css` 的 `.ic-*`，声明局部 `--m`）—— 7 个
+    #        B 形状存 `tokens.css` 变量（`--qm-select-arrow-mask`）—— 1 个
+    #        C 形状指向文件（`.brand-logo` → `assets/logo.svg`）—— 1 个
+    #        D **文字字形**（`.caret` U+25BE / `#genCaret` U+25BC·U+25B6 /
+    #          `.tree-icon` U+1F4C1·U+1F4C4）—— 3 处，此前**无任何成文记载**
+    #      且 `base.css` 头注释断言「图标**全部**为 currentColor SVG mask」—— 对 B / C
+    #      的着色描述已不准（B 取 `--qm-text-dim`、C 取 `--qm-accent-ink`），对 D 直接为假。
+    #      判据只锚**声明形态**、不锚裸字面量（§三.69 / §三.71：本仓库注释习惯逐字复述
+    #      类名与字符，裸查必大量假阳性）；字形抽取**全程不写正则反斜杠**（§三.72）。
+    ic_bad: list[str] = []
+    # 图标册（形状类）—— base.css 定义域 / 本元组 / §P0-3 L8 规则行，**三方一致**（同 7ai）。
+    ICON_SHAPES = ("ic-globe", "ic-heart", "ic-help", "ic-gear",
+                   "ic-close", "ic-check", "ic-more")
+    # 字形图标白名单（**新代码禁止新增** —— 新图标一律走 `.ic` mask；D 类不许再长大）。
+    GLYPH_ICONS = (chr(0x25BE),                  # 下三角 .caret（#chipBackend 服务 chip）
+                   chr(0x25BC), chr(0x25B6),     # 实心下 / 右三角 #genCaret（main.js）
+                   chr(0x1F4C1), chr(0x1F4C4))   # 文件夹 / 文件 .tree-icon（tree-view.js）
+    # 顶栏操作区图标按钮：除可访问名外**另须** tooltip（《项目手册》§九.2-2 / §十四.1）。
+    TOPBAR_ICON_IDS = ("btnLang", "btnSkin", "btnSupport", "btnHelp", "btnMore")
+
+    _idx_html = _read("src/web/index.html")
+    _ic_css = strip_comments(_read("src/web/css/base.css"), "css")
+
+    def _ic_lits(body: str) -> list[str]:
+        """只收集**类名声明形态**的字面量（class= / className= / classList.add）。
+        不用含反斜杠转义的引号字符类 —— 本环境该形态在写盘通道会被改写（§三.72）。"""
+        out = re.findall(r'class="([^"]*)"', body)
+        out += re.findall(r"class='([^']*)'", body)
+        out += re.findall(r"className\s*=\s*'([^']*)'", body)
+        out += re.findall(r'className\s*=\s*"([^"]*)"', body)
+        out += re.findall(r"classList\.add\('([^']*)'\)", body)
+        out += re.findall(r'classList\.add\("([^"]*)"\)', body)
+        return out
+
+    # ① 定义 ↔ 使用 双向配对（「定义未使用」与「使用未定义」都要报）。
+    ic_defined = set(re.findall(r"\.(ic(?:-[a-z0-9]+)?)(?![\w-])", _ic_css))
+    ic_used: dict[str, set[str]] = {}
+    for _p in sorted((root / "src/web").rglob("*")):
+        if not _p.is_file() or _p.suffix not in (".html", ".js"):
+            continue
+        _rel = str(_p.relative_to(root)).replace(chr(92), "/")
+        for _lit in _ic_lits(_p.read_text(encoding="utf-8", errors="ignore")):
+            for _tok in _lit.split():
+                if re.fullmatch(r"ic(?:-[a-z0-9]+)?", _tok):
+                    ic_used.setdefault(_tok, set()).add(_rel)
+    for _miss in sorted(ic_defined - set(ic_used)):
+        ic_bad.append(f"base.css 定义了 .{_miss} 但无人使用")
+    for _miss in sorted(set(ic_used) - ic_defined):
+        ic_bad.append(f"{'/'.join(sorted(ic_used[_miss]))} 用了未定义的 .{_miss}")
+
+    # ② 形状类须声明 `--m`；尺寸修饰符 `.ic-sm` 不得声明；基类 `.ic` 须消费 `var(--m)`。
+    for _shape in ICON_SHAPES:
+        _blk = re.search(r"\." + _shape + r"\s*\{[^}]*\}", _ic_css)
+        if not _blk or not re.search(r"--m\s*:", _blk.group(0)):
+            ic_bad.append(f".{_shape} 未声明 --m（形状只能经 mask 提供）")
+    _sm_blk = re.search(r"\.ic-sm\s*\{[^}]*\}", _ic_css)
+    if _sm_blk and re.search(r"--m\s*:", _sm_blk.group(0)):
+        ic_bad.append(".ic-sm 是尺寸修饰符，不得声明 --m")
+    _base_blk = re.search(r"\.ic\s*\{[^}]*\}", _ic_css)
+    if not _base_blk or "var(--m)" not in _base_blk.group(0):
+        ic_bad.append(".ic 未消费 var(--m)")
+
+    # ③ `.ic*` 规则块不得用 background-image（形状只能走 mask，禁位图 / 图片图标）。
+    for _blk in re.findall(r"\.ic(?:-[\w-]+)?\s*\{[^}]*\}", _ic_css):
+        if "background-image" in _blk:
+            ic_bad.append("图标规则用了 background-image：" + _blk[:48])
+
+    # ④ 全 src 禁 `<img>` 引 SVG（§P0-3 L8：`<img>` 内 currentColor 不继承）
+    #    与 `@font-face`（第三方图标字体，版权合规）。注释先剥离，免误伤说明文字。
+    for _p in sorted((root / "src").rglob("*")):
+        if not _p.is_file() or _p.suffix not in (".html", ".css", ".js"):
+            continue
+        _rel = str(_p.relative_to(root)).replace(chr(92), "/")
+        _raw = _p.read_text(encoding="utf-8", errors="ignore")
+        if _p.suffix == ".html":
+            _scan = re.sub(r"<!--.*?-->", "", _raw, flags=re.S)
+        else:
+            _scan = strip_comments(_raw, "css" if _p.suffix == ".css" else "js")
+        if "@font-face" in _scan:
+            ic_bad.append(f"{_rel} 含 @font-face（禁用图标字体）")
+        for _img in re.findall(r"<img[^>]*>", _scan, re.I):
+            if "src=" in _img and ".svg" in _img.lower():
+                ic_bad.append(f"{_rel} 用 <img> 引 SVG：{_img[:40]}")
+
+    # ⑤ 图标按钮：可访问名必填；顶栏操作区另须 tooltip（把手册 §十四.1 由建议升为判据）。
+    _ic_btns = re.findall(r'<button[^>]*class="[^"]*icon-btn[^"]*"[^>]*>', _idx_html, re.S)
+    for _tag in _ic_btns:
+        _m_id = re.search(r'id="([^"]+)"', _tag)
+        _bid = _m_id.group(1) if _m_id else "(匿名)"
+        if "aria-label=" not in _tag and "data-i18n-aria-label=" not in _tag:
+            ic_bad.append(f"icon-btn#{_bid} 缺可访问名（aria-label / data-i18n-aria-label）")
+        if _bid in TOPBAR_ICON_IDS and "title=" not in _tag and "data-i18n-title=" not in _tag:
+            ic_bad.append(f"顶栏 icon-btn#{_bid} 缺 tooltip（title / data-i18n-title）")
+    for _bid in TOPBAR_ICON_IDS:
+        if 'id="' + _bid + '"' not in _idx_html:
+            ic_bad.append(f"index.html 已无顶栏图标按钮 #{_bid}（守卫清单须同步）")
+
+    # ⑥ 字形图标白名单：只从**声明形态**抽取，实况集合必须 == 白名单（新增即 FAIL）。
+    ic_glyphs: list[str] = []
+
+    def _de_u(js: str) -> str:
+        """把 JS 源码里的 uXXXX 转义（含代理对）还原为真实字符。"""
+        _t = js.encode("utf-8").decode("unicode_escape")
+        return _t.encode("utf-16", "surrogatepass").decode("utf-16")
+
+    for _g in re.findall(r"const CARET_(?:OPEN|CLOSED)\s*=\s*'([^']*)'",
+                         _read("src/web/js/main.js")):
+        ic_glyphs.append(_de_u(_g))
+    for _a, _b in re.findall(r"textContent\s*=\s*dir\s*\?\s*'([^']*)'\s*:\s*'([^']*)'",
+                             _read("src/web/js/ui/tree-view.js")):
+        ic_glyphs.append(_de_u(_a))
+        ic_glyphs.append(_de_u(_b))
+    for _cp in re.findall(r'class="caret"[^>]*>&#(\d+);', _idx_html):
+        ic_glyphs.append(chr(int(_cp)))
+    for _g in sorted(set(ic_glyphs) - set(GLYPH_ICONS)):
+        ic_bad.append(f"新增字形图标 U+{ord(_g):04X} 未登记 —— 新图标须走 .ic mask")
+    for _g in GLYPH_ICONS:
+        if _g not in ic_glyphs:
+            ic_bad.append(f"白名单字形 U+{ord(_g):04X} 已不在源码中（白名单须同步）")
+
+    # ⑦ 图标册三方一致：base.css 形状类 == 本元组 == §P0-3 L8 规则行（标「图标册」者）。
+    ic_css_shapes = {_s for _s in ic_defined if _s.startswith("ic-") and _s != "ic-sm"}
+    if ic_css_shapes != set(ICON_SHAPES):
+        ic_bad.append(f"图标册漂移：base.css {sorted(ic_css_shapes)} ≠ 守卫 {sorted(ICON_SHAPES)}")
+    _l8_row = next((_ln for _ln in _read("docs/项目约定.md").splitlines()
+                    if _ln.startswith("| L8 |") and "图标册" in _ln), "")
+    if not _l8_row:
+        ic_bad.append("§P0-3 L8 未标出「图标册」权威清单行")
+    else:
+        ic_doc_shapes = {_s for _s in re.findall(r"`(ic-[a-z0-9-]+)`", _l8_row)
+                         if _s != "ic-sm"}
+        if ic_doc_shapes != set(ICON_SHAPES):
+            ic_bad.append(f"图标册漂移：实现/守卫 {sorted(ICON_SHAPES)} ≠ §P0-3 L8 {sorted(ic_doc_shapes)}")
+
+    check(not ic_bad, "图标系统契约 §P0-3 L8",
+          "；".join(ic_bad) if ic_bad
+          else f"{len(ICON_SHAPES)} 个 mask 形状定义↔使用配对 / "
+               f"{len(_ic_btns)} 个图标按钮可访问名齐备 / "
+               f"字形图标 {len(GLYPH_ICONS)} 个未增长")
 
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"
