@@ -65,7 +65,12 @@ const tm = await import(SRC + '/modules/tree-model.js');
   ok('B-P3-3/illegal', tm.renameNode(root, b.id, 'a/b') === false && b.name === 'b.txt');
   ok('B-P3-3/dup', tm.renameNode(root, b.id, 'a') === false && b.name === 'b.txt');
   ok('B-P3-3/ok', tm.renameNode(root, b.id, 'c.txt') === true && b.name === 'c.txt');
-  ok('B-P3-3/root', tm.renameNode(root, root.id, 'zz') === false);
+  /* V0.0.42：根节点名 = 「根文件夹名」—— 放开改名；允许置空（= 不建根）；
+     但**非法字符仍拒**（自校验不因放开而失效）；非根节点空名仍拒。 */
+  ok('B-P3-3/root-renamable', tm.renameNode(root, root.id, 'zz') === true && root.name === 'zz');
+  ok('B-P3-3/root-blank-is-noroot', tm.renameNode(root, root.id, '') === true && root.name === '');
+  ok('B-P3-3/root-illegal-still-rejected', tm.renameNode(root, root.id, 'a/b') === false && root.name === '');
+  ok('B-P3-3/nonroot-blank-still-rejected', tm.renameNode(root, b.id, '') === false && b.name === 'c.txt');
 }
 
 /* ---------- B-P3-4 toPlainTree 同层重名告警 ---------- */
@@ -244,7 +249,11 @@ class FrontendJsTests(unittest.TestCase):
             self._ok(n)
 
     def test_b3_3_rename_self_guard(self):
-        for n in ("B-P3-3/illegal", "B-P3-3/dup", "B-P3-3/ok", "B-P3-3/root"):
+        # V0.0.42：B-P3-3/root 反转为 root-renamable / root-blank-is-noroot /
+        #          root-illegal-still-rejected / nonroot-blank-still-rejected
+        for n in ("B-P3-3/illegal", "B-P3-3/dup", "B-P3-3/ok",
+                  "B-P3-3/root-renamable", "B-P3-3/root-blank-is-noroot",
+                  "B-P3-3/root-illegal-still-rejected", "B-P3-3/nonroot-blank-still-rejected"):
             self._ok(n)
 
     def test_b3_4_plain_tree_duplicate_warn(self):

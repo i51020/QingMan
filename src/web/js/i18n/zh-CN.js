@@ -237,8 +237,6 @@ export const dict = {
   'err.networkError': '无法连接后端服务，请确认服务仍在运行：{message}',
 
   /* ---------- 中栏：生成参数 ---------- */
-  'gen.rootLabel': '根文件夹名',
-  'gen.rootPlaceholder': '留空则直接写入目标位置',
   'gen.targetLabel': '目标位置',
   'gen.targetPlaceholder': '例如：E:\\我的项目',
   'gen.targetPick': '选择…',
@@ -251,6 +249,7 @@ export const dict = {
   'gen.summaryEmpty': '未设置目标位置',
   'gen.summaryTarget': '目标 {target}',
   'gen.summaryRoot': '根名 {root}',
+  'gen.summaryNoRoot': '不建根',
   'gen.summaryDryRun': '演练中',
   'gen.summaryWrite': '写盘',
   'gen.summarySep': ' · ',
@@ -270,6 +269,7 @@ export const dict = {
   'tree.newDirPrompt': '新目录名称',
   'tree.newDirDefault': '新建目录',
   'tree.renamePrompt': '重命名',
+  'tree.rootNoName': '（不建根）',
   'tree.deleteConfirm': '确认删除「{name}」及其全部子节点？',
   'tree.copyPath': '复制路径',
 
@@ -330,7 +330,6 @@ export const dict = {
   'toast.selectDirFirst': '请先选中一个目录节点',
   'toast.nameEmpty': '名称不能为空',
   'toast.siblingExists': '「{name}」已存在于该目录下',
-  'toast.rootRenameBlocked': '根节点名称由「根文件夹名」决定，不在此处重命名',
   'toast.rootDeleteBlocked': '根节点不可删除',
   'toast.moveMissing': '要移动的节点已不存在',
   'toast.moveNotDir': '只能移动到目录节点下',
@@ -374,7 +373,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.41',
+  'help.versionFallback': 'V0.0.42',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',
@@ -404,7 +403,7 @@ export const dict = {
   'help.tree.title': '目录树操作',
   'help.tree.1': '单击节点选中，右栏属性面板同步刷新',
   'help.tree.2': '「新建子节点」在选中的目录下增加一个子目录',
-  'help.tree.3': '「重命名」修改节点名称；根节点名称由「根文件夹名」决定，不在此处改',
+  'help.tree.3': '「重命名」修改节点名称；根节点名即生成的根文件夹名，可直接改名，清空则不建根文件夹',
   'help.tree.4': '「删除」移除选中节点及其全部子节点（有二次确认）',
   'help.tree.5': '「全部展开 / 全部折叠」批量切换层级',
   'help.tree.6': '拖拽节点到某个目录上，可把它移动到该目录下（不能移到自己的子目录里）',

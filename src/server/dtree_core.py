@@ -134,11 +134,18 @@ def validate_document(root: Any) -> Dict[str, int]:
             raise TreeError("editorNodeBadType", path=path)
 
         name = node.get("name")
-        if not isinstance(name, str) or not name.strip():
+        if not isinstance(name, str):
             raise TreeError("editorNodeBadName", path=path)
-        ok, reason = validate_segment(name)
-        if not ok:
-            raise TreeError("segmentInvalid", name=name, reason=message(reason, name=name))
+        if not name.strip():
+            # V0.0.42（手册 10.2 节 #12 · 方案 C）：根节点名**即**「根文件夹名」——
+            # 允许为空（空名 = 不建根，与 routes.generate 的 `root` 留空同义）；
+            # 其余节点名仍须非空。空根名不参与 validate_segment（空串必不合法）。
+            if path != "$":
+                raise TreeError("editorNodeBadName", path=path)
+        else:
+            ok, reason = validate_segment(name)
+            if not ok:
+                raise TreeError("segmentInvalid", name=name, reason=message(reason, name=name))
 
         node_id = node.get("id")
         if not isinstance(node_id, str) or not node_id:

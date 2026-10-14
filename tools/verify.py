@@ -75,7 +75,7 @@ REQUIRED_IDS = (
     "sidebar", "templateList",
     # V0.0.41：模板编辑区「新建模板」入口 + 应用内弹窗（手册 9.2 节 #7 / 10.2 节 #4）
     "btnNewTemplate", "dlgNewTemplate", "newTplName", "newTplDesc", "newTplBase", "newTplConfirm",
-    "center", "genBar", "inRoot", "inTarget", "inDryRun",
+    "center", "genBar", "inTarget", "inDryRun",
     # V0.0.40：目标位置「选择…」按钮（手册 §10.2 #13；复用模板目录的原生目录选择器）
     "btnPickTarget",
     "toolbar", "btnAddChild", "btnRename", "btnDelete",

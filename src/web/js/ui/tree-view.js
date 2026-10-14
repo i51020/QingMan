@@ -6,6 +6,7 @@
  */
 
 import { isDir, isSelfOrDescendant } from '../modules/tree-model.js';
+import { t } from '../i18n/index.js';
 
 /**
  * 指针是否**真的离开了本行**（C-P3-3）。
@@ -89,7 +90,14 @@ export function createTreeView(container, { onSelect, onMove, onContext }) {
 
     const name = document.createElement('span');
     name.className = 'tree-name';
-    name.textContent = node.name;
+    /* V0.0.42：根节点名即「根文件夹名」，可为空 —— 空名渲染为「（不建根）」占位 */
+    const isRootRow = !!currentRoot && node.id === currentRoot.id;
+    if (isRootRow && !node.name) {
+      name.textContent = t('tree.rootNoName');
+      name.classList.add('is-placeholder');
+    } else {
+      name.textContent = node.name;
+    }
     row.appendChild(name);
 
     row.addEventListener('click', () => onSelect(node.id));

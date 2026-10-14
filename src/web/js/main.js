@@ -52,12 +52,14 @@ function initGenBar() {
   renderGenBar();
 }
 
-/** 摘要行文案：目标位置（未填时明说）· 根名（有才显示）· 演练或写盘 */
+/** 摘要行文案：目标位置（未填时明说）· 根名或「不建根」· 演练或写盘 */
 function genSummaryText() {
   const target = el('inTarget').value.trim();
-  const rootName = el('inRoot').value.trim();
+  /* V0.0.42：根名真源 = 树编辑区的根节点名（不再有独立输入框） */
+  const { root } = store.get();
+  const rootName = root && root.name ? root.name.trim() : '';
   const parts = [target ? t('gen.summaryTarget', { target }) : t('gen.summaryEmpty')];
-  if (rootName) parts.push(t('gen.summaryRoot', { root: rootName }));
+  parts.push(rootName ? t('gen.summaryRoot', { root: rootName }) : t('gen.summaryNoRoot'));
   parts.push(t(el('inDryRun').checked ? 'gen.summaryDryRun' : 'gen.summaryWrite'));
   return parts.join(t('gen.summarySep'));
 }
@@ -233,7 +235,9 @@ function redo() {
 
 function defaultRoot() {
   resetIdRegistry();
-  const root = createDir(t('sample.root'));
+  /* V0.0.42：根节点名即「根文件夹名」—— 默认置空 = 默认不建根（保持旧默认行为）。
+     改名入口在树区：选中根节点 → 工具栏/右键「重命名」；清空即回到「不建根」。 */
+  const root = createDir('');
   addChild(root, createDir(t('sample.materials')));
   addChild(root, createDir(t('sample.output')));
   addChild(root, createFile(t('sample.readme'), t('sample.readmeContent')));
@@ -523,17 +527,24 @@ function doAddChild(id = selectedId()) {
 
 function doRename(id = selectedId()) {
   const root = store.get().root;
-  if (id === root.id) {
-    toast(t('toast.rootRenameBlocked'), 'warn');
-    return;
-  }
+  const isRootNode = id === root.id;
   const node = findNode(root, id);
   if (!node) return;
   const name = window.prompt(t('tree.renamePrompt'), node.name);
   if (name === null) return;
   const trimmed = name.trim();
   if (!trimmed) {
-    toast(t('toast.nameEmpty'), 'warn');
+    /* V0.0.42：根节点名即「根文件夹名」—— 允许空名 = 不建根；非根节点仍拒空 */
+    if (!isRootNode) {
+      toast(t('toast.nameEmpty'), 'warn');
+      return;
+    }
+    pushHistory();
+    renameNode(root, id, '');
+    store.set({});
+    renderGenBar();
+    setStatus(t('status.renamed', { name: t('tree.rootNoName') }));
+    markDirty();
     return;
   }
   const vseg = validateSegment(trimmed);
@@ -543,13 +554,14 @@ function doRename(id = selectedId()) {
   }
   if (trimmed === node.name) return;
   const parent = findParent(root, id);
-  if (hasSiblingName(parent, trimmed, id)) {
+  if (parent && hasSiblingName(parent, trimmed, id)) {
     toast(t('toast.siblingExists', { name: trimmed }), 'warn');
     return;
   }
   pushHistory();
   renameNode(root, id, trimmed);
   store.set({});
+  if (isRootNode) renderGenBar();   // 根名变了 → 摘要行要跟着变
   setStatus(t('status.renamed', { name: trimmed }));
   markDirty();
 }
@@ -589,16 +601,16 @@ el('btnGenToggle').addEventListener('click', () => {
   setGenBarCollapsed(getGenBarState() !== 'closed');
 });
 
-/* 参数一变就刷新摘要行，使折叠态下也能一眼看清当前设定 */
-for (const id of ['inRoot', 'inTarget']) {
-  el(id).addEventListener('input', renderGenBar);
-}
+/* 参数一变就刷新摘要行，使折叠态下也能一眼看清当前设定。
+   V0.0.42：根名不再有独立输入框（真源是树区根节点名，改名后由 doRename 直接刷新摘要）。 */
+el('inTarget').addEventListener('input', renderGenBar);
 el('inDryRun').addEventListener('change', renderGenBar);
 
 el('btnGenerate').addEventListener('click', async () => {
   const { root } = store.get();
   const target = el('inTarget').value.trim();
-  const rootName = el('inRoot').value.trim();
+  /* V0.0.42：根名 = 树区根节点名；空 = 不建根（后端 base 直接落 target） */
+  const rootName = (root.name || '').trim();
   const dryRun = el('inDryRun').checked;
 
   if (!target) {

@@ -315,6 +315,37 @@ frame('./index.html', function (doc) {
       doc.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));   /* 关掉菜单 */
     }
   } catch (e) { m.err1 = String(e && e.message ? e.message : e); }
+  /* V0.0.42 · 手册 10.2 节 #12「根文件夹名与第一个目录逻辑重设计」—— 方案 C：
+     根节点名**即**「根文件夹名」。走真实用户路径（选中根行 → 工具栏「重命名」），
+     window.prompt 临时替换为受控返回值；断言点只看「摘要 / 树区是否随根名变」，
+     不比对具体文案 → 与 i18n 解耦。 */
+  var sumEl = doc ? doc.getElementById('genSummary') : null;
+  var rootRowEl = doc ? doc.querySelector('.tree-row') : null;
+  var btnRenameEl = doc ? doc.getElementById('btnRename') : null;
+  m.rootProbe = (sumEl && rootRowEl && btnRenameEl && win) ? 1 : 0;
+  if (m.rootProbe === 1) {
+    var realPrompt = win.prompt;
+    var fireOn = function (el, type) {
+      el.dispatchEvent(new win.MouseEvent(type, { bubbles: true }));
+    };
+    try {
+      m.rootSumBefore = sumEl.textContent || '';
+      m.rootNameBefore = names(doc)[0] || '';
+      win.prompt = function () { return 'QmRootX'; };   /* ① 根名 → QmRootX */
+      fireOn(rootRowEl, 'click');
+      fireOn(btnRenameEl, 'click');
+      m.rootSumAfter = sumEl.textContent || '';
+      m.rootNameAfter = names(doc)[0] || '';
+      win.prompt = function () { return ''; };          /* ② 清空 → 不建根 */
+      fireOn(btnRenameEl, 'click');
+      m.rootSumBlank = sumEl.textContent || '';
+      m.rootNameBlank = names(doc)[0] || '';
+    } catch (e) {
+      m.rootErr = String(e && e.message ? e.message : e);
+    } finally {
+      win.prompt = realPrompt;
+    }
+  }
   /* V0.0.41 · 手册 9.2 节 #7 / 10.2 节 #4：「新建模板」弹窗**实测**（不是静态断言）。
      走真实路径：点 #btnNewTemplate → newTemplateFlow() 是 async（先 await /api/templates
      填起点下拉，再 layers.open），故点完等一拍再读。读完**立刻**用 [data-close] 关窗 ——
@@ -674,6 +705,27 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
           f"open={metrics.get('tplNewOpen')} 起点 {base_n} 项 首项={base_text!r} "
           f"closing={metrics.get('tplNewClosing')} closed={metrics.get('tplNewClosed')}"
           + ("" if dlg_ok else "（弹窗未开 / 起点为空 / 关不掉）"))
+
+    # V0.0.42 · 手册 10.2 节 #12：根名方案 C —— 根节点名**即**「根文件夹名」。
+    # 探针走真实路径（选中根行 → 工具栏「重命名」，window.prompt 被替换为受控值 'QmRootX' / ''），
+    # 断言点与 i18n 解耦：只看「摘要 / 树区根名是否随根名变」，不比对具体文案。
+    root_probe = as_int(metrics.get("rootProbe"))
+    sum_before = metrics.get("rootSumBefore", "")
+    sum_after = metrics.get("rootSumAfter", "")
+    sum_blank = metrics.get("rootSumBlank", "")
+    name_after = metrics.get("rootNameAfter", "")
+    name_blank = metrics.get("rootNameBlank", "")
+    rename_ok = (root_probe == 1 and "QmRootX" not in sum_before
+                 and "QmRootX" in sum_after and name_after == "QmRootX")
+    check(rename_ok, "主界面·根名即树根：改名后摘要与树区同步（V0.0.42）",
+          f"摘要 before={sum_before!r} → after={sum_after!r} / 树区根名={name_after!r}"
+          + ("" if rename_ok else "（改名未贯通到摘要或树区）"))
+
+    blank_ok = (root_probe == 1 and "QmRootX" not in sum_blank
+                and bool(name_blank) and name_blank != "QmRootX")
+    check(blank_ok, "主界面·根名即树根：清空即不建根（V0.0.42）",
+          f"摘要={sum_blank!r} / 树区根名={name_blank!r}"
+          + ("" if blank_ok else "（清空后未回到「不建根」）"))
 
     # C-P3-5（V0.0.29）：非法皮肤偏好须回落出厂默认 —— 若被直接采用，会去加载不存在的
     # `./css/skins/not-a-real-skin.css`（装载失败 → 落 tokens.css 裸色，与选择器显示不符）。

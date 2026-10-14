@@ -147,6 +147,22 @@ class ValidateDocumentTests(unittest.TestCase):
             dtree_core.validate_document(self._doc(children=children))
         self.assertEqual(ctx.exception.code, "editorTooManyNodes")
 
+    def test_v042_root_may_have_empty_name(self):
+        """V0.0.42（手册 10.2 节 #12 · 方案 C）：根节点名 = 「根文件夹名」，允许为空（= 不建根）。"""
+        root = self._doc(name="", children=[
+            {"type": "file", "id": "f1", "name": "a.md", "content": ""},
+        ])
+        self.assertEqual(dtree_core.validate_document(root), {"dirs": 0, "files": 1})
+
+    def test_v042_non_root_empty_name_still_rejected(self):
+        """放行只针对根节点：非根节点空名仍拒（editorNodeBadName）。"""
+        root = self._doc(children=[
+            {"type": "file", "id": "f1", "name": "", "content": ""},
+        ])
+        with self.assertRaises(TreeError) as ctx:
+            dtree_core.validate_document(root)
+        self.assertEqual(ctx.exception.code, "editorNodeBadName")
+
 
 class CheckTargetTests(unittest.TestCase):
     """§P0-1 R1–R5：落盘安全边界。"""

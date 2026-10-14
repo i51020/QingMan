@@ -231,8 +231,6 @@ export const dict = {
   'err.networkError': 'Cannot reach the backend service; make sure it is still running: {message}',
 
   /* ---------- Center: generation parameters ---------- */
-  'gen.rootLabel': 'Root folder name',
-  'gen.rootPlaceholder': 'Leave empty to write directly to target',
   'gen.targetLabel': 'Target path',
   'gen.targetPlaceholder': 'e.g. E:\\MyProject',
   'gen.targetPick': 'Choose...',
@@ -245,6 +243,7 @@ export const dict = {
   'gen.summaryEmpty': 'No target path set',
   'gen.summaryTarget': 'Target {target}',
   'gen.summaryRoot': 'Root {root}',
+  'gen.summaryNoRoot': 'No root folder',
   'gen.summaryDryRun': 'Dry run',
   'gen.summaryWrite': 'Write',
   'gen.summarySep': ' · ',
@@ -264,6 +263,7 @@ export const dict = {
   'tree.newDirPrompt': 'New directory name',
   'tree.newDirDefault': 'New directory',
   'tree.renamePrompt': 'Rename',
+  'tree.rootNoName': '(no root folder)',
   'tree.deleteConfirm': 'Delete "{name}" and all its children?',
   'tree.copyPath': 'Copy path',
 
@@ -324,7 +324,6 @@ export const dict = {
   'toast.selectDirFirst': 'Please select a directory node first',
   'toast.nameEmpty': 'Name cannot be empty',
   'toast.siblingExists': '"{name}" already exists in this directory',
-  'toast.rootRenameBlocked': 'Root name is controlled by "Root folder name"',
   'toast.rootDeleteBlocked': 'Root node cannot be deleted',
   'toast.moveMissing': 'The node to move no longer exists',
   'toast.moveNotDir': 'Can only move into a directory node',
@@ -368,7 +367,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.41',
+  'help.versionFallback': 'V0.0.42',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',
@@ -399,7 +398,7 @@ export const dict = {
   'help.tree.title': 'Tree operations',
   'help.tree.1': 'Click a node to select it; the property panel updates',
   'help.tree.2': '"New child" adds a subdirectory under the selected directory',
-  'help.tree.3': '"Rename" edits the node name; root name is controlled by "Root folder name"',
+  'help.tree.3': '"Rename" edits the node name; the root node name IS the generated root folder name - rename it directly, or clear it to create no root folder',
   'help.tree.4': '"Delete" removes the selected node and its children (with confirmation)',
   'help.tree.5': '"Expand all / Collapse all" toggles all levels',
   'help.tree.6': 'Drag a node onto a directory to move it there (cannot move into its own subdirectory)',

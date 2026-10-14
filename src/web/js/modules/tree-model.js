@@ -196,7 +196,14 @@ export function moveNode(root, id, targetDirId) {
  */
 export function renameNode(root, id, name) {
   const node = findNode(root, id);
-  if (!node || root.id === id) return false;
+  if (!node) return false;
+  /* V0.0.42：根节点名 = 「根文件夹名」——允许改名，且允许置空（空名 = 不建根）。
+     非根节点保持原自校验（B-P3-3）：非法字符 / 空 / 同级重名一律拒。 */
+  if (root.id === id) {
+    if (name !== '' && !validateSegment(name).ok) return false;
+    node.name = name;
+    return true;
+  }
   if (!validateSegment(name).ok) return false;
   if (hasSiblingName(findParent(root, id), name, id)) return false;
   node.name = name;

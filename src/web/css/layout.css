@@ -253,6 +253,8 @@
 .tree-toggle.is-leaf { visibility: hidden; }
 .tree-icon { flex: 0 0 auto; font-size: 12px; }
 .tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* V0.0.42：根节点空名占位（「（不建根）」）—— 弱化显示，与真实节点名区分 */
+.tree-name.is-placeholder { color: var(--qm-text-dim); font-style: italic; }
 .tree-children { margin-left: 16px; border-left: 1px dashed var(--qm-line); padding-left: 4px; }
 .tree-children.is-collapsed { display: none; }
 

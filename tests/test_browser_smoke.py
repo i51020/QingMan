@@ -6,7 +6,7 @@
 **不验证判定逻辑本身是否正确**。本文件把「一次性反向验证」变成**常态回归网**。
 
 重点（复刻上一轮反向验证的逻辑，但固化为单测）：
-  * 喂「正常指标」→ 21 项全 PASS（V0.0.38 起含 6E 的绑定 UI / 右键菜单 / 轮询实证；
+  * 喂「正常指标」→ 23 项全 PASS（V0.0.38 起含 6E 的绑定 UI / 右键菜单 / 轮询实证；
     V0.0.40 起含目标位置「选择…」按钮的就位与取词刷新；
     V0.0.41 起含模板「新建」按钮 + 弹窗开合/起点填充的运行时实证）；
   * 喂「P1-1 回归指标（分节 7 → 14 → 21）」→ **恰好**「帮助页·分节渲染幂等」一项 FAIL；
@@ -72,6 +72,12 @@ NORMAL = {
     "tplNewEn": "New", "tplNewZh": "新建",
     "tplNewOpen": "1", "tplNewBaseN": "2", "tplNewBaseText": "Blank (root only)",
     "tplNewClosing": "0", "tplNewClosed": "1",
+    # V0.0.42 新增：根名方案 C（手册 10.2 节 #12）—— 根节点名即「根文件夹名」。
+    #   探针与 i18n 解耦（只比对「含/不含」受控根名 'QmRootX'），故摘要基线用哑值占位。
+    "rootProbe": "1",
+    "rootSumBefore": "", "rootSumAfter": "Target X · Root QmRootX · Dry run",
+    "rootSumBlank": "Target X · No root folder · Dry run",
+    "rootNameBefore": "", "rootNameAfter": "QmRootX", "rootNameBlank": "(no root folder)",
 }
 
 FAIL = "帮助页·分节渲染幂等"
@@ -86,6 +92,9 @@ FAIL_PICK = "主界面·目标位置「选择…」按钮就位且随语言刷�
 # V0.0.41（手册 9.2 节 #7 / 10.2 节 #4）：「新建模板」按钮 / 弹窗的两条判定名
 FAIL_TPLNEW = "主界面·模板「新建」按钮就位且随语言刷新（V0.0.41）"
 FAIL_TPLDLG = "主界面·「新建模板」弹窗可开、起点已填充、可关（V0.0.41）"
+# V0.0.42（手册 10.2 节 #12）：根名方案 C 的两条判定名
+FAIL_ROOTRENAME = "主界面·根名即树根：改名后摘要与树区同步（V0.0.42）"
+FAIL_ROOTBLANK = "主界面·根名即树根：清空即不建根（V0.0.42）"
 
 
 def run_metrics(metrics: dict, expected_version: str = VERSION,
@@ -201,7 +210,7 @@ class VerifyMetricsTests(unittest.TestCase):
     def test_normal_all_pass(self):
         results = run_metrics(NORMAL)
         self.assertEqual(failed_names(results), [], "正常指标不应有任何失败项")
-        self.assertEqual(len(results), 21, "verify_metrics 应产生 21 项判定（14 + 6E 三项 + V0.0.39 一项 + V0.0.40 一项 + V0.0.41 两项）")
+        self.assertEqual(len(results), 23, "verify_metrics 应产生 23 项判定（14 + 6E 三项 + V0.0.39 一项 + V0.0.40 一项 + V0.0.41 两项 + V0.0.42 两项）")
 
     def test_p1_1_regression_fails_exactly_section_idempotence(self):
         """P1-1 回归：帮助页切语言累积分节（7 → 14 → 21）→ 恰好那项 FAIL。"""
@@ -235,8 +244,19 @@ class VerifyMetricsTests(unittest.TestCase):
 
     def test_templates_check_skipped_when_not_expected(self):
         results = run_metrics(NORMAL, expect_templates=False)
-        self.assertEqual(len(results), 17, "不期望模板时不应产生模板判定项（V0.0.41 的两项与模板库无关，仍在）")
+        self.assertEqual(len(results), 19, "不期望模板时不应产生模板判定项（V0.0.41 / V0.0.42 的项与模板库无关，仍在）")
         self.assertNotIn(TPL_CHECK, [n for _o, n, _x in results])
+
+    def test_v042_root_rename_not_propagated_fails_exactly(self):
+        """V0.0.42 回归：改名未贯通到摘要（摘要保持原样）→ 恰好那项 FAIL。"""
+        metrics = dict(NORMAL, rootSumAfter=NORMAL["rootSumBefore"])
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_ROOTRENAME])
+
+    def test_v042_root_blank_not_back_to_noroot_fails_exactly(self):
+        """V0.0.42 回归：清空后仍显示旧根名（未回到「不建根」）→ 恰好那项 FAIL。"""
+        metrics = dict(NORMAL, rootSumBlank="Target X · Root QmRootX · Dry run",
+                       rootNameBlank="QmRootX")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_ROOTBLANK])
 
     def test_6d_business_templates_in_builtin_fails_exactly(self):
         """6D 契约：内置只允许 P0。业务模板被放回 templates/（17 行）→ 恰好那项 FAIL。"""

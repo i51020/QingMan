@@ -7,6 +7,46 @@
 
 ---
 
+## V0.0.42 — 2026-10-14
+
+**主题**：**根名方案 C「根名即树根」**（《项目手册》§十.2 #12 / §十一 #3）—— 消除界面上的**两个「根」**：树编辑区的根节点名**即**生成的根文件夹名（可右键/工具栏改名，改空 = 不建根），参数区独立的「根文件夹名」输入框（`#inRoot`）**退场**。**升 patch `V0.0.41` → `V0.0.42`**。**无新增错误码**。**分两次提交**：`@r1`（方案 C 代码）／`@r2`（文档同步后补记）。
+
+> 依据：用户在原型 `docs/根名方案预览原型_20261014.html` 中裁决 **C · 根名即树根**；默认根名裁决 **「默认空 · 默认不建根」**（保持旧默认行为）。
+
+### 背景：症结与契约依据
+
+- **症结**（代码实测）：树区根节点名（默认 `sample.root`）**不参与生成**；生成只认参数区 `#inRoot`；而 `toast.rootRenameBlocked` 文案却称「根节点名称由『根文件夹名』决定」—— **文案与实现不符**。
+- **契约依据**：`src/shared/schema.json` 的 `editorDocument.root.name` 注释**早就写着「根文件夹名」** —— 契约层面二者本是同一个，UI 另设输入框属「实现只做了一半」。**方案 C 是补齐契约，不是新增设计。**
+
+### 变更
+
+- **`src/web/index.html`**：参数区「根文件夹名」字段（`#inRoot`）**退场**。
+- **`src/web/js/main.js`**：摘要行根名改取 `store.root.name`；生成时 `root: (root.name || '').trim()`；`defaultRoot()` 根名置空（默认不建根）；`doRename()` 放开根节点、**根节点空名 = 不建根**（非根节点仍拒空）；根名变更后刷新摘要。
+- **`src/web/js/modules/tree-model.js`**：`renameNode()` 放行根节点改名（**非法字符仍拒**、非根节点空名仍拒）。
+- **`src/web/js/ui/tree-view.js`**：根节点空名渲染为「（不建根）」占位（新增 `import { t }`）。
+- **`src/web/css/layout.css`**：`.tree-name.is-placeholder`（用既有 token `--qm-text-dim`，不新增视觉语言）。
+- **`src/server/dtree_core.py`**：`validate_document()` 放行**根节点**空名（其余节点仍须非空）。
+- **`src/shared/schema.json`**：`editorDocument.root.name` 注释补「V0.0.42 起允许为空」；版本戳 → `V0.0.42`。
+- **i18n**：`gen.rootLabel` / `gen.rootPlaceholder` / `toast.rootRenameBlocked` **退场**；新增 `tree.rootNoName` / `gen.summaryNoRoot`；`help.tree.3` 改写（中英同步）。
+
+### 一处判断更正（据实记录）
+
+初判「**后端零改动**」（依据 `treePayload` 不含根名）—— **被浏览器冒烟推翻**：探针把根名置空后 `markDirty()` 自动保存，后端以 `editorNodeBadName` 拒绝，页面出现**未捕获的请求失败**。**根因**：`validate_document()` 的 `walk()` 对**根节点**也要求非空名。此即「静态守卫 + 单测全绿时仍会漏网、只有端到端才现形」的一类缺陷。
+
+### 守卫适配
+
+- `tools/verify.py`：`REQUIRED_IDS` 删 `inRoot`（关键 id 57 → **56**；校验项数仍 94）。
+- `tools/browser_smoke.py`：新断言 **2 条**（改名后摘要与树区同步 / 清空即不建根；探针与 i18n 解耦，只比对「含/不含」受控根名）→ **26 项**。
+- `tests/test_browser_smoke.py`：NORMAL 基线增 7 字段；项数 `21→23` / `17→19`；新增 **2 项回归**。
+- `tests/test_frontend_js.py`：`B-P3-3/root`（根节点改名须 `false`）**反转为 4 条**（可改名 / 空名合法 / 非法仍拒 / 非根空名仍拒）。
+- `tests/test_dtree_core.py`：新增 **2 项**（根节点可空名 / 非根空名仍拒）。
+
+### 行为变更提示
+
+- **已有 `data/editor.json` 的用户**：升级后生成的最外层 = 文档里的根节点名（此前由 `#inRoot` 决定、默认空 → 不建根）。**所见即所得**正是方案 C 的目的；如需回到「不建根」，把树区根名清空即可。
+
+---
+
 ## V0.0.41 — 2026-10-14
 
 **主题**：**模板「新建」入口**（UI 定版差集 D 组）—— 模板编辑区由「仅另存为」补上**从零新建**：`#btnNewTemplate` → 应用内弹窗 `#dlgNewTemplate`（名称 + 说明 + **起点**：空白 / 当前模板库中任一模板）。**后端零改动**（复用 `POST /api/templates`）。**升 patch `V0.0.40` → `V0.0.41`**。**无新增错误码**。**分两次提交**：`@r1`（D 组·新建模板）／`@r2`（低风险收口批 + `store --dry-run` 修复）。
