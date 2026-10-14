@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>青蔓 QingMan · 皮肤「背景三阶」方向对照</title>
+<style>
+/* 青蔓 QingMan · 设计变量（唯一色彩与尺寸来源） */
+
+:root {
+  --qm-bg: #eceff4;
+  --qm-surface: #f6f8fb;
+  --qm-surface-2: #ffffff;
+  --qm-line: #d5dbe5;
+  --qm-line-soft: #e4e9f0;
+  --qm-text: #1e2732;
+  --qm-text-dim: #5d6a7c;
+  --qm-accent: #2f8f6b;
+  --qm-accent-ink: #1d6d50;
+  --qm-accent-soft: #e2f0e9;
+  /* 强调色背景上的文字色（§P0-3 L4：组件 CSS 不得写裸色值） */
+  --qm-on-accent: #ffffff;
+  /* 主按钮底色（§P2 第 13 项）：--qm-accent 作白字底仅 3.99，未达 AA 4.5；
+     故单列本变量调深一档（同色相、仅降明度）→ 白字对比度 4.82，且**不动品牌主色**——
+     --qm-accent 仍用于描边 / 选中态 / 进度点等「非文本」用途（3:1 门槛下 3.99 已达标）。 */
+  --qm-btn-bg: #2a8060;
+  --qm-btn-bg-hi: #257154;
+  --qm-danger: #b14536;
+  --qm-danger-soft: #f7e6e2;
+  /* §P2 第 13 项：原 #a8721a 在 --qm-surface 上仅 3.88，调深一档 → 4.82 */
+  --qm-warn: #946417;
+
+  /* V0.0.40「青蔓化」：圆角放大（原 6 / 8），与 soft.css 的柔光语言配套 */
+  --qm-r-sm: 12px;
+  --qm-r-md: 20px;
+  --qm-gap: 10px;
+
+  --qm-shadow: 0 1px 2px rgba(30, 39, 50, .07);
+  /* V0.0.45 形态统一：形态表达式**只此一份**，影/边色由变量**动态解析** ——
+     皮肤只提供 --qm-shadow-* / --qm-edge-* 的「颜色」，表达式随变量自动适配明暗，
+     故下方 @media(dark) 段**不再需要**升影 / 内陷的覆写。
+     （15 款皮肤中原本各自复制的同名表达式，实测 15 份**取值完全一致**，已全部剥离。） */
+  --qm-shadow-raise: 4px 4px 9px var(--qm-shadow-dark), -3px -3px 8px var(--qm-shadow-light), inset 1px 1px 1.5px var(--qm-edge-hi), inset -1px -1px 1.5px var(--qm-edge-lo);
+
+  /* 新拟物锐利边缘变量（皮肤文件可覆盖；§P0-3 L4：仅 tokens.css 允许字面量色值） */
+  --qm-edge-hi: rgba(255, 255, 255, .55);
+  --qm-edge-lo: rgba(30, 39, 50, .10);
+  --qm-shadow-dark: rgba(30, 39, 50, .12);
+  --qm-shadow-light: rgba(255, 255, 255, .85);
+  --qm-inset: inset 2px 2px 5px var(--qm-shadow-dark), inset -2px -2px 5px var(--qm-shadow-light), inset .5px .5px 1px var(--qm-edge-lo), inset -.5px -.5px 1px var(--qm-edge-hi);
+  /* 主按钮内高光 / 按下内阴影（D-P2-1：自 base.css 的裸 rgba 上移为变量；值不变 → 零视觉变更）。
+     light / dark 同值：搬迁前 base.css 是**单一字面量**、本就不随主题变化，同值才是等价搬迁。 */
+  --qm-btn-hi: rgba(255, 255, 255, .18);
+  --qm-btn-lo: rgba(0, 0, 0, .25);
+
+  /* ---------- 软光「语法层」变量（V0.0.40 · 并入自设计稿 prototype.html 的 qmSoftSkin）----------
+     本组只定**光源方向与比例**，不写死任何色相：影/光颜色一律引用皮肤变量 ——
+       浅色皮肤 → --qm-shadow-dark 灰 α.15 / --qm-shadow-light 白 α.55
+       深色皮肤 → --qm-shadow-dark 黑 α.62 / --qm-shadow-light 白 α.06
+     早先把影色写死成 rgba(140,140,138) 时，深色皮肤上灰影比底色还亮 → 光影方向整体反转。
+     语法两条：① 两侧镜像对称（光源固定左上）；② 模糊 = 位移 × 2（能量集中 → 窄缝更「实」）。 */
+  --qm-soft-dark: var(--qm-shadow-dark);
+  --qm-raise:     -3px -3px 6px  var(--qm-shadow-light),  3px  3px  6px  var(--qm-shadow-dark);
+  --qm-raise-hi:  -5px -5px 10px var(--qm-shadow-light),  5px  5px 10px  var(--qm-shadow-dark);
+  --qm-sink:      inset  3px  3px 6px var(--qm-shadow-dark), inset -3px -3px 6px var(--qm-shadow-light);
+  --qm-tap:       -2px -2px 4px  var(--qm-shadow-light),  2px  2px  4px  var(--qm-shadow-dark);
+  --qm-tap-hi:    -3px -3px 6px  var(--qm-shadow-light),  3px  3px  6px  var(--qm-shadow-dark);
+  --qm-tap-in:    inset  2px  2px 4px var(--qm-shadow-dark), inset -2px -2px 4px var(--qm-shadow-light);
+  /* 遮罩：纯黑。原是暖灰 rgba(48,46,44,.5)，深色皮肤下会把背景压到与弹窗面同亮度 → 边界消失；
+     改纯黑后浅色皮肤弹窗/背景落差 98 → 131，深色皮肤 −4 → +27（由反转转正向）。 */
+  --qm-scrim: rgba(0, 0, 0, .5);
+
+  /* ---------- 形态语法变量（V0.0.45 · 「变量切换」）----------
+     soft.css 中原本**硬编码**的位移 / 模糊一律收敛到此处，使「形态」只有这一处出口 ——
+     要调整全站立体感（更平 / 更深）只改这里，不必翻组件规则。
+     影色仍引用皮肤变量，故各皮肤仅"配色不同、形态相同"。 */
+  --qm-card-edge:     inset .5px .5px 1px var(--qm-edge-hi);
+  --qm-topbar-shadow: 0 5px 10px var(--qm-soft-dark);
+  --qm-layer-shadow:  0 3px 6px var(--qm-shadow-dark), 0 8px 16px var(--qm-shadow-dark), 0 18px 36px var(--qm-shadow-dark), 0 0 0 1px var(--qm-line);
+  --qm-pop-shadow:    0 3px 6px var(--qm-shadow-dark), 0 10px 20px var(--qm-shadow-dark), 0 0 0 1px var(--qm-line);
+  --qm-qr-shadow:     0 2px 8px var(--qm-soft-dark);
+  --qm-btn-edge:      inset 0 1px 0 var(--qm-edge-hi);
+
+  /* 下拉箭头**遮罩**（D-P3-2）：遮罩本身不带颜色，实际颜色由 base.css 的
+     `.topbar-select::after` 以 `background-color: var(--qm-text-dim)` 上色 ——
+     于是箭头随**皮肤**（皮肤覆盖 --qm-text-dim）与 light/dark 一同变化，
+     不再是一枚烘死在 SVG 里的灰色常客（旧版仅随 light/dark，选深色皮肤时对比度不足）。
+     描边取白色：遮罩无论按 alpha 还是 luminance 解释，白色都表示"完全显示"。 */
+  --qm-select-arrow-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%23fff' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+
+  --qm-font: "Microsoft YaHei UI", "Microsoft YaHei", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --qm-mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --qm-bg: #161a1f;
+    --qm-surface: #1d2229;
+    --qm-surface-2: #232a32;
+    --qm-line: #323a44;
+    --qm-line-soft: #2a313a;
+    --qm-text: #e7ecf2;
+    --qm-text-dim: #9aa7b5;
+    --qm-accent: #4fbf90;
+    --qm-accent-ink: #7dd6b0;
+    --qm-accent-soft: #1f3a31;
+    /* 深色主题下 --qm-accent 本身是浅绿，叠加白字对比度不足，改用深墨绿 */
+    --qm-on-accent: #0f1a16;
+    /* 深色下按钮底色即 --qm-accent（本主题 0 处对比度违规，无需调深） */
+    --qm-btn-bg: #4fbf90;
+    --qm-btn-bg-hi: #5ec499;
+    --qm-danger: #e0776a;
+    --qm-danger-soft: #3a2422;
+    --qm-warn: #d9a45b;
+    --qm-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+
+    --qm-edge-hi: rgba(255, 255, 255, .08);
+    --qm-edge-lo: rgba(0, 0, 0, .35);
+    --qm-shadow-dark: rgba(0, 0, 0, .45);
+    --qm-shadow-light: rgba(255, 255, 255, .03);
+    /* --qm-shadow-raise / --qm-inset 在此**刻意不再覆写**（V0.0.45）：
+       二者已改为引用上面这几个影 / 边色变量，随本段自动切换，无需重复。 */
+    --qm-btn-hi: rgba(255, 255, 255, .18);
+    --qm-btn-lo: rgba(0, 0, 0, .25);
+
+    /* 箭头遮罩无颜色 → 深色主题无需另设一份（颜色由 ::after 的 --qm-text-dim 决定，D-P3-2）。 */
+  }
+}
+
+/* 青蔓 QingMan · 基础元素样式（锐利新拟物） */
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--qm-bg);
+  color: var(--qm-text);
+  font-family: var(--qm-font);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { margin: 0; font-weight: 600; }
+
+code, .prop-mono, .result {
+  font-family: var(--qm-mono);
+  font-size: 12px;
+}
+
+code {
+  background: var(--qm-line-soft);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+/* ---------- 按钮：锐利新拟物 ---------- */
+.btn {
+  appearance: none;
+  border: 1px solid var(--qm-line);
+  background: var(--qm-surface-2);
+  color: var(--qm-text);
+  border-radius: var(--qm-r-sm);
+  padding: 5px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow:
+    1px 1px 2px var(--qm-shadow-dark),
+    -1px -1px 1px var(--qm-shadow-light),
+    inset .5px .5px 1px var(--qm-edge-hi);
+  transition: background .12s ease, border-color .12s ease, color .12s ease, box-shadow .12s ease;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--qm-accent);
+  color: var(--qm-accent-ink);
+  box-shadow:
+    1.5px 1.5px 3px var(--qm-shadow-dark),
+    -1px -1px 1px var(--qm-shadow-light),
+    inset .5px .5px 1px var(--qm-edge-hi);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: var(--qm-inset);
+}
+.btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-primary {
+  /* 用 --qm-btn-bg 而非 --qm-accent：白字在其上需 ≥4.5（§P2 第 13 项） */
+  background: var(--qm-btn-bg);
+  border-color: var(--qm-btn-bg);
+  color: var(--qm-on-accent);
+  box-shadow:
+    1px 1px 2px var(--qm-shadow-dark),
+    inset .5px .5px 1px var(--qm-btn-hi);
+}
+.btn-primary:hover:not(:disabled) {
+  /* hover 底色用专用 token --qm-btn-bg-hi，不用 --qm-accent-ink：
+     后者语义是「强调色的墨色」（暗色皮肤下为浅色），拿它当按钮底再配
+     --qm-on-accent 会与本皮肤的字色撞车 —— 详见《错误笔记》里「把墨色当
+     按钮底色」一条（对比度由 tools/verify.py 的皮肤 WCAG 守卫把关）。 */
+  background: var(--qm-btn-bg-hi);
+  border-color: var(--qm-btn-bg-hi);
+  color: var(--qm-on-accent);
+}
+.btn-primary:active:not(:disabled) { box-shadow: inset 1px 1px 3px var(--qm-btn-lo); }
+
+.btn-ghost {
+  background: transparent;
+  box-shadow: none;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--qm-line-soft);
+  box-shadow: inset 1px 1px 2px var(--qm-shadow-light), inset -1px -1px 2px var(--qm-shadow-dark);
+}
+.btn-danger { color: var(--qm-danger); border-color: var(--qm-line); }
+.btn-danger:hover:not(:disabled) { background: var(--qm-danger-soft); border-color: var(--qm-danger); color: var(--qm-danger); }
+
+/* ---------- 表单：下拉框 ---------- */
+select {
+  appearance: none;
+  border: 1px solid var(--qm-line);
+  background: var(--qm-surface-2);
+  color: var(--qm-text);
+  border-radius: var(--qm-r-sm);
+  padding: 4px 22px 4px 8px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow:
+    1px 1px 2px var(--qm-shadow-dark),
+    -1px -1px 1px var(--qm-shadow-light),
+    inset .5px .5px 1px var(--qm-edge-hi);
+  /* 箭头不再由 select 自绘：改由包裹层 .topbar-select::after 用遮罩上色（D-P3-2）。
+     右侧 padding 仍为箭头预留位置。 */
+}
+select:focus { outline: 2px solid var(--qm-accent-soft); border-color: var(--qm-accent); }
+select option { background: var(--qm-surface-2); color: var(--qm-text); }
+
+.topbar-select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--qm-text-dim);
+}
+/* 通用下拉包裹层（V0.0.41）：顶栏之外的 <select> 用它包裹，与 .topbar-select 共用箭头。
+   加它的起因就是下面那条「新增 <select> 须另配箭头」的约定 —— 弹窗里的「起点」下拉
+   正是不在顶栏的一例，抽成共用选择器比再抄一遍箭头规则更不易漂移。 */
+.select-wrap { position: relative; display: block; }
+.select-wrap > select { width: 100%; }
+
+/* D-P3-2：下拉箭头用**遮罩**上色 —— 颜色取 --qm-text-dim，随皮肤 / 主题自动变化
+   （旧版把颜色烘死在 background-image 的 SVG 里，只随 light/dark，不随皮肤）。
+   <select> 由包裹层统一绘制箭头：顶栏用 .topbar-select，别处用 .select-wrap（V0.0.41）。 */
+.topbar-select::after,
+.select-wrap::after {
+  content: '';
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  width: 10px;
+  height: 6px;
+  transform: translateY(-50%);
+  background-color: var(--qm-text-dim);
+  -webkit-mask: var(--qm-select-arrow-mask) center / 10px 6px no-repeat;
+  mask: var(--qm-select-arrow-mask) center / 10px 6px no-repeat;
+  pointer-events: none;
+}
+.select-label { font-size: 11px; letter-spacing: .5px; }
+
+input[type="text"] {
+  width: 100%;
+  border: 1px solid var(--qm-line);
+  background: var(--qm-surface-2);
+  color: var(--qm-text);
+  border-radius: var(--qm-r-sm);
+  padding: 5px 8px;
+  font-family: inherit;
+  font-size: 13px;
+  box-shadow: var(--qm-inset);
+}
+input[type="text"]::placeholder { color: var(--qm-text-dim); opacity: .8; }
+input[type="text"]:focus { outline: 2px solid var(--qm-accent-soft); border-color: var(--qm-accent); }
+
+.chip {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--qm-accent-soft);
+  color: var(--qm-accent-ink);
+  font-size: 11px;
+  font-family: var(--qm-mono);
+}
+.chip-ghost { background: transparent; color: var(--qm-text-dim); border: 1px solid var(--qm-line); }
+.chip-ok { background: var(--qm-accent-soft); color: var(--qm-accent-ink); }
+.chip-bad { background: var(--qm-danger-soft); color: var(--qm-danger); }
+
+.hint { color: var(--qm-text-dim); font-size: 12px; margin: 6px 0 0; }
+.divider { width: 1px; align-self: stretch; background: var(--qm-line); margin: 0 2px; }
+.spacer { flex: 1; }
+
+/* 品牌区（主界面与帮助页共用，故置于 base.css 而非某一页的布局表）
+ *
+ * 标记走 CSS mask 而非 <img>/内联 SVG：
+ *   - <img> 引用的 SVG 是独立文档，currentColor 不继承，无法跟随主题与皮肤（违反 §P0-3 L4/L5）
+ *   - 跨文档 <use href="x.svg#id"> 在现代浏览器已不支持
+ *   - mask 只取形状，颜色由 background-color 给，色值仍单一来源于 --qm-*
+ */
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+  color: inherit;
+}
+.brand:hover { opacity: .85; }
+.brand-logo {
+  align-self: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  background-color: var(--qm-accent-ink);
+  -webkit-mask-image: url("../assets/logo.svg");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-image: url("../assets/logo.svg");
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}
+.brand-mark { font-size: 16px; font-weight: 700; letter-spacing: 2px; color: var(--qm-accent-ink); }
+.brand-sub { font-size: 12px; color: var(--qm-text-dim); font-family: var(--qm-mono); }
+
+/* ===================== V0.0.40 · 设计提案层（图标 / 图标按钮） =====================
+ * 来源：设计稿 prototype.html 的提案样式块第 1 / 2 节（顶栏三区分组）。
+ * 纪律不变（§P0-3 L4）：色值一律 var(--qm-*)，本节无任何裸色值。
+ * 图标全部为 **currentColor SVG mask**，禁用第三方图标字体（版权合规）；
+ * 每个图标只声明 `--m`（局部变量，非 --qm-*），由 .ic 统一取用。
+ */
+
+/* ---------- 图标系统 ---------- */
+.ic {
+  display: inline-block; width: 18px; height: 18px; background-color: currentColor;
+  -webkit-mask: var(--m) center / 18px 18px no-repeat;
+          mask: var(--m) center / 18px 18px no-repeat;
+}
+.ic-sm { width: 14px; height: 14px; -webkit-mask-size: 14px 14px; mask-size: 14px 14px; }
+.ic-globe { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M3 12h18M12 3c2.4 2.5 3.7 5.6 3.7 9S14.4 18.5 12 21c-2.4-2.5-3.7-5.6-3.7-9S9.6 5.5 12 3z'/%3E%3C/svg%3E"); }
+.ic-heart { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20.2s-7.2-4.6-7.2-9.8A4.6 4.6 0 0 1 12 7.2a4.6 4.6 0 0 1 7.2 3.2c0 5.2-7.2 9.8-7.2 9.8z'/%3E%3C/svg%3E"); }
+.ic-help { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M9.6 9.4a2.5 2.5 0 0 1 4.6 1.4c0 1.7-2.2 2-2.2 3.4'/%3E%3Ccircle cx='12' cy='17.4' r='1'/%3E%3C/svg%3E"); }
+.ic-gear { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='3.2'/%3E%3Cpath d='M12 2.8v2.4M12 18.8v2.4M4.5 7.5l2.1 1.2M17.4 15.3l2.1 1.2M4.5 16.5l2.1-1.2M17.4 8.7l2.1-1.2'/%3E%3C/svg%3E"); }
+.ic-close { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round'%3E%3Cpath d='M6.5 6.5l11 11M17.5 6.5l-11 11'/%3E%3C/svg%3E"); }
+.ic-check { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+/* 「更多 ⋮」：窄窗顶栏折叠入口（非皮肤按钮，勿与 .sw-dots 混用） */
+.ic-more { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Ccircle cx='12' cy='5.4' r='1.7'/%3E%3Ccircle cx='12' cy='12' r='1.7'/%3E%3Ccircle cx='12' cy='18.6' r='1.7'/%3E%3C/svg%3E"); }
+
+/* ---------- 图标按钮：32×32，与 .btn 同高（顶栏成一条整齐基线） ---------- */
+.icon-btn {
+  appearance: none; cursor: pointer; background: transparent; color: var(--qm-text-dim);
+  width: 32px; height: 32px; border-radius: var(--qm-r-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid transparent;
+  /* 必须重置 UA 对 button 的默认 padding(1px 6px)：否则内容盒只剩 18px，
+     19px 图标会被 flex 收缩回 18px，声明尺寸静默失效（设计稿实测缺陷）。 */
+  padding: 0;
+}
+.icon-btn:hover { color: var(--qm-accent-ink); background: var(--qm-surface-2); border-color: var(--qm-line-soft); }
+.icon-btn:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: 1px; }
+.icon-btn[aria-expanded="true"] { color: var(--qm-accent-ink); background: var(--qm-accent-soft); border-color: var(--qm-accent); }
+/* 顶栏图标比正文图标大半档（19px），flex:0 0 auto 保证「声明 19px = 实际 19px」 */
+.icon-btn .ic { width: 19px; height: 19px; flex: 0 0 auto; -webkit-mask-size: 19px 19px; mask-size: 19px 19px; }
+
+/* ---------- 状态按钮：可点的服务状态 chip（实线边框 + hover 抬升，32px 与按钮齐平） ---------- */
+.chip-btn {
+  appearance: none; font: inherit; font-size: 12px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 32px; padding: 0 11px; border-radius: 999px;
+  border: 1px solid var(--qm-line); background: var(--qm-surface); color: var(--qm-text-dim);
+}
+.chip-btn:hover { color: var(--qm-accent-ink); border-color: var(--qm-accent); }
+.chip-btn:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: 1px; }
+.chip-btn .caret { font-size: 9px; }
+/* 状态点：就绪=强调色、离线=危险色（离线态由 JS 加 .is-offline） */
+.chip-btn .dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; background: var(--qm-accent); }
+.chip-btn.is-offline { color: var(--qm-danger); border-color: var(--qm-danger); }
+.chip-btn.is-offline .dot { background: var(--qm-danger); }
+
+
+/* 青蔓 QingMan · 软光设计层（Soft UI / Neomorphism）—— **基础层，默认生效**
+ * ---------------------------------------------------------------------------
+ * 来源：设计稿 prototype.html 的 `<style id="qmSoftSkin">`，2026-10-13/14 定稿并入。
+ *
+ * 定位（V0.0.45 起）—— 本层是**唯一的设计语言**（即用户裁定的「新默认」），不再是
+ *   一个可选的皮肤层。配色一律来自 tokens.css 的 :root 与 15 款皮肤；本层只统一「语法」：
+ *     ① 光源固定左上、两侧镜像对称；② 模糊 = 位移 × 2。
+ *   15 款皮肤**只提供配色与影色**，形态（位移 / 模糊 / 内陷 / 外凸）由本层唯一提供 ——
+ *   即「UI 设计风格统一，切换皮肤仅是切换配色」。皮肤中原本各自复制的形态表达式
+ *   （--qm-shadow-raise / --qm-inset）实测 15 份**取值完全一致**（纯冗余），已全部剥离，
+ *   其唯一来源上移到 tokens.css（引用皮肤影色变量，故仍随皮肤明暗自动适配）。
+ *
+ * 挂载（V0.0.45 变更）—— **无属性开关，直接生效**。
+ *   旧版靠 `<html data-soft>` 属性 + 本文件全部规则带 `html[data-soft]` 前缀，属「可整块
+ *   摘除的独立层」。现正式化为基础层：三页 `<html>` 上的 data-soft 已删除；选择器统一写
+ *   `html X`（**保留 html 元素选择器是刻意的** —— 它给本层 +1 元素级特异性，使去属性后
+ *   仍能压住 base / layout 中的同名**常态**规则）。
+ *   ⚠ 去属性会让本层特异性**整体降一档**（`html[data-soft] .x` (0,2,1) → `html .x` (0,1,1)），
+ *     故凡「其它文件里**带伪类**的高特异性规则」都可能反超本层。已用无头探针
+ *     （564 元素 × 静态 + hover/active/focus 三交互态，:hover 经「重写为等价类 + 全域施加」
+ *      逼出）**定位到且仅有**两处，均已在本文件显式修补：
+ *       ① `.tpl-item:hover`（layout.css）→ 见第 7 节的压制规则；
+ *       ② `input / select:focus`（base.css）→ 见第 9 节的显式描边规则。
+ *     改本层的选择器形态或样式表加载顺序时，务必重跑那套探针（方法见《错误笔记》第 67 条）。
+ *
+ * 变量 —— --qm-soft-dark / --qm-raise / --qm-raise-hi / --qm-sink / --qm-tap /
+ *         --qm-tap-hi / --qm-tap-in / --qm-scrim，以及 V0.0.45 新增的形态语法变量
+ *         （--qm-card-edge / --qm-topbar-shadow / --qm-layer-shadow / --qm-pop-shadow /
+ *          --qm-qr-shadow / --qm-btn-edge）均定义在 tokens.css 的 :root。
+ *
+ * 三条硬化规则（来自实测教训，不是审美偏好）：
+ *   ① 有底才有影 —— 透明底元素配 box-shadow 会投出一个方形影框。
+ *   ② 父子不能都浮起 —— 父层浅底+柔光、子按钮再浮起，两层影会叠成一圈白晕。
+ *   ③ 小控件的光影必须比大区块短 —— 偏移 2–4px、模糊 5–10px。
+ *
+ * ⚠ 本节选择器对应元素的实现状态（2026-10-14 实测，扫 `src/web/**` 的 `.html` + `.js`）：
+ *   · **已实现、规则已命中**：
+ *       `.icon-btn` / `.tb-status`  —— 顶栏图标钮与状态组（V0.0.40）
+ *       `.layer.*`                  —— 应用内弹层 / 浮层（V0.0.40，`ui/layer.js`）
+ *       `.sup-qr-img`               —— 支持页赞赏码
+ *       `.tpl-badge`                —— 模板行格式徽标（`main.js` 动态创建，非静态 HTML）
+ *   · **未实现、规则暂不命中**：
+ *       `.ob-group`                 —— v4–v7 设计提案的按钮组，主界面未落地
+ *       `.tpl-more`                 —— ⋮ 按钮已于 V0.0.38 随「右键菜单改造」**移除**，
+ *                                      故下方 `:not(.tpl-more)` 与 `.tpl-row .tpl-more`
+ *                                      相关规则已成**死码**（保留待议，勿照抄）
+ */
+
+/* ---------- 1. 板块：三栏 / 顶栏 —— 结构线保留，投影换成柔性 ---------- */
+html #sidebar,
+html #center,
+html #inspector {
+  background: var(--qm-surface);
+  border-color: var(--qm-line);
+  box-shadow: var(--qm-raise), var(--qm-card-edge);
+}
+html #topbar {
+  background: var(--qm-surface);
+  border-bottom-color: transparent;
+  box-shadow: var(--qm-topbar-shadow);
+}
+html #statusBar { box-shadow: none; }
+html .opband { border-bottom-color: var(--qm-line-soft); }
+
+/* ---------- 2. 通用按钮：柔性凸起（全站统一语言） ---------- */
+html .btn {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-tap);
+}
+html .btn:hover:not(:disabled) { box-shadow: var(--qm-tap-hi); }
+html .btn:active:not(:disabled) { box-shadow: var(--qm-tap-in); }
+html .btn:disabled {
+  background: transparent; border-color: transparent; box-shadow: none;
+}
+
+/* ---------- 3. 图标钮族：浅底 + 淡边 + 短程柔光 ----------
+   ⚠ `:not(.tpl-more)` 必须要有：左栏模板行右端的 ⋮ 类名正是
+     `.btn.btn-ghost.btn-mini.btn-ic`，不加排除会被本组规则退回「外挂描边方块」。 */
+html .icon-btn,
+html .btn.btn-ghost.btn-ic:not(.tpl-more),
+html .btn.btn-ghost.btn-mini.btn-ic:not(.tpl-more) {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-tap);
+}
+html .icon-btn:hover:not(:disabled),
+html .btn.btn-ghost.btn-ic:not(.tpl-more):hover:not(:disabled),
+html .btn.btn-ghost.btn-mini.btn-ic:not(.tpl-more):hover:not(:disabled) {
+  box-shadow: var(--qm-tap-hi);
+}
+html .icon-btn:active:not(:disabled),
+html .btn.btn-ghost.btn-ic:not(.tpl-more):active:not(:disabled),
+html .btn.btn-ghost.btn-mini.btn-ic:not(.tpl-more):active:not(:disabled) {
+  box-shadow: var(--qm-tap-in);
+}
+html .icon-btn[aria-expanded="true"] {
+  background: var(--qm-accent-soft); color: var(--qm-accent-ink);
+  border-color: transparent; box-shadow: var(--qm-tap-in);
+}
+
+/* ---------- 4. 顶栏状态组：被动槽凹陷，组内可点 chip 反向凸起 ---------- */
+html .tb-status {
+  background: var(--qm-bg);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-sink);
+}
+html .tb-status .chip-btn {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-tap);
+}
+
+/* ---------- 5. 主操作「一键生成」：父层完全退场，主色块一次性塑形 ----------
+   （旧结构 = 父层浅底 + 大柔光 ⇒ 子块再浮起 ⇒ 两层影叠成一圈白晕） */
+html .ob-group.ob-gen {
+  background: transparent; border: 0; border-radius: 0; padding: 0; box-shadow: none;
+}
+html .ob-group.ob-gen .btn-ic { width: 34px; height: 32px; padding: 0; }
+html .btn.btn-primary {
+  /* v14：底色交回 --qm-btn-bg（各皮肤自带主色，已按 WCAG 配 --qm-on-accent），
+     不再写死黄色渐变 —— 否则切任何皮肤它都是黄块，等于「切了没反应」。
+     立体感由「对称柔光 + 顶部内高光」承担，不依赖渐变。 */
+  background: var(--qm-btn-bg);
+  border-color: var(--qm-btn-bg);
+  color: var(--qm-on-accent);
+  border-radius: var(--qm-r-sm);
+  /* V0.0.45：位移 / 模糊收敛到语法变量（--qm-tap / --qm-tap-hi / --qm-sink），
+     与本文件其它按钮同源 —— 「形态」只有一处出口，改一处全站生效。 */
+  box-shadow: var(--qm-tap), var(--qm-btn-edge);
+}
+html .btn.btn-primary:hover:not(:disabled) {
+  background: var(--qm-btn-bg-hi);
+  border-color: var(--qm-btn-bg-hi);
+  box-shadow: var(--qm-tap-hi), var(--qm-btn-edge);
+}
+html .btn.btn-primary:active:not(:disabled) {
+  box-shadow: var(--qm-sink);
+}
+
+/* ---------- 6. 操作带分组：凹陷胶囊（分段控件语言） ---------- */
+html .ob-group {
+  background: transparent; border: 0;
+  box-shadow: var(--qm-sink);
+}
+html .ob-group.ob-edit { box-shadow: none; }
+html .obband-sep { background: var(--qm-line-soft); }
+
+/* ---------- 7. 左栏模板行（卡片已上移到 .tpl-row） ---------- */
+html .tpl-row {
+  background: var(--qm-surface);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-tap);
+}
+html .tpl-row:hover { box-shadow: var(--qm-tap-hi); }
+html .tpl-row.is-active,
+html .tpl-row.is-checked {
+  background: var(--qm-accent-soft); border-color: var(--qm-accent);
+  box-shadow: var(--qm-tap-hi);
+}
+html .tpl-item { background: transparent; border-color: transparent; box-shadow: none; }
+html .tpl-row .tpl-item:active { box-shadow: var(--qm-tap-in); }
+/* V0.0.45「去属性 · 转基础层」的**实测补丁**：去掉 [data-soft] 后本节特异性由
+   (0,2,1) 降到 (0,1,1)，于是 layout.css 的 `.tpl-item:hover` (0,2,0) **反超** ——
+   无头实测表现为「hover 时旧设计的灰底高亮 + 强调描边泄漏」（34 处，**仅交互态**）。
+   soft 体系里模板行卡片由 `.tpl-row` 承担、行内容恒透明；且 hover 若也用 accent-soft
+   会与「选中态」(`.tpl-row.is-active`) 视觉混淆。故显式压制（(0,3,1) > (0,2,0)）。 */
+html .tpl-row .tpl-item:hover { background: transparent; border-color: transparent; }
+/* ⋮ 保持 v7.1 的透明圆形 —— 两处都得挡：本组 :not(.tpl-more) 排除不了第 2 节的
+   通用 `.btn` 规则（⋮ 本身是 `.btn.btn-ghost.btn-mini.btn-ic`），故此处再给一条
+   (0,3,1) 的复位，高于 `.btn` 的 (0,2,1)。 */
+html .tpl-row .tpl-more {
+  background: transparent; border-color: transparent; box-shadow: none;
+}
+html .tpl-row .tpl-more:hover:not(:disabled) {
+  background: var(--qm-surface-2); border-color: transparent; box-shadow: var(--qm-tap);
+}
+html .tpl-row .tpl-badge { background: var(--qm-surface-2); border-color: transparent; }
+
+/* ---------- 8. 目录树 ---------- */
+html .tree-row:hover { background: transparent; box-shadow: var(--qm-tap-in); }
+/* 选中态 = 强调底色（识别度）+ 向外凸起（触感）+ 强调描边（钉边界）。
+   实测：纯凸起在 ~24px 真实行高下光影铺不开、几乎看不出选中；纯内陷方向与
+   参考图相反（参考图里所有「激活」都是凸的）。 */
+html .tree-row.is-selected {
+  background: var(--qm-accent-soft); color: var(--qm-accent-ink);
+  border-color: var(--qm-accent); border-radius: 10px;
+  box-shadow: var(--qm-tap);
+}
+
+/* ---------- 9. 表单 / 文本域 ---------- */
+html input[type="text"],
+html select,
+html .prop-input {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line);
+  box-shadow: var(--qm-tap-in);
+}
+/* V0.0.45：输入类的 focus 描边**显式声明**，不再依赖 layout.css 的 `:focus` 反超 ——
+   去属性后那层反超不再发生，若不显式写会退回「focus 无色变」（实测 A/B 各 4 处差异）。
+   取色与下方 `.prop-note:focus` 一致（--qm-accent），符合 soft 的既有意图。 */
+html input[type="text"]:focus,
+html select:focus,
+html .prop-input:focus { border-color: var(--qm-accent); }
+html .prop-note {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line);
+  box-shadow: var(--qm-tap-in);
+}
+html .prop-note:focus { box-shadow: none; border-color: var(--qm-accent); }
+
+/* ---------- 10. 浮层：暗影 + 外圈 ring ----------
+   浮层不套白高光柔光 —— 实测：弱白高光就把弹窗左缘梯度从 84.8 打到 42.9，
+   完整对称双影只剩 20.0（并在遮罩上留 +68.9 外亮晕）。白高光属于「内嵌元素」的
+   语言（按钮/卡片），浮层与背景是**不同材质的分离关系**，靠暗影 + 描边区分。
+   影色引用皮肤 --qm-shadow-dark 并**叠层**以累积浓度（浅色皮肤 α.15 ×3 ≈ .386；
+   深色皮肤 α.62 ×3 ≈ .945）；ring 用皮肤描边色 --qm-line（深色皮肤下为白 α.14）。 */
+html #scrim { background: var(--qm-scrim); }
+html .layer.modal {
+  box-shadow: var(--qm-layer-shadow);
+}
+html .layer.popover,
+html #ctxMenu {
+  box-shadow: var(--qm-pop-shadow);
+}
+html .sup-qr-img { box-shadow: var(--qm-qr-shadow); }
+html .toast {
+  box-shadow: var(--qm-pop-shadow);
+}
+
+/* ---------- 11. 皮肤色块 ----------
+   皮肤色块**刻意不在此处写样式**：verify.py §P0-3 L5 规定组件 CSS 不得出现
+   `.skin-` 前缀的选择器（换肤只靠覆盖变量），故其外观由色块自身与其容器承担。 */
+
+/* 15 款皮肤：:root → .sk-<file> 作用域（仅为本页做的机械改写，不改源文件） */
+/* 青蔓 QingMan · 皮肤：奶黄·晨曦（Cream · Sunrise Glow）
+ * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+
+.sk-s15-cream-sunrise {
+  --qm-bg: #f5edc8;
+  --qm-surface: #fff9e3;
+  --qm-surface-2: #fbf5e0;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4f5355;
+  --qm-accent: #483f36;
+  --qm-accent-ink: #312b25;
+  --qm-accent-soft: #e8d9b0;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #38312a;
+  --qm-btn-bg-hi: #2c2721;
+  --qm-danger: #b43838;
+  --qm-danger-soft: #f7e0cd;
+  --qm-warn: #906716;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(74, 71, 60, 0.12);
+  --qm-shadow-dark: rgba(98, 95, 80, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(98, 95, 80, 0.15);
+}
+
+/* 青蔓 QingMan · 皮肤：初雪（First Snow）
+ * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+
+.sk-s09-first-snow {
+  --qm-bg: #dfdff0;
+  --qm-surface: #eaecf8;
+  --qm-surface-2: #e5e9f7;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4b5059;
+  --qm-accent: #0068b8;
+  --qm-accent-ink: #00477d;
+  --qm-accent-soft: #b3cef0;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #005190;
+  --qm-btn-bg-hi: #00467c;
+  --qm-danger: #a33838;
+  --qm-danger-soft: #e3d4de;
+  --qm-warn: #876115;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(67, 67, 72, 0.12);
+  --qm-shadow-dark: rgba(89, 89, 96, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(89, 89, 96, 0.15);
+}
+
+/* 青蔓 QingMan · 皮肤：冬日暖阳（Winter Sun）
+ * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+
+.sk-s08-winter-sun {
+  --qm-bg: #cfdfef;
+  --qm-surface: #e4eef7;
+  --qm-surface-2: #dfebf6;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4a5059;
+  --qm-accent: #0068ba;
+  --qm-accent-ink: #00477e;
+  --qm-accent-soft: #91d5f1;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #005191;
+  --qm-btn-bg-hi: #00467d;
+  --qm-danger: #a33838;
+  --qm-danger-soft: #ded6dd;
+  --qm-warn: #876115;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(62, 67, 72, 0.12);
+  --qm-shadow-dark: rgba(83, 89, 96, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(83, 89, 96, 0.15);
+}
+
+/* 青蔓 QingMan · 皮肤：苹果银·蓝（Apple Silver · Blue）
+ * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+
+.sk-s13-apple-silver-blue {
+  --qm-bg: #e3e4e6;
+  --qm-surface: #eff0f2;
+  --qm-surface-2: #ebedf2;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4c5158;
+  --qm-accent: #266cda;
+  --qm-accent-ink: #1d4b95;
+  --qm-accent-soft: #b7cff5;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #2157ab;
+  --qm-btn-bg-hi: #1e4e9a;
+  --qm-danger: #a63939;
+  --qm-danger-soft: #e7d7d9;
+  --qm-warn: #876115;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(68, 68, 69, 0.12);
+  --qm-shadow-dark: rgba(91, 91, 92, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(91, 91, 92, 0.15);
+}
+
+/* 青蔓 QingMan · 皮肤：月光序章·钢笔灰（Moonlight · Pen Gray）
+ * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+
+.sk-s06-moonlight-pengray {
+  --qm-bg: #f7f7f5;
+  --qm-surface: #ffffff;
+  --qm-surface-2: #fcfcfc;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4f545a;
+  --qm-accent: #65696f;
+  --qm-accent-ink: #4a4e52;
+  --qm-accent-soft: #bfc4c8;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #55595e;
+  --qm-btn-bg-hi: #4b4f53;
+  --qm-danger: #ba3a3a;
+  --qm-danger-soft: #f7e5e5;
+  --qm-warn: #996e17;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(74, 74, 74, 0.12);
+  --qm-shadow-dark: rgba(99, 99, 98, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(99, 99, 98, 0.15);
+}
+
+/* 青蔓 QingMan · 皮肤：米白·松绿（Off-white · Pine Green）
+ * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+
+.sk-s02-offwhite-pine {
+  --qm-bg: #f4f0e1;
+  --qm-surface: #faf6e9;
+  --qm-surface-2: #f6f4e6;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4e5256;
+  --qm-accent: #3e7a4c;
+  --qm-accent-ink: #2a5334;
+  --qm-accent-soft: #d4e5d8;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #305f3b;
+  --qm-btn-bg-hi: #295133;
+  --qm-danger: #b13737;
+  --qm-danger-soft: #f3ddd2;
+  --qm-warn: #906716;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(73, 72, 68, 0.12);
+  --qm-shadow-dark: rgba(98, 96, 90, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(98, 96, 90, 0.15);
+}
+
+/* 青蔓 QingMan · 皮肤：白月光（White Moonlight）
+ * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+
+.sk-s10-white-moonlight {
+  --qm-bg: #d4f0f6;
+  --qm-surface: #e5f6fa;
+  --qm-surface-2: #e1f4f8;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4a5259;
+  --qm-accent: #2c748e;
+  --qm-accent-ink: #1f5366;
+  --qm-accent-soft: #98d0de;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #245f75;
+  --qm-btn-bg-hi: #1f5265;
+  --qm-danger: #a93a3a;
+  --qm-danger-soft: #dfdde0;
+  --qm-warn: #906716;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(64, 72, 74, 0.12);
+  --qm-shadow-dark: rgba(85, 96, 98, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(85, 96, 98, 0.15);
+}
+
+/* 青蔓 QingMan · 皮肤：奶白·樱粉（Cream · Cherry Pink）
+ * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+
+.sk-s01-cream-pink {
+  --qm-bg: #f9f0f4;
+  --qm-surface: #fff5f8;
+  --qm-surface-2: #fff2f6;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4f5259;
+  --qm-accent: #e32d6a;
+  --qm-accent-ink: #9e3d5e;
+  --qm-accent-soft: #e9d5df;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #b6466c;
+  --qm-btn-bg-hi: #a74063;
+  --qm-danger: #b33737;
+  --qm-danger-soft: #f7dcdf;
+  --qm-warn: #906716;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(75, 72, 73, 0.12);
+  --qm-shadow-dark: rgba(100, 96, 98, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(100, 96, 98, 0.15);
+}
+
+/* 青蔓 QingMan · 皮肤：旧书纸棕（Vintage Paper Brown）
+ * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+
+.sk-s11-vintage-paper {
+  --qm-bg: #e8dcc8;
+  --qm-surface: #f0e6d5;
+  --qm-surface-2: #eee4d2;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4c4f52;
+  --qm-accent: #8b6e54;
+  --qm-accent-ink: #5f4b39;
+  --qm-accent-soft: #e4d8c6;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #6c5642;
+  --qm-btn-bg-hi: #5f4c3a;
+  --qm-danger: #9d3636;
+  --qm-danger-soft: #e7cec0;
+  --qm-warn: #876115;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(70, 66, 60, 0.12);
+  --qm-shadow-dark: rgba(93, 88, 80, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(93, 88, 80, 0.15);
+}
+
+/* 青蔓 QingMan · 皮肤：暖白·暖橙（Warm White · Amber）
+ * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+
+.sk-s04-warmwhite-amber {
+  --qm-bg: #fdf2e5;
+  --qm-surface: #fff7ee;
+  --qm-surface-2: #fff5ea;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4f5257;
+  --qm-accent: #d3670a;
+  --qm-accent-ink: #9d5920;
+  --qm-accent-soft: #feead7;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #a96023;
+  --qm-btn-bg-hi: #985620;
+  --qm-danger: #b43838;
+  --qm-danger-soft: #f7ded6;
+  --qm-warn: #906716;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(76, 73, 69, 0.12);
+  --qm-shadow-dark: rgba(101, 97, 92, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(101, 97, 92, 0.15);
+}
+
+/* 青蔓 QingMan · 皮肤：奶黄·暖白（Cream · Warm White）
+ * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+
+.sk-s05-cream-warmwhite {
+  --qm-bg: #faf0d4;
+  --qm-surface: #fff8e5;
+  --qm-surface-2: #fff7e1;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4f5255;
+  --qm-accent: #b27e0d;
+  --qm-accent-ink: #87661c;
+  --qm-accent-soft: #fdf0d0;
+  --qm-on-accent: #232931;
+  --qm-btn-bg: #bb8c27;
+  --qm-btn-bg-hi: #cc992b;
+  --qm-danger: #b43838;
+  --qm-danger-soft: #f7dfce;
+  --qm-warn: #906716;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(75, 72, 64, 0.12);
+  --qm-shadow-dark: rgba(100, 96, 85, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(100, 96, 85, 0.15);
+}
+
+/* 青蔓 QingMan · 皮肤：柔暗·冰蓝（Soft Dark · Ice Blue）
+ * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+
+.sk-s03-softdark-iceblue {
+  --qm-bg: #1f2c42;
+  --qm-surface: #313d51;
+  --qm-surface-2: #38465a;
+  --qm-line: rgba(255, 255, 255, 0.14);
+  --qm-line-soft: rgba(255, 255, 255, 0.08);
+  --qm-text: #fafaf8;
+  --qm-text-dim: #d4d5d3;
+  --qm-accent: #50b5e0;
+  --qm-accent-ink: #afcbd7;
+  --qm-accent-soft: #37556e;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #347691;
+  --qm-btn-bg-hi: #2f6a82;
+  --qm-danger: #f7b7b7;
+  --qm-danger-soft: #5b4e5e;
+  --qm-warn: #f5ce60;
+  --qm-edge-hi: rgba(255, 255, 255, 0.1);
+  --qm-edge-lo: rgba(0, 0, 0, 0.5);
+  --qm-shadow-dark: rgba(0, 0, 0, 0.62);
+  --qm-shadow-light: rgba(255, 255, 255, 0.06);
+  --qm-shadow: 0 1px 2px rgba(0, 0, 0, 0.62);
+}
+
+/* 青蔓 QingMan · 皮肤：夜空墨蓝（Night Sky · Ink Blue）
+ * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+
+.sk-s07-night-inkblue {
+  --qm-bg: #162a46;
+  --qm-surface: #293b55;
+  --qm-surface-2: #34455d;
+  --qm-line: rgba(255, 255, 255, 0.14);
+  --qm-line-soft: rgba(255, 255, 255, 0.08);
+  --qm-text: #fafaf8;
+  --qm-text-dim: #d3d4d4;
+  --qm-accent: #d8d0c1;
+  --qm-accent-ink: #d1cecb;
+  --qm-accent-soft: #4c596b;
+  --qm-on-accent: #232931;
+  --qm-btn-bg: #a8a297;
+  --qm-btn-bg-hi: #b1aca2;
+  --qm-danger: #f6b2b2;
+  --qm-danger-soft: #554c61;
+  --qm-warn: #f5ce60;
+  --qm-edge-hi: rgba(255, 255, 255, 0.1);
+  --qm-edge-lo: rgba(0, 0, 0, 0.5);
+  --qm-shadow-dark: rgba(0, 0, 0, 0.62);
+  --qm-shadow-light: rgba(255, 255, 255, 0.06);
+  --qm-shadow: 0 1px 2px rgba(0, 0, 0, 0.62);
+}
+
+/* 青蔓 QingMan · 皮肤：月岩写意（Moonrock）
+ * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+
+.sk-s12-moonrock {
+  --qm-bg: #1a1a1a;
+  --qm-surface: #282828;
+  --qm-surface-2: #323232;
+  --qm-line: rgba(255, 255, 255, 0.14);
+  --qm-line-soft: rgba(255, 255, 255, 0.08);
+  --qm-text: #fafaf8;
+  --qm-text-dim: #d3d1cc;
+  --qm-accent: #a6a6a6;
+  --qm-accent-ink: #aeaeae;
+  --qm-accent-soft: #414141;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #727272;
+  --qm-btn-bg-hi: #686868;
+  --qm-danger: #f49999;
+  --qm-danger-soft: #543e3e;
+  --qm-warn: #f5ce60;
+  --qm-edge-hi: rgba(255, 255, 255, 0.1);
+  --qm-edge-lo: rgba(0, 0, 0, 0.5);
+  --qm-shadow-dark: rgba(0, 0, 0, 0.62);
+  --qm-shadow-light: rgba(255, 255, 255, 0.06);
+  --qm-shadow: 0 1px 2px rgba(0, 0, 0, 0.62);
+}
+
+/* 青蔓 QingMan · 皮肤：黑金·寂海（Black Gold · Silent Sea）
+ * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+
+.sk-s14-blackgold-silentsea {
+  --qm-bg: #202020;
+  --qm-surface: #2c2c2c;
+  --qm-surface-2: #383836;
+  --qm-line: rgba(255, 255, 255, 0.14);
+  --qm-line-soft: rgba(255, 255, 255, 0.08);
+  --qm-text: #fafaf8;
+  --qm-text-dim: #d3d2cd;
+  --qm-accent: #f0f0c0;
+  --qm-accent-ink: #c8c8b3;
+  --qm-accent-soft: #53534a;
+  --qm-on-accent: #232931;
+  --qm-btn-bg: #bbbb96;
+  --qm-btn-bg-hi: #c3c3a2;
+  --qm-danger: #f4a0a0;
+  --qm-danger-soft: #584141;
+  --qm-warn: #f5ce60;
+  --qm-edge-hi: rgba(255, 255, 255, 0.1);
+  --qm-edge-lo: rgba(0, 0, 0, 0.5);
+  --qm-shadow-dark: rgba(0, 0, 0, 0.62);
+  --qm-shadow-light: rgba(255, 255, 255, 0.06);
+  --qm-shadow: 0 1px 2px rgba(0, 0, 0, 0.62);
+}
+
+
+:root { color-scheme: light dark; }
+body { background:#20242b; color:#e8ecf1; margin:0; padding:0 0 80px;
+       font-family: var(--qm-font); font-size:13px; line-height:1.6; }
+.wrap { max-width:1360px; margin:0 auto; padding:0 20px; }
+.hdr { padding:32px 0 18px; border-bottom:1px solid #343a44; margin-bottom:22px; }
+.hdr h1 { font-size:21px; margin:0 0 8px; color:#fff; }
+.hdr .sub { color:#9aa4b2; font-size:12px; margin:0; }
+.hdr .sub code { background:#2d333c; color:#cfd8e4; padding:1px 5px; border-radius:4px; }
+.note { background:#2a3038; border-left:3px solid #d9a45b; padding:10px 14px;
+        border-radius:6px; color:#c8d1dc; font-size:12px; margin:16px 0; }
+.kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); gap:12px; margin:18px 0 24px; }
+.kpi { background:#272d35; border:1px solid #343b45; border-radius:10px; padding:12px 14px; }
+.kpi b { display:block; font-size:18px; color:#fff; font-weight:600; }
+.kpi span { color:#98a3b1; font-size:11.5px; }
+h2.sec { font-size:15px; color:#fff; margin:30px 0 10px; padding-left:9px;
+         border-left:3px solid #4fbf90; }
+table.tb { width:100%; border-collapse:collapse; font-size:12px; margin-bottom:8px; }
+table.tb th, table.tb td { border:1px solid #343b45; padding:5px 8px; text-align:left; }
+table.tb th { background:#2b313a; color:#cdd6e1; font-weight:600; white-space:nowrap; }
+table.tb td.num { text-align:right; font-variant-numeric:tabular-nums; }
+table.tb code { font-family:var(--qm-mono); font-size:11.5px; }
+tr.r-neg td { background:#3a2f22; }
+tr.r-pos td { background:#22322a; }
+tr.r-base td { background:#243040; font-style:italic; }
+.cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(358px,1fr)); gap:16px; }
+.cmp-card { border-radius:12px; padding:10px 10px 12px; border:1px solid rgba(128,128,128,.35); }
+.cmp-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+.cmp-cid { font-family:var(--qm-mono); font-size:11px; opacity:.75; }
+.cmp-name { font-weight:600; font-size:13px; }
+.cmp-tag { font-size:10.5px; padding:1px 7px; border-radius:999px; margin-left:auto; }
+.tag-neg { background:rgba(217,164,91,.22); color:#d9a45b; border:1px solid rgba(217,164,91,.5); }
+.tag-pos { background:rgba(79,191,144,.18); color:#4fbf90; border:1px solid rgba(79,191,144,.45); }
+.cmp-ladder { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; margin-bottom:6px; }
+.cmp-ladder .st { border-radius:7px; padding:6px 7px; display:flex; flex-direction:column; gap:1px;
+                  border:1px solid rgba(128,128,128,.35); }
+.cmp-ladder .st.hl { outline:2px solid rgba(255,140,60,.85); outline-offset:1px; }
+.cmp-ladder .st b { font-size:10.5px; font-weight:600; opacity:.9; }
+.cmp-ladder .st code { font-family:var(--qm-mono); font-size:11px; }
+.cmp-ladder .st i { font-style:normal; font-size:10px; opacity:.7; }
+.cmp-dirline { font-size:11.5px; opacity:.85; margin-bottom:9px; }
+.cmp-panel { background:var(--qm-surface); color:var(--qm-text); border-radius:10px;
+             padding:9px 10px 8px; border:1px solid var(--qm-line); }
+.cmp-cap { font-size:10.5px; color:var(--qm-text-dim); margin-bottom:7px; }
+.cmp-cap code, .cmp-read code { font-family:var(--qm-mono); }
+.cmp-sub { display:flex; align-items:center; gap:9px; margin-bottom:7px; }
+.cmp-lbl { font-size:10px; color:var(--qm-text-dim); line-height:1.35; width:78px; flex:0 0 auto; }
+.cmp-lbl code { font-family:var(--qm-mono); font-size:9.5px; }
+.cmp-ctl { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+.cmp-ctl input[type="text"] { width:82px; }
+.cmp-ctl select { min-width:74px; }
+.cmp-read { font-size:10.5px; color:var(--qm-text-dim); border-top:1px dashed var(--qm-line-soft);
+            padding-top:6px; }
+.cmp-prop { border-top:0; padding-top:1px; opacity:.75; }
+.ctrls { display:flex; gap:18px; align-items:center; flex-wrap:wrap; margin:14px 0 6px;
+         background:#272d35; border:1px solid #343b45; border-radius:9px; padding:9px 14px; }
+.ctrls label { display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer; }
+.ctrls .hintxt { color:#98a3b1; font-size:11.5px; }
+body.flat .btn, body.flat .icon-btn, body.flat input[type="text"], body.flat select {
+  background-color: var(--qm-surface); }
+body.unify .btn, body.unify .icon-btn, body.unify input[type="text"], body.unify select {
+  background-color: var(--qm-surface-2-hi); }
+body.onlydeny .cmp-card[data-dir="pos"] { display:none; }
+.opt { background:#272d35; border:1px solid #343b45; border-left:3px solid #5a6473;
+       border-radius:8px; padding:11px 14px; margin-bottom:10px; }
+.opt.rec { border-left-color:#4fbf90; background:#22322a; }
+.opt h3 { margin:0 0 5px; font-size:13px; color:#fff; }
+.opt p { margin:0; color:#c3ccd8; font-size:12px; }
+.opt .cost { color:#98a3b1; font-size:11.5px; margin-top:5px; }
+footer { margin-top:34px; padding-top:14px; border-top:1px solid #343a44;
+         color:#7f8996; font-size:11.5px; }
+/* base.css 的 code 底色/内边距会渗进表格与页脚 → 在本页显式复位（仅本页 chrome，不动源文件） */
+table.tb code, .cmp-cap code, .cmp-read code, .cmp-lbl code, .cmp-ladder .st code {
+  background: transparent; padding: 0; border-radius: 0; color: inherit; font-size: inherit; }
+.opt code, .ctrls code, footer code, .note code, .hdr .sub code {
+  background: #333a44; color: #dfe6ef; padding: 1px 4px; border-radius: 4px; }
+.hdr .sub code { background: #2d333c; color: #cfd8e4; }
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hdr">
+    <h1>皮肤「背景三阶」方向对照 —— 面板 vs 次级面</h1>
+    <p class="sub">数据来源：<code>src/web/css/skins/*.css</code> + <code>tokens.css</code> 的真实取值，逐值解析、非估算。
+      快照 <code>V0.0.45</code> / <code>35cfa5b</code> · 生成于 2026-10-15 00:20<br>
+      本页为<b>一次性选型工具</b>：只读源文件、<b>不修改任何 <code>src/</code> 文件</b>、不参与 <code>verify</code> 与 <code>store</code>。
+      样式表是生成时刻的内联副本，源文件此后若变更本页不会跟随。</p>
+  </header>
+
+  <div class="note">
+    <b>看什么：</b>三格色阶依次是 <code>--qm-bg</code>（页面底）→ <code>--qm-surface</code>（面板）→
+    <code>--qm-surface-2</code>（次级面，橙框）。每个小面板的底色就是 <code>--qm-surface</code>；
+    面板里的<b>按钮 / 图标钮</b>是<b>凸起</b>（<code>--qm-tap</code>），<b>输入框 / 下拉</b>是<b>凹陷</b>（<code>--qm-tap-in</code>）——
+    这四者的<b>填充色是同一个</b> <code>--qm-surface-2</code>。<br>
+    <b>怎么读指标：</b><code>ΔL*</code> 是 CIE 明度差（<b>感知均匀</b>，≈1 即刚可辨、≥3 明确可辨）；
+    <code>ΔL</code> 是相对亮度差（百分点，<b>不可跨明暗比较</b>，此处保留以对接既有台账）；
+    <code>CR</code> 是对比度（1.000 = 同色）。
+  </div>
+
+  <section class="kpis">
+    <div class="kpi"><b>11 / 15 款</b><span>浅色区制：次级面<b>暗于</b>面板 · ΔL* -1.37 ~ -0.34</span></div>
+    <div class="kpi"><b>4 / 15 款</b><span>深色区制：次级面<b>亮于</b>面板 · ΔL* +3.79 ~ +5.45</span></div>
+    <div class="kpi"><b>+2.49</b><span>tokens 浅色基线 ΔL*（15 款皮肤均值仅 +0.56）</span></div>
+    <div class="kpi"><b>1.008–1.188</b><span>全 15 款 CR 区间（含 4 款深色，其 ΔL 小而 CR 高）</span></div>
+  </section>
+
+  <h2 class="sec">一、逐款实测（按 ΔL* 升序）</h2>
+  <table class="tb">
+    <thead><tr><th>#</th><th>皮肤</th><th>--qm-bg</th><th>--qm-surface</th><th>--qm-surface-2</th>
+      <th>ΔL*</th><th>ΔL pp</th><th>CR</th><th>方向</th></tr></thead>
+    <tbody><tr class="r-base"><td>—</td><td>tokens 浅色（帮助/支持页 · 无皮肤）</td><td><code>#eceff4</code></td><td><code>#f6f8fb</code></td><td><code>#ffffff</code></td><td class="num">+2.49</td><td class="num">+6.31</td><td class="num">1.064</td><td>↑ 次级亮</td></tr><tr class="r-base"><td>—</td><td>tokens 深色（跟随系统 · 无皮肤）</td><td><code>#161a1f</code></td><td><code>#1d2229</code></td><td><code>#232a32</code></td><td class="num">+3.70</td><td class="num">+0.68</td><td class="num">1.103</td><td>↑ 次级亮</td></tr><tr class="r-neg"><td>S15</td><td>奶黄·晨曦</td><td><code>#f5edc8</code></td><td><code>#fff9e3</code></td><td><code>#fbf5e0</code></td><td class="num">-1.37</td><td class="num">-3.36</td><td class="num">1.035</td><td><b>↓ 次级暗</b></td></tr><tr class="r-neg"><td>S09</td><td>初雪</td><td><code>#dfdff0</code></td><td><code>#eaecf8</code></td><td><code>#e5e9f7</code></td><td class="num">-1.14</td><td class="num">-2.61</td><td class="num">1.030</td><td><b>↓ 次级暗</b></td></tr><tr class="r-neg"><td>S08</td><td>冬日暖阳</td><td><code>#cfdfef</code></td><td><code>#e4eef7</code></td><td><code>#dfebf6</code></td><td class="num">-1.14</td><td class="num">-2.60</td><td class="num">1.030</td><td><b>↓ 次级暗</b></td></tr><tr class="r-neg"><td>S13</td><td>苹果银·蓝</td><td><code>#e3e4e6</code></td><td><code>#eff0f2</code></td><td><code>#ebedf2</code></td><td class="num">-1.04</td><td class="num">-2.44</td><td class="num">1.027</td><td><b>↓ 次级暗</b></td></tr><tr class="r-neg"><td>S06</td><td>月光序章·钢笔灰</td><td><code>#f7f7f5</code></td><td><code>#ffffff</code></td><td><code>#fcfcfc</code></td><td class="num">-1.04</td><td class="num">-2.66</td><td class="num">1.026</td><td><b>↓ 次级暗</b></td></tr><tr class="r-neg"><td>S02</td><td>米白·松绿</td><td><code>#f4f0e1</code></td><td><code>#faf6e9</code></td><td><code>#f6f4e6</code></td><td class="num">-0.87</td><td class="num">-2.11</td><td class="num">1.022</td><td><b>↓ 次级暗</b></td></tr><tr class="r-neg"><td>S10</td><td>白月光</td><td><code>#d4f0f6</code></td><td><code>#e5f6fa</code></td><td><code>#e1f4f8</code></td><td class="num">-0.83</td><td class="num">-1.99</td><td class="num">1.021</td><td><b>↓ 次级暗</b></td></tr><tr class="r-neg"><td>S01</td><td>奶白·樱粉</td><td><code>#f9f0f4</code></td><td><code>#fff5f8</code></td><td><code>#fff2f6</code></td><td class="num">-0.78</td><td class="num">-1.92</td><td class="num">1.020</td><td><b>↓ 次级暗</b></td></tr><tr class="r-neg"><td>S11</td><td>旧书纸棕</td><td><code>#e8dcc8</code></td><td><code>#f0e6d5</code></td><td><code>#eee4d2</code></td><td class="num">-0.73</td><td class="num">-1.61</td><td class="num">1.019</td><td><b>↓ 次级暗</b></td></tr><tr class="r-neg"><td>S04</td><td>暖白·暖橙</td><td><code>#fdf2e5</code></td><td><code>#fff7ee</code></td><td><code>#fff5ea</code></td><td class="num">-0.59</td><td class="num">-1.45</td><td class="num">1.015</td><td><b>↓ 次级暗</b></td></tr><tr class="r-neg"><td>S05</td><td>奶黄·暖白</td><td><code>#faf0d4</code></td><td><code>#fff8e5</code></td><td><code>#fff7e1</code></td><td class="num">-0.34</td><td class="num">-0.83</td><td class="num">1.008</td><td><b>↓ 次级暗</b></td></tr><tr class="r-pos"><td>S03</td><td>柔暗·冰蓝</td><td><code>#1f2c42</code></td><td><code>#313d51</code></td><td><code>#38465a</code></td><td class="num">+3.79</td><td class="num">+1.37</td><td class="num">1.143</td><td>↑ 次级亮</td></tr><tr class="r-pos"><td>S07</td><td>夜空墨蓝</td><td><code>#162a46</code></td><td><code>#293b55</code></td><td><code>#34455d</code></td><td class="num">+4.34</td><td class="num">+1.52</td><td class="num">1.164</td><td>↑ 次级亮</td></tr><tr class="r-pos"><td>S12</td><td>月岩写意</td><td><code>#1a1a1a</code></td><td><code>#282828</code></td><td><code>#323232</code></td><td class="num">+4.67</td><td class="num">+1.07</td><td class="num">1.150</td><td>↑ 次级亮</td></tr><tr class="r-pos"><td>S14</td><td>黑金·寂海</td><td><code>#202020</code></td><td><code>#2c2c2c</code></td><td><code>#383836</code></td><td class="num">+5.45</td><td class="num">+1.42</td><td class="num">1.188</td><td>↑ 次级亮</td></tr></tbody>
+  </table>
+
+  <h2 class="sec">二、实物对照（真样式表渲染）</h2>
+  <div class="ctrls">
+    <label><input type="checkbox" id="ckFlat">
+      <b>示意 A</b>：次级面 = 面板色（纯光影、无填充分层）<span class="hintxt">（精确模拟：把控件填充换回 <code>--qm-surface</code>）</span></label>
+    <label><input type="checkbox" id="ckUnify">
+      <b>示意 B</b>：全 15 款按同一落差 ΔL* +2.49 对齐（tokens 浅色段的量级）
+      <span class="hintxt">（<b>实测提案色值</b>，线性域同色相缩放；<b>面板保持不动</b> → 面板贴纯白的款会顶到 <code>#ffffff</code>，即「此路不通」）</span></label>
+    <label><input type="checkbox" id="ckOnlyNeg">
+      只看「次级暗于面板」的 11 款</label>
+  </div>
+  <div class="cards">
+    <article class="cmp-card sk-s15-cream-sunrise" style="--qm-surface-2-hi:#ffffea" data-dir="neg">
+  <div class="cmp-head"><span class="cmp-cid">S15</span>
+    <span class="cmp-name">奶黄·晨曦</span><span class="cmp-tag tag-neg">次级暗于面板</span></div>
+  <div class="cmp-ladder"><div class="st" style="background:#f5edc8;color:#12171e"><b>bg</b><code>#f5edc8</code><i>L* 93.5</i></div><div class="st" style="background:#fff9e3;color:#12171e"><b>surface</b><code>#fff9e3</code><i>L* 97.9</i></div><div class="st hl" style="background:#fbf5e0;color:#12171e"><b>surface-2</b><code>#fbf5e0</code><i>L* 96.5</i></div></div><div class="cmp-dirline">面板 → 次级：<b>↓ 次级更暗</b>（ΔL* -1.37 · ΔL -3.36 pp）</div>
+  <div class="cmp-panel">
+    <div class="cmp-cap">面板 · --qm-surface <code>#fff9e3</code></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凸起<br><code>--qm-tap</code></span>
+      <span class="cmp-ctl"><button class="btn" type="button">按钮</button>
+      <button class="icon-btn" type="button" aria-label="图标钮">≡</button></span></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凹陷<br><code>--qm-tap-in</code></span>
+      <span class="cmp-ctl"><input type="text" value="输入" readonly>
+      <select aria-label="下拉"><option>下拉</option></select></span></div>
+    <div class="cmp-read">次级面 <code>#fbf5e0</code> · ΔL* <b>-1.37</b> · CR <b>1.035</b></div>
+    <div class="cmp-read cmp-prop">示意 B 提案 <code>#ffffea</code> · ΔL* +1.65 · <b>已顶纯白上限</b></div>
+  </div>
+</article><article class="cmp-card sk-s09-first-snow" style="--qm-surface-2-hi:#eff3ff" data-dir="neg">
+  <div class="cmp-head"><span class="cmp-cid">S09</span>
+    <span class="cmp-name">初雪</span><span class="cmp-tag tag-neg">次级暗于面板</span></div>
+  <div class="cmp-ladder"><div class="st" style="background:#dfdff0;color:#12171e"><b>bg</b><code>#dfdff0</code><i>L* 89.3</i></div><div class="st" style="background:#eaecf8;color:#12171e"><b>surface</b><code>#eaecf8</code><i>L* 93.6</i></div><div class="st hl" style="background:#e5e9f7;color:#12171e"><b>surface-2</b><code>#e5e9f7</code><i>L* 92.4</i></div></div><div class="cmp-dirline">面板 → 次级：<b>↓ 次级更暗</b>（ΔL* -1.14 · ΔL -2.61 pp）</div>
+  <div class="cmp-panel">
+    <div class="cmp-cap">面板 · --qm-surface <code>#eaecf8</code></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凸起<br><code>--qm-tap</code></span>
+      <span class="cmp-ctl"><button class="btn" type="button">按钮</button>
+      <button class="icon-btn" type="button" aria-label="图标钮">≡</button></span></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凹陷<br><code>--qm-tap-in</code></span>
+      <span class="cmp-ctl"><input type="text" value="输入" readonly>
+      <select aria-label="下拉"><option>下拉</option></select></span></div>
+    <div class="cmp-read">次级面 <code>#e5e9f7</code> · ΔL* <b>-1.14</b> · CR <b>1.030</b></div>
+    <div class="cmp-read cmp-prop">示意 B 提案 <code>#eff3ff</code> · ΔL* +2.41 · <b>已顶纯白上限</b></div>
+  </div>
+</article><article class="cmp-card sk-s08-winter-sun" style="--qm-surface-2-hi:#e9f5ff" data-dir="neg">
+  <div class="cmp-head"><span class="cmp-cid">S08</span>
+    <span class="cmp-name">冬日暖阳</span><span class="cmp-tag tag-neg">次级暗于面板</span></div>
+  <div class="cmp-ladder"><div class="st" style="background:#cfdfef;color:#12171e"><b>bg</b><code>#cfdfef</code><i>L* 88.1</i></div><div class="st" style="background:#e4eef7;color:#12171e"><b>surface</b><code>#e4eef7</code><i>L* 93.6</i></div><div class="st hl" style="background:#dfebf6;color:#12171e"><b>surface-2</b><code>#dfebf6</code><i>L* 92.5</i></div></div><div class="cmp-dirline">面板 → 次级：<b>↓ 次级更暗</b>（ΔL* -1.14 · ΔL -2.60 pp）</div>
+  <div class="cmp-panel">
+    <div class="cmp-cap">面板 · --qm-surface <code>#e4eef7</code></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凸起<br><code>--qm-tap</code></span>
+      <span class="cmp-ctl"><button class="btn" type="button">按钮</button>
+      <button class="icon-btn" type="button" aria-label="图标钮">≡</button></span></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凹陷<br><code>--qm-tap-in</code></span>
+      <span class="cmp-ctl"><input type="text" value="输入" readonly>
+      <select aria-label="下拉"><option>下拉</option></select></span></div>
+    <div class="cmp-read">次级面 <code>#dfebf6</code> · ΔL* <b>-1.14</b> · CR <b>1.030</b></div>
+    <div class="cmp-read cmp-prop">示意 B 提案 <code>#e9f5ff</code> · ΔL* +2.44 · <b>已顶纯白上限</b></div>
+  </div>
+</article><article class="cmp-card sk-s13-apple-silver-blue" style="--qm-surface-2-hi:#f5f7fc" data-dir="neg">
+  <div class="cmp-head"><span class="cmp-cid">S13</span>
+    <span class="cmp-name">苹果银·蓝</span><span class="cmp-tag tag-neg">次级暗于面板</span></div>
+  <div class="cmp-ladder"><div class="st" style="background:#e3e4e6;color:#12171e"><b>bg</b><code>#e3e4e6</code><i>L* 90.6</i></div><div class="st" style="background:#eff0f2;color:#12171e"><b>surface</b><code>#eff0f2</code><i>L* 94.8</i></div><div class="st hl" style="background:#ebedf2;color:#12171e"><b>surface-2</b><code>#ebedf2</code><i>L* 93.7</i></div></div><div class="cmp-dirline">面板 → 次级：<b>↓ 次级更暗</b>（ΔL* -1.04 · ΔL -2.44 pp）</div>
+  <div class="cmp-panel">
+    <div class="cmp-cap">面板 · --qm-surface <code>#eff0f2</code></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凸起<br><code>--qm-tap</code></span>
+      <span class="cmp-ctl"><button class="btn" type="button">按钮</button>
+      <button class="icon-btn" type="button" aria-label="图标钮">≡</button></span></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凹陷<br><code>--qm-tap-in</code></span>
+      <span class="cmp-ctl"><input type="text" value="输入" readonly>
+      <select aria-label="下拉"><option>下拉</option></select></span></div>
+    <div class="cmp-read">次级面 <code>#ebedf2</code> · ΔL* <b>-1.04</b> · CR <b>1.027</b></div>
+    <div class="cmp-read cmp-prop">示意 B 提案 <code>#f5f7fc</code> · ΔL* +2.49</div>
+  </div>
+</article><article class="cmp-card sk-s06-moonlight-pengray" style="--qm-surface-2-hi:#ffffff" data-dir="neg">
+  <div class="cmp-head"><span class="cmp-cid">S06</span>
+    <span class="cmp-name">月光序章·钢笔灰</span><span class="cmp-tag tag-neg">次级暗于面板</span></div>
+  <div class="cmp-ladder"><div class="st" style="background:#f7f7f5;color:#12171e"><b>bg</b><code>#f7f7f5</code><i>L* 97.2</i></div><div class="st" style="background:#ffffff;color:#12171e"><b>surface</b><code>#ffffff</code><i>L* 100.0</i></div><div class="st hl" style="background:#fcfcfc;color:#12171e"><b>surface-2</b><code>#fcfcfc</code><i>L* 99.0</i></div></div><div class="cmp-dirline">面板 → 次级：<b>↓ 次级更暗</b>（ΔL* -1.04 · ΔL -2.66 pp）</div>
+  <div class="cmp-panel">
+    <div class="cmp-cap">面板 · --qm-surface <code>#ffffff</code></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凸起<br><code>--qm-tap</code></span>
+      <span class="cmp-ctl"><button class="btn" type="button">按钮</button>
+      <button class="icon-btn" type="button" aria-label="图标钮">≡</button></span></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凹陷<br><code>--qm-tap-in</code></span>
+      <span class="cmp-ctl"><input type="text" value="输入" readonly>
+      <select aria-label="下拉"><option>下拉</option></select></span></div>
+    <div class="cmp-read">次级面 <code>#fcfcfc</code> · ΔL* <b>-1.04</b> · CR <b>1.026</b></div>
+    <div class="cmp-read cmp-prop">示意 B 提案 <code>#ffffff</code> · ΔL* +0.00 · <b>已顶纯白上限</b></div>
+  </div>
+</article><article class="cmp-card sk-s02-offwhite-pine" style="--qm-surface-2-hi:#fffeef" data-dir="neg">
+  <div class="cmp-head"><span class="cmp-cid">S02</span>
+    <span class="cmp-name">米白·松绿</span><span class="cmp-tag tag-neg">次级暗于面板</span></div>
+  <div class="cmp-ladder"><div class="st" style="background:#f4f0e1;color:#12171e"><b>bg</b><code>#f4f0e1</code><i>L* 94.7</i></div><div class="st" style="background:#faf6e9;color:#12171e"><b>surface</b><code>#faf6e9</code><i>L* 96.9</i></div><div class="st hl" style="background:#f6f4e6;color:#12171e"><b>surface-2</b><code>#f6f4e6</code><i>L* 96.0</i></div></div><div class="cmp-dirline">面板 → 次级：<b>↓ 次级更暗</b>（ΔL* -0.87 · ΔL -2.11 pp）</div>
+  <div class="cmp-panel">
+    <div class="cmp-cap">面板 · --qm-surface <code>#faf6e9</code></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凸起<br><code>--qm-tap</code></span>
+      <span class="cmp-ctl"><button class="btn" type="button">按钮</button>
+      <button class="icon-btn" type="button" aria-label="图标钮">≡</button></span></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凹陷<br><code>--qm-tap-in</code></span>
+      <span class="cmp-ctl"><input type="text" value="输入" readonly>
+      <select aria-label="下拉"><option>下拉</option></select></span></div>
+    <div class="cmp-read">次级面 <code>#f6f4e6</code> · ΔL* <b>-0.87</b> · CR <b>1.022</b></div>
+    <div class="cmp-read cmp-prop">示意 B 提案 <code>#fffeef</code> · ΔL* +2.43 · <b>已顶纯白上限</b></div>
+  </div>
+</article><article class="cmp-card sk-s10-white-moonlight" style="--qm-surface-2-hi:#eafeff" data-dir="neg">
+  <div class="cmp-head"><span class="cmp-cid">S10</span>
+    <span class="cmp-name">白月光</span><span class="cmp-tag tag-neg">次级暗于面板</span></div>
+  <div class="cmp-ladder"><div class="st" style="background:#d4f0f6;color:#12171e"><b>bg</b><code>#d4f0f6</code><i>L* 93.0</i></div><div class="st" style="background:#e5f6fa;color:#12171e"><b>surface</b><code>#e5f6fa</code><i>L* 95.8</i></div><div class="st hl" style="background:#e1f4f8;color:#12171e"><b>surface-2</b><code>#e1f4f8</code><i>L* 94.9</i></div></div><div class="cmp-dirline">面板 → 次级：<b>↓ 次级更暗</b>（ΔL* -0.83 · ΔL -1.99 pp）</div>
+  <div class="cmp-panel">
+    <div class="cmp-cap">面板 · --qm-surface <code>#e5f6fa</code></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凸起<br><code>--qm-tap</code></span>
+      <span class="cmp-ctl"><button class="btn" type="button">按钮</button>
+      <button class="icon-btn" type="button" aria-label="图标钮">≡</button></span></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凹陷<br><code>--qm-tap-in</code></span>
+      <span class="cmp-ctl"><input type="text" value="输入" readonly>
+      <select aria-label="下拉"><option>下拉</option></select></span></div>
+    <div class="cmp-read">次级面 <code>#e1f4f8</code> · ΔL* <b>-0.83</b> · CR <b>1.021</b></div>
+    <div class="cmp-read cmp-prop">示意 B 提案 <code>#eafeff</code> · ΔL* +2.42 · <b>已顶纯白上限</b></div>
+  </div>
+</article><article class="cmp-card sk-s01-cream-pink" style="--qm-surface-2-hi:#fffbff" data-dir="neg">
+  <div class="cmp-head"><span class="cmp-cid">S01</span>
+    <span class="cmp-name">奶白·樱粉</span><span class="cmp-tag tag-neg">次级暗于面板</span></div>
+  <div class="cmp-ladder"><div class="st" style="background:#f9f0f4;color:#12171e"><b>bg</b><code>#f9f0f4</code><i>L* 95.6</i></div><div class="st" style="background:#fff5f8;color:#12171e"><b>surface</b><code>#fff5f8</code><i>L* 97.4</i></div><div class="st hl" style="background:#fff2f6;color:#12171e"><b>surface-2</b><code>#fff2f6</code><i>L* 96.6</i></div></div><div class="cmp-dirline">面板 → 次级：<b>↓ 次级更暗</b>（ΔL* -0.78 · ΔL -1.92 pp）</div>
+  <div class="cmp-panel">
+    <div class="cmp-cap">面板 · --qm-surface <code>#fff5f8</code></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凸起<br><code>--qm-tap</code></span>
+      <span class="cmp-ctl"><button class="btn" type="button">按钮</button>
+      <button class="icon-btn" type="button" aria-label="图标钮">≡</button></span></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凹陷<br><code>--qm-tap-in</code></span>
+      <span class="cmp-ctl"><input type="text" value="输入" readonly>
+      <select aria-label="下拉"><option>下拉</option></select></span></div>
+    <div class="cmp-read">次级面 <code>#fff2f6</code> · ΔL* <b>-0.78</b> · CR <b>1.020</b></div>
+    <div class="cmp-read cmp-prop">示意 B 提案 <code>#fffbff</code> · ΔL* +1.73 · <b>已顶纯白上限</b></div>
+  </div>
+</article><article class="cmp-card sk-s11-vintage-paper" style="--qm-surface-2-hi:#f8edda" data-dir="neg">
+  <div class="cmp-head"><span class="cmp-cid">S11</span>
+    <span class="cmp-name">旧书纸棕</span><span class="cmp-tag tag-neg">次级暗于面板</span></div>
+  <div class="cmp-ladder"><div class="st" style="background:#e8dcc8;color:#12171e"><b>bg</b><code>#e8dcc8</code><i>L* 88.2</i></div><div class="st" style="background:#f0e6d5;color:#12171e"><b>surface</b><code>#f0e6d5</code><i>L* 91.7</i></div><div class="st hl" style="background:#eee4d2;color:#12171e"><b>surface-2</b><code>#eee4d2</code><i>L* 90.9</i></div></div><div class="cmp-dirline">面板 → 次级：<b>↓ 次级更暗</b>（ΔL* -0.73 · ΔL -1.61 pp）</div>
+  <div class="cmp-panel">
+    <div class="cmp-cap">面板 · --qm-surface <code>#f0e6d5</code></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凸起<br><code>--qm-tap</code></span>
+      <span class="cmp-ctl"><button class="btn" type="button">按钮</button>
+      <button class="icon-btn" type="button" aria-label="图标钮">≡</button></span></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凹陷<br><code>--qm-tap-in</code></span>
+      <span class="cmp-ctl"><input type="text" value="输入" readonly>
+      <select aria-label="下拉"><option>下拉</option></select></span></div>
+    <div class="cmp-read">次级面 <code>#eee4d2</code> · ΔL* <b>-0.73</b> · CR <b>1.019</b></div>
+    <div class="cmp-read cmp-prop">示意 B 提案 <code>#f8edda</code> · ΔL* +2.49</div>
+  </div>
+</article><article class="cmp-card sk-s04-warmwhite-amber" style="--qm-surface-2-hi:#fffef2" data-dir="neg">
+  <div class="cmp-head"><span class="cmp-cid">S04</span>
+    <span class="cmp-name">暖白·暖橙</span><span class="cmp-tag tag-neg">次级暗于面板</span></div>
+  <div class="cmp-ladder"><div class="st" style="background:#fdf2e5;color:#12171e"><b>bg</b><code>#fdf2e5</code><i>L* 96.0</i></div><div class="st" style="background:#fff7ee;color:#12171e"><b>surface</b><code>#fff7ee</code><i>L* 97.6</i></div><div class="st hl" style="background:#fff5ea;color:#12171e"><b>surface-2</b><code>#fff5ea</code><i>L* 97.0</i></div></div><div class="cmp-dirline">面板 → 次级：<b>↓ 次级更暗</b>（ΔL* -0.59 · ΔL -1.45 pp）</div>
+  <div class="cmp-panel">
+    <div class="cmp-cap">面板 · --qm-surface <code>#fff7ee</code></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凸起<br><code>--qm-tap</code></span>
+      <span class="cmp-ctl"><button class="btn" type="button">按钮</button>
+      <button class="icon-btn" type="button" aria-label="图标钮">≡</button></span></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凹陷<br><code>--qm-tap-in</code></span>
+      <span class="cmp-ctl"><input type="text" value="输入" readonly>
+      <select aria-label="下拉"><option>下拉</option></select></span></div>
+    <div class="cmp-read">次级面 <code>#fff5ea</code> · ΔL* <b>-0.59</b> · CR <b>1.015</b></div>
+    <div class="cmp-read cmp-prop">示意 B 提案 <code>#fffef2</code> · ΔL* +1.80 · <b>已顶纯白上限</b></div>
+  </div>
+</article><article class="cmp-card sk-s05-cream-warmwhite" style="--qm-surface-2-hi:#ffffe8" data-dir="neg">
+  <div class="cmp-head"><span class="cmp-cid">S05</span>
+    <span class="cmp-name">奶黄·暖白</span><span class="cmp-tag tag-neg">次级暗于面板</span></div>
+  <div class="cmp-ladder"><div class="st" style="background:#faf0d4;color:#12171e"><b>bg</b><code>#faf0d4</code><i>L* 94.9</i></div><div class="st" style="background:#fff8e5;color:#12171e"><b>surface</b><code>#fff8e5</code><i>L* 97.7</i></div><div class="st hl" style="background:#fff7e1;color:#12171e"><b>surface-2</b><code>#fff7e1</code><i>L* 97.3</i></div></div><div class="cmp-dirline">面板 → 次级：<b>↓ 次级更暗</b>（ΔL* -0.34 · ΔL -0.83 pp）</div>
+  <div class="cmp-panel">
+    <div class="cmp-cap">面板 · --qm-surface <code>#fff8e5</code></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凸起<br><code>--qm-tap</code></span>
+      <span class="cmp-ctl"><button class="btn" type="button">按钮</button>
+      <button class="icon-btn" type="button" aria-label="图标钮">≡</button></span></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凹陷<br><code>--qm-tap-in</code></span>
+      <span class="cmp-ctl"><input type="text" value="输入" readonly>
+      <select aria-label="下拉"><option>下拉</option></select></span></div>
+    <div class="cmp-read">次级面 <code>#fff7e1</code> · ΔL* <b>-0.34</b> · CR <b>1.008</b></div>
+    <div class="cmp-read cmp-prop">示意 B 提案 <code>#ffffe8</code> · ΔL* +1.82 · <b>已顶纯白上限</b></div>
+  </div>
+</article><article class="cmp-card sk-s03-softdark-iceblue" style="--qm-surface-2-hi:#354356" data-dir="pos">
+  <div class="cmp-head"><span class="cmp-cid">S03</span>
+    <span class="cmp-name">柔暗·冰蓝</span><span class="cmp-tag tag-pos">次级亮于面板</span></div>
+  <div class="cmp-ladder"><div class="st" style="background:#1f2c42;color:#f2f5f9"><b>bg</b><code>#1f2c42</code><i>L* 17.9</i></div><div class="st" style="background:#313d51;color:#f2f5f9"><b>surface</b><code>#313d51</code><i>L* 25.5</i></div><div class="st hl" style="background:#38465a;color:#f2f5f9"><b>surface-2</b><code>#38465a</code><i>L* 29.3</i></div></div><div class="cmp-dirline">面板 → 次级：<b>↑ 次级更亮</b>（ΔL* +3.79 · ΔL +1.37 pp）</div>
+  <div class="cmp-panel">
+    <div class="cmp-cap">面板 · --qm-surface <code>#313d51</code></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凸起<br><code>--qm-tap</code></span>
+      <span class="cmp-ctl"><button class="btn" type="button">按钮</button>
+      <button class="icon-btn" type="button" aria-label="图标钮">≡</button></span></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凹陷<br><code>--qm-tap-in</code></span>
+      <span class="cmp-ctl"><input type="text" value="输入" readonly>
+      <select aria-label="下拉"><option>下拉</option></select></span></div>
+    <div class="cmp-read">次级面 <code>#38465a</code> · ΔL* <b>+3.79</b> · CR <b>1.143</b></div>
+    <div class="cmp-read cmp-prop">示意 B 提案 <code>#354356</code> · ΔL* +2.49</div>
+  </div>
+</article><article class="cmp-card sk-s07-night-inkblue" style="--qm-surface-2-hi:#314158" data-dir="pos">
+  <div class="cmp-head"><span class="cmp-cid">S07</span>
+    <span class="cmp-name">夜空墨蓝</span><span class="cmp-tag tag-pos">次级亮于面板</span></div>
+  <div class="cmp-ladder"><div class="st" style="background:#162a46;color:#f2f5f9"><b>bg</b><code>#162a46</code><i>L* 16.8</i></div><div class="st" style="background:#293b55;color:#f2f5f9"><b>surface</b><code>#293b55</code><i>L* 24.5</i></div><div class="st hl" style="background:#34455d;color:#f2f5f9"><b>surface-2</b><code>#34455d</code><i>L* 28.8</i></div></div><div class="cmp-dirline">面板 → 次级：<b>↑ 次级更亮</b>（ΔL* +4.34 · ΔL +1.52 pp）</div>
+  <div class="cmp-panel">
+    <div class="cmp-cap">面板 · --qm-surface <code>#293b55</code></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凸起<br><code>--qm-tap</code></span>
+      <span class="cmp-ctl"><button class="btn" type="button">按钮</button>
+      <button class="icon-btn" type="button" aria-label="图标钮">≡</button></span></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凹陷<br><code>--qm-tap-in</code></span>
+      <span class="cmp-ctl"><input type="text" value="输入" readonly>
+      <select aria-label="下拉"><option>下拉</option></select></span></div>
+    <div class="cmp-read">次级面 <code>#34455d</code> · ΔL* <b>+4.34</b> · CR <b>1.164</b></div>
+    <div class="cmp-read cmp-prop">示意 B 提案 <code>#314158</code> · ΔL* +2.49</div>
+  </div>
+</article><article class="cmp-card sk-s12-moonrock" style="--qm-surface-2-hi:#2d2d2d" data-dir="pos">
+  <div class="cmp-head"><span class="cmp-cid">S12</span>
+    <span class="cmp-name">月岩写意</span><span class="cmp-tag tag-pos">次级亮于面板</span></div>
+  <div class="cmp-ladder"><div class="st" style="background:#1a1a1a;color:#f2f5f9"><b>bg</b><code>#1a1a1a</code><i>L* 9.3</i></div><div class="st" style="background:#282828;color:#f2f5f9"><b>surface</b><code>#282828</code><i>L* 16.1</i></div><div class="st hl" style="background:#323232;color:#f2f5f9"><b>surface-2</b><code>#323232</code><i>L* 20.8</i></div></div><div class="cmp-dirline">面板 → 次级：<b>↑ 次级更亮</b>（ΔL* +4.67 · ΔL +1.07 pp）</div>
+  <div class="cmp-panel">
+    <div class="cmp-cap">面板 · --qm-surface <code>#282828</code></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凸起<br><code>--qm-tap</code></span>
+      <span class="cmp-ctl"><button class="btn" type="button">按钮</button>
+      <button class="icon-btn" type="button" aria-label="图标钮">≡</button></span></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凹陷<br><code>--qm-tap-in</code></span>
+      <span class="cmp-ctl"><input type="text" value="输入" readonly>
+      <select aria-label="下拉"><option>下拉</option></select></span></div>
+    <div class="cmp-read">次级面 <code>#323232</code> · ΔL* <b>+4.67</b> · CR <b>1.150</b></div>
+    <div class="cmp-read cmp-prop">示意 B 提案 <code>#2d2d2d</code> · ΔL* +2.49</div>
+  </div>
+</article><article class="cmp-card sk-s14-blackgold-silentsea" style="--qm-surface-2-hi:#313130" data-dir="pos">
+  <div class="cmp-head"><span class="cmp-cid">S14</span>
+    <span class="cmp-name">黑金·寂海</span><span class="cmp-tag tag-pos">次级亮于面板</span></div>
+  <div class="cmp-ladder"><div class="st" style="background:#202020;color:#f2f5f9"><b>bg</b><code>#202020</code><i>L* 12.3</i></div><div class="st" style="background:#2c2c2c;color:#f2f5f9"><b>surface</b><code>#2c2c2c</code><i>L* 18.0</i></div><div class="st hl" style="background:#383836;color:#f2f5f9"><b>surface-2</b><code>#383836</code><i>L* 23.5</i></div></div><div class="cmp-dirline">面板 → 次级：<b>↑ 次级更亮</b>（ΔL* +5.45 · ΔL +1.42 pp）</div>
+  <div class="cmp-panel">
+    <div class="cmp-cap">面板 · --qm-surface <code>#2c2c2c</code></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凸起<br><code>--qm-tap</code></span>
+      <span class="cmp-ctl"><button class="btn" type="button">按钮</button>
+      <button class="icon-btn" type="button" aria-label="图标钮">≡</button></span></div>
+    <div class="cmp-sub"><span class="cmp-lbl">凹陷<br><code>--qm-tap-in</code></span>
+      <span class="cmp-ctl"><input type="text" value="输入" readonly>
+      <select aria-label="下拉"><option>下拉</option></select></span></div>
+    <div class="cmp-read">次级面 <code>#383836</code> · ΔL* <b>+5.45</b> · CR <b>1.188</b></div>
+    <div class="cmp-read cmp-prop">示意 B 提案 <code>#313130</code> · ΔL* +2.49</div>
+  </div>
+</article>
+  </div>
+
+  <h2 class="sec">三、实测查到的三件事</h2>
+  <div class="opt">
+    <h3>① 方向确实分两组，但两组的<b>量级差了一个数量级</b></h3>
+    <p><b>浅色 11 款</b>（面板 L* 91.7–100.0）：
+      次级面一律<b>略暗</b>，ΔL* -1.37 ~ -0.34，CR 1.008–1.035。<br>
+      <b>深色 4 款</b>（面板 L* 16.1–25.5）：
+      次级面一律<b>略亮</b>，ΔL* +3.79 ~ +5.45，CR 1.143–1.188。</p>
+    <p>换算成感知：<b>浅色那一档 ΔL* 基本在刚可辨阈值（≈1）上下甚至更低</b>，大面积平铺时几乎读不出来；
+      <b>深色那一档 ΔL* 3.8–5.5，是明确可辨的</b> —— 这也解释了为什么深色的 CR 反而更高。</p>
+    <p class="cost">含义：「浅色 11 款是否反向」在<b>观感上是一道很轻的题</b>（差异几乎看不见）；真正让三阶「立起来」的
+      是<b>阴影（<code>--qm-tap</code> / <code>--qm-tap-in</code>）+ 1px 描边</b>，不是填充色。</p>
+  </div>
+  <div class="opt">
+    <h3>② 同一个变量扛了两种相反语义 —— 这才是「方向」成为问题的根因</h3>
+    <p><code>--qm-surface-2</code> 既做<b>凸起件</b>的填充（<code>.btn</code> / <code>.icon-btn</code> / <code>.chip-btn</code> / <code>.tpl-badge</code>），
+      又做<b>凹陷件</b>的填充（<code>input</code> / <code>select</code> / <code>.prop-input</code> / <code>.prop-note</code>，共 <b>24 处消费点</b>）。
+      凸起件按光学该更亮、凹陷件该更暗，一个变量无法同时满足 —— 故无论方向统一到哪一边，总有另一边的语义被牺牲。</p>
+  </div>
+  <div class="opt rec">
+    <h3>③ 准确的说法是：<code>tokens</code> 自洽，<b>浅色皮肤才是偏离方</b></h3>
+    <p><code>tokens</code> 的规则是<b>一条贯通明暗</b>的：次级面一律比面板<b>亮</b> —— 浅色段 ΔL* +2.49、深色段 ΔL* +3.70，
+      方向和量级都相当。对照之下：<b>深色 4 款与基线同向且量级接近</b>（ΔL* +3.79~+5.45）；
+      <b>浅色 11 款才是反向的那一批</b>，且幅度只有 -1.37~-0.34（约为基线的 1/3~1/2、深色的 1/5~1/4）。</p>
+    <p class="cost">所以台账原话「11 款浅色皮肤反向」是<b>站得住的</b>（我这次逐值复算确认）。但需补一句关键限定：
+      这 11 款的落差错得极小 —— 在多数款上「次级面」近乎等于面板色，即<b>这套浅色皮肤实际上没有第三阶</b>，
+      立体感全部由阴影与描边承担。<code>soft.css</code> 自己的声明（「光源固定左上 …… 影承载立体感」）恰好就是这个意思。</p>
+  </div>
+  <div class="opt">
+    <h3>④ 由此得到两条不同的「统一」路线</h3>
+    <p><b>路线一（以浅色为基准）</b>：承认「填充不承担分层、光影承担立体」，把 4 款深色皮肤的次级落差收窄到同量级
+      —— 只改 4 个文件，且改的是少数派。<br>
+      <b>路线二（以深色/基线为基准）</b>：把 11 款浅色皮肤的落差放大到 ΔL* ≈ 3.8~3.8
+      —— 观感上最接近「统一样式」，但要动 11 款（含默认皮肤 S06），且会让凸起按钮带一点「深色键帽」感。</p>
+    <p class="cost">上面两个开关就是让你直接看这两条路线：<b>示意 A</b> = 路线一观感；<b>示意 B</b> = 路线二观感。</p>
+  </div>
+
+  <h2 class="sec">四、四个候选方案（供裁定）</h2>
+  <div class="opt">
+    <h3>甲 · 向 <code>tokens</code> 看齐：次级面一律更亮</h3>
+    <p>硬约束：11 款浅色面板已近纯白（S06 就是 <code>#ffffff</code>、L* 100），<b>没有提亮空间</b> ——
+      实际只能<b>反过来压暗面板</b>，即「为对齐控件色去动面板色」。面板是全屏最大面积，可见度最高。</p>
+    <p>实测可行性：把 11 款浅色皮肤的次级面按基线方向（ΔL* +2.49）提亮，
+      <b>9 / 11 款顶到纯白上限</b>，实际只能做到 ΔL* +0.00 ~ +2.49
+      —— 因为面板本身已经是 <code>#ffffff</code> 或贴顶，没有上方空间。故要真按这条走，<b>必须同时压暗面板</b>。</p>
+    <p class="cost">代价：11 款各改 1–2 值 + 面板变色（最显眼）。收益：与基线字面一致。不推荐。</p>
+  </div>
+  <div class="opt rec">
+    <h3>乙 · 以浅色为基准收窄深色落差（路线一）—— <b>我的推荐</b></h3>
+    <p>把 4 款深色皮肤（S03 / S07 / S12 / S14）的 <code>--qm-surface-2</code> 朝面板色靠拢，
+      使 ΔL* 从 +3.79~+5.45 收到 ≈ -0.34 以内 —— 与 11 款浅色同量级。
+      于是 15 款落实<b>同一条规则</b>（填充不分层、光影分凸凹），而这条规则正是 <code>soft.css</code> 自己声明的设计语言。</p>
+    <p class="cost">代价：只改 <b>4 个文件</b>（含 <code>tokens.css</code> 深色段可选），改的是少数派；
+      须复跑 <code>verify</code> <b>7d-4</b>（WCAG AA 守卫，基座含 <code>--qm-surface-2</code>）确认文本对比度未退化。
+      风险中低、收益「规则真正统一」。</p>
+  </div>
+  <div class="opt">
+    <h3>丙 · 保持现状 + 写成明文约定</h3>
+    <p>零改动。把 §十三.6 记为「已裁定：有意」，并把「浅色→次级略暗 / 深色→次级略亮，均相对面板向中间明度靠」
+      写进皮肤契约（<code>src/web/css/skins/README.md</code>）。</p>
+    <p class="cost">代价：零风险，但需在文档里承认<b>两套视觉语言并存</b>（浅色≈纯光影、深色≈填充分层）——
+      严格说这弱于「统一样式」的字面要求。若你判断「深浅本就该各自不同」，这就是正确答案。</p>
+  </div>
+  <div class="opt">
+    <h3>丁 · 拆变量：<code>--qm-surface-raise</code> / <code>--qm-surface-sunken</code>（根因解）</h3>
+    <p>把「凸起面」与「凹陷面」分开：凸起面偏亮、凹陷面偏暗，一次消除「方向」与「一名两义」两个问题，之后明暗区制都有清晰语义。
+      属 <code>src/</code> 改动：新增 2 变量 × 16 处定义（tokens 明/暗 + 15 皮肤）、分派 24 个消费点。</p>
+    <p class="cost">代价：本次最大一笔（触及全部 15 款皮肤 + 4 个 CSS 文件），需四件套 + 反向验证 + 升版。收益：根因消除。</p>
+  </div>
+
+  <footer>
+    一次性工具页 · 数据经逐值解析与 WCAG / CIE 计算得出，未使用任何估算值。
+    生成脚本已在本次工作后清理；页内样式表为 <code>V0.0.45</code> / <code>35cfa5b</code> 时刻的内联副本。
+  </footer>
+</div>
+<script>
+(function(){
+  var b=document.body;
+  document.getElementById('ckFlat').addEventListener('change',function(e){
+    b.classList.toggle('flat', e.target.checked);});
+  document.getElementById('ckUnify').addEventListener('change',function(e){
+    b.classList.toggle('unify', e.target.checked);});
+  document.getElementById('ckOnlyNeg').addEventListener('change',function(e){
+    b.classList.toggle('onlydeny', e.target.checked);});
+})();
+</script>
+</body>
+</html>
