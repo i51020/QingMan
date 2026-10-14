@@ -7,6 +7,9 @@
 
 export const LOCALE = 'en-US';
 
+/** 语言自描述名（母语写法）。新增语言包时**必填** —— 后端据此生成语言清单。 */
+export const NAME = 'English';
+
 export const dict = {
   /* ---------- App & topbar ---------- */
   'app.title': 'QingMan',
@@ -395,7 +398,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.43',
+  'help.versionFallback': 'V0.0.44',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

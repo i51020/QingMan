@@ -1144,10 +1144,15 @@ def main() -> int:
         # 的解析链为 env > settings > 默认），避免本机 %APPDATA%/QingMan/settings.json 里
         # 既有绑定把「内置模板数」污染成不可复现的值；② 断言「只内置 P0」因此具备确定性。
         env["QM_TEMPLATES_DIR"] = str(sandbox / "templates")
+    # 服务端输出**必须持续排空**：`ThreadingHTTPServer` 每请求写一行访问日志，若走
+    # PIPE 而全程无人读取，Windows 管道缓冲（约 4KB）一满，服务线程即刻阻塞在写日志上
+    # → 不再响应任何请求 → 浏览器探针一路挂到超时（表现为「浏览器运行 120s 内未返回」，
+    # 且探针连自报都发不出）。V0.0.43 只多出 3 个静态请求的日志量，就刚好越过这个临界
+    # ——故改为落盘到沙盒日志文件：既排空管道，又留下排障线索（`--keep` 时保留）。
+    server_log = (sandbox / "server.log").open("w", encoding="utf-8")
     proc = subprocess.Popen(
         [sys.executable, "-m", "server"], cwd=str(sandbox_src), env=env,
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-        encoding="utf-8", errors="replace",
+        stdout=server_log, stderr=subprocess.STDOUT,
     )
 
     stderr = ""
@@ -1197,6 +1202,7 @@ def main() -> int:
             proc.wait(timeout=8)
         except subprocess.TimeoutExpired:
             proc.kill()
+        server_log.close()
         if cleanup:
             shutil.rmtree(sandbox, ignore_errors=True)
 

@@ -251,6 +251,56 @@ const tm = await import(SRC + '/modules/tree-model.js');
   ok('F/canBatchMove-ok', sel.canBatchMove(mr, [ma1.id], mb.id).ok === true);
 }
 
+/* ---------- V0.0.44 · 动态语言包（i18n/index.js） ----------
+   `i18n/index.js` 顶层只 import 纯数据（语言包 + skins），DOM / localStorage 访问全在
+   函数体内 —— 可作 ESM 直接导入。这里把「清单合成 / 母语名 / BCP 47 降级 / 非法形态收口」
+   四条**纯逻辑**固化为回归网；运行时渲染由 `browser_smoke` 覆盖。 */
+{
+  const i18n = await import(SRC + '/i18n/index.js');
+  const win = globalThis.window;
+
+  /* 无注入清单时：可用语言 = 出厂内置两语，顺序稳定 */
+  delete win.__QM_LOCALES__;
+  ok('i18n/supported-builtin',
+     i18n.supportedLocales().join(',') === 'zh-CN,en-US',
+     i18n.supportedLocales().join(','));
+
+  /* 母语自描述名；未知语言回落代码本身（不让它凭空消失） */
+  ok('i18n/name-zh', i18n.localeName('zh-CN') === '简体中文', i18n.localeName('zh-CN'));
+  ok('i18n/name-en', i18n.localeName('en-US') === 'English', i18n.localeName('en-US'));
+  ok('i18n/name-fallback', i18n.localeName('xx-YY') === 'xx-YY', i18n.localeName('xx-YY'));
+
+  /* 注入清单：排在内置之前；形态非法（含路径穿越面）的项被白名单过滤；与内置重复不重列 */
+  win.__QM_LOCALES__ = [
+    { code: 'fr-FR', name: 'Français' },
+    { code: '../evil', name: 'x' },
+    { code: 'zh-CN', name: '简体中文' },
+  ];
+  ok('i18n/supported-injected',
+     i18n.supportedLocales().join(',') === 'fr-FR,zh-CN,en-US',
+     i18n.supportedLocales().join(','));
+  ok('i18n/name-injected', i18n.localeName('fr-FR') === 'Français', i18n.localeName('fr-FR'));
+  ok('i18n/match-injected', i18n.matchLocale('fr-CA') === 'fr-FR', i18n.matchLocale('fr-CA'));
+  delete win.__QM_LOCALES__;
+
+  /* BCP 47 降级链：逐级剥离子标签 → 主语言回退；大小写 / 下划线兼容 */
+  ok('i18n/match-exact', i18n.matchLocale('en-US') === 'en-US', i18n.matchLocale('en-US'));
+  ok('i18n/match-strip', i18n.matchLocale('zh-Hant-TW') === 'zh-CN', i18n.matchLocale('zh-Hant-TW'));
+  ok('i18n/match-primary', i18n.matchLocale('EN_gb') === 'en-US', i18n.matchLocale('EN_gb'));
+  ok('i18n/match-none', i18n.matchLocale('de-DE') === null, i18n.matchLocale('de-DE'));
+  ok('i18n/match-empty', i18n.matchLocale('') === null, i18n.matchLocale(''));
+
+  /* loadLocale：内置立即 true；形态非法立即 false；清单有但文件缺失 → 降级 false 不抛 */
+  ok('i18n/load-builtin', (await i18n.loadLocale('zh-CN')) === true);
+  ok('i18n/load-bad-shape', (await i18n.loadLocale('../x')) === false);
+  ok('i18n/load-missing', (await i18n.loadLocale('de-DE')) === false);
+
+  /* 帮助分节与当前语言同源（默认 zh-CN）：非空数组 */
+  ok('i18n/help-nonempty',
+     Array.isArray(i18n.getHelpSections()) && i18n.getHelpSections().length > 0,
+     i18n.getHelpSections().length);
+}
+
 process.stdout.write('RESULT ' + JSON.stringify(results) + '\n');
 """
 
@@ -340,6 +390,20 @@ class FrontendJsTests(unittest.TestCase):
                   "F/canBatchMove-cycle", "F/canBatchMove-notDir", "F/canBatchMove-missing",
                   "F/canBatchMove-exists", "F/canBatchMove-sameParentNoConflict",
                   "F/canBatchMove-ok"):
+            self._ok(n)
+
+    def test_v044_dynamic_locales(self):
+        """V0.0.44 · 动态语言包：清单合成 / 母语名 / BCP 47 降级 / 非法形态收口。
+
+        这四条都是**纯逻辑**（不依赖 DOM 渲染），却决定「新增语言包能否被发现、
+        能不能被正确匹配、坏包是否拖垮清单」—— 故固化为回归网，而非只靠静态守卫。
+        """
+        for n in ("i18n/supported-builtin", "i18n/name-zh", "i18n/name-en",
+                  "i18n/name-fallback", "i18n/supported-injected", "i18n/name-injected",
+                  "i18n/match-injected", "i18n/match-exact", "i18n/match-strip",
+                  "i18n/match-primary", "i18n/match-none", "i18n/match-empty",
+                  "i18n/load-builtin", "i18n/load-bad-shape", "i18n/load-missing",
+                  "i18n/help-nonempty"):
             self._ok(n)
 
 

@@ -946,6 +946,114 @@ class OsLocaleTests(unittest.TestCase):
         self.assertEqual(routes.env_script(), 'window.__QM_OS_LOCALE__ = "";\n')
 
 
+class LocaleListTests(unittest.TestCase):
+    """V0.0.44 · 动态语言包：`/api/locales.js` 的枚举与注入脚本。
+
+    设计要点（与 `OsLocaleTests` 同构）：清单必须**早于 module 脚本**同步注入，
+    故产物是一段可解析的 JS 赋值而非异步接口。语言标签取自**文件名**（`LOCALE`
+    与文件名一致由 verify 静态把关），`NAME` 只做**正则文本**读取 —— 服务端
+    绝不 import 前端 ES Module。
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="qm_locales_")
+        self.addCleanup(self.tmp.cleanup)
+        self.dir = Path(self.tmp.name)
+        patcher = mock.patch.object(config, "LOCALES_DIR", self.dir)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _write(self, name: str, text: str) -> Path:
+        p = self.dir / name
+        p.write_text(text, encoding="utf-8")
+        return p
+
+    # ---------- 真机目录 ----------
+
+    def test_real_dir_lists_builtin_languages(self):
+        """出厂目录须恰好枚举到 zh-CN / en-US，且名字是母语自描述名。"""
+        with mock.patch.object(config, "LOCALES_DIR",
+                               config.WEB_DIR / "locales"):
+            got = routes.list_locales()
+        by_code = {e["code"]: e["name"] for e in got}
+        self.assertEqual(by_code.get("zh-CN"), "简体中文")
+        self.assertEqual(by_code.get("en-US"), "English")
+        # README.md 等非语言包文件不得混入
+        self.assertEqual(set(by_code), {"zh-CN", "en-US"}, by_code)
+
+    # ---------- 扫描与过滤 ----------
+
+    def test_only_js_with_bcp47_name_is_taken(self):
+        self._write("zh-CN.js", "export const LOCALE='zh-CN';\nexport const NAME='简体中文';\n")
+        self._write("notes.txt", "xx")
+        self._write("readme.md", "xx")
+        self._write("x.js", "short name")        # 主语言 1 字母 → 不匹配
+        self._write("bad name.js", "space")      # 含空格 → 不匹配
+        self._write("..js", "dots")              # 空主标签 → 不匹配
+        got = routes.list_locales()
+        self.assertEqual([e["code"] for e in got], ["zh-CN"], got)
+
+    def test_subtagged_tag_is_accepted(self):
+        """带多级子标签的合法标签（zh-Hans-CN）应被接受。"""
+        self._write("zh-Hans-CN.js", "export const NAME='简体中文（大陆）';\n")
+        self.assertEqual([e["code"] for e in routes.list_locales()], ["zh-Hans-CN"])
+
+    def test_sorted_by_filename(self):
+        for tag in ("zh-CN", "en-US", "de-DE"):
+            self._write(f"{tag}.js", f"export const NAME='{tag}';\n")
+        self.assertEqual([e["code"] for e in routes.list_locales()],
+                         ["de-DE", "en-US", "zh-CN"])
+
+    def test_directory_that_looks_like_locale_is_skipped(self):
+        """名字合法但是**目录**而非文件 → 跳过（只认文件）。"""
+        (self.dir / "fr-FR.js").mkdir()
+        self._write("en-US.js", "export const NAME='English';\n")
+        self.assertEqual([e["code"] for e in routes.list_locales()], ["en-US"])
+
+    # ---------- NAME 解析与降级 ----------
+
+    def test_name_read_by_regex_without_executing_js(self):
+        """名字从 `export const NAME = '…'` 里取；文件里夹带任意代码也不执行。"""
+        self._write("fr-FR.js",
+                    "throw new Error('never executed');\n"
+                    "export const LOCALE = 'fr-FR';\n"
+                    "export const NAME = \"Français\";\n")
+        got = routes.list_locales()
+        self.assertEqual(got, [{"code": "fr-FR", "name": "Français"}])
+
+    def test_missing_name_falls_back_to_filename(self):
+        """取不到 `NAME` 时回落文件名 —— 不让这门语言从清单里凭空消失。"""
+        self._write("ja-JP.js", "export const LOCALE='ja-JP';\n")
+        self.assertEqual(routes.list_locales(),
+                         [{"code": "ja-JP", "name": "ja-JP"}])
+
+    def test_undecodable_file_is_skipped(self):
+        """非 UTF-8 字节 → 跳过该文件，不因单包损坏而拖垮整份清单。"""
+        (self.dir / "ko-KR.js").write_bytes(b"export const NAME='\xff\xfe';\n")
+        self._write("en-US.js", "export const NAME='English';\n")
+        self.assertEqual([e["code"] for e in routes.list_locales()], ["en-US"])
+
+    # ---------- 缺目录与注入脚本 ----------
+
+    def test_missing_dir_returns_empty(self):
+        with mock.patch.object(config, "LOCALES_DIR", self.dir / "nope"):
+            self.assertEqual(routes.list_locales(), [])
+
+    def test_script_shape_and_native_names_unescaped(self):
+        """产物是可解析的 JS 赋值，且母语名**原样**（ensure_ascii=False）。"""
+        self._write("zh-CN.js", "export const NAME='简体中文';\n")
+        script = routes.locales_script()
+        m = re.match(r'^window\.__QM_LOCALES__ = (.*);\n$', script)
+        self.assertIsNotNone(m, repr(script))
+        value = json.loads(m.group(1))
+        self.assertEqual(value, [{"code": "zh-CN", "name": "简体中文"}])
+        self.assertIn("简体中文", script, "母语名不得被转成 \\uXXXX")
+
+    def test_script_empty_when_no_locales(self):
+        with mock.patch.object(config, "LOCALES_DIR", self.dir / "nope"):
+            self.assertEqual(routes.locales_script(), "window.__QM_LOCALES__ = [];\n")
+
+
 class BackendDefenseBatchTests(unittest.TestCase):
     """src 审查第四档 · 后端防御批（V0.0.30 · A-P3-1~8）回归位。"""
 

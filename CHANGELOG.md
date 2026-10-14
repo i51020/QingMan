@@ -7,6 +7,58 @@
 
 ---
 
+## V0.0.44 — 2026-10-14
+
+**主题**：**动态语言包（i18n 架构升级）** —— 语言包从「写死在中英两个文件里」升级为**可增删的外部数据**：新增一门语言**只需把语言包文件放进 `src/web/locales/`**，界面自动列出并可选用，**无需改动任何代码**。**升 patch `V0.0.43` → `V0.0.44`**。**无新增错误码**。
+
+> 依据：用户三条需求中的**第 3 条**（「语言包，需要新增语言时，用户只需要把语言包文件放在语言包的文件夹中界面就可以读取语言给用户选择」）。经裁定采用「**ESM + 后端枚举**」方案（语言包放 `src/web/locales/*.js`、内含 meta 自描述；后端新增 `/api/locales.js` 枚举目录；`file://` 直开时降级到内置语言）。需求 1+2（皮肤体系重构）**另行推进**，本轮不动。
+
+### 语言包目录与契约（`src/web/locales/`）
+
+- **`git mv` 迁移**：`src/web/js/i18n/zh-CN.js` · `en-US.js` → **`src/web/locales/`**（语言包是**数据**，与运行时 `i18n/index.js` 分离）。
+- **契约**（新增 `src/web/locales/README.md`，写明「新增一门语言的步骤」）：每个包须 `export const LOCALE`（**须与文件名一致**）、`export const NAME`（**母语自描述名**，不翻译）、`export const dict`、`export const helpSections`。
+
+### 后端 · 清单枚举与同步注入
+
+- **`src/server/config.py`**：新增 `LOCALES_DIR = WEB_DIR / "locales"`。
+- **`src/server/routes.py`**：新增 `LOCALES_PATH = "/api/locales.js"` + `list_locales()`（**只读文本 + 正则**读 `NAME`，**不执行**语言包代码）+ `locales_script()`（`json.dumps(..., ensure_ascii=False)` 保留母语名）。语言标签取自**文件名**，`NAME` 取不到时**回落文件名**（不让语言凭空消失）；目录缺失 / 非 UTF-8 / 名字不合 BCP 47 形态一律跳过。
+- **`src/server/app.py`**：`do_GET` 在 `ENV_PATH` 之后新增 `LOCALES_PATH` 分支。
+- **三个页面**（`index.html` / `help.html` / `support.html`）：在 `env.js` 与 module 脚本之间插入 `<script src="./api/locales.js"></script>` —— **必须早于 module 脚本**，否则语言选择器会先只列内置语言、拿到清单后再补出扩展语言（菜单跳变）。
+
+### 前端 · 动态加载与清单合成
+
+- **`src/web/js/i18n/index.js`**：出厂语言（zh-CN / en-US）**静态内置**（保证首屏同步取词、`file://` 直开可降级）；新增 `BUILTIN_LOCALES` / `LOCALES`（运行时 Map）/ `injectedLocales()`（读 `window.__QM_LOCALES__`，**白名单过滤**）/ `supportedLocales()` / `localeName()` / **`loadLocale(code)`**（`import()` 动态加载 + `LOADING` 去重 + 失败 warn 返回 `false`）。
+  - `setLocale` 改 **`async`**：未登记的语种先 `await loadLocale()`，失败即保持当前语言。
+  - 新增 `switchTo(pref)`：**跨页同步（`watchLocale`）与启动补载（`initPrefs`）共用同一路径**；`initPrefs` 末尾对「偏好指向未内置语言」**不阻塞首屏**（先按默认画一遍，加载完成后切过去）。
+  - 新增 **`getHelpSections()`** —— 取代 `help.js` / `ui/help-doc.js` 里硬编码的 `getLocale() === 'en-US' ? en : zh` 两语选择（**新增语言即漏**）。
+  - `getLocalePreference` / `hasLocalePref` 改为**只校验形态**（不要求已加载）—— 否则用户选过的扩展语言会被悄悄改回「跟随系统」。
+- **`src/web/js/ui/lang-picker.js`**：`labelOf` 改用 `localeName()`（母语名不翻译，auto 仍取词）；选项列表改 `supportedLocales()`。
+- **`src/web/js/help.js`** · **`ui/help-doc.js`**：改取 `getHelpSections()`。
+
+### 守卫适配
+
+- **`tools/verify.py`**：新增 **7b-6「动态语言包 V0.0.44」**（① 每个包须有 `LOCALE` / `NAME` / `dict` 且 `LOCALE` 与文件名一致；② 三页同步引入 `locales.js` 且早于 module 脚本；③ `smoke.py` 须真做 `/api/locales.js` 端到端检查）→ **校验项数 95 → 97**；`REQUIRED_FILES` 增 `src/web/locales/README.md`；7b-5 锚点由**裸名**改为**导出形态**（`export function loadLocale` 等）。
+- **`tools/smoke.py`**：新增 `/api/locales.js` **端到端**检查（**34 → 35 项**）。
+- **`tests/test_routes.py`**：新增 **`LocaleListTests`（11 条）** —— 真机目录枚举 / 过滤非包与非法名 / 子目录跳过 / 排序 / `NAME` 正则读取（**不执行 JS**）/ 缺 `NAME` 回落 / 非 UTF-8 跳过 / 缺目录 / 脚本形态与母语名不被转义。
+- **`tests/test_frontend_js.py`**：HARNESS 增 V0.0.44 块（**16 条断言**：清单合成 / 母语名回落 / BCP 47 降级 / 非法形态收口 / 缺包降级）+ `test_v044_dynamic_locales`。
+
+### 反向验证（实测）
+
+在带**无条件还原**的临时诊断脚本上，对四条守卫各注入一处破坏，确认 `verify` **恰好**对应项 FAIL：① `smoke.py` 删掉真正的 `/api/locales.js` 请求（判定名保留）；② `i18n/index.js` 取消 `loadLocale` 的 export（函数仍在）；③ `zh-CN.js` 的 `LOCALE` 与文件名不符；④ `lang-picker.js` 不再把 auto 列为独立一档。**其中 ①② 首轮用「子串仍在」的弱破坏未触发，据此把守卫由裸名加固为导出形态 / 请求调用形态** —— 与 `lang-picker` 那条同属「残留引用蒙混过关」类弱点（《错误笔记》§三）。
+
+### 行为变更提示
+
+- **新增一门语言 = 放一个文件**：把 `<tag>.js`（含 `LOCALE` / `NAME` / `dict` / `helpSections`）放进 `src/web/locales/`，刷新页面即出现在语言选择器里（**顺序按文件名**）。**无需改任何代码**。
+- **`file://` 直开降级**：不经后端时读不到清单，选择器只列**内置两语**（zh-CN / en-US）—— 其余语言不显示但也不报错。
+- **首屏不阻塞**：偏好指向扩展语言时，先用默认语言渲染，加载完成后再切换（换一次重绘，换首屏零等待）。
+- **既有行为不变**：内置两语的取词内容与键集、语言持久化键 `qm.lang`、「跟随系统」语义均未变动。
+
+### 一处过程教训（已记入《错误笔记》）
+
+`tools/browser_smoke.py` 以 `subprocess.Popen(..., stdout=subprocess.PIPE)` 起服务却**从不读取**其输出：`ThreadingHTTPServer` 每请求写一行访问日志，Windows 管道缓冲（~4KB）填满后服务线程**阻塞在写日志上**、不再响应请求，浏览器探针挂到超时（实测 **120s 超时 → 3 项 FAIL**）。本轮只多出 3 个静态请求的日志量，刚好越过临界。**修复**：服务输出改**落盘日志文件**持续排空 —— **120s → 19.6s**。
+
+---
+
 ## V0.0.43 — 2026-10-14
 
 **主题**：**UI 定版差集 G → H → F 三组落地**（需求草案 §八 实施顺序：最轻 → 中等 → 最重）—— **G** 工具栏三分组（编辑/视图/输出）、**H** 检视器「属性 ⇄ 源码」双模式、**F** 目录树**多选批量**（Ctrl/Shift/Ctrl+A/Esc + 批量复制/删除/移动）。**升 patch `V0.0.42` → `V0.0.43`**。**无新增错误码**。**后端零改动**（三组均为前端；F 组的批量删除走既有 `POST /api/...` 删除路径，仅改为多节点循环 + 最外层祖先去重）。

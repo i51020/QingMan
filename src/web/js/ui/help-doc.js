@@ -2,7 +2,7 @@
  * 青蔓 QingMan · 帮助弹窗正文（V0.0.40）
  *
  * 应用内帮助弹窗（`#dlgHelp`）的正文与目录渲染器。
- * 数据源与帮助页**同一份** `i18n/*.js` 的 `helpSections` —— 页面与弹窗版式不同，
+ * 数据源与帮助页**同一份**（`i18n/index.js` 的 `getHelpSections()` → 当前语言包）—— 版式不同，
  * 但只要分节清单是同一个数组，两处内容就不可能漂移（这是本模块存在的唯一理由）。
  *
  * 版式差异（与 help.js 的页面版）：
@@ -13,14 +13,7 @@
  * 文案一律经 `t(key)`（§P0-3 L1）。
  */
 
-import { helpSections as helpSectionsZh } from '../i18n/zh-CN.js';
-import { helpSections as helpSectionsEn } from '../i18n/en-US.js';
-import { t, getLocale } from '../i18n/index.js';
-
-/** 按当前语种取分节清单（与 help.js 的 currentHelpSections 同构）。 */
-function currentSections() {
-  return getLocale() === 'en-US' ? helpSectionsEn : helpSectionsZh;
-}
+import { t, getHelpSections } from '../i18n/index.js';
 
 /**
  * @param {HTMLElement} tocEl 目录容器（`.help-toc`）
@@ -91,7 +84,7 @@ export function createHelpDoc(tocEl, docEl, opts = {}) {
   function render() {
     docEl.textContent = '';
     tocEl.textContent = '';
-    for (const section of currentSections()) {
+    for (const section of getHelpSections()) {
       docEl.appendChild(buildSection(section));
       const link = document.createElement('a');
       link.href = `#dlg-h-${section.id}`;

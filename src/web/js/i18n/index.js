@@ -4,6 +4,10 @@
  * 单一取词入口：**所有面向用户可见的文案都必须经 `t(key)` 取得**，
  * UI 模块一律不得直写文案（由 `tools/verify.py` 的静态检查把关）。
  *
+ * 语言包机制（V0.0.44）：出厂语言（zh-CN / en-US）**静态内置**以保证首屏同步取词；
+ * 其余语言包放 `src/web/locales/<tag>.js`，由后端 `/api/locales.js` 枚举、
+ * 前端经 `loadLocale()` 按需动态加载 —— **新增一门语言无需改动任何代码**。
+ *
  * 语言 / 皮肤 / 界面折叠态分别持久化在 localStorage 的
  * `qm.lang` / `qm.skin` / `qm.genBar`（§P0-3 L6）。
  * 本模块的 DOM / localStorage 访问全部发生在函数内部 —— 顶层导入是安全的，
@@ -13,14 +17,102 @@
  * 复用同一条带降级的读写路径，**不要在别处直访 `window.localStorage`**。
  */
 
-import { dict as zhCN } from './zh-CN.js';
-import { dict as enUS } from './en-US.js';
+import { dict as zhCN, helpSections as hsZh, NAME as nameZh } from '../../locales/zh-CN.js';
+import { dict as enUS, helpSections as hsEn, NAME as nameEn } from '../../locales/en-US.js';
 import { SKINS, DEFAULT_SKIN_CID } from './skins.js';
 
-/** 语言代码 → 字典。新增语种时在此登记（§P0-3 L3）。 */
-const DICTIONARIES = { 'zh-CN': zhCN, 'en-US': enUS };
+/**
+ * 出厂语言包（**静态内置**）。
+ *
+ * 为什么内置而非全部动态：① 首屏**同步**可用 —— 模块脚本一执行完即能取词，无需
+ * await，否则界面会先按空字典画一遍再跳变；② 后端不可用时（直接以 `file://` 打开
+ * 页面）仍有一套完整语言可降级。其余语言按需从 `src/web/locales/` **动态加载**。
+ */
+const BUILTIN_LOCALES = {
+  'zh-CN': { name: nameZh, dict: zhCN, help: hsZh },
+  'en-US': { name: nameEn, dict: enUS, help: hsEn },
+};
 
-export const SUPPORTED_LOCALES = Object.freeze(Object.keys(DICTIONARIES));
+/** 运行时语言注册表（内置 + 已动态加载）：`code → { name, dict, help }`。 */
+const LOCALES = new Map(Object.entries(BUILTIN_LOCALES));
+
+/** 语言代码形态白名单（BCP 47 粗判）。**代码会被拼进动态 import 的路径**，故必须过滤。 */
+const LOCALE_SHAPE = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
+
+/** 后端注入的可用语言清单（`/api/locales.js` 同步注入，早于 module 脚本执行）。 */
+function injectedLocales() {
+  if (typeof window === 'undefined') return [];
+  const raw = window.__QM_LOCALES__;
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const item of raw) {
+    if (!item) continue;
+    const code = String(item.code || '');
+    if (!LOCALE_SHAPE.test(code)) continue;   // 清单来自文件系统，仍按白名单收口
+    const name = typeof item.name === 'string' && item.name ? item.name : code;
+    out.push({ code, name });
+  }
+  return out;
+}
+
+/**
+ * 当前可用语言代码，顺序即语言选择器顺序（后端清单在前，未列入的内置语言补齐在后）。
+ * **不导出为常量** —— 语言包可在运行时增删，快照式常量会与界面所见不一致。
+ */
+export function supportedLocales() {
+  const seen = new Set();
+  const out = [];
+  for (const item of injectedLocales()) {
+    if (!seen.has(item.code)) { seen.add(item.code); out.push(item.code); }
+  }
+  for (const code of LOCALES.keys()) {
+    if (!seen.has(code)) { seen.add(code); out.push(code); }
+  }
+  return out;
+}
+
+/** 某语言的**自描述名**（母语写法）；未加载且无注入名时回落到代码本身。 */
+export function localeName(code) {
+  const entry = LOCALES.get(code);
+  if (entry && entry.name) return entry.name;
+  const hit = injectedLocales().find((x) => x.code === code);
+  return hit ? hit.name : code;
+}
+
+const LOADING = new Map();
+
+/**
+ * 按需加载扩展语言包（`src/web/locales/<code>.js`，动态 import）。**已加载则立即返回**。
+ *
+ * 失败（文件不存在 / 契约不符 / 代码形态非法）返回 `false`，调用方据此保持当前语言 ——
+ * 语言包是**可增删的外部数据**，不能假定清单里的每一项都真能加载成功。
+ */
+export function loadLocale(code) {
+  if (LOCALES.has(code)) return Promise.resolve(true);
+  if (!LOCALE_SHAPE.test(String(code || ''))) return Promise.resolve(false);
+  if (LOADING.has(code)) return LOADING.get(code);
+  const pending = import('../../locales/' + code + '.js')
+    .then((mod) => {
+      if (!mod || typeof mod.dict !== 'object' || mod.dict === null) {
+        console.warn('[i18n] locale pack has no dict:', code);
+        return false;
+      }
+      LOCALES.set(code, {
+        name: typeof mod.NAME === 'string' && mod.NAME ? mod.NAME : code,
+        dict: mod.dict,
+        help: Array.isArray(mod.helpSections) ? mod.helpSections : [],
+      });
+      return true;
+    })
+    .catch((err) => {
+      console.warn('[i18n] cannot load locale pack:', code, err);
+      return false;
+    })
+    .finally(() => { LOADING.delete(code); });
+  LOADING.set(code, pending);
+  return pending;
+}
+
 export const DEFAULT_LOCALE = 'zh-CN';
 /** 「跟随系统」的偏好值。它不是语种，需经 `resolveLocale()` 解析成实际语种。 */
 export const AUTO_LOCALE = 'auto';
@@ -33,7 +125,7 @@ export const INSP_KEY = 'qm.inspMode';
 export const ICON_KEY = 'qm.launchIcon';
 
 let locale = DEFAULT_LOCALE;
-let dict = DICTIONARIES[locale];
+let dict = BUILTIN_LOCALES[DEFAULT_LOCALE].dict;
 
 /* ---------- 语种探测与匹配（BCP 47 降级） ---------- */
 
@@ -85,13 +177,14 @@ function systemLocales() {
 export function matchLocale(tag) {
   const parts = String(tag || '').toLowerCase().split(/[-_]/).filter(Boolean);
   if (!parts.length) return null;
+  const available = supportedLocales();
   for (let i = parts.length; i > 0; i -= 1) {
     const candidate = parts.slice(0, i).join('-');
-    const hit = SUPPORTED_LOCALES.find((s) => s.toLowerCase() === candidate);
+    const hit = available.find((s) => s.toLowerCase() === candidate);
     if (hit) return hit;
   }
   const primary = parts[0];
-  return SUPPORTED_LOCALES.find((s) => s.toLowerCase().split('-')[0] === primary) || null;
+  return available.find((s) => s.toLowerCase().split('-')[0] === primary) || null;
 }
 
 /** 在一串偏好里挑第一个能命中的语种；全不命中返回 null。 */
@@ -109,14 +202,15 @@ export function lookupLocale(preferred) {
  * 显式语种直接用；`auto`（或空）走系统探测；探测无命中落到 `DEFAULT_LOCALE`。
  */
 export function resolveLocale(pref) {
-  if (pref && pref !== AUTO_LOCALE && DICTIONARIES[pref]) return pref;
+  if (pref && pref !== AUTO_LOCALE && LOCALES.has(pref)) return pref;
   return lookupLocale(systemLocales()) || DEFAULT_LOCALE;
 }
 
 /** 只改内存与 `<html lang>`，不写盘、不刷 DOM。 */
 function applyLocale(next) {
   locale = next;
-  dict = DICTIONARIES[next];
+  const entry = LOCALES.get(next);
+  dict = entry ? entry.dict : BUILTIN_LOCALES[DEFAULT_LOCALE].dict;
   if (typeof document !== 'undefined') document.documentElement.lang = next;
 }
 
@@ -153,8 +247,11 @@ export function getLocale() {
  * 切换语言。可接受具体语种或 `AUTO_LOCALE`（跟随系统）。
  * 未登记的语种返回 false，不做任何改动；成功时刷新全部静态文案并广播事件。
  */
-export function setLocale(next) {
-  if (next !== AUTO_LOCALE && !DICTIONARIES[next]) return false;
+export async function setLocale(next) {
+  if (next !== AUTO_LOCALE && !LOCALES.has(next)) {
+    const ok = await loadLocale(next);   // 扩展语言按需加载；加载失败即保持当前语言
+    if (!ok) return false;
+  }
   const resolved = resolveLocale(next);
   writePref(LOCALE_KEY, next);
   applyLocale(resolved);
@@ -168,13 +265,16 @@ export function setLocale(next) {
 /** 用户显式选过的偏好值（可能是 `auto`）。未选过也返回 `auto` —— 即出厂默认就是跟随系统。 */
 export function getLocalePreference() {
   const saved = readPref(LOCALE_KEY);
-  return saved && (saved === AUTO_LOCALE || DICTIONARIES[saved]) ? saved : AUTO_LOCALE;
+  if (saved === AUTO_LOCALE) return AUTO_LOCALE;
+  // 只校验**形态**，不要求已加载 —— 用户选过的扩展语言可能本次还没加载，
+  // 若在此判为非法，用户的选择会被悄悄改回「跟随系统」。
+  return saved && LOCALE_SHAPE.test(saved) ? saved : AUTO_LOCALE;
 }
 
 /** 是否显式选过语言（用于区分「出厂默认」与「用户选的同一档」）。 */
 export function hasLocalePref() {
   const saved = readPref(LOCALE_KEY);
-  return Boolean(saved && (saved === AUTO_LOCALE || DICTIONARIES[saved]));
+  return Boolean(saved && (saved === AUTO_LOCALE || LOCALE_SHAPE.test(saved)));
 }
 
 /**
@@ -182,17 +282,32 @@ export function hasLocalePref() {
  * 主界面与帮助页是两个独立页面，共享 localStorage 但各自持有内存态，
  * 不监听 `storage` 就会出现「主界面切了语言、已打开的帮助页还是旧语言」。
  */
-export function watchLocale() {
-  if (typeof window === 'undefined') return;
-  window.addEventListener('storage', (event) => {
-    if (event.key !== LOCALE_KEY) return;
-    const resolved = resolveLocale(event.newValue || AUTO_LOCALE);
+/**
+ * 切到某偏好值：必要时先补载语言包，再应用并广播。
+ *
+ * **跨页同步（`watchLocale`）与启动补载（`initPrefs`）共用这一条路径** ——
+ * 否则「另一标签页选了扩展语言」与「本页启动时偏好是扩展语言」会走出两种行为。
+ */
+function switchTo(pref) {
+  const needLoad = pref && pref !== AUTO_LOCALE && !LOCALES.has(pref) && LOCALE_SHAPE.test(pref);
+  const commit = () => {
+    const resolved = resolveLocale(pref);
     if (resolved === locale) return;
     applyLocale(resolved);
     if (typeof document !== 'undefined') {
       applyStatic(document);
       document.dispatchEvent(new CustomEvent('qmlocalechange', { detail: { locale: resolved } }));
     }
+  };
+  if (needLoad) loadLocale(pref).then((ok) => { if (ok) commit(); });
+  else commit();
+}
+
+export function watchLocale() {
+  if (typeof window === 'undefined') return;
+  window.addEventListener('storage', (event) => {
+    if (event.key !== LOCALE_KEY) return;
+    switchTo(event.newValue || AUTO_LOCALE);
   });
 }
 
@@ -237,6 +352,20 @@ export function applyStatic(root) {
       node.setAttribute(ATTRS[attr], t(node.getAttribute(attr)));
     }
   }
+}
+
+/* ---------- 帮助分节（V0.0.44 · 语言包统一来源） ---------- */
+
+/**
+ * 当前语言的帮助分节结构：帮助页（`help.js`）与帮助弹窗（`ui/help-doc.js`）**共用同一份**。
+ *
+ * 与 `t()` 同源 —— 都取自当前语言包，故「页面版」与「弹窗版」内容不可能漂移
+ * （上一版是靠 `getLocale() === 'en-US' ? en : zh` 硬编码两语，新增语言即漏）。
+ * 语言包未提供 `helpSections` 时返回空数组，调用方渲染空即可，不抛错。
+ */
+export function getHelpSections() {
+  const entry = LOCALES.get(locale);
+  return entry && Array.isArray(entry.help) ? entry.help : [];
 }
 
 /* ---------- 皮肤（§P0-3 L5 · L6，机制预留） ---------- */
@@ -346,7 +475,11 @@ export function setInspMode(mode) {
 
 /** 启动时恢复已保存的语言与皮肤。**必须在填充任何文案之前调用**。 */
 export function initPrefs() {
-  applyLocale(resolveLocale(getLocalePreference()));
+  const pref = getLocalePreference();
+  applyLocale(resolveLocale(pref));
   applySkin();
+  // 偏好指向**未内置**的扩展语言包时，首屏**不等它**（等会白屏）：先用默认画一遍，
+  // 加载完成后经 switchTo 切过去。丢掉的只是一次重绘，换来的是首屏零阻塞。
+  if (pref !== AUTO_LOCALE && !LOCALES.has(pref)) switchTo(pref);
   return locale;
 }

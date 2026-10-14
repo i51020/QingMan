@@ -18,7 +18,7 @@ import tempfile
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from server import config, dtree_core
 from server.dtree_core import TreeError
@@ -48,6 +48,9 @@ ICON_PATH = "/api/launch-icon"
 # 浏览器语言可被单独改写（装浏览器时选了英文、或用户手动调过），
 # 与「系统显示语言」不是一回事 —— 故由后端取真值，再经本端点同步注入前端。
 ENV_PATH = "/api/env.js"
+# 可用语言清单（V0.0.44 · 动态语言包）：与 env.js 同样**同步注入** —— 语言选择器必须
+# 在首屏就列全，否则会先只显示内置语言、拿到清单后再补出扩展语言（菜单跳变）。
+LOCALES_PATH = "/api/locales.js"
 
 # 编辑态文档结构版本；结构不兼容变更时递增（见 src/shared/schema.json）
 EDITOR_SCHEMA_VERSION = 1
@@ -126,6 +129,46 @@ def env_script() -> str:
     内容恒为 ASCII（BCP 47 标签），仍用 json.dumps 转义，杜绝注入面。
     """
     return "window.__QM_OS_LOCALE__ = " + json.dumps(os_locale()) + ";\n"
+
+
+# 语言包契约的两个导出（V0.0.44）：`LOCALE` 须与文件名一致；`NAME` 为母语自描述名。
+# **只读文本 + 正则**，不执行语言包代码 —— 在服务端 import 前端 ES Module 既无必要也不安全。
+_LOCALE_NAME_RE = re.compile(r"export\s+const\s+NAME\s*=\s*['\"]([^'\"]+)['\"]")
+_LOCALE_FILE_RE = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*\.js$")
+
+
+def list_locales() -> List[Dict[str, str]]:
+    """扫描语言包目录，返回 `[{"code", "name"}]`（按文件名排序，顺序稳定）。
+
+    语言标签取自**文件名**（契约要求文件内 `LOCALE` 与之一致，由 verify 静态把关）；
+    `NAME` 取不到时回落到文件名 —— 宁可名字难看，也不让这门语言从清单里凭空消失。
+    目录不存在或为空返回空列表，前端据此降级为「仅内置语言」。
+    """
+    out: List[Dict[str, str]] = []
+    try:
+        entries = sorted(config.LOCALES_DIR.iterdir(), key=lambda p: p.name)
+    except OSError:
+        return out
+    for path in entries:
+        if not path.is_file() or not _LOCALE_FILE_RE.match(path.name):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        hit = _LOCALE_NAME_RE.search(text)
+        code = path.name[:-3]
+        out.append({"code": code, "name": (hit.group(1).strip() if hit else "") or code})
+    return out
+
+
+def locales_script() -> str:
+    """可用语言清单的**同步**注入脚本（响应 `GET /api/locales.js`）。
+
+    与 `env_script` 同理：清单必须早于 module 脚本就位，语言选择器才能一次列全。
+    值经 `json.dumps` 转义（`ensure_ascii=False` 保留母语名），杜绝注入面。
+    """
+    return "window.__QM_LOCALES__ = " + json.dumps(list_locales(), ensure_ascii=False) + ";\n"
 
 
 def generate(payload: Dict[str, Any]) -> Dict[str, Any]:

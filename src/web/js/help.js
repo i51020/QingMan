@@ -5,17 +5,11 @@
  * 任何面向用户的文案都不写在这里 —— 全部来自 `i18n/*.js`（见 docs/项目约定.md §P0-3）。
  */
 
-import { helpSections as helpSectionsZh } from './i18n/zh-CN.js';
-import { helpSections as helpSectionsEn } from './i18n/en-US.js';
-import { t, applyStatic, initPrefs, getLocale, watchLocale } from './i18n/index.js';
+import { t, applyStatic, initPrefs, getHelpSections, watchLocale } from './i18n/index.js';
 import { createLangPicker } from './ui/lang-picker.js';
 import { api } from './core/api.js';
 
 const el = (id) => document.getElementById(id);
-
-function currentHelpSections() {
-  return getLocale() === 'en-US' ? helpSectionsEn : helpSectionsZh;
-}
 
 /** 动态字段的当前值。version 为 null 表示尚未拿到后端实测值。 */
 const state = { version: null, backendOk: false };
@@ -110,7 +104,7 @@ function renderSections() {
   host.textContent = '';
   nav.textContent = '';
 
-  for (const section of currentHelpSections()) {
+  for (const section of getHelpSections()) {
     host.appendChild(buildSection(section));
 
     const li = document.createElement('li');
@@ -149,7 +143,7 @@ function scrollToHash() {
 
 /* ---------- 启动 ---------- */
 
-/* 语言切换后重渲染：正文按语种取自不同数组（helpSectionsZh / helpSectionsEn），
+/* 语言切换后重渲染：正文取自当前语言包的分节（getHelpSections()），
  * 静态壳（标题、返回按钮提示）由 applyShell 处理。 */
 document.addEventListener('qmlocalechange', () => {
   applyShell();

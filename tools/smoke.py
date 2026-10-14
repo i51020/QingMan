@@ -185,6 +185,21 @@ def run_checks(client: Client, sandbox: Path) -> None:
     status, _data, raw = client.request("GET", "/index.html")
     check(status == 200 and b"<html" in raw.lower(), "静态文件正常 → 200", str(status))
 
+    # 10b. 动态语言包清单同步注入（V0.0.44）：`/api/locales.js` 须真的经 HTTP 送达一段
+    #     可解析的 `window.__QM_LOCALES__ = [...]`，且至少含出厂两语 —— 语言选择器
+    #      靠它一次列全。单测直接调函数、verify 只做静态锚定，**端到端接线**由本条兜底。
+    status, _data, raw = client.request("GET", "/api/locales.js")
+    text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else (raw or "")
+    prefix = "window.__QM_LOCALES__ = "
+    codes: list[str] = []
+    if text.startswith(prefix) and text.rstrip().endswith(";"):
+        try:
+            codes = [str(item.get("code")) for item in json.loads(text[len(prefix):].rstrip()[:-1])]
+        except (ValueError, TypeError, AttributeError):
+            codes = []
+    check(status == 200 and {"zh-CN", "en-US"} <= set(codes),
+          "GET /api/locales.js → 200 且含出厂两语", f"{status} {codes}")
+
     # 11. 版本号与 VERSION 一致
     status, data, _ = client.request("GET", "/api/health")
     check(data and data.get("version") == version_text,

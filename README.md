@@ -198,7 +198,7 @@ python tools/browser_smoke.py                 # 页面级冒烟（无头浏览�
 
 ## 界面文案与皮肤（§P0-3）
 
-**文案零直写**：界面上的每一句中文都来自 `src/web/js/i18n/zh-CN.js` 的取词表（**296 键**），代码里通过 `t(key)` 取；HTML 用 `data-i18n` / `data-i18n-title` / `data-i18n-placeholder` / `data-i18n-aria-label` 属性声明键名，加载时由 `applyStatic()` 统一填充。**英文取词表 `en-US.js` 已内置，键集与中文零差异** —— 在 `DICTIONARIES` 注册即可切换，无需改任何组件。
+**文案零直写**：界面上的每一句中文都来自语言包 `src/web/locales/zh-CN.js` 的取词表，代码里通过 `t(key)` 取；HTML 用 `data-i18n` / `data-i18n-title` / `data-i18n-placeholder` / `data-i18n-aria-label` / `data-i18n-alt` 属性声明键名，加载时由 `applyStatic()` 统一填充。**出厂语言（zh-CN / en-US）静态内置、键集零差异**；**其余语言包放 `src/web/locales/<tag>.js`，后端 `/api/locales.js` 枚举、前端按需 `import()` 动态加载 —— 新增一门语言只需放一个文件，无需改任何代码**（契约与步骤见 `src/web/locales/README.md`）。
 
 | 约定 | 内容 |
 |---|---|

@@ -180,6 +180,12 @@ class Handler(BaseHTTPRequestHandler):
                 body = routes.env_script().encode("utf-8")
                 self._send(200, body, "text/javascript; charset=utf-8")
                 return
+            if path == routes.LOCALES_PATH:
+                # 同步注入可用语言清单（V0.0.44）：同样早于 module 脚本，
+                # 语言选择器首屏即列全（含用户新放进 locales/ 的语言包）
+                body = routes.locales_script().encode("utf-8")
+                self._send(200, body, "text/javascript; charset=utf-8")
+                return
             if path == routes.EDITOR_PATH:
                 try:
                     self._json(200, routes.load_editor())

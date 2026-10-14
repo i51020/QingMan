@@ -10,12 +10,15 @@
  */
 
 import {
-  t, AUTO_LOCALE, SUPPORTED_LOCALES, getLocalePreference, setLocale,
+  t, AUTO_LOCALE, supportedLocales, localeName, getLocalePreference, setLocale,
 } from '../i18n/index.js';
 
-/** 选项标签键：`auto` → `lang.auto`；`zh-CN` → `lang.zhCN`。 */
+/**
+ * 选项标签：`auto` 是取词键（要翻译）；其余取语言包**自带的自描述名**（母语写法，不翻译）。
+ * 上一版把标签写成 `lang.<code>` 硬编码两语，新增语言包里没有对应键 → 只能回显键名。
+ */
 function labelOf(value) {
-  return value === AUTO_LOCALE ? 'lang.auto' : `lang.${value.replace('-', '')}`;
+  return value === AUTO_LOCALE ? t('lang.auto') : localeName(value);
 }
 
 export function createLangPicker(selectEl) {
@@ -24,17 +27,17 @@ export function createLangPicker(selectEl) {
   const fill = () => {
     const saved = getLocalePreference();
     selectEl.textContent = '';
-    for (const value of [AUTO_LOCALE, ...SUPPORTED_LOCALES]) {
+    for (const value of [AUTO_LOCALE, ...supportedLocales()]) {
       const opt = document.createElement('option');
       opt.value = value;
-      opt.textContent = t(labelOf(value));
+      opt.textContent = labelOf(value);
       selectEl.appendChild(opt);
     }
     selectEl.value = saved;
   };
 
   fill();
-  selectEl.addEventListener('change', () => setLocale(selectEl.value));
+  selectEl.addEventListener('change', () => { void setLocale(selectEl.value); });
 
   // 语言切换后，选项**自身**的文案也要跟着变 —— applyStatic() 只处理
   // `data-i18n`，管不到这里动态生成的 <option>。
@@ -46,7 +49,7 @@ export function createLangPicker(selectEl) {
  * 只是渲染成 `#popLang` 里的 `menu-item`（`role="menuitemradio"`）。
  *
  * 为什么保留两份：帮助页 / 支持页仍是独立页面、仍用 `<select>`；
- * 主界面按设计稿改为图标按钮 + 浮层。两者共用 `SUPPORTED_LOCALES` 与
+ * 主界面按设计稿改为图标按钮 + 浮层。两者共用 `supportedLocales()` 与
  * `setLocale`，故不会出现「两个入口能选的档不一致」。
  *
  * 「跟随系统」同样是**显式可见的一档**（与 select 版一致）。
@@ -54,7 +57,7 @@ export function createLangPicker(selectEl) {
 export function createLangMenu(menuEl) {
   if (!menuEl) return null;
 
-  const options = () => [AUTO_LOCALE, ...SUPPORTED_LOCALES];
+  const options = () => [AUTO_LOCALE, ...supportedLocales()];
   const items = new Map();
 
   function sync() {
@@ -77,9 +80,11 @@ export function createLangMenu(menuEl) {
       check.className = 'ic ic-sm ic-check';
       check.setAttribute('aria-hidden', 'true');
       const text = document.createElement('span');
-      text.textContent = t(labelOf(value));
+      text.textContent = labelOf(value);
       btn.append(check, text);
-      btn.addEventListener('click', () => { setLocale(value); sync(); });
+      // 切换会经 `qmlocalechange` 触发 build() 重建菜单（选中态随之复位）；
+      // 加载失败则不重建，选中态保持原样 —— 正是失败时应有的表现。
+      btn.addEventListener('click', () => { void setLocale(value); });
       menuEl.appendChild(btn);
       items.set(value, btn);
     }
