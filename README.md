@@ -4,7 +4,7 @@
 
 - 中文名：**青蔓**
 - 英文名：**QingMan**
-- 当前版本：**V0.0.48**
+- 当前版本：**V0.0.49**
 - 运行环境：Windows 10/11 + Python 3.8+，完全离线，仅监听 `127.0.0.1`
 - 实测环境：**Windows 11**（鼠标 + 键盘）。触屏与其他操作系统**未验证**，故不做针对性适配
 
@@ -70,8 +70,8 @@ QingMan/
 ├─ store/               内容寻址仓库
 │  ├─ objects/          blob 池：路径 = 内容的 SHA-256，跨版本自动去重
 │  └─ .trash/           checkout 时多余文件的回收区（不真删）
-├─ versions/            版本清单（**只增不改**，V0.0.1 … V0.0.48 每版一目录）
-│  ├─ V0.0.48/          MANIFEST.json（基线 r1，当前版本）＋ 必要的 MANIFEST-r<N>.json
+├─ versions/            版本清单（**只增不改**，V0.0.1 … V0.0.49 每版一目录）
+│  ├─ V0.0.49/          MANIFEST.json（基线 r1，当前版本）＋ 必要的 MANIFEST-r<N>.json
 │  └─ V0.0.1/           MANIFEST.json（基线 r1）+ MANIFEST-r<N>.json（同版本修订）
 ├─ preview/             试运行区（**只服务单次开发**：`promote` 后即清空，不跨版本保留 —— §P1-7）
 │  └─ README.md         用途与规则说明（占位，使目录保留在 git 跟踪内）
@@ -253,9 +253,9 @@ python tools/browser_smoke.py                 # 页面级冒烟（无头浏览�
 ## 回退
 
 ```bash
-python tools/store.py checkout V0.0.48        # 取当前版本（= 该版本最高修订）
+python tools/store.py checkout V0.0.49        # 取当前版本（= 该版本最高修订）
 python tools/store.py checkout V0.0.1@r1      # 精确回退到某个修订
-python tools/verify.py . --against V0.0.48    # 与当前版本清单比对
+python tools/verify.py . --against V0.0.49    # 与当前版本清单比对
 ```
 
 回退时「当前有、目标版本没有」的文件，会先复制进 `store/.trash/<时间戳>/` 并**逐字节校验**，通过后才移除原文件 —— 全程不真删。
