@@ -41,6 +41,8 @@
   "editorTooManyNodes": "编辑态文档节点过多，上限 {limit} 个",
   "editorReadFailed": "读取编辑态文档失败：{message}",
   "editorCorrupt": "编辑态文档已损坏，无法解析：{path}",
+  "editorBackupNotFound": "找不到该历史版本：{id}",
+  "editorBackupCorrupt": "历史版本已损坏，无法恢复：{name}",
   "shortcutTargetMissing": "启动文件不存在：{target}",
   "shortcutFailed": "快捷方式生成失败：{message}",
   "openDirBadTarget": "未知的目录标识：{target}",

@@ -14,14 +14,17 @@
   6. Python 语法（ast 只读解析，不产生 __pycache__，保证校验不污染被校验目录）
  7. 帮助页无硬编码中文（§P0-3 L1：文案必须经取词表，页面只留 data-i18n 键名）
  7b. 双语与皮肤预留（§P0-3）：主界面无硬编码中文 / JS 无中文串字面量 / 组件 CSS 无裸色值 /
-     组件 CSS 不感知皮肤 / 皮肤目录契约 / 偏好键名（**5 键**，权威清单见 §P0-3 L6）
+     组件 CSS 不感知皮肤 / 皮肤目录契约 / 偏好键名（**4 键**，权威清单见 §P0-3 L6；
+     V0.0.51@r9 撤销生成参数区折叠，`qm.genBar` 退场）
  7ai. 偏好键名「三方一致」（§P0-3 L6）：实现（`i18n/index.js` 的 `_KEY` 声明）/ 守卫
      （本文件 `PREF_KEYS`）/ 文档（§P0-3 L6 规则行）三处键集合必须相等
  7aj. 图标契约（§P0-3 L8）：`.ic-*` 定义↔使用双向配对 / 形状类须声明 `--m` /
      禁 `background-image`、`<img>` 引 SVG 与 `@font-face` / 图标按钮可访问名（顶栏另须 tooltip）/
      字形图标白名单与图标册三方一致（实现 / 本文件 `ICON_SHAPES` / §P0-3 L8 规则行）
+ 7al. 「历史版本」端点接线（V0.0.51@r9）：后端常量/枚举/恢复（**须复用 `routes.save_editor`**）
+     → 分发两处 → 前端封装 → 接线（**须真拉列表**）→ 错误码，七处任一断开即红
  7e. CSS 类名形态（§P2 第 1 项）：一律 kebab-case，不得含下划线或大写
- 7f. 体积上限（§P2 第 4 项）：src/** 合计 ≤ 576K，单文件 ≤ 64K
+ 7f. 体积上限（§P2 第 4 项）：src/** 合计 ≤ 640K，单文件 ≤ 64K
  7g. 帮助页键位登记（§P2 第 8 项）：源码若有修饰键快捷键监听（ctrlKey/metaKey/altKey），
      帮助页键位小节必须登记至少一条**具体键位**，不得只留「待定 / 留空」占位
  8. 接续说明实况段与盘上一致（§P1-6 H4；文件未建立则跳过）
@@ -100,7 +103,9 @@ REQUIRED_IDS = (
     # V0.0.51@r7 · 服务设置补全（手册 §10.2 #3）：常驻「状态/版本/数据目录」三行
     # + 两颗「打开目录」按钮（替代原来唯一那颗「测试连接」）
     # @r8：第一颗的靶子由 `btnOpenProject`（项目根）换成 `btnOpenTpl`（模板库目录）
+    # @r9：加第三颗 `btnBackups`（历史版本入口）+ 历史版本弹窗 `dlgBackups` / 列表 `bakList`
     "svcStatus", "svcVersion", "svcDataDir", "btnOpenTpl", "btnOpenData",
+    "btnBackups", "dlgBackups", "bakList",
 )
 
 REQUIRED_FILES = (
@@ -818,7 +823,8 @@ def main() -> int:
     prefs_js = root / "src/web/js/i18n/index.js"
     # V0.0.15 起的第五键 `qm.launchIcon`（快捷方式图标持久化）此前**不在守卫内** ——
     # 属盲区：删掉 `ICON_KEY` 声明无人报错。2026-10-15 据实补齐（见表 §P0-3 L6）。
-    PREF_KEYS = ("qm.lang", "qm.skin", "qm.genBar", "qm.inspMode", "qm.launchIcon")
+    # V0.0.51@r9：`qm.genBar`（生成栏折叠态）随折叠撤销一并退场 → 5 键降为 4 键。
+    PREF_KEYS = ("qm.lang", "qm.skin", "qm.inspMode", "qm.launchIcon")
     prefs_body = prefs_js.read_text(encoding="utf-8") if prefs_js.is_file() else ""
     prefs_missing = [key for key in PREF_KEYS if key not in prefs_body]
     check(not prefs_missing, "偏好键名 §P0-3 L6",
@@ -1062,7 +1068,7 @@ def main() -> int:
           f"违反 kebab-case：{', '.join(sorted(set(bad_names))[:4])}" if bad_names
           else "类名全部 kebab-case（无下划线、无大写）")
 
-    # 7f. 体积上限（§P2 第 4 项）：src/** 合计 ≤ 576K，单文件 ≤ 64K
+    # 7f. 体积上限（§P2 第 4 项）：src/** 合计 ≤ 640K，单文件 ≤ 64K
     #     400K → 512K（V0.0.40，用户裁决）：设计提案层（顶栏图标化 / 弹窗内嵌 /
     #     模板批处理 / 检视器双模式）是一整块**新功能层**，不是零散修补。
     #     并入软皮肤层后 src 已达 411K，本来就压线；再叠 808 行提案 CSS 与配套
@@ -1073,7 +1079,12 @@ def main() -> int:
     #     你拆；继续拆只是用「总量」换「单文件」，等于让产品停止生长（《错误笔记》§三.70）。
     #     故只抬总量、**单文件 64K 不动**（它才是「一个文件别太胖」的本意）；
     #     放宽 64K 后余量恢复约 65K，下一批（编辑态乐观锁等）不必再压缩注释。
-    SRC_TOTAL_LIMIT = 576 * 1024
+    #     576K → 640K（V0.0.51@r9，用户裁决）：历史版本（备份取回）是一个**新功能层**
+    #     —— 一对端点（GET /api/editor-backups、POST /api/editor-restore）+ 新后端模块
+    #     `server/backups.py` + 弹窗模块 + 一条跨文件链守卫 + 测试。实测 +③ 前端前
+    #     余量仅 2.8K，远不足容纳。抬额幅度与 V0.0.49 同幅（+64K），理由同型：新功能
+    #     层、非零散修补。**单文件 64K 仍不动**。
+    SRC_TOTAL_LIMIT = 640 * 1024
     SRC_FILE_LIMIT = 64 * 1024
     # 仅统计**源码**：排除运行/测试生成的编译产物（__pycache__/*.pyc）。
     # 这些产物已被 .gitignore 忽略、不进版本，计入体积上限会与「源码预算」本意相悖
@@ -1378,6 +1389,43 @@ def main() -> int:
     check(not opendir_bad, "「打开目录」端点接线",
           f"缺失：{', '.join(opendir_bad)}" if opendir_bad
           else "常量 / 允许清单 / 分发 / 前端封装 / 接线 / 错误码 六处齐备")
+
+    # 7al. 「历史版本」端点接线（V0.0.51@r9 · 备份取回）。
+    #      与 7ak 同因单列：链跨**七处**（后端模块常量 → 枚举 → 恢复 → 分发两处 →
+    #      前端封装 → 前端接线 → 错误码），断链后果同样是静默的 —— 按钮点下去毫无
+    #      反应，而静态检查照绿。特别钉住三条**语义**锚点（不是普通引用）：
+    #        ① `routes.save_editor` —— 恢复**刻意复用保存路径**，于是自动获得
+    #           「恢复前那版先进 .bak」与「结构校验/原子替换不漂移」两条正确性；
+    #           若有人重写成自建写盘，本条即红（那会是静默的语义倒退）。
+    #        ② `_iter_editor_backups()` 被恢复端点**二次调用做白名单比对** ——
+    #           换成直接拼路径就会绕过白名单，是路径穿越的入口。
+    #        ③ 前端 `backups.open()` —— 打开弹窗必须真的去拉列表。
+    history_bad: list[str] = []
+    for rel, token in (
+        ("src/server/backups.py", "EDITOR_BACKUPS_PATH"),
+        ("src/server/backups.py", "EDITOR_RESTORE_PATH"),
+        ("src/server/backups.py", "def list_editor_backups"),
+        ("src/server/backups.py", "def restore_editor"),
+        ("src/server/backups.py", "routes.save_editor"),          # ① 复用保存路径
+        ("src/server/backups.py", "for bid, _stamp, path in _iter_editor_backups()"),  # ② 白名单比对
+        ("src/server/app.py", "backups.EDITOR_BACKUPS_PATH"),
+        ("src/server/app.py", "backups.EDITOR_RESTORE_PATH"),
+        ("src/server/app.py", "backups.list_editor_backups()"),
+        ("src/server/app.py", "backups.restore_editor(payload)"),
+        ("src/web/js/core/api.js", "listEditorBackups()"),
+        ("src/web/js/core/api.js", "restoreEditor(id)"),
+        ("src/web/js/main.js", "createBackups"),
+        ("src/web/js/main.js", "backups.open()"),                  # ③ 开窗真去拉列表
+        ("src/web/index.html", 'id="btnBackups"'),
+        ("src/web/index.html", 'id="bakList"'),
+        ("src/shared/error-codes.json", "editorBackupNotFound"),
+    ):
+        p = root / rel
+        if not p.is_file() or token not in p.read_text(encoding="utf-8"):
+            history_bad.append(f"{rel}:{token}")
+    check(not history_bad, "「历史版本」端点接线",
+          f"缺失：{', '.join(history_bad)}" if history_bad
+          else "常量 / 枚举 / 恢复（复用 save_editor）/ 分发 / 前端封装 / 接线 / 错误码 齐备")
 
     # 7m. 服务状态三态（V0.0.16：左栏自检收敛为顶栏「服务状态」三态）
     #     判据三端：① 左栏 checklist 已移除（页面不再有该清单元素）；
@@ -2344,6 +2392,9 @@ def main() -> int:
     #      绑死：键**集合**相等（顺序无关），新增 / 删除偏好键必须三处同改。
     #      教训同 §三.30：否定性断言要能被机器推翻 ——「文档说三键」与「守卫断言四键」
     #      这种**描述与实现不符**，靠人读是发现不了的。
+    #      2026-10-16（V0.0.51@r9）补一处**解析边界**：该规则行后半段是解释与沿革，
+    #      撤销一个偏好键时必然要在那里写明「哪个键退场」—— 而整行收集会把退场键
+    #      当成仍在用的键，7ai 立刻误报。故只解析「**本行是权威清单**」之前的枚举段。
     pref_bad: list[str] = []
     _i18n_txt = _read("src/web/js/i18n/index.js")
     # 引号类型须两种都认 —— `i18n` 的 `_KEY` 用**单引号**、`PREF_KEYS` 用**双引号**；
@@ -2355,7 +2406,12 @@ def main() -> int:
     pref_guard = set(re.findall(r"['\"](qm\.[A-Za-z]+)['\"]", _m_pk.group(1))) if _m_pk else set()
     _conv_txt = _read("docs/项目约定.md")
     _l6_row = next((ln for ln in _conv_txt.splitlines() if ln.startswith("| L6 |")), "")
-    pref_doc = set(re.findall(r"`(qm\.[A-Za-z]+)`", _l6_row))
+    # ⚠ 只取「权威清单」标记**之前**的枚举段。该行后半段是解释与沿革，会写到**已退场**
+    # 的键（如 V0.0.51@r9 退场的生成栏折叠态键）—— 若整行一并收集，退场键会被当成仍
+    # 在用的键，7ai 立刻误报「实现 ≠ 文档」。锚点用行内自述的分界语「本行是权威清单」，
+    # 它本就是这条约定自己划的界限。锚点缺失时退化为整行（与旧行为一致，不静默变松）。
+    _l6_list = _l6_row.split("**本行是权威清单**")[0]
+    pref_doc = set(re.findall(r"`(qm\.[A-Za-z]+)`", _l6_list))
     if not pref_impl:
         pref_bad.append("i18n/index.js 未解析到 _KEY 声明")
     if not pref_guard:
@@ -2377,8 +2433,9 @@ def main() -> int:
     #        A 形状内联 data-URI（`base.css` 的 `.ic-*`，声明局部 `--m`）—— 7 个
     #        B 形状存 `tokens.css` 变量（`--qm-select-arrow-mask`）—— 1 个
     #        C 形状指向文件（`.brand-logo` → `assets/logo.svg`）—— 1 个
-    #        D **文字字形**（`.caret` U+25BE / `#genCaret` U+25BC·U+25B6 /
-    #          `.tree-icon` U+1F4C1·U+1F4C4）—— 3 处，此前**无任何成文记载**
+    #        D **文字字形**（`.caret` U+25BE / `.tree-icon` U+1F4C1·U+1F4C4）—— 2 处，
+    #          此前**无任何成文记载**。V0.0.51@r9：`#genCaret`（U+25BC·U+25B6）随生成参数区
+    #          折叠撤销而退场，白名单由 5 个字符缩为 3 个 —— 白名单只许缩小、不许长大。
     #      且 `base.css` 头注释断言「图标**全部**为 currentColor SVG mask」—— 对 B / C
     #      的着色描述已不准（B 取 `--qm-text-dim`、C 取 `--qm-accent-ink`），对 D 直接为假。
     #      判据只锚**声明形态**、不锚裸字面量（§三.69 / §三.71：本仓库注释习惯逐字复述
@@ -2395,8 +2452,8 @@ def main() -> int:
                    "ic-expand-all", "ic-collapse-all", "ic-copy",
                    "ic-import", "ic-save", "ic-spark")
     # 字形图标白名单（**新代码禁止新增** —— 新图标一律走 `.ic` mask；D 类不许再长大）。
+    # V0.0.51@r9：`#genCaret` 的实心下 / 右三角随折叠撤销退场，故本条**只减不增**。
     GLYPH_ICONS = (chr(0x25BE),                  # 下三角 .caret（#chipBackend 服务 chip）
-                   chr(0x25BC), chr(0x25B6),     # 实心下 / 右三角 #genCaret（main.js）
                    chr(0x1F4C1), chr(0x1F4C4))   # 文件夹 / 文件 .tree-icon（tree-view.js）
     # 顶栏操作区图标按钮：除可访问名外**另须** tooltip（《项目手册》§九.2-2 / §十四.1）。
     TOPBAR_ICON_IDS = ("btnLang", "btnSkin", "btnSupport", "btnHelp", "btnMore")

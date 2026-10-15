@@ -207,7 +207,7 @@ python tools/browser_smoke.py                 # 页面级冒烟（无头浏览�
 | 取词运行时 | `src/web/js/i18n/index.js`：`t()` / `applyStatic()` / `setLocale()` / `applySkin()` / `initPrefs()` / `watchLocale()` |
 | 颜色 | 组件 CSS **只允许 `var(--qm-*)`**，禁止裸色值；新增变量先在 `tokens.css` 定义（**唯一允许写色值的文件**） |
 | 皮肤 | 皮肤 = **一组变量覆盖文件** `src/web/css/skins/<name>.css`（已内置 **16 款**；出厂默认 **S16 暖灰·琥珀**），经 `applySkin()` 注入 `<link id="skinLink">`。**组件 CSS 不得感知皮肤**（不写 `.skin-dark .btn` 这类选择器） |
-| 偏好 | `localStorage` 的 **5 键**（权威清单 ＝ 《项目约定》§P0-3 L6）：`qm.lang` / `qm.skin` / `qm.genBar` / `qm.inspMode` / `qm.launchIcon`；启动顺序 `initPrefs()` → `applyStatic()` → `initGenBar()` → `render()` |
+| 偏好 | `localStorage` 的 **4 键**（权威清单 ＝ 《项目约定》§P0-3 L6）：`qm.lang` / `qm.skin` / `qm.inspMode` / `qm.launchIcon`；启动顺序 `initPrefs()` → `applyStatic()` → `renderGenBar()` → `render()` |
 | ⚠️ 新增偏好键 | 必须声明在 `i18n/index.js`（**导出常量**），不能写在别的模块里 —— 「取词键闭包」检查会排除 `i18n/` 目录，而把 JS 里任何 `a.b` 形式的字面量都当成取词键，写在别处会被误判为"漏翻" |
 | SVG 着色 | 一律 ① CSS `mask` 取形状 或 ② 内联 `currentColor`。**禁止 `<img src="*.svg">`** —— `<img>` 中的 SVG 是独立文档，`currentColor` 不继承 |
 
@@ -223,12 +223,11 @@ python tools/browser_smoke.py                 # 页面级冒烟（无头浏览�
 
 | 行为 | 说明 |
 |---|---|
-| 切换 | 点击摘要行（`#btnGenToggle`）展开／收起；`aria-expanded` 与 `title` 同步更新 |
-| 默认 | **首次启动恒为展开** —— 目标位置不跨会话保存，故与帮助页引导顺序（先填目标位置）一致 |
-| 记忆 | 折叠态存 `localStorage['qm.genBar']`（`'open'` / `'closed'`），**只在启动时定一次**，之后完全由用户控制 |
-| ⚠️ 不要改成"动态推断" | 若每次渲染按"目标位置是否已填"推断，用户**输入第一个字符**就会触发自动收起，与引导顺序相反。行为探针已把这条写成断言 |
-| 摘要实时刷新 | `#inRoot` / `#inTarget` 的 `input`、`#inDryRun` 的 `change` 都会重画摘要行 |
-| 兜底 | 目标位置为空时点「一键生成」→ **自动展开**并聚焦，否则输入框不可见、`focus()` 无处落地 |
+| 形态 | **常显，不可折叠**（V0.0.51@r9 撤销折叠）。摘要行是常驻**状态行**（`<p id="genSummary">`），不是开关 |
+| 为何撤销 | 折叠态原持久化于 `qm.genBar` 且**永久记住** —— 用户随手一收，此后每次打开「目标位置」整行连同「选择目录」按钮都不见了，像功能消失。参数区只占一行，省下的高度不值这个风险 |
+| 摘要实时刷新 | `#inTarget` 的 `input`、`#inDryRun` 的 `change` 都会重画摘要行；根名改变由 `doRename` 直接刷新 |
+| 摘要的用途 | 生成前**核验句**：会建到哪（目标位置）· 建成什么名字（根名 / 不建根）· 演练还是写盘 |
+| 兜底 | 目标位置为空时点「一键生成」→ 提示并聚焦输入框（参数区恒可见，无需再"自动展开"） |
 
 **参数留在原位、不迁右栏的理由**（裁定记录见 `docs/项目约定.md` §P2 第 15 项）：三项是**作业级（job-scoped）可编辑参数**，而右栏是**选中节点级（selection-scoped）只读属性** —— `inspector.render()` 在无选中时**整栏清空为 `—`**，与"目标位置是必填项、必须始终可编辑"直接冲突。参数项增至 6+ 时再评估迁移，届时须在右栏**单开「生成设置」分区**且**不随选中清空**。
 

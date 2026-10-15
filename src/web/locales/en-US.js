@@ -62,6 +62,29 @@ export const dict = {
   'svc.openMissing': 'The folder does not exist yet — the service creates it on startup: {dir}',
   'svc.openUnavailable': 'The system cannot open it automatically; go there manually: {dir}',
   'svc.note': 'The service listens only on the loopback address (127.0.0.1), so other devices on the LAN cannot reach it. This page is served by that same service: once it stops, the page stops loading too — restart it by double-clicking the “QingMan” shortcut on your desktop.',
+  'svc.backups': 'History…',
+
+  /* --- History versions (backup restore · V0.0.51@r9) --- */
+  'backups.title': 'History',
+  'backups.intro': 'QingMan archives the previous version before every save. If something was changed or cleared by mistake, pick a version below to restore it — the current version is archived first, so a restore can itself be undone.',
+  'backups.loading': 'Loading…',
+  'backups.empty': 'No history yet. Change something and save, and the previous version will appear here.',
+  'backups.colTime': 'Archived at',
+  'backups.colSize': 'Size',
+  'backups.colRoot': 'Root folder',
+  'backups.archived': 'Archived',
+  'backups.broken': 'File is corrupt',
+  'backups.noRoot': '(unnamed)',
+  'backups.restore': 'Restore this version',
+  'backups.confirmTitle': 'Restore this version?',
+  'backups.confirmBody': 'Your current editing content will be replaced by the version from {time} (root folder: {root}). The current on-disk version is archived first (restore it again to undo), but unsaved changes on screen will be lost.',
+  'backups.confirmOk': 'Restore',
+  'backups.restored': 'History version restored (root folder: {root}).',
+  'backups.loadFail': 'Failed to read history: {message}',
+  'backups.restoreFail': 'Restore failed: {message}',
+  'backups.sizeB': '{n} B',
+  'backups.sizeK': '{n} KB',
+  'backups.sizeM': '{n} MB',
 
   /* ---------- Language & skin ---------- */
   'lang.label': 'Language',
@@ -214,6 +237,8 @@ export const dict = {
   'err.editorTooManyNodes': 'Editor document has too many nodes, limit {limit}',
   'err.editorReadFailed': 'Failed to read the editor document: {message}',
   'err.editorCorrupt': 'Editor document is corrupt and cannot be parsed: {path}',
+  'err.editorBackupNotFound': 'No such history version: {id}',
+  'err.editorBackupCorrupt': 'History version is corrupt and cannot be restored: {name}',
   'err.shortcutTargetMissing': 'Startup file does not exist: {target}',
   'err.shortcutFailed': 'Failed to create the shortcut: {message}',
   'err.openDirBadTarget': 'Unknown folder target: {target}',
@@ -248,7 +273,7 @@ export const dict = {
 
   /* ---------- Center: generation parameters ---------- */
   'gen.targetLabel': 'Target path',
-  'gen.targetPlaceholder': 'e.g. E:\\MyProject',
+  'gen.targetPlaceholder': 'e.g. E:\\MyProject (or click the icon on the right)',
   'gen.targetPick': 'Choose...',
   'gen.targetPickTip': 'Choose an existing folder as the target path (system folder picker)',
   'gen.targetPastePrompt': 'The system folder picker is unavailable here. Paste the absolute path of the target folder.',
@@ -264,8 +289,6 @@ export const dict = {
   'gen.summaryDryRun': 'Dry run',
   'gen.summaryWrite': 'Write',
   'gen.summarySep': ' · ',
-  'gen.toggleExpand': 'Expand generation options',
-  'gen.toggleCollapse': 'Collapse generation options',
 
   /* ---------- Center: tree workspace ---------- */
   'tree.title': 'Tree Workspace',
@@ -461,7 +484,7 @@ export const dict = {
   'help.ops.title': 'Interface',
   'help.ops.sidebar': 'Left "Template Workspace" — lists templates in the current library; click to load. "Save as template" beside the heading stores the current tree as a new template (**existing names are never overwritten**). Below is the self-check list',
   'help.ops.center': 'Center "Tree Workspace" — generation options and toolbar at the top, directory tree below',
-  'help.ops.genBar': 'The parameter bar can be expanded/collapsed: collapsed it shows one summary line (target · root · dry/write)',
+  'help.ops.genBar': 'The parameter bar is always visible and cannot be collapsed: the summary line above (target · root · dry/write) is a pre-generation check; the target path and "dry run" below stay editable',
   'help.ops.inspector': 'Right "Property Workspace" — selected node name, type, path, depth and stats; generation result below',
 
   'help.tree.title': 'Tree operations',

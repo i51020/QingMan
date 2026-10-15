@@ -110,11 +110,7 @@
         </header>
 
         <div id="genBar">
-          <button type="button" class="genbar-head" id="btnGenToggle"
-                  aria-expanded="true" aria-controls="genFields">
-            <span class="genbar-caret" id="genCaret" aria-hidden="true"></span>
-            <span class="genbar-summary" id="genSummary" data-i18n="gen.summaryEmpty"></span>
-          </button>
+          <p class="genbar-summary" id="genSummary" data-i18n="gen.summaryEmpty"></p>
           <div class="genbar-fields" id="genFields">
             <label class="field field-wide">
               <span data-i18n="gen.targetLabel"></span>
@@ -281,9 +277,30 @@
       <p data-i18n="svc.note"></p>
     </div>
     <div class="lay-foot">
+      <button type="button" class="btn" id="btnBackups" data-i18n="svc.backups"></button>
       <button type="button" class="btn" id="btnOpenTpl" data-i18n="svc.openTpl"></button>
       <button type="button" class="btn" id="btnOpenData" data-i18n="svc.openData"></button>
       <button type="button" class="btn" id="btnSvcTest" data-i18n="svc.test"></button>
+    </div>
+  </div>
+
+  <!-- M6 · History versions (backup restore · V0.0.51@r9)
+       List is rendered by js/ui/backups.js from GET /api/editor-backups.
+       Restore goes through POST /api/editor-restore and re-uses the save path,
+       so the pre-restore version is archived first (a restore can be undone). -->
+  <div class="layer modal modal-md" id="dlgBackups" role="dialog" aria-modal="true"
+       aria-labelledby="dlgBackupsT" hidden>
+    <div class="lay-head">
+      <span class="ic ic-undo" aria-hidden="true"></span>
+      <h3 id="dlgBackupsT" data-i18n="backups.title"></h3>
+      <button type="button" class="icon-btn" data-close
+              data-i18n-aria-label="dlg.close" data-i18n-title="dlg.close">
+        <span class="ic ic-close" aria-hidden="true"></span>
+      </button>
+    </div>
+    <div class="lay-body">
+      <p data-i18n="backups.intro"></p>
+      <ul class="bak-list" id="bakList"></ul>
     </div>
   </div>
 

@@ -156,6 +156,43 @@
 .tpl-empty { color: var(--qm-text-dim); font-size: 12px; padding: 4px 0; }
 .tpl-empty.tpl-warn { color: var(--qm-warn); }
 
+/* 历史版本列表（V0.0.51@r9）。外观与 .tpl-list 一致，但每行**左右两栏**：
+   左＝时间 + 根名（可能带「已归档」徽标），右＝大小 + 「恢复这一版」按钮。
+   `min-width:0` 是省略号兜底：根名可能很长，不给它收缩余量就会把右栏挤出去。 */
+.bak-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.bak-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--qm-line-soft);
+  border-radius: var(--qm-r-sm);
+  background: var(--qm-surface-2);
+  font-size: 12px;
+}
+.bak-item.is-broken { opacity: .62; }
+.bak-meta { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.bak-meta b { flex: 0 0 auto; font-weight: 600; }
+.bak-meta > span {
+  color: var(--qm-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bak-tag {
+  flex: 0 0 auto;
+  padding: 0 5px;
+  border: 1px solid var(--qm-line-soft);
+  border-radius: var(--qm-r-sm);
+  color: var(--qm-text-dim);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.bak-right { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
+.bak-size { color: var(--qm-text-dim); font-size: 11px; }
+.bak-empty { color: var(--qm-text-dim); font-size: 12px; padding: 4px 0; }
+
 /* 模板行（V0.0.11）。V0.0.38 · 6E 起操作全部收进**右键菜单**（载入 / 重命名 /
    复制 / 导出 / 删除），行内不再有常驻按钮 —— 故 .tpl-ops / .tpl-op 那套样式已移除。 */
 .tpl-row { position: relative; display: flex; align-items: stretch; }
@@ -202,9 +239,11 @@
 .batch-info { font-size: 12px; color: var(--qm-accent-ink); }
 .batch-hint { font-size: 11px; color: var(--qm-text-dim); }
 
-/* 生成参数区：可折叠。
-   参数是"一个项目设一次"的低频项，却长期占据一整行 —— 折叠后只留摘要行，
-   关键设定（目标位置 / 根名 / 演练或写盘）仍一眼可见。 */
+/* 生成参数区：**常显**（V0.0.51@r9）。
+   原先可折叠，而折叠态写进偏好 `qm.genBar` **永久记住** —— 用户随手一收，此后每次
+   打开，「目标位置」整行连同「选择目录」图标按钮都不见了，摘要行只剩「未设置目标位置」，
+   看上去像功能消失。参数区只占一行，省下的高度远不值这个风险，故撤销折叠：
+   摘要行改为**常驻状态行**（生成前核验用：目标位置 · 根名 · 演练或写盘），参数区永远可见。 */
 #genBar {
   flex: 0 0 auto;
   display: flex;
@@ -213,29 +252,10 @@
   padding: var(--qm-gap);
   border-bottom: 1px solid var(--qm-line-soft);
 }
-.genbar-head {
-  appearance: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 1px 0;
-  border: 0;
-  background: transparent;
-  color: var(--qm-text-dim);
-  font-family: inherit;
-  font-size: 12px;
-  text-align: left;
-  cursor: pointer;
-}
-.genbar-head:hover { color: var(--qm-accent-ink); }
-.genbar-head:focus-visible {
-  outline: 2px solid var(--qm-accent-soft);
-  border-radius: var(--qm-r-sm);
-}
-.genbar-caret { flex: 0 0 auto; font-size: 10px; }
 .genbar-summary {
-  flex: 1 1 auto;
+  margin: 0;
+  color: var(--qm-text-dim);
+  font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -246,7 +266,6 @@
   gap: var(--qm-gap);
   flex-wrap: wrap;
 }
-#genBar.is-collapsed .genbar-fields { display: none; }
 
 .field { display: flex; flex-direction: column; gap: 3px; min-width: 150px; }
 .field-wide { flex: 1 1 240px; }

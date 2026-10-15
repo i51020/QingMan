@@ -203,4 +203,28 @@ export const api = {
   exportTemplate(name) {
     return request('/api/templates-export/' + encodeURIComponent(name), { method: 'GET' });
   },
+
+  /**
+   * 列出可恢复的历史版本（V0.0.51@r9）。**只读**。
+   * 返回 `{ dir, keep, backups: [{ id, name, archived, bytes, savedAt, rootName, broken }] }`，
+   * 按新→旧排序。`id` 是相对 `data/.bak/` 的路径，**同时是恢复请求的标识**；
+   * `archived=true` 表示已轮转进 `.bak/.trash/`（软删除件，同样可恢复）；
+   * `broken=true` 表示文件读不出（仍列出，让用户知道它存在，但恢复会被挡下）。
+   */
+  listEditorBackups() {
+    return request('/api/editor-backups', { method: 'GET' });
+  },
+
+  /**
+   * 把某个历史版本恢复为当前版本（V0.0.51@r9）。**是写操作**。
+   * `id` 须来自 `listEditorBackups()` 的枚举结果（后端按白名单比对，不接任意路径）。
+   * 成功返回带 `restored: { id, name, rootName }`；旧当前版已先自动进 `.bak/`，
+   * 故**恢复本身也可回退**。
+   */
+  restoreEditor(id) {
+    return request('/api/editor-restore', {
+      method: 'POST',
+      body: JSON.stringify({ id }),
+    });
+  },
 };

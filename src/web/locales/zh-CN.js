@@ -77,6 +77,29 @@ export const dict = {
   'svc.openMissing': '目录尚不存在，服务运行后会自动创建：{dir}',
   'svc.openUnavailable': '系统无法自动打开，请手动前往：{dir}',
   'svc.note': '服务只监听本机回环地址（127.0.0.1），局域网内其他设备无法访问。本页面也由这个服务提供 —— 服务停止后页面会一并打不开，此时请双击桌面上的「青蔓 QingMan」快捷方式重新启动。',
+  'svc.backups': '历史版本…',
+
+  /* --- 历史版本（备份取回 · V0.0.51@r9）--- */
+  'backups.title': '历史版本',
+  'backups.intro': '青蔓每次保存前都会把上一版留档。若误改、误清，可从下面挑一版恢复 —— 恢复前的当前版也会先留档，所以恢复本身也能再撤回。',
+  'backups.loading': '正在读取…',
+  'backups.empty': '暂无历史版本。改动一次并保存后，这里就会出现上一版。',
+  'backups.colTime': '留档时间',
+  'backups.colSize': '大小',
+  'backups.colRoot': '根文件夹',
+  'backups.archived': '已归档',
+  'backups.broken': '文件已损坏',
+  'backups.noRoot': '（未命名）',
+  'backups.restore': '恢复这一版',
+  'backups.confirmTitle': '确认恢复？',
+  'backups.confirmBody': '将用「{time}」的版本（根文件夹：{root}）替换当前的编辑内容。磁盘上当前这一版会先自动留档（可再次恢复撤回），但屏幕上尚未保存的改动会丢失。',
+  'backups.confirmOk': '恢复',
+  'backups.restored': '已恢复历史版本（根文件夹：{root}）。',
+  'backups.loadFail': '读取历史版本失败：{message}',
+  'backups.restoreFail': '恢复失败：{message}',
+  'backups.sizeB': '{n} B',
+  'backups.sizeK': '{n} KB',
+  'backups.sizeM': '{n} MB',
 
   /* ---------- 语言与皮肤 ---------- */
   'lang.label': '语言',
@@ -226,6 +249,8 @@ export const dict = {
   'err.editorTooManyNodes': '编辑态文档节点过多，上限 {limit} 个',
   'err.editorReadFailed': '读取编辑态文档失败：{message}',
   'err.editorCorrupt': '编辑态文档已损坏，无法解析：{path}',
+  'err.editorBackupNotFound': '找不到该历史版本：{id}',
+  'err.editorBackupCorrupt': '历史版本已损坏，无法恢复：{name}',
   'err.shortcutTargetMissing': '启动文件不存在：{target}',
   'err.shortcutFailed': '快捷方式生成失败：{message}',
   'err.openDirBadTarget': '未知的目录标识：{target}',
@@ -260,7 +285,7 @@ export const dict = {
 
   /* ---------- 中栏：生成参数 ---------- */
   'gen.targetLabel': '目标位置',
-  'gen.targetPlaceholder': '例如：E:\\我的项目',
+  'gen.targetPlaceholder': '例如：E:\\我的项目（或点右侧图标选择）',
   'gen.targetPick': '选择…',
   'gen.targetPickTip': '选择一个已存在的目录作为目标位置（本机原生目录选择框）',
   'gen.targetPastePrompt': '本机无法打开目录选择框，请粘贴目标位置的绝对路径',
@@ -276,8 +301,6 @@ export const dict = {
   'gen.summaryDryRun': '演练中',
   'gen.summaryWrite': '写盘',
   'gen.summarySep': ' · ',
-  'gen.toggleExpand': '展开生成参数',
-  'gen.toggleCollapse': '收起生成参数',
 
   /* ---------- 中栏：目录树工作区 ---------- */
   'tree.title': '目录树工作区',
@@ -470,7 +493,7 @@ export const dict = {
   'help.ops.title': '界面说明',
   'help.ops.sidebar': '左栏「模板工作区」——列出当前模板库中的模板，点击即载入；标题右侧的「另存为模板」把当前目录树存成一套新模板（**同名不会被覆盖**）；下方为骨架自检清单',
   'help.ops.center': '中栏「目录树工作区」——顶部是生成参数与工具栏，主体是目录树',
-  'help.ops.genBar': '参数区左上角可点开／收起：收起后只留一行摘要（目标位置 · 根名 · 演练或写盘），当前设定仍一眼可见',
+  'help.ops.genBar': '参数区**常驻**一行，不折叠：上方摘要句（目标位置 · 根名 · 演练或写盘）供生成前核验，下方「目标位置」与「仅演练」两项随时可改',
   'help.ops.inspector': '右栏「属性工作区」——选中节点的名称、类型、路径、深度与统计；下方显示生成结果',
 
   'help.tree.title': '目录树操作',

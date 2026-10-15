@@ -10,7 +10,8 @@
  *
  * 五个偏好键持久化在 localStorage（**§P0-3 L6 为权威清单**，`tools/verify.py` 的 7ai 守卫
  * 绑死「实现 / 守卫 / 约定」三方一致）：
- * `qm.lang`（语言）/ `qm.skin`（皮肤）/ `qm.genBar`（生成栏折叠）/ `qm.inspMode`（检视器模式，V0.0.43）/`qm.launchIcon`（皮肤联动启动图标，V0.0.15 —— 唯一消费者 `ui/launch-icon.js`）。
+ * `qm.lang`（语言）/ `qm.skin`（皮肤）/ `qm.inspMode`（检视器模式，V0.0.43）/`qm.launchIcon`（皮肤联动启动图标，V0.0.15 —— 唯一消费者 `ui/launch-icon.js`）。
+ * V0.0.51@r9：`qm.genBar`（生成栏折叠态）**退场** —— 折叠撤销，见本文件下方说明。
  * 本模块的 DOM / localStorage 访问全部发生在函数内部 —— 顶层导入是安全的，
  * 因此纯逻辑模块（如 modules/tree-model.js）也可以取词。
  *
@@ -119,7 +120,6 @@ export const DEFAULT_LOCALE = 'zh-CN';
 export const AUTO_LOCALE = 'auto';
 export const LOCALE_KEY = 'qm.lang';
 export const SKIN_KEY = 'qm.skin';
-export const GENBAR_KEY = 'qm.genBar';
 /** 检视器显示模式（V0.0.43 · H 组）：`'prop'` 属性 / `'src'` 源码。 */
 export const INSP_KEY = 'qm.inspMode';
 /** 上次已上传的启动图标配色指纹（P3-9）：持久化后，页面重载不再无条件重传图标。 */
@@ -438,24 +438,16 @@ export function applySkin() {
   };
 }
 
-/* ---------- 界面折叠态（§P0-3 L6） ---------- */
+/* ---------- 生成参数区：折叠已撤销（V0.0.51@r9） ----------
 
-/**
- * 生成参数区的折叠态，取值 `'open'` / `'closed'`；未设置时返回空串。
- *
- * 该状态**只在启动时定一次**并落盘，之后完全由用户控制。不要在每次渲染时
- * 按"目标位置是否已填"动态推断 —— 那样用户输入目标位置的第一个字符就会
- * 触发展开区自动收起，恰好与帮助页的引导顺序（先填目标位置）相反。
- */
-export function getGenBarState() {
-  const saved = readPref(GENBAR_KEY);
-  return saved === 'open' || saved === 'closed' ? saved : '';
-}
-
-/** 写折叠态；传入非法值时清除记录（下次启动重新按默认展开）。 */
-export function setGenBarState(state) {
-  writePref(GENBAR_KEY, state === 'open' || state === 'closed' ? state : '');
-}
+   这里原有 `getGenBarState()` / `setGenBarState()` 与偏好键 `qm.genBar`（§P0-3 L6）。
+   撤销的理由见 `src/web/css/layout.css` 的 `#genBar` 注释：折叠态**持久化**意味着用户
+   随手一收，此后每次打开「目标位置」整行连同「选择目录」按钮都不见了 —— 一个**永久
+   消失的入口**，而参数区只占一行，省下的高度不值这个风险。
+   故键与两个访问函数一并删除；摘要行退化为纯展示（`renderGenBar()` 只写文本），
+   不再有状态可存。**仍可复用的教训**（曾是本键的关键约束）：折叠态若要在每次渲染时
+   按业务条件动态推断，会与用户操作方向相反 —— 这属于「持久化 UI 状态」的通用陷阱。
+*/
 
 /* ---------- 检视器显示模式（V0.0.43 · H 组） ---------- */
 

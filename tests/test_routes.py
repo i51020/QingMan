@@ -23,7 +23,7 @@ _SRC = (Path(os.environ["QM_SRC"]).resolve()
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from server import app, config, routes  # noqa: E402
+from server import app, backups, config, routes  # noqa: E402
 from server.dtree_core import TreeError  # noqa: E402
 
 SIMPLE_TREE = {"素材": {"原图": {}}, "说明.md": "内容\n"}
@@ -365,6 +365,147 @@ class EditorBackupTests(unittest.TestCase):
         routes.save_editor({"doc": self._doc("v1")})
         routes.save_editor({"doc": self._doc("v2")})
         self.assertNotIn(b"\r", self._bak_files()[0].read_bytes(), "备份须保持 LF")
+
+
+class EditorBackupRestoreTests(unittest.TestCase):
+    """V0.0.51@r9：历史版本**取回**（`server/backups.py`）—— 备份的**出口**。
+
+    背景：`_backup_editor` 自 V0.0.26 每次保存前就在留档，但**出口一直没做** ——
+    没有端点、没有界面，用户只能自己去 `data/.bak/` 认出 17 位时间戳文件名。
+    本类锁死这个出口的四件事：
+    ① 列表**两类都收**（在库 `.bak/editor-*.json` ＋ 归档 `.bak/.trash/<戳>/`）；
+    ② 单份损坏**不炸列表**（标 `broken` 仍列出）；③ 恢复**复用保存路径**，
+    故恢复前那一版会先进 `.bak/`（**恢复本身可回退**）；④ 非法 / 穿越 id 一律拒。
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="qm_bakrestore_")
+        self.addCleanup(self.tmp.cleanup)
+        self.data = Path(self.tmp.name) / "data"
+        self.editor = self.data / "editor.json"
+        self.bak = self.data / ".bak"
+        self._of = config.EDITOR_FILE
+        self._ob = config.EDITOR_BACKUP_DIR
+        self._ok = config.EDITOR_BACKUP_KEEP
+        config.EDITOR_FILE = self.editor
+        config.EDITOR_BACKUP_DIR = self.bak
+        config.EDITOR_BACKUP_KEEP = 5
+        self.addCleanup(setattr, config, "EDITOR_FILE", self._of)
+        self.addCleanup(setattr, config, "EDITOR_BACKUP_DIR", self._ob)
+        self.addCleanup(setattr, config, "EDITOR_BACKUP_KEEP", self._ok)
+
+    def _doc(self, name):
+        return {"schemaVersion": 1, "root": {
+            "type": "dir", "id": "d1", "name": name, "children": [
+                {"type": "file", "id": "f1", "name": "a.md", "content": "hi"},
+            ]}}
+
+    def _write_bak(self, stamp, name, archived=False):
+        """手写一份备份。`stamp` 形如 `20261015-235640-559597`（定宽 → 名字序即时间序）。"""
+        d = self.bak / config.EDITOR_BACKUP_TRASH_DIRNAME / stamp if archived else self.bak
+        d.mkdir(parents=True, exist_ok=True)
+        p = d / ("editor-%s.json" % stamp)
+        p.write_text(json.dumps(self._doc(name), ensure_ascii=False), encoding="utf-8")
+        return p
+
+    def _ids(self):
+        return [e["id"] for e in backups.list_editor_backups()["backups"]]
+
+    # ---------- 列表 ----------
+
+    def test_list_empty_when_no_backup_dir(self):
+        res = backups.list_editor_backups()
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["backups"], [], "无 .bak 目录时列表为空，而非报错")
+        self.assertEqual(res["keep"], 5)
+
+    def test_list_collects_live_and_archived(self):
+        self._write_bak("20261015-235640-559597", "在库")
+        self._write_bak("20261014-101010-111111", "归档", archived=True)
+        entries = backups.list_editor_backups()["backups"]
+        self.assertEqual(len(entries), 2, "在库件与 .trash 归档件**都要收**")
+        by_root = {e["rootName"]: e for e in entries}
+        self.assertIn("在库", by_root)
+        self.assertIn("归档", by_root)
+        self.assertFalse(by_root["在库"]["archived"])
+        self.assertTrue(by_root["归档"]["archived"], "归档件须标 archived（前端据此加徽标）")
+
+    def test_list_sorted_newest_first(self):
+        self._write_bak("20261010-000000-000000", "旧")
+        self._write_bak("20261015-000000-000000", "新")
+        self._write_bak("20261012-000000-000000", "中")
+        self.assertEqual([e["rootName"] for e in backups.list_editor_backups()["backups"]],
+                         ["新", "中", "旧"])
+
+    def test_broken_entry_does_not_break_list(self):
+        self._write_bak("20261015-000000-000000", "好的")
+        d = self.bak / "editor-20261014-000000-000000.json"
+        d.write_text("{ 这不是 JSON", encoding="utf-8")
+        entries = backups.list_editor_backups()["backups"]
+        self.assertEqual(len(entries), 2, "一份坏掉**不得**让整张列表打不开")
+        broken = [e for e in entries if e["broken"]]
+        self.assertEqual(len(broken), 1)
+        self.assertEqual(broken[0]["rootName"], "", "损坏件读不出根名，留空即可")
+        self.assertGreater(broken[0]["bytes"], 0, "体积仍须可读（stat 不依赖内容）")
+
+    # ---------- 恢复 ----------
+
+    def test_restore_replaces_current_and_reports(self):
+        routes.save_editor({"doc": self._doc("当前版")})
+        routes.save_editor({"doc": self._doc("触发留档")})     # 使「当前版」进 .bak
+        target = [e for e in backups.list_editor_backups()["backups"]
+                  if e["rootName"] == "当前版"]
+        self.assertEqual(len(target), 1, "前置：应恰有一份「当前版」留档")
+        res = backups.restore_editor({"id": target[0]["id"]})
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["restored"]["rootName"], "当前版")
+        self.assertEqual(self._root_name_of(self.editor), "当前版")
+
+    def test_restore_is_itself_reversible(self):
+        """**关键语义**：恢复会走 `save_editor`，故恢复前那一版先被留档 —— 可再撤回。"""
+        routes.save_editor({"doc": self._doc("第一版")})
+        routes.save_editor({"doc": self._doc("第二版")})       # 「第一版」进 .bak
+        first = [e for e in backups.list_editor_backups()["backups"]
+                 if e["rootName"] == "第一版"][0]
+        backups.restore_editor({"id": first["id"]})            # 回退到第一版
+        self.assertEqual(self._root_name_of(self.editor), "第一版")
+        names = [e["rootName"] for e in backups.list_editor_backups()["backups"]]
+        self.assertIn("第二版", names,
+                      "恢复前的那一版必须已进 .bak —— 否则恢复错了就再也回不去")
+
+    def test_restore_unknown_id_rejected(self):
+        with self.assertRaises(TreeError) as cm:
+            backups.restore_editor({"id": "editor-99999999-000000-000000.json"})
+        self.assertEqual(cm.exception.code, "editorBackupNotFound")
+
+    def test_restore_empty_id_rejected(self):
+        for bad in ("", "   ", None, 5):
+            with self.assertRaises(TreeError) as cm:
+                backups.restore_editor({"id": bad})
+            self.assertEqual(cm.exception.code, "editorBackupNotFound")
+
+    def test_restore_path_traversal_rejected(self):
+        routes.save_editor({"doc": self._doc("真版")})
+        routes.save_editor({"doc": self._doc("v2")})           # 造出至少一份真备份
+        for evil in ("../editor.json", ".trash/../../editor.json",
+                     "editor-20261015-000000-000000.json/../../x.json"):
+            with self.assertRaises(TreeError) as cm:
+                backups.restore_editor({"id": evil})
+            self.assertEqual(cm.exception.code, "editorBackupNotFound",
+                             "白名单是枚举结果本身 —— 穿越串压根不在其中")
+
+    def test_restore_corrupt_backup_rejected(self):
+        p = self.bak / "editor-20261015-000000-000000.json"
+        self.bak.mkdir(parents=True, exist_ok=True)
+        p.write_text("{ 坏掉的", encoding="utf-8")
+        with self.assertRaises(TreeError) as cm:
+            backups.restore_editor({"id": p.name})
+        self.assertEqual(cm.exception.code, "editorBackupCorrupt")
+
+    # ---------- 助手 ----------
+
+    def _root_name_of(self, path):
+        return json.loads(path.read_text(encoding="utf-8"))["root"]["name"]
 
 
 class TemplateTests(unittest.TestCase):

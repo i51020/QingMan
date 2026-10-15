@@ -10,7 +10,6 @@ import { api } from './core/api.js';
 import { localizeError, describeError } from './core/errors.js';
 import {
   t, applyStatic, initPrefs, watchLocale,
-  getGenBarState, setGenBarState,
   getInspMode, setInspMode,
 } from './i18n/index.js';
 import {
@@ -30,6 +29,7 @@ import { createLangMenu } from './ui/lang-picker.js';
 import { createTemplates } from './modules/templates.js';
 import { createContextMenu } from './ui/ctx-menu.js';
 import { createLayerManager, placeUnder } from './ui/layer.js';
+import { createBackups } from './ui/backups.js';
 import { createHelpDoc } from './ui/help-doc.js';
 import { toast } from './ui/toast.js';
 import { installTooltips } from './ui/tooltip.js';
@@ -43,20 +43,13 @@ const AUTOSAVE_DELAY = 800;
 /** 编辑态文档结构版本，与 src/shared/schema.json 的 editorDocument.schemaVersion 一致 */
 const DOC_SCHEMA_VERSION = 1;
 
-/* ---------- 生成参数区：折叠 ---------- */
+/* ---------- 生成参数区：常驻状态行（V0.0.51@r9 撤销折叠） ----------
 
-/** 折叠标记，与目录树的展开/折叠符同款（见 ui/tree-view.js） */
-const CARET_OPEN = '\u25BC';
-const CARET_CLOSED = '\u25B6';
-
-/**
- * 启动时定一次折叠态。无记录则默认展开 —— 目标位置目前不跨会话保存，
- * 故首次启动总是展开，与帮助页的引导顺序（先填目标位置）一致。
- */
-function initGenBar() {
-  if (!getGenBarState()) setGenBarState('open');
-  renderGenBar();
-}
+   摘要行原先是「折叠开关」的把手：参数区折叠后只留它，折叠态还写进偏好 `qm.genBar`
+   **永久记住**。问题是用户随手一收，此后每次打开「目标位置」整行（含「选择目录」图标
+   按钮）都不见了，看上去像功能消失；而参数区只占一行，省下的高度远不值这个风险。
+   故折叠整个撤销（偏好键 `qm.genBar` 一并退场，见 i18n/index.js），摘要行只留**核验**
+   这一个用途：生成前把「会建到哪 · 建成什么名字 · 演练还是写盘」用一句话说清。 */
 
 /** 摘要行文案：目标位置（未填时明说）· 根名或「不建根」· 演练或写盘 */
 function genSummaryText() {
@@ -71,18 +64,7 @@ function genSummaryText() {
 }
 
 function renderGenBar() {
-  const collapsed = getGenBarState() === 'closed';
-  const head = el('btnGenToggle');
-  el('genBar').classList.toggle('is-collapsed', collapsed);
-  head.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-  head.setAttribute('title', t(collapsed ? 'gen.toggleExpand' : 'gen.toggleCollapse'));
-  el('genCaret').textContent = collapsed ? CARET_CLOSED : CARET_OPEN;
   el('genSummary').textContent = genSummaryText();
-}
-
-function setGenBarCollapsed(next) {
-  setGenBarState(next ? 'closed' : 'open');
-  renderGenBar();
 }
 
 /* ---------- 检视器双模式：属性 ⇄ 源码（V0.0.43 · H 组） ----------
@@ -118,6 +100,8 @@ function setInspModeUI(mode) {
 let layers = null;
 /** 帮助弹窗正文渲染器；服务状态变化时用它覆盖版本号 / 连接状态（见 setServiceState）。 */
 let helpDoc = null;
+/** 历史版本弹窗（V0.0.51@r9）：列表渲染 + 恢复请求。恢复成功后由 onRestored 装回编辑器。 */
+let backups = null;
 
 /** 图标按钮 → 浮层：已开则关（点同一颗按钮收回），否则锚到按钮下沿再开。 */
 function togglePopover(trigger, node, width) {
@@ -310,6 +294,18 @@ function initTopbar() {
   el('btnSvcTest').addEventListener('click', testService);
   el('btnOpenTpl').addEventListener('click', () => openServiceDir('templates'));
   el('btnOpenData').addEventListener('click', () => openServiceDir('data'));
+
+  // 历史版本（V0.0.51@r9）：备份取回的出口。此前 `.bak/` 只进不出 —— 后端每次保存前
+  // 都在留档，界面上却没有任何入口能取回。恢复成功后**就地**重载文档（含入撤销栈）。
+  // 快照必须先于重载（同 :462 的既有语义：先拍改动前状态，再落改动），否则撤销栈里
+  // 存的会是**恢复之后**的状态，Ctrl+Z 就撤不动。
+  backups = createBackups({
+    onRestored: async () => { pushHistory(); await restoreDocument(); },
+  });
+  el('btnBackups').addEventListener('click', () => {
+    layers.open(el('dlgBackups'), el('btnBackups'));
+    backups.open();
+  });
   syncServiceDialog();
 }
 
@@ -991,11 +987,7 @@ el('btnToggleAll').addEventListener('click', () => {
   render();
 });
 
-el('btnGenToggle').addEventListener('click', () => {
-  setGenBarCollapsed(getGenBarState() !== 'closed');
-});
-
-/* 参数一变就刷新摘要行，使折叠态下也能一眼看清当前设定。
+/* 参数一变就刷新摘要行 —— 它是生成前的核验句（目标位置 · 根名 · 演练/写盘）。
    V0.0.42：根名不再有独立输入框（真源是树区根节点名，改名后由 doRename 直接刷新摘要）。 */
 el('inTarget').addEventListener('input', renderGenBar);
 el('inDryRun').addEventListener('change', renderGenBar);
@@ -1008,7 +1000,6 @@ el('btnGenerate').addEventListener('click', async () => {
   const dryRun = el('inDryRun').checked;
 
   if (!target) {
-    setGenBarCollapsed(false);   // 目标位置为空时参数区必须可见，否则用户看不到该填哪里
     toast(t('toast.targetRequired'), 'warn');
     el('inTarget').focus();
     return;
@@ -1339,6 +1330,7 @@ document.addEventListener('qmlocalechange', () => {
   renderGenBar();
   render();
   setServiceState(serviceState);   // 服务状态 chip 文案随语言刷新
+  if (backups) backups.render();   // 历史版本列表的时间 / 大小 / 徽标随语言刷新
   // 模板库的两处动态文案（绑定行提示 / 「新建模板」起点下拉）由 ./modules/templates.js
   // 自注册同一事件刷新 —— 搬走的是监听体，不是行为。
 });
@@ -1372,6 +1364,6 @@ watchLocale();          // 另一页面（帮助页）改语言时，本页随�
 applyStatic(document);
 installTooltips();      // V0.0.51@r4 · 自绘悬停提示：须在 applyStatic 之后（title 值此刻已写入）
 initTopbar();
-initGenBar();
+renderGenBar();         // 参数区常显：只需把核验句填上，无需再定折叠态
 render();
 boot();

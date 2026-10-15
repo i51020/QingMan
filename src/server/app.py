@@ -16,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse, urlsplit
 
-from server import config, routes
+from server import backups, config, routes
 from server.dtree_core import TreeError, message
 
 STATIC_SUFFIX_TYPES = {
@@ -194,6 +194,14 @@ class Handler(BaseHTTPRequestHandler):
                 except OSError as exc:
                     self._fail(500, "ioError", message=str(exc))
                 return
+            if path == backups.EDITOR_BACKUPS_PATH:
+                # 历史版本列表（V0.0.51@r9）：只读端点，与 /api/editor 同级。
+                # 恢复走 POST /api/editor-restore（写操作，另过 _guard_write）。
+                try:
+                    self._json(200, backups.list_editor_backups())
+                except OSError as exc:
+                    self._fail(500, "ioError", message=str(exc))
+                return
             if path == routes.TEMPLATES_DIR_PATH:
                 # 模板目录绑定（V0.0.35）：只读查询当前绑定，不走写门槛
                 self._json(200, routes.get_templates_dir())
@@ -251,7 +259,8 @@ class Handler(BaseHTTPRequestHandler):
                      and path.startswith(routes.TEMPLATES_PATH + "/"))
         if not (is_import or is_rename or is_pick or is_open_dir) and path not in (
                 routes.GENERATE_PATH, routes.SHORTCUT_PATH,
-                routes.TEMPLATES_PATH, routes.ICON_PATH):
+                routes.TEMPLATES_PATH, routes.ICON_PATH,
+                backups.EDITOR_RESTORE_PATH):
             self._fail(404, "notFound", path=path)
             return
         try:
@@ -283,6 +292,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, routes.save_template(payload))
             elif path == routes.ICON_PATH:
                 self._json(200, routes.save_launch_icon(payload))
+            elif path == backups.EDITOR_RESTORE_PATH:
+                # 历史版本恢复（V0.0.51@r9）：把某份 `.bak/` 备份变成当前版。**是写操作**
+                # —— 已过 `_guard_write()`；语义上等价于「用旧内容调一次保存」，
+                # 故内部直接复用 `routes.save_editor`（当前版先自动进 .bak）。
+                self._json(200, backups.restore_editor(payload))
             else:
                 self._json(200, routes.create_shortcut(payload))
         except TreeError as exc:
