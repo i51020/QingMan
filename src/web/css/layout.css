@@ -692,3 +692,34 @@
   #topbar { gap: 6px; }
 }
 
+/* ---------- 8. 自绘悬停提示（V0.0.51@r4 · UI 改版第 7 条） ----------
+   配色取「皮肤正文色作底、页面底色作字」的反转对：浅色皮肤下是深底浅字，
+   深色皮肤下自动变浅底深字 —— 16 款皮肤实测对比度 10.63:1 ~ 16.65:1
+   （正文门槛 4.5:1），故零新增色值即可在两种明暗取向下都读得清，
+   不会像固定深底那样糊进深色皮肤的背景。
+   浮层不可命中（pointer-events:none），避免它挡住它自己要说明的按钮。 */
+.qm-tip {
+  position: fixed; left: 0; top: 0; z-index: 1600;
+  /* width:max-content 是必需的，不是装饰：fixed 元素若宽度自动，其可用宽度会被
+     「left 到视口右缘」挤掉 —— 宿主越靠右，提示越被压扁、折成数行（行为探针 t4 抓到）。
+     显式 max-content 后宽度只由内容与 max-width 决定，夹取再交给脚本。 */
+  width: max-content; max-width: 264px;
+  padding: 7px 11px; border-radius: 8px;
+  background: var(--qm-text); color: var(--qm-bg);
+  font-size: 12px; line-height: 1.5; letter-spacing: .01em;
+  text-align: left; white-space: normal; overflow-wrap: anywhere;
+  box-shadow: 0 6px 18px var(--qm-shadow-dark), 0 2px 5px var(--qm-shadow-dark);
+  pointer-events: none;
+  opacity: 0; visibility: hidden;
+  transform: translate(-50%, 0) scale(.97);
+  transition: opacity .12s ease, transform .12s ease;
+}
+.qm-tip.is-on { opacity: 1; visibility: visible; transform: translate(-50%, 0) scale(1); }
+/* 小三角：方向随「浮层落在宿主下方还是上方」翻转 */
+.qm-tip::after {
+  content: ''; position: absolute; left: 50%; width: 8px; height: 8px;
+  background: inherit; transform: translateX(-50%) rotate(45deg);
+}
+.qm-tip.is-below::after { top: -4px; }
+.qm-tip:not(.is-below)::after { bottom: -4px; }
+

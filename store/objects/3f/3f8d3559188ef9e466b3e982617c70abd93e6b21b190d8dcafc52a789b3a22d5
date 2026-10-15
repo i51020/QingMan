@@ -1,0 +1,725 @@
+/* 青蔓 QingMan · 布局（锐利新拟物 + 三栏职责） */
+
+#app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 顶栏 */
+#topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--qm-gap);
+  padding: 8px 14px;
+  background: var(--qm-surface);
+  border-bottom: 1px solid var(--qm-line);
+  box-shadow: 0 1px 2px var(--qm-shadow-dark);
+}
+/* 品牌区样式见 base.css（主界面与帮助页共用） */
+
+.topbar-right { display: flex; align-items: center; gap: var(--qm-gap); }
+
+/* 三栏主体 */
+#main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 240px minmax(360px, 1fr) 280px;
+  gap: var(--qm-gap);
+  padding: var(--qm-gap);
+}
+
+#sidebar, #center, #inspector {
+  min-height: 0;
+  background: var(--qm-surface);
+  border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-md);
+  display: flex;
+  flex-direction: column;
+  box-shadow:
+    3px 3px 8px var(--qm-shadow-dark),
+    -2px -2px 6px var(--qm-shadow-light),
+    inset .5px .5px 1px var(--qm-edge-hi);
+}
+
+#sidebar, #inspector { padding: var(--qm-gap); overflow: auto; }
+
+.panel-title {
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--qm-text-dim);
+  text-transform: none;
+  margin-bottom: 8px;
+}
+.panel-sub {
+  font-size: 12px;
+  color: var(--qm-text-dim);
+  margin: 14px 0 6px;
+}
+.panel-block { margin-top: 16px; }
+
+/* ---------- 左栏：模板列表（V0.0.11） ---------- */
+
+/* 标题与「另存为模板」同一行：标题是 h3 自带上下 margin，用 flex 对齐基线 */
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.panel-head .panel-sub { margin-bottom: 0; }
+/* 右侧动作组（V0.0.38 · 6E）：把多个迷你按钮并成一个 flex 子项，
+   否则 space-between 会把它们摊开在标题与右缘之间。 */
+.panel-actions { display: flex; align-items: baseline; gap: 6px; }
+
+/* 侧栏窄，常规按钮 padding 会把模板名挤到换行 */
+.btn-mini {
+  padding: 2px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* ---------- V0.0.50 · I 组：纯图标按钮（四档方形，图标居中） ----------
+   照设计稿 `prototype.html` 的「纯图标按钮（四档方形，图标居中，与同名文字按钮同高）」节。
+   为何落在这里而不是 base.css：设计稿把它置于样式表**末尾**，靠书写顺序压过
+   `.ob-group .btn{padding:0 10px}` 与 `.btn-mini{padding:0 8px}`；本项目分层为
+   base → layout，而 `.btn-mini` 就在本文件上方、`.btn` 的 `5px 12px` 在 base.css，
+   故放这里即天然排在两者之后，同层同文件解决，不靠 !important、不跨层引用。
+   设计稿另有三条 `.ob-group / .tpl-dir-actions / .prop` 的 padding 归零，
+   在本项目由 `.btn-mini.btn-ic`（0,2,0）一条统一覆盖（对应按钮全部是 btn-mini），
+   未逐个抄录，以免留下永不适用的死规则。 */
+/* V0.0.51 · 尺寸整体上调一档（用户反馈「按钮可以再大一些」）：
+   工作区 28→32、侧栏（btn-mini 档）24→27，图标同步 16→18 / 14→15。
+   只缩放尺寸，四档层级与居中方式不变；`height` 与顶栏 34px 档仍保持一大一小的节奏。 */
+.btn-ic {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; padding: 0;
+}
+.btn-ic > .ic {
+  width: 18px; height: 18px; flex: 0 0 auto;
+  -webkit-mask-size: 18px 18px; mask-size: 18px 18px;
+}
+.btn-mini.btn-ic { width: 27px; height: 27px; padding: 0; }
+.btn-mini.btn-ic > .ic {
+  width: 15px; height: 15px;
+  -webkit-mask-size: 15px 15px; mask-size: 15px 15px;
+}
+
+/* 模板目录绑定行（V0.0.38 · 6E）：标签 + 省略显示的路径 + 两个迷你按钮 */
+.tpl-dir { display: flex; align-items: center; gap: 6px; margin: 8px 0 4px; font-size: 12px; }
+.tpl-dir-label { flex: 0 0 auto; color: var(--qm-text-dim); }
+.tpl-dir-path {
+  flex: 1 1 auto; min-width: 0; font-size: 11px; color: var(--qm-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tpl-dir-actions { flex: 0 0 auto; display: flex; gap: 4px; }
+.tpl-dir-hint { margin: 0 0 6px; font-size: 11px; color: var(--qm-text-dim); line-height: 1.4; }
+
+.tpl-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+
+.tpl-item {
+  /* 铺满整行：模板名长度不一，固定宽度会截断中文名 */
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid var(--qm-line-soft);
+  border-radius: var(--qm-r-sm);
+  background: var(--qm-surface-2);
+  box-shadow: var(--qm-shadow);
+  color: var(--qm-text);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.tpl-item:hover { background: var(--qm-accent-soft); border-color: var(--qm-accent); }
+.tpl-item:active { box-shadow: var(--qm-inset); }
+
+.tpl-name { font-weight: 600; line-height: 1.3; }
+/* 来源层徽标 + 统计同一行（V0.0.38 · 6E） */
+.tpl-meta { display: flex; align-items: center; gap: 6px; }
+.tpl-badge {
+  padding: 0 5px;
+  border: 1px solid var(--qm-line-soft);
+  border-radius: var(--qm-r-sm);
+  color: var(--qm-text-dim);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.tpl-stats { color: var(--qm-text-dim); font-size: 11px; }
+
+.tpl-empty { color: var(--qm-text-dim); font-size: 12px; padding: 4px 0; }
+.tpl-empty.tpl-warn { color: var(--qm-warn); }
+
+/* 模板行（V0.0.11）。V0.0.38 · 6E 起操作全部收进**右键菜单**（载入 / 重命名 /
+   复制 / 导出 / 删除），行内不再有常驻按钮 —— 故 .tpl-ops / .tpl-op 那套样式已移除。 */
+.tpl-row { position: relative; display: flex; align-items: stretch; }
+.tpl-row .tpl-item { flex: 1 1 auto; }
+
+/* 中栏 */
+#center { background: var(--qm-surface); padding: 0; overflow: hidden; }
+
+.center-head {
+  flex: 0 0 auto;
+  padding: var(--qm-gap) var(--qm-gap) 0;
+  border-bottom: 1px solid var(--qm-line-soft);
+}
+.center-head .panel-title { margin-bottom: 8px; }
+
+.bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--qm-gap);
+  padding: var(--qm-gap);
+  border-bottom: 1px solid var(--qm-line-soft);
+  flex-wrap: wrap;
+}
+#toolbar { align-items: center; border-bottom: 1px solid var(--qm-line-soft); }
+
+/* 工具栏语义分组（V0.0.43 · G 组）：编辑 / 视图 / 输出。
+   组间用软竖线分隔（原先手写的两处 .divider 退场）—— 组内一律不留分隔，
+   因为「撤销 · 重做」与「加子节点 · 重命名 · 删除」同属「改数据」，被分开才是错位。
+   role="group" + aria-label 让这三组对读屏也可辨（原先读作一长串按钮）。
+   注意：不要用 .skin- 前缀命名（会触发 7d「组件不得感知皮肤」）。 */
+.tb-group { display: inline-flex; align-items: center; gap: 6px; }
+.tb-group + .tb-group {
+  margin-left: 2px;
+  padding-left: 12px;
+  border-left: 1px solid var(--qm-line);
+}
+
+/* 批量操作条（V0.0.43 · F 组）：多选 ≥2 项时才出现，紧贴工具栏下方。
+   计数用强调色，操作提示用弱化色；动作按钮一律复用既有 .btn 变体，不新造视觉语言。 */
+#batchBar { align-items: center; gap: 8px; border-bottom: 1px solid var(--qm-line-soft); }
+/* .bar 已声明 display:flex，会盖掉 [hidden] 的 UA 默认 none —— 显式提回来（同 .layer[hidden]） */
+#batchBar[hidden] { display: none; }
+.batch-info { font-size: 12px; color: var(--qm-accent-ink); }
+.batch-hint { font-size: 11px; color: var(--qm-text-dim); }
+
+/* 生成参数区：可折叠。
+   参数是"一个项目设一次"的低频项，却长期占据一整行 —— 折叠后只留摘要行，
+   关键设定（目标位置 / 根名 / 演练或写盘）仍一眼可见。 */
+#genBar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--qm-gap);
+  border-bottom: 1px solid var(--qm-line-soft);
+}
+.genbar-head {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 1px 0;
+  border: 0;
+  background: transparent;
+  color: var(--qm-text-dim);
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.genbar-head:hover { color: var(--qm-accent-ink); }
+.genbar-head:focus-visible {
+  outline: 2px solid var(--qm-accent-soft);
+  border-radius: var(--qm-r-sm);
+}
+.genbar-caret { flex: 0 0 auto; font-size: 10px; }
+.genbar-summary {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.genbar-fields {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--qm-gap);
+  flex-wrap: wrap;
+}
+#genBar.is-collapsed .genbar-fields { display: none; }
+
+.field { display: flex; flex-direction: column; gap: 3px; min-width: 150px; }
+.field-wide { flex: 1 1 240px; }
+.field > span:not(.select-wrap) { font-size: 11px; color: var(--qm-text-dim); }
+
+/* 字段内联行（V0.0.40）：输入框与其后的微型按钮同行；输入框吃掉剩余宽度。
+   复用模板目录行（.tpl-dir-actions）的「输入 + 选择…」形态，不另造一套按钮样式。 */
+.field-inline { display: flex; align-items: center; gap: 6px; }
+.field-inline > input { flex: 1 1 auto; min-width: 0; }
+
+.switch { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--qm-text-dim); padding-bottom: 4px; }
+
+#treeWrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 10px;
+}
+
+#treeCanvas { outline: none; }
+
+.tree-node { }
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: var(--qm-r-sm);
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid transparent;
+}
+.tree-row:hover {
+  background: var(--qm-line-soft);
+  box-shadow: inset 1px 1px 2px var(--qm-shadow-light), inset -1px -1px 2px var(--qm-shadow-dark);
+}
+/* 多选命中（V0.0.43 · F 组）。与单选的「实底 + 内阴影」刻意区分：多选只是「加入集合」，
+   用淡底 + 描边更轻。**必须排在 .is-selected 之前** —— 两者特异性相同，
+   同时命中时（锚点行）由后写的 .is-selected 胜出，锚点才看得出是「主选中」。 */
+.tree-row.is-multi {
+  background: var(--qm-line-soft);
+  border-color: var(--qm-accent);
+}
+.tree-row.is-selected {
+  background: var(--qm-accent-soft);
+  color: var(--qm-accent-ink);
+  border-color: var(--qm-accent-soft);
+  box-shadow: var(--qm-inset);
+}
+.tree-toggle {
+  width: 14px;
+  text-align: center;
+  color: var(--qm-text-dim);
+  font-size: 10px;
+  flex: 0 0 auto;
+}
+.tree-toggle.is-leaf { visibility: hidden; }
+.tree-icon { flex: 0 0 auto; font-size: 12px; }
+.tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* V0.0.42：根节点空名占位（「（不建根）」）—— 弱化显示，与真实节点名区分 */
+.tree-name.is-placeholder { color: var(--qm-text-dim); font-style: italic; }
+.tree-children { margin-left: 16px; border-left: 1px dashed var(--qm-line); padding-left: 4px; }
+.tree-children.is-collapsed { display: none; }
+
+/* 拖拽落点高亮（V0.0.19）—— 只用既有变量，不新造视觉语言 */
+.tree-row.is-drop-target {
+  background: var(--qm-accent-soft);
+  outline: 1px dashed var(--qm-accent);
+  outline-offset: -1px;
+}
+
+/* 右键菜单（V0.0.19）—— 面板质感复用 base.css 变量。
+   z-index 1000 → 1100（V0.0.40）：浮层基元（.layer）落位 1000，右键菜单须压在其上，
+   否则菜单会被同层的弹窗盖住（两者都是 fixed）。 */
+.ctx-menu {
+  position: fixed;
+  z-index: 1100;
+  min-width: 160px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--qm-surface);
+  border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-sm);
+  box-shadow: 2px 3px 8px var(--qm-shadow-dark);
+}
+.ctx-item {
+  text-align: left;
+  padding: 6px 10px;
+  border: none;
+  border-radius: var(--qm-r-sm);
+  background: transparent;
+  color: var(--qm-text);
+  font: inherit;
+  cursor: pointer;
+}
+.ctx-item:hover:not(:disabled), .ctx-item:focus-visible {
+  background: var(--qm-accent-soft);
+  color: var(--qm-accent-ink);
+  outline: none;
+}
+.ctx-item.is-danger { color: var(--qm-danger); }
+.ctx-item:disabled { opacity: 0.45; cursor: not-allowed; }
+
+#statusBar {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--qm-gap);
+  padding: 6px 12px;
+  border-top: 1px solid var(--qm-line-soft);
+  color: var(--qm-text-dim);
+  font-size: 12px;
+  background: var(--qm-surface-2);
+}
+.status-count { font-family: var(--qm-mono); }
+
+/* 右栏 */
+.prop-list { display: flex; flex-direction: column; gap: 2px; }
+.prop { display: flex; gap: 8px; align-items: baseline; }
+.prop-key { flex: 0 0 56px; color: var(--qm-text-dim); font-size: 12px; }
+.prop-val { flex: 1 1 auto; word-break: break-all; }
+.prop-mono { font-size: 11px; color: var(--qm-text-dim); }
+
+/* 检视器标题行（V0.0.43 · H 组）：标题左、模式分段控件右。
+   复用 .panel-head 的 flex + space-between，只把基线对齐改为居中 ——
+   分段控件是带边框的块，与 12px 文字按基线对齐会偏低。 */
+.insp-head { align-items: center; }
+.insp-head .panel-title { margin-bottom: 0; }
+#inspPropPane, #inspSrcPane { margin-top: 8px; }
+/* 分段控件（属性 ⇄ 源码）：两个相邻 .seg-btn 共用一圈外框，中间一条缝。
+   注意类名不得带 .skin- 前缀（7d）。 */
+.seg {
+  display: inline-flex;
+  flex: 0 0 auto;
+  border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-sm);
+  overflow: hidden;
+}
+.seg-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--qm-text-dim);
+  font-family: inherit;
+  font-size: 11px;
+  padding: 3px 9px;
+  cursor: pointer;
+}
+.seg-btn + .seg-btn { border-left: 1px solid var(--qm-line); }
+.seg-btn:hover { color: var(--qm-accent-ink); background: var(--qm-surface-2); }
+.seg-btn.is-on { background: var(--qm-accent-soft); color: var(--qm-accent-ink); }
+.seg-btn:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: -2px; }
+/* [hidden] 是 UA 默认的 display:none，但只要上面给了 display 就会被盖掉 —— 显式提回来。
+   与 .layer[hidden]、#batchBar[hidden] 同一处理。 */
+#inspPropPane[hidden], #inspSrcPane[hidden] { display: none; }
+
+/* 节点说明（V0.0.17）：纯文本编辑，随选中节点切换；禁用态（未选中）置灰 */
+#propNote {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 72px;
+  padding: 6px 8px;
+  border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-sm);
+  background: var(--qm-surface-2);
+  color: var(--qm-text);
+  font: 12px/1.6 var(--qm-font);
+  box-shadow: var(--qm-inset);
+}
+#propNote:focus { outline: 2px solid var(--qm-accent-soft); border-color: var(--qm-accent); }
+#propNote:disabled { color: var(--qm-text-dim); }
+.note-actions { display: flex; justify-content: flex-end; margin-top: 4px; }
+
+.result {
+  margin: 0;
+  padding: 8px;
+  background: var(--qm-surface-2);
+  border: 1px solid var(--qm-line-soft);
+  border-radius: var(--qm-r-sm);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 240px;
+  overflow: auto;
+  color: var(--qm-text-dim);
+  box-shadow: var(--qm-inset);
+}
+
+/* 提示条 */
+.toast-host {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* z-index 50 → 1500（V0.0.40）：遮罩 900 / 浮层 1000 / 右键菜单 1100，
+     提示条必须在它们**之上** —— 否则弹窗一开，保存失败之类的提示就被遮罩吃掉了。 */
+  z-index: 1500;
+  pointer-events: none;
+}
+.toast {
+  background: var(--qm-surface-2);
+  border: 1px solid var(--qm-line);
+  border-left: 3px solid var(--qm-accent);
+  border-radius: var(--qm-r-sm);
+  box-shadow: var(--qm-shadow-raise);
+  padding: 8px 12px;
+  font-size: 12px;
+  max-width: 380px;
+}
+.toast.is-error { border-left-color: var(--qm-danger); }
+.toast.is-warn { border-left-color: var(--qm-warn); }
+
+/* ---------- 窄窗兜底（D-P3-1） ----------
+   三栏固定列（240 + minmax(360,1fr) + 280）＋ 栏间距/内边距，最小需求约 920px；
+   窗口窄于此时中栏被挤到不足 360px 并溢出裁切（#main 原本无溢出策略）。
+   参考 help.css 的窄屏处理（@media max-width:720px），改为**单列纵向堆叠**：
+   中栏（树 / 工具栏）给足高度、内部照常滚动，左右栏随内容自然增高、由 #main 统一滚动。 */
+@media (max-width: 920px) {
+  #main {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: min-content;
+    align-content: start;
+    overflow: auto;
+  }
+  #sidebar, #inspector { overflow: visible; }
+  #center { min-height: 60vh; }
+}
+
+/* ===================== V0.0.40 · 设计提案层（顶栏 / 弹层 / 浮层） =====================
+ * 来源：设计稿 prototype.html 的提案样式块第 2 / 5–10 / 13 节。
+ * 落实《项目手册》10.2 节 #6（顶栏按钮图标化）/ #9（支持·帮助改应用内弹窗）/ #7（服务状态可点）。
+ * 纪律不变（§P0-3 L4/L5）：色值一律 var(--qm-*)，且**不得出现 `.skin-` 前缀选择器**
+ * —— 故皮肤色块用 `.sw-*`（swatch）命名，避开守卫的皮肤感知判据。
+ */
+
+/* ---------- 1. 顶栏三区分组：状态区（左）+ 操作区（右） ---------- */
+#topbar { gap: 8px; }
+.topbar-right { gap: 8px; }
+.tb-group {
+  display: flex; align-items: center; gap: 4px; padding: 3px 5px;
+  border-radius: var(--qm-r-md);
+}
+.tb-status { border: 1px solid var(--qm-line-soft); background: var(--qm-surface-2); }
+.tb-actions { gap: 2px; }
+
+/* 只读 chip：无边框淡底、24px 高 —— 比同行按钮矮一档，一眼看出「不可点」 */
+.chip.chip-ghost {
+  border-color: transparent; background: var(--qm-surface);
+  height: 24px; display: inline-flex; align-items: center; padding: 0 9px;
+}
+
+/* 皮肤按钮 = 三枚圆点，**三角排列**（顶 1 底 2）。
+   颜色取 currentColor 单色：设计稿实测 s06 的 swatch 头尾两色几乎等于面板底色，
+   直接铺三色会让三个点在浅色顶栏上被「吃掉」两个、只剩一个孤点。
+   配色预览交回 #popSkin 的色块网格。 */
+.sw-dots { position: relative; display: block; width: 17px; height: 17px; flex: 0 0 auto; }
+.sw-dots i {
+  position: absolute; display: block; width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor;
+}
+.sw-dots i:nth-child(1) { top: 0; left: 5px; }
+.sw-dots i:nth-child(2) { bottom: 0; left: 0; }
+.sw-dots i:nth-child(3) { bottom: 0; right: 0; }
+
+/* ---------- 2. 弹层基元：modal / popover 两类共用一套行为 ---------- */
+#scrim {
+  position: fixed; inset: 0; z-index: 900; background: var(--qm-scrim);
+  opacity: 0; transition: opacity .16s ease;
+}
+#scrim.is-open { opacity: 1; }
+#scrim[hidden] { display: none; }
+
+.layer { position: fixed; z-index: 1000; }
+/* `hidden` 必须压过下面的 `.layer.modal{display:flex}` / `.layer.popover{...}` ——
+   否则「关闭」只是 opacity:0，元素仍以 1000 层占位且可点击（设计稿实测缺陷）。
+   用「变体 + [hidden]」显式提优先级，不依赖书写顺序。 */
+.layer[hidden], .layer.modal[hidden], .layer.popover[hidden] { display: none; }
+
+.layer.modal {
+  left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.97);
+  display: flex; flex-direction: column;
+  max-height: 84vh; padding: 0;
+  background: var(--qm-surface); border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-md);
+  /* `overflow:hidden` 是圆角兜底：帮助 / 支持弹窗没有 .lay-foot，.lay-body 成了
+     最后一个子元素，内容一滚动就会把右下圆角顶破（modal 本身不裁子元素）。 */
+  overflow: hidden;
+  /* 非软皮肤档的兜底投影。软皮肤档由 soft.css 覆写为「皮肤暗影叠层 + 皮肤描边 ring」。
+     此处仍只允许 var(--qm-*)，不得写裸色值。 */
+  box-shadow: 0 2px 4px var(--qm-shadow-dark), 0 16px 40px var(--qm-shadow-dark), 0 0 0 1px var(--qm-line);
+  opacity: 0; transition: opacity .16s ease, transform .16s ease;
+}
+.layer.modal.is-open { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+/* 三档宽度 —— 由「内容量」决定 */
+.modal-sm { width: min(360px, 90vw); }   /* 支持（赞赏码） */
+.modal-md { width: min(460px, 92vw); }   /* 服务设置 */
+.modal-lg { width: min(680px, 92vw); }   /* 帮助（7 分节长文） */
+
+.layer.popover {
+  background: var(--qm-surface); border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-sm); padding: 8px; min-width: 150px;
+  box-shadow: 0 1px 2px var(--qm-shadow-dark), 0 8px 22px var(--qm-shadow-dark), 0 0 0 1px var(--qm-line);
+  opacity: 0; transform: translateY(-4px); transition: opacity .13s ease, transform .13s ease;
+}
+.layer.popover.is-open { opacity: 1; transform: translateY(0); }
+
+.lay-head {
+  display: flex; align-items: center; gap: 8px; padding: 11px 14px;
+  border-bottom: 1px solid var(--qm-line-soft); flex: 0 0 auto;
+}
+.lay-head h3 { margin: 0; font-size: 13px; color: var(--qm-text); flex: 1 1 auto; }
+.lay-head .icon-btn { width: 28px; height: 28px; }   /* V0.0.51：随顶栏同批 26→28 */
+.lay-head .ic { color: var(--qm-text-dim); }
+.lay-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
+.lay-foot {
+  padding: 11px 14px; border-top: 1px solid var(--qm-line-soft);
+  display: flex; gap: 8px; justify-content: flex-end; flex: 0 0 auto;
+}
+.lay-body p { margin: 0; font-size: 12px; color: var(--qm-text-dim); line-height: 1.75; }
+.lay-body .dlg-lead { color: var(--qm-text); }
+.lay-body .kv { display: flex; gap: 8px; font-size: 12px; }
+.lay-body .kv b { flex: 0 0 62px; color: var(--qm-text-dim); font-weight: 400; }
+.lay-body .kv code { word-break: break-all; }
+
+@media (prefers-reduced-motion: reduce) {
+  #scrim, .layer { transition: none !important; }
+}
+
+/* ---------- 3. 浮层菜单项（语言 / 更多 共用） ---------- */
+#popLang { min-width: 148px; }
+#popMore { min-width: 208px; }
+.menu-item {
+  appearance: none; cursor: pointer; font: inherit; font-size: 12px; width: 100%;
+  display: flex; align-items: center; gap: 8px; text-align: left;
+  padding: 6px 9px; border: 0; border-radius: var(--qm-r-sm);
+  background: transparent; color: var(--qm-text);
+}
+.menu-item:hover, .menu-item:focus-visible { background: var(--qm-accent-soft); color: var(--qm-accent-ink); outline: none; }
+.menu-item[aria-checked="true"] { color: var(--qm-accent-ink); font-weight: 700; }
+.menu-item .ic-check { visibility: hidden; flex: 0 0 auto; }
+.menu-item[aria-checked="true"] .ic-check { visibility: visible; }
+.pop-more-sep { height: 1px; background: var(--qm-line-soft); margin: 5px 2px; }
+.pop-more-status {
+  display: flex; align-items: center; gap: 7px; padding: 5px 9px;
+  font-size: 12px; color: var(--qm-text-dim);
+}
+.pop-more-status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--qm-accent); flex: 0 0 auto; }
+/* 离线态与顶栏 #chipBackend 一致（由 JS 加 .is-offline）：文字与圆点转危险色。 */
+.pop-more-status.is-offline { color: var(--qm-danger); }
+.pop-more-status.is-offline .dot { background: var(--qm-danger); }
+
+/* ---------- 4. 帮助弹窗版式：左目录 + 右正文 ---------- */
+.help-2col { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 14px; }
+.help-toc { border-right: 1px solid var(--qm-line-soft); padding-right: 10px; }
+.help-toc a {
+  display: block; font-size: 12px; padding: 4px 7px; border-radius: var(--qm-r-sm);
+  color: var(--qm-text-dim); text-decoration: none;
+}
+.help-toc a:hover { background: var(--qm-accent-soft); color: var(--qm-accent-ink); }
+.help-doc { max-height: 56vh; overflow: auto; padding-right: 4px; }
+.help-sec { margin-bottom: 16px; }
+.help-sec h4 { margin: 0 0 6px; font-size: 12.5px; color: var(--qm-accent-ink); }
+.help-sec ul, .help-sec ol { margin: 0; padding-left: 18px; }
+.help-sec li { font-size: 12px; color: var(--qm-text-dim); line-height: 1.8; }
+.help-sec li b { color: var(--qm-text); }
+.help-sec .help-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.help-sec .help-table th {
+  text-align: left; font-weight: 400; color: var(--qm-text-dim);
+  padding: 4px 8px 4px 0; white-space: nowrap; vertical-align: top;
+}
+.help-sec .help-table td { color: var(--qm-text); padding: 4px 0; }
+@media (max-width: 640px) {
+  .help-2col { grid-template-columns: minmax(0, 1fr); }
+  .help-toc {
+    border-right: 0; border-bottom: 1px solid var(--qm-line-soft);
+    padding: 0 0 8px; display: flex; flex-wrap: wrap; gap: 4px;
+  }
+}
+
+/* ---------- 5. 支持弹窗：赞赏码居中 ---------- */
+.sup-qr { margin: 0 auto; width: min(300px, 100%); border: 0; background: transparent; overflow: visible; }
+.sup-qr-img {
+  display: block; width: 100%; height: auto; aspect-ratio: 1; object-fit: cover;
+  border: 1px solid var(--qm-line); border-radius: var(--qm-r-md);
+  background: var(--qm-surface-2);
+  box-shadow: 0 2px 8px var(--qm-shadow-dark);
+}
+.sup-note {
+  margin: 0; padding: 0 4px; text-align: center;
+  font-size: 12px; line-height: 1.9; letter-spacing: .2px;
+  color: var(--qm-accent-ink);
+}
+
+/* ---------- 6. 皮肤色块网格（popover 内容 · 卡片本身就是配色缩影） ---------- */
+#popSkin { width: 344px; max-height: 420px; overflow: auto; }
+.sw-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sw-card {
+  appearance: none; cursor: pointer; font: inherit; text-align: left;
+  position: relative; padding: 0; overflow: hidden;
+  border: 1px solid var(--qm-line); border-radius: var(--qm-r-md);
+  background: var(--qm-surface);
+  box-shadow: 0 1px 2px var(--qm-shadow-dark);
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+.sw-card:hover { border-color: var(--qm-accent); transform: translateY(-1px); box-shadow: 0 3px 7px var(--qm-shadow-dark); }
+.sw-card:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: 1px; }
+/* 三色条：底色 44% / 面板色 32% / 强调色 24% —— 权重贴近真实用色比例。
+   高度 14px：344px 的 popover 三列布局下单卡约 104px，14px 仍能分辨三色比例，
+   同时把 15 款的总高压到一屏基本放得下。 */
+.sw-card .sw { display: flex; height: 14px; }
+.sw-card .sw i { display: block; }
+.sw-card .sw i:nth-child(1) { flex: 44 1 0; }
+.sw-card .sw i:nth-child(2) { flex: 32 1 0; }
+.sw-card .sw i:nth-child(3) { flex: 24 1 0; }
+.sw-card .nm {
+  display: block; font-size: 11px; line-height: 1.4; padding: 5px 7px 6px;
+  color: var(--qm-text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border-top: 1px solid var(--qm-line-soft);
+}
+.sw-card[aria-pressed="true"] { border-color: var(--qm-accent); box-shadow: 0 0 0 1px var(--qm-accent), 0 2px 6px var(--qm-shadow-dark); }
+.sw-card[aria-pressed="true"] .nm { color: var(--qm-accent-ink); font-weight: 700; }
+/* 选中角标：小圆 + 勾 —— 比「整卡描边」视觉噪声更小 */
+.sw-card[aria-pressed="true"]::after {
+  content: '\2713'; position: absolute; top: 2px; right: 2px;
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--qm-accent); color: var(--qm-on-accent);
+  font-size: 9px; line-height: 13px; text-align: center; font-weight: 700;
+  box-shadow: 0 1px 2px var(--qm-shadow-dark);
+}
+
+/* ---------- 7. 窄窗顶栏：低频项折入「更多 ⋮」 ---------- */
+#btnMore { display: none; }
+@media (max-width: 920px) {
+  .tb-actions #btnSupport, .tb-actions #btnHelp { display: none; }
+  #btnMore { display: inline-flex; }
+  .tb-status #chipSave { display: none; }   /* 保存状态让位，窄窗优先保证操作区 */
+  .chip-btn .btn-txt { display: none; }     /* 服务 chip 收成一个状态圆点 */
+  .chip-btn { padding: 2px 6px; }
+  #topbar { gap: 6px; }
+}
+
+/* ---------- 8. 自绘悬停提示（V0.0.51@r4 · UI 改版第 7 条） ----------
+   配色取「皮肤正文色作底、页面底色作字」的反转对：浅色皮肤下是深底浅字，
+   深色皮肤下自动变浅底深字 —— 16 款皮肤实测对比度 10.63:1 ~ 16.65:1
+   （正文门槛 4.5:1），故零新增色值即可在两种明暗取向下都读得清，
+   不会像固定深底那样糊进深色皮肤的背景。
+   浮层不可命中（pointer-events:none），避免它挡住它自己要说明的按钮。 */
+.qm-tip {
+  position: fixed; left: 0; top: 0; z-index: 1600;
+  /* width:max-content 是必需的，不是装饰：fixed 元素若宽度自动，其可用宽度会被
+     「left 到视口右缘」挤掉 —— 宿主越靠右，提示越被压扁、折成数行（行为探针 t4 抓到）。
+     显式 max-content 后宽度只由内容与 max-width 决定，夹取再交给脚本。 */
+  width: max-content; max-width: 264px;
+  padding: 7px 11px; border-radius: 8px;
+  background: var(--qm-text); color: var(--qm-bg);
+  font-size: 12px; line-height: 1.5; letter-spacing: .01em;
+  text-align: left; white-space: normal; overflow-wrap: anywhere;
+  box-shadow: 0 6px 18px var(--qm-shadow-dark), 0 2px 5px var(--qm-shadow-dark);
+  pointer-events: none;
+  opacity: 0; visibility: hidden;
+  transform: translate(-50%, 0) scale(.97);
+  transition: opacity .12s ease, transform .12s ease;
+}
+.qm-tip.is-on { opacity: 1; visibility: visible; transform: translate(-50%, 0) scale(1); }
+/* 小三角：方向随「浮层落在宿主下方还是上方」翻转 */
+.qm-tip::after {
+  content: ''; position: absolute; left: 50%; width: 8px; height: 8px;
+  background: inherit; transform: translateX(-50%) rotate(45deg);
+}
+.qm-tip.is-below::after { top: -4px; }
+.qm-tip:not(.is-below)::after { bottom: -4px; }
+

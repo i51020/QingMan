@@ -32,6 +32,7 @@ import { createContextMenu } from './ui/ctx-menu.js';
 import { createLayerManager, placeUnder } from './ui/layer.js';
 import { createHelpDoc } from './ui/help-doc.js';
 import { toast } from './ui/toast.js';
+import { installTooltips } from './ui/tooltip.js';
 import { renderLaunchIcon, ensureLaunchIcon } from './ui/launch-icon.js';
 
 const el = (id) => document.getElementById(id);
@@ -1214,6 +1215,7 @@ document.addEventListener('qmskinchange', () => {
    此处补齐静态文案与动态内容 —— 否则 applyStatic 会覆盖状态栏等动态字段 */
 watchLocale();          // 另一页面（帮助页）改语言时，本页随之切换
 applyStatic(document);
+installTooltips();      // V0.0.51@r4 · 自绘悬停提示：须在 applyStatic 之后（title 值此刻已写入）
 initTopbar();
 initGenBar();
 render();
