@@ -118,6 +118,39 @@
 .help-table td { color: var(--qm-text); word-break: break-all; }
 .help-table tr:last-child th, .help-table tr:last-child td { border-bottom: none; }
 
+/* 快捷键表（kind: 'kbd'）：左键帽 / 右说明，两列对齐 —— 扫一眼即可把「按什么键」与「做什么」对上 */
+.help-kbd { width: 100%; border-collapse: collapse; font-size: 12px; }
+.help-kbd th {
+  text-align: left;
+  font-weight: 400;
+  vertical-align: top;
+  white-space: nowrap;
+  width: 1%;
+  padding: 5px 12px 5px 0;
+}
+.help-kbd td { color: var(--qm-text-dim); vertical-align: top; padding: 5px 0; }
+.help-kbd tr + tr th, .help-kbd tr + tr td { border-top: 1px solid var(--qm-line-soft); }
+.help-kbd kbd {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  padding: 1px 6px;
+  color: var(--qm-text);
+  background: var(--qm-surface-2);
+  border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-sm);
+  box-shadow: var(--qm-inset);
+  white-space: nowrap;
+}
+.help-kbd-or { margin: 0 5px; font-size: 11px; color: var(--qm-text-dim); }
+.help-kbd-note {
+  margin: 9px 0 0;
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--qm-text-dim);
+}
+
 /* .help-foot-note 随 about.note 一并删除（V0.0.41 · 手册 10.2 节 #10）——
    那条脚注是设计纪律而非给用户读的文字，帮助页不再渲染，样式亦无引用。 */
 .help-stale { color: var(--qm-warn); }

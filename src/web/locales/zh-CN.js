@@ -465,11 +465,20 @@ export const dict = {
   'help.tree.8': '按住 Ctrl / Cmd 单击可多选，Shift 单击选连续一段；Esc 或点空白处取消多选，Ctrl + A 选中除根以外的全部节点。多选后可整组删除、复制路径，或拖动其中一项整组移动',
 
   'help.kbd.title': '快捷键',
-  'help.kbd.save': 'Ctrl / Cmd + S — 立即保存（跳过防抖，不等自动保存）',
-  'help.kbd.undo': 'Ctrl / Cmd + Z — 撤销上一步编辑',
-  'help.kbd.redo': 'Ctrl / Cmd + Y 或 Ctrl / Cmd + Shift + Z — 重做',
-  'help.kbd.delete': 'Delete — 删除选中节点（有二次确认，可撤销）',
-  'help.kbd.rename': 'F2 — 重命名选中节点',
+  /* 快捷键表：每条 = 「键位」+「说明」两栏。键位以 `<键名>.keys` 存放，说明沿用 `<键名>` 本身。
+     同一操作有多个等价键位时，键位串内用 `|` 分隔（如重做）；`/` 表示同一按键的平台差异（Ctrl 或 Cmd）。
+     渲染器（help.js / help-doc.js 的 buildKbd）据此生成「键帽 + 说明」两列表格，键位与说明分列对齐。 */
+  'help.kbd.or': '或',
+  'help.kbd.save.keys': 'Ctrl / Cmd + S',
+  'help.kbd.save': '立即保存（跳过防抖，不等自动保存）',
+  'help.kbd.undo.keys': 'Ctrl / Cmd + Z',
+  'help.kbd.undo': '撤销上一步编辑',
+  'help.kbd.redo.keys': 'Ctrl / Cmd + Y|Ctrl / Cmd + Shift + Z',
+  'help.kbd.redo': '重做',
+  'help.kbd.delete.keys': 'Delete',
+  'help.kbd.delete': '删除选中节点（有二次确认，可撤销）',
+  'help.kbd.rename.keys': 'F2',
+  'help.kbd.rename': '重命名选中节点',
   'help.kbd.pending': '其余键位待功能面稳定后统一约定，届时同步本页与《项目手册》。',
 
   'help.safety.title': '安全说明',
@@ -519,7 +528,7 @@ export const helpSections = [
     'help.tree.1', 'help.tree.2', 'help.tree.3', 'help.tree.4', 'help.tree.5',
     'help.tree.6', 'help.tree.7', 'help.tree.8',
   ] },
-  { id: 'kbd', title: 'help.kbd.title', kind: 'note', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.delete', 'help.kbd.rename', 'help.kbd.pending'] },
+  { id: 'kbd', title: 'help.kbd.title', kind: 'kbd', note: 'help.kbd.pending', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.delete', 'help.kbd.rename'] },
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [
     'help.safety.1', 'help.safety.2', 'help.safety.3', 'help.safety.4', 'help.safety.5',
   ] },

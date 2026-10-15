@@ -455,11 +455,20 @@ export const dict = {
   'help.tree.8': 'Ctrl/Cmd-click to add nodes to the selection, Shift-click to select a contiguous run; Esc (or a plain click) clears it, Ctrl+A selects everything but the root. With several selected you can delete them as a group, copy their paths, or drag one of them to move the whole set',
 
   'help.kbd.title': 'Keyboard shortcuts',
-  'help.kbd.save': 'Ctrl / Cmd + S — Save immediately (skip debounce)',
-  'help.kbd.undo': 'Ctrl / Cmd + Z — Undo the last edit',
-  'help.kbd.redo': 'Ctrl / Cmd + Y or Ctrl / Cmd + Shift + Z — Redo',
-  'help.kbd.delete': 'Delete — Delete the selected node (with confirmation, undoable)',
-  'help.kbd.rename': 'F2 — Rename the selected node',
+  /* Shortcut table: each entry has two columns — "keys" and "what it does".
+     Keys live under `<name>.keys`; the description keeps the `<name>` key itself.
+     Equivalent bindings are separated by `|`; `/` means the same key differs by platform (Ctrl or Cmd). */
+  'help.kbd.or': 'or',
+  'help.kbd.save.keys': 'Ctrl / Cmd + S',
+  'help.kbd.save': 'Save immediately (skip debounce)',
+  'help.kbd.undo.keys': 'Ctrl / Cmd + Z',
+  'help.kbd.undo': 'Undo the last edit',
+  'help.kbd.redo.keys': 'Ctrl / Cmd + Y|Ctrl / Cmd + Shift + Z',
+  'help.kbd.redo': 'Redo',
+  'help.kbd.delete.keys': 'Delete',
+  'help.kbd.delete': 'Delete the selected node (with confirmation, undoable)',
+  'help.kbd.rename.keys': 'F2',
+  'help.kbd.rename': 'Rename the selected node',
   'help.kbd.pending': 'Additional shortcuts will be finalized once the feature surface stabilizes.',
 
   'help.safety.title': 'Safety',
@@ -502,7 +511,7 @@ export const helpSections = [
     'help.tree.1', 'help.tree.2', 'help.tree.3', 'help.tree.4', 'help.tree.5',
     'help.tree.6', 'help.tree.7', 'help.tree.8',
   ] },
-  { id: 'kbd', title: 'help.kbd.title', kind: 'note', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.delete', 'help.kbd.rename', 'help.kbd.pending'] },
+  { id: 'kbd', title: 'help.kbd.title', kind: 'kbd', note: 'help.kbd.pending', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.delete', 'help.kbd.rename'] },
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [
     'help.safety.1', 'help.safety.2', 'help.safety.3', 'help.safety.4', 'help.safety.5',
   ] },

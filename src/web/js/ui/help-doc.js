@@ -69,6 +69,50 @@ export function createHelpDoc(tocEl, docEl, opts = {}) {
     return table;
   }
 
+  /**
+   * 快捷键表（kind: 'kbd'）：左列键帽、右列说明，逐行对齐。
+   *
+   * 数据约定与帮助页 `help.js` 的 buildKbd **完全一致**（同一份 helpSections，
+   * 两处版式不同但结构同源）：
+   *   - 说明文案 = `t(item)`；键位文案 = `t(item + '.keys')`；
+   *   - 键位串内 `|` 分隔**等价**键位（渲染为多个键帽，以 help.kbd.or 相连）；
+   *     `/` 表示同一按键的平台差异（Ctrl 或 Cmd），原样留在同一个键帽里。
+   */
+  function buildKbd(section) {
+    const table = document.createElement('table');
+    table.className = 'help-kbd';
+    for (const item of section.items) {
+      const tr = document.createElement('tr');
+      const th = document.createElement('th');
+      const keys = t(item + '.keys').split('|').map((s) => s.trim()).filter(Boolean);
+      keys.forEach((key, i) => {
+        if (i) {
+          const or = document.createElement('span');
+          or.className = 'help-kbd-or';
+          or.textContent = t('help.kbd.or');
+          th.appendChild(or);
+        }
+        const kbd = document.createElement('kbd');
+        kbd.textContent = key;
+        th.appendChild(kbd);
+      });
+      const td = document.createElement('td');
+      td.textContent = t(item);
+      tr.append(th, td);
+      table.appendChild(tr);
+    }
+    const wrap = document.createElement('div');
+    wrap.className = 'help-kbd-wrap';
+    wrap.appendChild(table);
+    if (section.note) {
+      const note = document.createElement('p');
+      note.className = 'help-kbd-note';
+      note.textContent = t(section.note);
+      wrap.appendChild(note);
+    }
+    return wrap;
+  }
+
   function buildSection(section) {
     const wrap = document.createElement('section');
     wrap.className = 'help-sec';
@@ -76,7 +120,11 @@ export function createHelpDoc(tocEl, docEl, opts = {}) {
     const title = document.createElement('h4');
     title.textContent = t(section.title);
     wrap.appendChild(title);
-    wrap.appendChild(section.kind === 'about' ? buildAbout() : buildList(section));
+    let body;
+    if (section.kind === 'about') body = buildAbout();
+    else if (section.kind === 'kbd') body = buildKbd(section);
+    else body = buildList(section);
+    wrap.appendChild(body);
     return wrap;
   }
 
