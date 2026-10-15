@@ -1,6 +1,6 @@
 {
   "$comment": "青蔓 QingMan · 前后端共享数据契约。前端、后端、CLI 均以本文件为准。",
-  "version": "V0.0.50",
+  "version": "V0.0.51",
   "template": {
     "$comment": "模板文件格式，与 templates/*.json 一致。schemaVersion 自 V0.0.13「另存为模板」起写入；既有 17 套模板无该字段，读取时一律视为 1（§P2 第 7 项）",
     "schemaVersion": 1,

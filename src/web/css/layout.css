@@ -91,18 +91,21 @@
    设计稿另有三条 `.ob-group / .tpl-dir-actions / .prop` 的 padding 归零，
    在本项目由 `.btn-mini.btn-ic`（0,2,0）一条统一覆盖（对应按钮全部是 btn-mini），
    未逐个抄录，以免留下永不适用的死规则。 */
+/* V0.0.51 · 尺寸整体上调一档（用户反馈「按钮可以再大一些」）：
+   工作区 28→32、侧栏（btn-mini 档）24→27，图标同步 16→18 / 14→15。
+   只缩放尺寸，四档层级与居中方式不变；`height` 与顶栏 34px 档仍保持一大一小的节奏。 */
 .btn-ic {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; padding: 0;
+  width: 32px; height: 32px; padding: 0;
 }
 .btn-ic > .ic {
-  width: 16px; height: 16px; flex: 0 0 auto;
-  -webkit-mask-size: 16px 16px; mask-size: 16px 16px;
+  width: 18px; height: 18px; flex: 0 0 auto;
+  -webkit-mask-size: 18px 18px; mask-size: 18px 18px;
 }
-.btn-mini.btn-ic { width: 24px; height: 24px; padding: 0; }
+.btn-mini.btn-ic { width: 27px; height: 27px; padding: 0; }
 .btn-mini.btn-ic > .ic {
-  width: 14px; height: 14px;
-  -webkit-mask-size: 14px 14px; mask-size: 14px 14px;
+  width: 15px; height: 15px;
+  -webkit-mask-size: 15px 15px; mask-size: 15px 15px;
 }
 
 /* 模板目录绑定行（V0.0.38 · 6E）：标签 + 省略显示的路径 + 两个迷你按钮 */
@@ -559,7 +562,7 @@
   border-bottom: 1px solid var(--qm-line-soft); flex: 0 0 auto;
 }
 .lay-head h3 { margin: 0; font-size: 13px; color: var(--qm-text); flex: 1 1 auto; }
-.lay-head .icon-btn { width: 26px; height: 26px; }
+.lay-head .icon-btn { width: 28px; height: 28px; }   /* V0.0.51：随顶栏同批 26→28 */
 .lay-head .ic { color: var(--qm-text-dim); }
 .lay-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
 .lay-foot {

@@ -116,7 +116,7 @@ html .tb-status .chip-btn {
 html .ob-group.ob-gen {
   background: transparent; border: 0; border-radius: 0; padding: 0; box-shadow: none;
 }
-html .ob-group.ob-gen .btn-ic { width: 34px; height: 32px; padding: 0; }
+html .ob-group.ob-gen .btn-ic { width: 38px; height: 36px; padding: 0; }   /* V0.0.51：随 .btn-ic 同批 34×32→38×36，保持「主操作更大」层级 */
 html .btn.btn-primary {
   /* v14：底色交回 --qm-btn-bg（各皮肤自带主色，已按 WCAG 配 --qm-on-accent），
      不再写死黄色渐变 —— 否则切任何皮肤它都是黄块，等于「切了没反应」。
