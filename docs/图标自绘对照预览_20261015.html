@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>青蔓 · 工具栏图标自绘对照（2026-10-15）</title>
+<!-- 真实样式：与 src/web/index.html 同一批文件、同一顺序（缺皮肤文件，按需动态注入） -->
+<link rel="stylesheet" href="../src/web/css/tokens.css">
+<link rel="stylesheet" href="../src/web/css/base.css">
+<link rel="stylesheet" href="../src/web/css/layout.css">
+<link rel="stylesheet" href="../src/web/css/soft.css">
+<style>
+/* ============================================================================
+ * ① 拟新增段 —— 落地时**原样移入** src/web/css/base.css 的「图标系统」段
+ *    规格照顶栏既有 7 个：viewBox 24 / stroke-width 1.8 / round 端点 /
+ *    stroke='%23000' 占位色（着色一律走 .ic 的 background-color: currentColor）
+ *    来源：设计稿 v12d_states 工具栏 8 图 × 语义一一对应（分辨率极限，形状为照顶栏风格自绘）
+ * ========================================================================== */
+.ic-undo        { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 12a6.5 6.5 0 1 1 1.9 4.6'/%3E%3Cpath d='M8.9 9.2 5.5 12l3.4 2.8'/%3E%3C/svg%3E"); }
+.ic-redo        { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18.5 12a6.5 6.5 0 1 0-1.9 4.6'/%3E%3Cpath d='M15.1 9.2 18.5 12l-3.4 2.8'/%3E%3C/svg%3E"); }
+.ic-addchild    { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7h8M4 12h6M4 17h8'/%3E%3Cpath d='M18.5 13.5v5M16 16h5'/%3E%3C/svg%3E"); }
+.ic-rename      { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 19.5l1-4L16.4 4.6a1.9 1.9 0 0 1 2.7 2.7L8.2 18.2z'/%3E%3Cpath d='M15.1 5.9l3 3'/%3E%3C/svg%3E"); }
+.ic-trash       { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 6.8h15'/%3E%3Cpath d='M9.5 6.8V5.2a1.2 1.2 0 0 1 1.2-1.2h2.6a1.2 1.2 0 0 1 1.2 1.2v1.6'/%3E%3Cpath d='M6.6 6.8l.9 12.1a1.2 1.2 0 0 0 1.2 1.1h6.6a1.2 1.2 0 0 0 1.2-1.1l.9-12.1'/%3E%3Cpath d='M10.3 10.6v5.6M13.7 10.6v5.6'/%3E%3C/svg%3E"); }
+.ic-expand-all  { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.4v7.2M8.9 6.5 12 3.4l3.1 3.1M12 20.6v-7.2M8.9 17.5 12 20.6l3.1-3.1'/%3E%3C/svg%3E"); }
+.ic-collapse-all{ --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.8v6.4M8.9 7.1 12 10.2l3.1-3.1M12 20.2v-6.4M8.9 16.9 12 13.8l3.1 3.1'/%3E%3C/svg%3E"); }
+.ic-generate    { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 4.6h6a2.1 2.1 0 0 1 2.1 2.1v11.2a2.1 2.1 0 0 1-2.1 2.1H9a2.1 2.1 0 0 1-2.1-2.1V6.7A2.1 2.1 0 0 1 9 4.6z'/%3E%3Cpath d='M9.9 3.2h4.2a1.4 1.4 0 0 1 1.4 1.4v.4a1.4 1.4 0 0 1-1.4 1.4H9.9a1.4 1.4 0 0 1-1.4-1.4v-.4a1.4 1.4 0 0 1 1.4-1.4z'/%3E%3C/svg%3E"); }
+
+/* ② 拟新增段 —— .btn 的 padding 是 `5px 12px`（为文字留白），纯图标按钮需收成方形 */
+.btn-icon { padding: 5px; }
+.btn-icon .ic { display: block; }
+
+/* ============================================================================
+ * 预览页外壳（pv- 前缀，不污染项目类名；不参与落地）
+ * ========================================================================== */
+html, body { margin: 0; }
+body { background: var(--qm-bg); color: var(--qm-text); }
+.pv-wrap { max-width: 1080px; margin: 0 auto; padding: 28px 24px 60px; }
+.pv-h1 { font-size: 19px; margin: 0 0 6px; letter-spacing: .5px; }
+.pv-sub { font-size: 12px; color: var(--qm-text-dim); margin: 0 0 22px; line-height: 1.7; }
+.pv-sec { margin: 0 0 30px; }
+.pv-h2 { font-size: 13px; margin: 0 0 4px; color: var(--qm-accent-ink); letter-spacing: .3px; }
+.pv-note { font-size: 11px; color: var(--qm-text-dim); margin: 0 0 12px; line-height: 1.75; }
+.pv-card { background: var(--qm-surface); border: 1px solid var(--qm-line-soft); border-radius: var(--qm-r-md); padding: 16px 18px; }
+.pv-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.pv-cell { text-align: center; padding: 14px 8px 10px; border-radius: var(--qm-r-sm); background: var(--qm-surface-2); border: 1px solid var(--qm-line-soft); }
+.pv-cell .ic { width: 34px; height: 34px; -webkit-mask-size: 34px 34px; mask-size: 34px 34px; color: var(--qm-text); }
+.pv-cell .nm { display: block; font-size: 11px; margin-top: 9px; color: var(--qm-text); }
+.pv-cell .cl { display: block; font-size: 10px; margin-top: 2px; color: var(--qm-text-dim); font-family: var(--qm-mono); }
+.pv-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.pv-tag { font-size: 11px; color: var(--qm-text-dim); min-width: 74px; }
+.pv-toolbar-demo { background: var(--qm-bg); border: 1px solid var(--qm-line-soft); border-radius: var(--qm-r-sm); overflow: hidden; }
+.pv-toolbar-demo .bar { background: var(--qm-surface); margin: 0; }
+.pv-sep { height: 1px; background: var(--qm-line-soft); margin: 14px 0; border: 0; }
+.pv-code { font-family: var(--qm-mono); font-size: 11px; line-height: 1.8; color: var(--qm-text-dim); background: var(--qm-surface-2); border: 1px solid var(--qm-line-soft); border-radius: var(--qm-r-sm); padding: 12px 14px; overflow-x: auto; margin: 0; }
+.pv-ctl { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--qm-text-dim); }
+.pv-ctl select { font-size: 12px; }
+.pv-badge { display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 999px; background: var(--qm-accent-soft); color: var(--qm-accent-ink); margin-left: 6px; vertical-align: 1px; }
+.pv-warn { font-size: 11px; line-height: 1.8; color: var(--qm-warn); margin: 0; }
+</style>
+</head>
+<body>
+<div class="pv-wrap">
+
+  <h1 class="pv-h1">青蔓 · 工具栏图标自绘对照</h1>
+  <p class="pv-sub">
+    依据：设计稿 <code>v12d_states</code> 六态图 —— 工具栏 8 个图标与实现 8 个文字按钮<b>语义一一对应</b>。<br>
+    风格：照顶栏既有 7 个图标的同一套规格自绘（24 格 viewBox · 1.8px 描边 · round 端点 · 单色随主题）。<br>
+    本页用<b>项目真实样式表</b>渲染（tokens / base / layout / soft），所见即落地后的样子。<span class="pv-badge">待你审</span>
+  </p>
+
+  <!-- ============ ① 图标清单 ============ -->
+  <section class="pv-sec">
+    <h2 class="pv-h2">① 自绘的 8 个图标（形状清单）</h2>
+    <p class="pv-note">
+      放大至 34px 便于辨形。落地时以 18px 呈现（顶栏为 19px）。<br>
+      <b>一处有意偏离参考图</b>：展开 / 折叠若照参考图用「纯 chevron 双箭头」，18px 下会被读成「◇」与「×」（后者易误认为关闭 / 删除）；
+      故改为<b>带杆双箭头</b>（向外 = 展开 · 相向 = 折叠），与顶栏 <code>.ic-gear</code> 的带杆风格也一致。若你要求严格对齐参考图，我改回 chevron。
+    </p>
+    <div class="pv-card">
+      <div class="pv-grid">
+        <div class="pv-cell"><span class="ic ic-undo"></span><span class="nm">撤销</span><span class="cl">.ic-undo</span></div>
+        <div class="pv-cell"><span class="ic ic-redo"></span><span class="nm">重做</span><span class="cl">.ic-redo</span></div>
+        <div class="pv-cell"><span class="ic ic-addchild"></span><span class="nm">加子节点</span><span class="cl">.ic-addchild</span></div>
+        <div class="pv-cell"><span class="ic ic-rename"></span><span class="nm">重命名</span><span class="cl">.ic-rename</span></div>
+        <div class="pv-cell"><span class="ic ic-trash"></span><span class="nm">删除</span><span class="cl">.ic-trash</span></div>
+        <div class="pv-cell"><span class="ic ic-expand-all"></span><span class="nm">展开全部</span><span class="cl">.ic-expand-all</span></div>
+        <div class="pv-cell"><span class="ic ic-collapse-all"></span><span class="nm">折叠全部</span><span class="cl">.ic-collapse-all</span></div>
+        <div class="pv-cell"><span class="ic ic-generate"></span><span class="nm">生成</span><span class="cl">.ic-generate</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ② 工具栏对照 ============ -->
+  <section class="pv-sec">
+    <h2 class="pv-h2">② 工具栏实景对照</h2>
+    <p class="pv-note">
+      上＝现状（8 个文字按钮／宽约 560px）；下＝拟改（8 个图标按钮／宽约 300px）。
+      按钮<b>变体语义一字未动</b>：撤销·重做·展开·折叠仍是 <code>.btn-ghost</code>（无底），
+      加子节点·重命名仍是默认凸起，删除仍是 <code>.btn-danger</code>，生成仍是 <code>.btn-primary</code>。
+    </p>
+    <div class="pv-card">
+      <div class="pv-row" style="margin-bottom:8px"><span class="pv-tag">现状</span></div>
+      <div class="pv-toolbar-demo">
+        <div class="bar" id="toolbarOld" style="align-items:center;border-bottom:0">
+          <span class="tb-group">
+            <button type="button" class="btn btn-ghost">撤销</button>
+            <button type="button" class="btn btn-ghost">重做</button>
+            <button type="button" class="btn">加子节点</button>
+            <button type="button" class="btn">重命名</button>
+            <button type="button" class="btn btn-danger">删除</button>
+          </span>
+          <span class="tb-group">
+            <button type="button" class="btn btn-ghost">展开全部</button>
+            <button type="button" class="btn btn-ghost">折叠全部</button>
+          </span>
+          <span class="spacer"></span>
+          <span class="tb-group">
+            <button type="button" class="btn btn-primary">生成</button>
+          </span>
+        </div>
+      </div>
+
+      <hr class="pv-sep">
+
+      <div class="pv-row" style="margin-bottom:8px"><span class="pv-tag">拟改</span><span class="pv-note" style="margin:0">（鼠标可悬停试 hover）</span></div>
+      <div class="pv-toolbar-demo">
+        <div class="bar" id="toolbarNew" style="align-items:center;border-bottom:0">
+          <span class="tb-group">
+            <button type="button" class="btn btn-ghost btn-icon" title="撤销" aria-label="撤销"><span class="ic ic-undo" aria-hidden="true"></span></button>
+            <button type="button" class="btn btn-ghost btn-icon" title="重做" aria-label="重做"><span class="ic ic-redo" aria-hidden="true"></span></button>
+            <button type="button" class="btn btn-icon" title="加子节点" aria-label="加子节点"><span class="ic ic-addchild" aria-hidden="true"></span></button>
+            <button type="button" class="btn btn-icon" title="重命名" aria-label="重命名"><span class="ic ic-rename" aria-hidden="true"></span></button>
+            <button type="button" class="btn btn-danger btn-icon" title="删除" aria-label="删除"><span class="ic ic-trash" aria-hidden="true"></span></button>
+          </span>
+          <span class="tb-group">
+            <button type="button" class="btn btn-ghost btn-icon" title="展开全部" aria-label="展开全部"><span class="ic ic-expand-all" aria-hidden="true"></span></button>
+            <button type="button" class="btn btn-ghost btn-icon" title="折叠全部" aria-label="折叠全部"><span class="ic ic-collapse-all" aria-hidden="true"></span></button>
+          </span>
+          <span class="spacer"></span>
+          <span class="tb-group">
+            <button type="button" class="btn btn-primary btn-icon" title="生成" aria-label="生成"><span class="ic ic-generate" aria-hidden="true"></span></button>
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ③ 变体语义校验 ============ -->
+  <section class="pv-sec">
+    <h2 class="pv-h2">③ 变体语义校验（对照参考图）</h2>
+    <p class="pv-note">参考图里「有几颗图标带凸起底、有几颗没有」并非随意 —— 它恰好等于现有 <code>.btn</code> 变体的分布。</p>
+    <div class="pv-card">
+      <div class="pv-row" style="margin-bottom:10px"><span class="pv-tag">幽灵<br><span style="font-size:10px">无底</span></span>
+        <button type="button" class="btn btn-ghost btn-icon" aria-label="撤销"><span class="ic ic-undo" aria-hidden="true"></span></button>
+        <button type="button" class="btn btn-ghost btn-icon" aria-label="重做"><span class="ic ic-redo" aria-hidden="true"></span></button>
+        <button type="button" class="btn btn-ghost btn-icon" aria-label="展开全部"><span class="ic ic-expand-all" aria-hidden="true"></span></button>
+        <button type="button" class="btn btn-ghost btn-icon" aria-label="折叠全部"><span class="ic ic-collapse-all" aria-hidden="true"></span></button>
+        <span class="pv-note" style="margin:0">← 参考图第 1 / 2 / 6 / 7 颗确实无底</span>
+      </div>
+      <div class="pv-row" style="margin-bottom:10px"><span class="pv-tag">默认<br><span style="font-size:10px">凸起</span></span>
+        <button type="button" class="btn btn-icon" aria-label="加子节点"><span class="ic ic-addchild" aria-hidden="true"></span></button>
+        <button type="button" class="btn btn-icon" aria-label="重命名"><span class="ic ic-rename" aria-hidden="true"></span></button>
+        <span class="pv-note" style="margin:0">← 参考图第 3 / 4 颗有底</span>
+      </div>
+      <div class="pv-row" style="margin-bottom:10px"><span class="pv-tag">危险<br><span style="font-size:10px">红字</span></span>
+        <button type="button" class="btn btn-danger btn-icon" aria-label="删除"><span class="ic ic-trash" aria-hidden="true"></span></button>
+        <span class="pv-note" style="margin:0">← 参考图第 5 颗为危险色，一致（<code>currentColor</code> 自动取 <code>--qm-danger</code>）</span>
+      </div>
+      <div class="pv-row"><span class="pv-tag">主按钮<br><span style="font-size:10px">实心</span></span>
+        <button type="button" class="btn btn-primary btn-icon" aria-label="生成"><span class="ic ic-generate" aria-hidden="true"></span></button>
+        <span class="pv-note" style="margin:0">← 参考图第 8 颗为实心强调色底</span>
+      </div>
+      <hr class="pv-sep">
+      <div class="pv-row">
+        <span class="pv-tag">禁用态</span>
+        <button type="button" class="btn btn-ghost btn-icon" disabled aria-label="撤销"><span class="ic ic-undo" aria-hidden="true"></span></button>
+        <button type="button" class="btn btn-ghost btn-icon" disabled aria-label="重做"><span class="ic ic-redo" aria-hidden="true"></span></button>
+        <span class="pv-note" style="margin:0">撤销 / 重做无历史时（<code>opacity:.45</code>，与现状一致）</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ④ 换肤 ============ -->
+  <section class="pv-sec">
+    <h2 class="pv-h2">④ 换肤核验（图标随主题变色）</h2>
+    <p class="pv-note">切换皮肤即刻生效（动态注入 <code>css/skins/*.css</code>，与产品同一机制）。重点看：深色皮肤下图标是否仍清晰、危险色/强调色是否自动跟随。</p>
+    <div class="pv-card">
+      <div class="pv-row" style="margin-bottom:12px">
+        <span class="pv-ctl">皮肤
+          <select id="pvSkin"></select>
+        </span>
+        <span class="pv-ctl">尺寸
+          <select id="pvSize">
+            <option value="18">18px（.ic 默认）</option>
+            <option value="19">19px（顶栏档）</option>
+            <option value="22">22px（放大看）</option>
+          </select>
+        </span>
+      </div>
+      <div class="pv-toolbar-demo">
+        <div class="bar" id="toolbarSkin" style="align-items:center;border-bottom:0">
+          <span class="tb-group">
+            <button type="button" class="btn btn-ghost btn-icon" aria-label="撤销"><span class="ic ic-undo" aria-hidden="true"></span></button>
+            <button type="button" class="btn btn-ghost btn-icon" aria-label="重做"><span class="ic ic-redo" aria-hidden="true"></span></button>
+            <button type="button" class="btn btn-icon" aria-label="加子节点"><span class="ic ic-addchild" aria-hidden="true"></span></button>
+            <button type="button" class="btn btn-icon" aria-label="重命名"><span class="ic ic-rename" aria-hidden="true"></span></button>
+            <button type="button" class="btn btn-danger btn-icon" aria-label="删除"><span class="ic ic-trash" aria-hidden="true"></span></button>
+          </span>
+          <span class="tb-group">
+            <button type="button" class="btn btn-ghost btn-icon" aria-label="展开全部"><span class="ic ic-expand-all" aria-hidden="true"></span></button>
+            <button type="button" class="btn btn-ghost btn-icon" aria-label="折叠全部"><span class="ic ic-collapse-all" aria-hidden="true"></span></button>
+          </span>
+          <span class="spacer"></span>
+          <span class="tb-group">
+            <button type="button" class="btn btn-primary btn-icon" aria-label="生成"><span class="ic ic-generate" aria-hidden="true"></span></button>
+          </span>
+        </div>
+      </div>
+      <div class="pv-row" style="margin-top:14px">
+        <span class="pv-tag">顶栏<br><span style="font-size:10px">原有 7</span></span>
+        <span class="icon-btn" style="color:var(--qm-text-dim)"><span class="ic ic-globe" aria-hidden="true"></span></span>
+        <span class="icon-btn" style="color:var(--qm-text-dim)"><span class="ic ic-heart" aria-hidden="true"></span></span>
+        <span class="icon-btn" style="color:var(--qm-text-dim)"><span class="ic ic-help" aria-hidden="true"></span></span>
+        <span class="icon-btn" style="color:var(--qm-text-dim)"><span class="ic ic-gear" aria-hidden="true"></span></span>
+        <span class="icon-btn" style="color:var(--qm-text-dim)"><span class="ic ic-close" aria-hidden="true"></span></span>
+        <span class="icon-btn" style="color:var(--qm-text-dim)"><span class="ic ic-check" aria-hidden="true"></span></span>
+        <span class="icon-btn" style="color:var(--qm-text-dim)"><span class="ic ic-more" aria-hidden="true"></span></span>
+        <span class="pv-note" style="margin:0">← 新 8 个与它们<b>粗细、端点、格网一致</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ⑤ 落地说明 ============ -->
+  <section class="pv-sec">
+    <h2 class="pv-h2">⑤ 若你点头，落地动作（V0.0.50）</h2>
+    <div class="pv-card">
+      <p class="pv-note" style="margin-bottom:10px">
+        1. <code>base.css</code> 图标段追加上述 8 个 <code>.ic-*</code> + <code>.btn-icon</code>（拟新增段原样搬入）；<br>
+        2. <code>index.html</code> 的 <code>#toolbar</code> 8 个按钮：删 <code>data-i18n</code> 文本，改挂 <code>&lt;span class="ic ic-*"&gt;</code>，<b>补 <code>data-i18n-aria-label</code>（可访问名）与 <code>data-i18n-title</code>（tooltip）</b>；<br>
+        3. <code>zh/en</code> 语言包补 8 组 aria-label / title 键；<br>
+        4. <code>verify.py</code> 的 <code>ICON_SHAPES</code> 白名单 7 → 15，7aj 图标册三方一致同步；<br>
+        5. 升版 <code>V0.0.50</code>（视觉变更）→ store 修订 + 四件套。
+      </p>
+      <pre class="pv-code">&lt;!-- 改前 --&gt;
+&lt;button type="button" id="btnUndo" class="btn btn-ghost" data-i18n="tree.undo" disabled&gt;&lt;/button&gt;
+
+&lt;!-- 改后 --&gt;
+&lt;button type="button" id="btnUndo" class="btn btn-ghost btn-icon"
+        data-i18n-aria-label="tree.undo" data-i18n-title="tree.undoTip" disabled&gt;
+  &lt;span class="ic ic-undo" aria-hidden="true"&gt;&lt;/span&gt;
+&lt;/button&gt;</pre>
+      <hr class="pv-sep">
+      <p class="pv-warn">
+        ⚠ 另需你裁定的两条（本页未动）：<br>
+        ① 侧栏 5 颗（新建 / 导入 / 另存为 / 选目录 / 刷新）、批量条 3 颗、检视器复制 —— 参考图分辨率不足未敢断言，是否一并图标化？<br>
+        ② <code>--qm-r-sm: 12px</code> 低于《Neomorphism 复用规范》建议的「圆角最小 14px」—— 是否随本批调整？
+      </p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* 皮肤清单：与 src/web/js/i18n/skins.js 同源（此处为预览用副本） */
+const SKINS = [
+  ['s01-cream-pink',      '奶油粉 · 浅'],
+  ['s02-offwhite-pine',   '米白松绿 · 浅'],
+  ['s03-softdark-iceblue','柔暗冰蓝 · 深'],
+  ['s04-warmwhite-amber', '暖白琥珀 · 浅'],
+  ['s05-cream-warmwhite', '奶油暖白 · 浅'],
+  ['s06-moonlight-pengray','月光铅灰 · 浅（默认）'],
+  ['s07-night-inkblue',   '夜色墨蓝 · 深'],
+  ['s08-winter-sun',      '冬日暖阳 · 浅'],
+  ['s09-first-snow',      '初雪 · 浅'],
+  ['s10-white-moonlight', '素白月光 · 浅'],
+  ['s11-vintage-paper',   '复古纸 · 浅'],
+  ['s12-moonrock',        '月岩 · 深'],
+  ['s13-apple-silver-blue','苹果银蓝 · 浅'],
+  ['s14-blackgold-silentsea','黑金静海 · 深'],
+  ['s15-cream-sunrise',   '奶油日出 · 浅'],
+];
+const selSkin = document.getElementById('pvSkin');
+SKINS.forEach(([file, label]) => {
+  const o = document.createElement('option');
+  o.value = file; o.textContent = label;
+  selSkin.append(o);
+});
+selSkin.value = 's06-moonlight-pengray';   /* 产品默认皮肤 */
+
+let skinLink = null;
+function applySkin(file) {
+  if (skinLink) skinLink.remove();
+  skinLink = document.createElement('link');
+  skinLink.rel = 'stylesheet';
+  skinLink.href = '../src/web/css/skins/' + file + '.css';
+  document.head.append(skinLink);
+}
+selSkin.addEventListener('change', () => applySkin(selSkin.value));
+applySkin(selSkin.value);
+
+/* 尺寸切换：只改示例区图标的呈现尺寸 */
+const selSize = document.getElementById('pvSize');
+selSize.addEventListener('change', () => {
+  const px = selSize.value;
+  document.querySelectorAll('#toolbarSkin .ic').forEach((el) => {
+    el.style.width = px + 'px';
+    el.style.height = px + 'px';
+    el.style.webkitMaskSize = px + 'px ' + px + 'px';
+    el.style.maskSize = px + 'px ' + px + 'px';
+  });
+});
+</script>
+</body>
+</html>
