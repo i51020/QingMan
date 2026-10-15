@@ -129,8 +129,46 @@ function togglePopover(trigger, node, width) {
   layers.open(node, trigger);
 }
 
+/** 清空「重新检测 / 打开目录」的结果行（弹窗每次打开时调，免得上一次的反馈残留到下回）。 */
+function resetSvcResult() {
+  const out = el('svcResult');
+  if (out) {
+    out.hidden = true;
+    out.textContent = '';
+  }
+}
+
 /**
- * 服务弹窗的「测试连接」：复用 boot() 同一支健康检查，结果**就地**显示。
+ * 把服务状态与实测信息刷进弹窗的**常驻字段**。
+ *
+ * 这正是「测完即忘」的修法：状态取自 `serviceState`（`boot()` 时已探测过），版本 /
+ * 数据目录取自 `store`（boot 或「重新检测」成功时写入）—— 故**打开弹窗即可见**
+ * （V0.0.51@r7 之前是先显示「尚未测试」，非点一下不可）；且与顶栏 chip 同源，
+ * 不会一个说就绪、另一个说未测。
+ *
+ * 刻意**不碰** `#svcResult`：那是「本次操作」的即时反馈，由各操作自行填。
+ */
+function syncServiceDialog() {
+  // 地址取自 api.js 的同一基址（同源 → 就是本服务的 origin）。
+  const addr = el('svcAddr');
+  if (addr) addr.textContent = window.location.origin;
+
+  const st = el('svcStatus');
+  if (st) {
+    st.textContent = t('svc.state.' + serviceState);
+    // 与顶栏 #chipBackend / 更多浮层同惯例：离线转危险色（JS 加类）。
+    st.classList.toggle('is-offline', serviceState === 'offline');
+  }
+
+  const ver = el('svcVersion');
+  if (ver) ver.textContent = store.get().version || t('svc.unknown');
+
+  const dir = el('svcDataDir');
+  if (dir) dir.textContent = store.get().dataDir || t('svc.unknown');
+}
+
+/**
+ * 服务弹窗的「重新检测」：复用 boot() 同一支健康检查，结果**就地**显示。
  * 不走 toast —— toast 悬浮在遮罩之上，会盖住正要看的弹窗内容。
  */
 async function testService() {
@@ -138,17 +176,38 @@ async function testService() {
   const out = el('svcResult');
   if (!btn || !out) return;
   btn.disabled = true;
+  out.hidden = false;
   out.textContent = t('svc.testing');
   try {
     const info = await api.health();
-    store.set({ version: info.version, connected: true });
-    setServiceState('ready');
-    out.textContent = t('svc.testOk', { version: info.version });
+    store.set({ version: info.version, connected: true, dataDir: info.dataDir || '' });
+    setServiceState('ready');       // 内含 syncServiceDialog()，常驻字段随之刷新
+    out.textContent = t('svc.testOk');
   } catch (err) {
     setServiceState('offline');
     out.textContent = t('svc.testFail', { message: localizeError(err) });
   } finally {
     btn.disabled = false;
+  }
+}
+
+/**
+ * 服务弹窗的「打开目录」：请后端让系统打开青蔓自己的某个目录（V0.0.51@r7）。
+ * 就地反馈，且**按 reason 给出可执行的下一步** —— 「目录尚不存在」与「系统打不开」
+ * 是两种不同处境（前者等一会儿就有、后者得手动去），笼统一句「失败」帮不上忙。
+ */
+async function openServiceDir(target) {
+  const out = el('svcResult');
+  if (!out) return;
+  out.hidden = false;
+  try {
+    const res = await api.openDir(target);
+    if (res.available) out.textContent = t('svc.openOk', { dir: res.dir });
+    else if (res.reason === 'disabled') out.textContent = t('svc.openDisabled', { dir: res.dir });
+    else if (res.reason === 'missing') out.textContent = t('svc.openMissing', { dir: res.dir });
+    else out.textContent = t('svc.openUnavailable', { dir: res.dir });
+  } catch (err) {
+    out.textContent = t('svc.testFail', { message: localizeError(err) });
   }
 }
 
@@ -183,18 +242,27 @@ function initTopbar() {
   // **弹窗** —— 同标签跳转会丢掉内存里尚未落盘的目录树（见 docs/项目约定.md §P0-3）。
   el('btnSupport').addEventListener('click', () => layers.open(el('dlgSupport'), el('btnSupport')));
   el('btnHelp').addEventListener('click', () => layers.open(el('dlgHelp'), el('btnHelp')));
-  el('chipBackend').addEventListener('click', () => layers.open(el('dlgService'), el('chipBackend')));
+  el('chipBackend').addEventListener('click', () => {
+    resetSvcResult();
+    layers.open(el('dlgService'), el('chipBackend'));
+  });
 
   // 「更多」浮层里的三个低频入口：窄窗折入后复用同一批弹窗。
   // 触发器一律回指 #btnMore —— 窄窗下 #btnSupport / #btnHelp 已 display:none，
   // 焦点若归还给隐藏元素会丢失，须有可见落点。
-  el('moreService').addEventListener('click', () => layers.open(el('dlgService'), el('btnMore')));
+  el('moreService').addEventListener('click', () => {
+    resetSvcResult();
+    layers.open(el('dlgService'), el('btnMore'));
+  });
   el('moreSupport').addEventListener('click', () => layers.open(el('dlgSupport'), el('btnMore')));
   el('moreHelp').addEventListener('click', () => layers.open(el('dlgHelp'), el('btnMore')));
 
-  // 服务弹窗：地址取自 api.js 的同一基址（window.location.origin），测试按钮走后端健康检查。
-  el('svcAddr').textContent = window.location.origin;
+  // 服务弹窗（V0.0.51@r7）：常驻字段（状态 / 地址 / 版本 / 数据目录）统一由
+  // syncServiceDialog 填；「重新检测」走后端健康检查；两颗「打开目录」请后端调系统打开。
   el('btnSvcTest').addEventListener('click', testService);
+  el('btnOpenProject').addEventListener('click', () => openServiceDir('project'));
+  el('btnOpenData').addEventListener('click', () => openServiceDir('data'));
+  syncServiceDialog();
 }
 
 /* ---------- 撤销 / 重做（上限 50 步） ---------- */
@@ -316,6 +384,9 @@ const store = createStore({
   selectedIds: [],
   version: '—',
   connected: false,
+  /* V0.0.51@r7：数据目录实测值（服务弹窗展示）。由 boot() / 「重新检测」写入 ——
+     与 version 同策：离线时保留最后一次实测值，不刻意清空。 */
+  dataDir: '',
   saveState: 'idle',   // idle | pending | saving | saved | error
   savedAt: '',
 });
@@ -1123,6 +1194,9 @@ function setServiceState(state) {
 
   // 帮助弹窗的三行实测值（版本 / 后端 / 模板库位置）在此统一同步。
   pushHelpStatus();
+
+  // 服务弹窗的常驻字段同源同步：状态一变，顶栏与弹窗同时变（不会各说各话）。
+  syncServiceDialog();
 }
 
 async function boot() {
@@ -1130,7 +1204,7 @@ async function boot() {
 
   try {
     const info = await api.health();
-    store.set({ version: info.version, connected: true });
+    store.set({ version: info.version, connected: true, dataDir: info.dataDir || '' });
     setServiceState('ready');
     setStatus(t('status.readyWith', { nameZh: info.nameZh, app: info.app }));
   } catch (err) {

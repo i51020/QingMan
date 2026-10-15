@@ -870,6 +870,94 @@ class TemplatesDirPickTests(unittest.TestCase):
             self.assertGreaterEqual(item["size"], 0)
 
 
+class OpenDirTests(unittest.TestCase):
+    """V0.0.51@r7 · 服务设置：请求系统打开青蔓自己的目录（`POST /api/open-dir`）。
+
+    端点只认**枚举标识**、且从不把调用方字符串拼进文件路径 —— 故路径穿越从结构上
+    不可能（与 `pick_templates_dir` 并列的一处安全设计）。这里逐一钉住四个降级分支
+    + 成功分支，并显式验证「标识非法即拒」。
+
+    绝不真开资源管理器：`_open_path` 一律打桩 —— 自动化环境里真开会污染测试机桌面。
+    """
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="qm_open_"))
+        self.addCleanup(lambda: __import__("shutil").rmtree(self.tmp, ignore_errors=True))
+        # settings 重定向到临时文件：万一将来有人在端点里加落盘，也污染不到本机真实配置。
+        env = mock.patch.dict(os.environ, {"QM_SETTINGS": str(self.tmp / "settings.json")})
+        env.start()
+        self.addCleanup(env.stop)
+        os.environ.pop(routes.NO_GUI_OPEN_ENV, None)
+        self.addCleanup(lambda: os.environ.pop(routes.NO_GUI_OPEN_ENV, None))
+
+    def test_bad_target_rejected(self):
+        """标识非法 = **客户端错误**（400），不是「能力缺失」的那种 ok=true 降级。"""
+        for bad in (None, "", "nope", 3, "../../etc", "PROJECT"):
+            with self.assertRaises(TreeError) as ctx:
+                routes.open_directory({"target": bad})
+            self.assertEqual(ctx.exception.code, "openDirBadTarget")
+
+    def test_target_key_missing_rejected(self):
+        with self.assertRaises(TreeError) as ctx:
+            routes.open_directory({})
+        self.assertEqual(ctx.exception.code, "openDirBadTarget")
+
+    def test_disabled_by_env(self):
+        os.environ[routes.NO_GUI_OPEN_ENV] = "1"
+        opened = []
+        with mock.patch.object(routes, "_open_path",
+                               side_effect=lambda p: opened.append(p)):
+            res = routes.open_directory({"target": "project"})
+        self.assertTrue(res["ok"])
+        self.assertFalse(res["available"])
+        self.assertEqual(res["reason"], "disabled")
+        self.assertFalse(opened, "env 关断时必须**不**触碰系统")
+
+    def test_missing_dir_degrades(self):
+        ghost = Path(self.tmp) / "not-created"
+        with mock.patch.object(routes.config, "DATA_DIR", ghost):
+            res = routes.open_directory({"target": "data"})
+        self.assertTrue(res["ok"])
+        self.assertFalse(res["available"])
+        self.assertEqual(res["reason"], "missing")
+        self.assertEqual(res["dir"], str(config.resolve_path(ghost)))
+
+    def test_unavailable_degrades(self):
+        with mock.patch.object(routes, "_open_path",
+                               side_effect=routes._OpenUnavailable("no desktop")):
+            res = routes.open_directory({"target": "project"})
+        self.assertTrue(res["ok"])
+        self.assertFalse(res["available"])
+        self.assertEqual(res["reason"], "unavailable")
+        self.assertIn("no desktop", res["message"])
+
+    def test_success_opens_project_dir(self):
+        opened = []
+        with mock.patch.object(routes, "_open_path",
+                               side_effect=lambda p: opened.append(p)):
+            res = routes.open_directory({"target": "project"})
+        self.assertTrue(res["available"])
+        self.assertEqual(res["reason"], "")
+        self.assertEqual(res["dir"], str(config.resolve_path(config.PROJECT_DIR)))
+        self.assertEqual([str(p) for p in opened], [res["dir"]])
+
+    def test_templates_target_follows_binding(self):
+        """`templates` 取**当前绑定**目录（用户改了绑定就随之变），不是内置默认目录。"""
+        opened = []
+        with mock.patch.object(routes.config, "templates_dir", return_value=str(self.tmp)):
+            with mock.patch.object(routes, "_open_path",
+                                   side_effect=lambda p: opened.append(p)):
+                res = routes.open_directory({"target": "templates"})
+        self.assertTrue(res["available"])
+        self.assertEqual(res["dir"], str(config.resolve_path(self.tmp)))
+
+    def test_does_not_write_settings(self):
+        """「打开目录」是纯展示动作 —— 不得落盘任何配置。"""
+        with mock.patch.object(routes, "_open_path", side_effect=lambda p: None):
+            routes.open_directory({"target": "project"})
+        self.assertFalse((self.tmp / "settings.json").exists())
+
+
 class TemplateExportTests(unittest.TestCase):
     """V0.0.38 · 6E 模板导出（`GET /api/templates-export/<name>`）。
 

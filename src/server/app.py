@@ -242,11 +242,14 @@ class Handler(BaseHTTPRequestHandler):
         # 与写操作同过 `_guard_write`（否则跨站盲发可反复弹窗骚扰用户）。
         # 注意它**不是** `/api/templates/` 的子路径（`templates-dir` ≠ `templates/`），
         # 不会与 `is_rename` 相撞；仍显式排除，免得日后改动误判。
+        # `/api/open-dir`（V0.0.51@r7）：请求 OS 打开目录 —— 同样不落盘但会开 GUI（外
+        # 弹资源管理器），故与 pick 同等对待：过 `_guard_write` 防跨站盲发。
         is_import = path == routes.TEMPLATES_IMPORT_PATH
         is_pick = path == routes.TEMPLATES_DIR_PICK_PATH
-        is_rename = ((not is_import) and (not is_pick)
+        is_open_dir = path == routes.OPEN_DIR_PATH
+        is_rename = ((not is_import) and (not is_pick) and (not is_open_dir)
                      and path.startswith(routes.TEMPLATES_PATH + "/"))
-        if not (is_import or is_rename or is_pick) and path not in (
+        if not (is_import or is_rename or is_pick or is_open_dir) and path not in (
                 routes.GENERATE_PATH, routes.SHORTCUT_PATH,
                 routes.TEMPLATES_PATH, routes.ICON_PATH):
             self._fail(404, "notFound", path=path)
@@ -269,6 +272,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, routes.import_template(payload))
             elif is_pick:
                 self._json(200, routes.pick_templates_dir())
+            elif is_open_dir:
+                self._json(200, routes.open_directory(payload))
             elif is_rename:
                 name = unquote(path[len(routes.TEMPLATES_PATH) + 1:])
                 self._json(200, routes.rename_template(name, payload))

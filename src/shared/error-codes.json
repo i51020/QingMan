@@ -43,6 +43,7 @@
   "editorCorrupt": "编辑态文档已损坏，无法解析：{path}",
   "shortcutTargetMissing": "启动文件不存在：{target}",
   "shortcutFailed": "快捷方式生成失败：{message}",
+  "openDirBadTarget": "未知的目录标识：{target}",
   "iconDataMissing": "缺少图标数据 data",
   "iconInvalid": "图标文件结构非法（仅接受 PNG-in-ICO）",
   "iconTooLarge": "图标过大，上限 {limit} 字节（当前 {actual}）",

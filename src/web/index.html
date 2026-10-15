@@ -273,11 +273,16 @@
     </div>
     <div class="lay-body">
       <p data-i18n="svc.intro"></p>
+      <div class="kv"><b data-i18n="svc.status"></b><span class="svc-state" id="svcStatus"></span></div>
       <div class="kv"><b data-i18n="svc.addr"></b><code id="svcAddr"></code></div>
-      <p id="svcResult" data-i18n="svc.idle"></p>
+      <div class="kv"><b data-i18n="svc.version"></b><code id="svcVersion"></code></div>
+      <div class="kv"><b data-i18n="svc.dataDir"></b><code id="svcDataDir"></code></div>
+      <p id="svcResult" hidden></p>
       <p data-i18n="svc.note"></p>
     </div>
     <div class="lay-foot">
+      <button type="button" class="btn" id="btnOpenProject" data-i18n="svc.openProject"></button>
+      <button type="button" class="btn" id="btnOpenData" data-i18n="svc.openData"></button>
       <button type="button" class="btn" id="btnSvcTest" data-i18n="svc.test"></button>
     </div>
   </div>

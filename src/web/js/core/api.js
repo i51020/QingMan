@@ -170,6 +170,20 @@ export const api = {
   },
 
   /**
+   * 请求系统打开青蔓自己的某个目录（V0.0.51@r7 · 服务设置）。
+   * `target` 只接受枚举标识 `'project' | 'data' | 'templates'` —— 后端查表定位，
+   * **不接收任意路径**（白名单是结构性的，路径穿越无从谈起）。
+   * 响应 `available=false` 时按 `reason` 区分：`disabled`（env 关断）/
+   * `missing`（目录尚未创建）/ `unavailable`（系统打不开）—— 三种都由调用方就地说明。
+   */
+  openDir(target) {
+    return request('/api/open-dir', {
+      method: 'POST',
+      body: JSON.stringify({ target }),
+    });
+  },
+
+  /**
    * 导入一套模板（后端 V0.0.36 · 6C，前端接线 V0.0.38 · 6E）：上传 `.json` / `.md`
    * 内容，服务端按扩展名分派解析 + `validate_template` 全量校验后落盘；
    * `overwrite` 为真时同名旧模板先移入 `templates/.trash/`。

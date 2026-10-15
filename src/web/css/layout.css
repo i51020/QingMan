@@ -574,6 +574,10 @@
 .lay-body .kv { display: flex; gap: 8px; font-size: 12px; }
 .lay-body .kv b { flex: 0 0 62px; color: var(--qm-text-dim); font-weight: 400; }
 .lay-body .kv code { word-break: break-all; }
+/* 服务弹窗「服务状态」的值（V0.0.51@r7）：与顶栏 #chipBackend / 更多浮层同惯例 ——
+   离线转危险色（由 JS 加 .is-offline）。取既有 token，零新增色值。 */
+.lay-body .svc-state { color: var(--qm-text); }
+.lay-body .svc-state.is-offline { color: var(--qm-danger); }
 
 @media (prefers-reduced-motion: reduce) {
   #scrim, .layer { transition: none !important; }

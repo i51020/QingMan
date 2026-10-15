@@ -97,6 +97,9 @@ REQUIRED_IDS = (
     "genResult", "toastHost", "ctxMenu",
     # V0.0.40：应用内弹层（需求 §10.2 #9 支持/帮助内嵌；#7 服务设置）
     "scrim", "dlgHelp", "dlgSupport", "dlgService",
+    # V0.0.51@r7 · 服务设置补全（手册 §10.2 #3）：常驻「状态/版本/数据目录」三行
+    # + 两颗「打开目录」按钮（替代原来唯一那颗「测试连接」）
+    "svcStatus", "svcVersion", "svcDataDir", "btnOpenProject", "btnOpenData",
 )
 
 REQUIRED_FILES = (
@@ -1346,6 +1349,29 @@ def main() -> int:
     check(not icon_bad, "快捷方式图标契约 V0.0.15",
           f"缺失：{', '.join(icon_bad)}" if icon_bad
           else "IconLocation / 落盘串联 / validate_ico / 缓存刷新 / 错误码 齐备")
+
+    # 7ak. 「打开目录」端点接线（V0.0.51@r7 · 服务设置补全，手册 §10.2 #3）。
+    #      为何值得单列一条守卫：这条链**跨六处**（常量定位 → POST 允许清单 → 分发 →
+    #      前端 API 封装 → 前端接线 → 错误码），而断链的后果是**静默的** —— 点按钮
+    #      毫无反应，静态检查却照绿（脚本能跑、体积不超、i18n 齐备、id 都在）。
+    #      故把「链」本身钉住：任一处被删或改名，本条即红。
+    opendir_bad: list[str] = []
+    for rel, token in (
+        ("src/server/routes.py", "OPEN_DIR_PATH"),
+        ("src/server/routes.py", "def open_directory"),
+        ("src/server/routes.py", "NO_GUI_OPEN_ENV"),
+        ("src/server/app.py", "is_open_dir"),
+        ("src/server/app.py", "routes.open_directory(payload)"),
+        ("src/web/js/core/api.js", "openDir(target)"),
+        ("src/web/js/main.js", "openServiceDir"),
+        ("src/shared/error-codes.json", "openDirBadTarget"),
+    ):
+        p = root / rel
+        if not p.is_file() or token not in p.read_text(encoding="utf-8"):
+            opendir_bad.append(f"{rel}:{token}")
+    check(not opendir_bad, "「打开目录」端点接线",
+          f"缺失：{', '.join(opendir_bad)}" if opendir_bad
+          else "常量 / 允许清单 / 分发 / 前端封装 / 接线 / 错误码 六处齐备")
 
     # 7m. 服务状态三态（V0.0.16：左栏自检收敛为顶栏「服务状态」三态）
     #     判据三端：① 左栏 checklist 已移除（页面不再有该清单元素）；

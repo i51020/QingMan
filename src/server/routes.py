@@ -14,6 +14,7 @@ import re
 import shutil
 import struct
 import subprocess
+import sys
 import tempfile
 import uuid
 from datetime import datetime
@@ -42,6 +43,12 @@ TEMPLATES_DIR_PICK_PATH = "/api/templates-dir/pick"
 # 关断原生目录框的 env：无头 / 自动化环境（CI、沙盒、`browser_smoke`）必须能关断，
 # 否则模态框会**阻塞请求线程直到有人去点它**。
 NO_GUI_PICK_ENV = "QM_NO_GUI_PICK"
+# 「打开目录」端点（V0.0.51@r7 · 服务设置）：请求 OS 打开青蔓自己的目录。
+# 只接受**枚举标识**（project / data / templates），不接任意路径 —— 见 open_directory。
+OPEN_DIR_PATH = "/api/open-dir"
+# 关断用的 env：无头 / 自动化环境（CI、沙盒、`browser_smoke`）必须能关断 ——
+# 否则会真的弹出资源管理器窗口（不阻塞请求，但会污染测试机桌面、干扰后续用例）。
+NO_GUI_OPEN_ENV = "QM_NO_GUI_OPEN"
 # 皮肤联动的桌面图标上传（V0.0.15）：前端 canvas 绘制、后端只落盘与接线
 ICON_PATH = "/api/launch-icon"
 # 「跟随系统」要跟的是 **操作系统语言**，不是浏览器语言（V0.0.14）。
@@ -90,6 +97,9 @@ def health() -> Dict[str, Any]:
         "app": config.APP_NAME_EN,
         "nameZh": config.APP_NAME_ZH,
         "version": config.read_version(),
+        # 数据目录（V0.0.51@r7 · 服务设置）：编辑草稿与备份所在处。出问题时
+        # 用户要知道去哪找 —— 由后端算（前端无从推断本机磁盘路径）。
+        "dataDir": str(config.resolve_path(config.DATA_DIR)),
         # 便于诊断：OS 语言与浏览器语言不一致时，看这一项就知道前端会采信谁
         "osLocale": os_locale(),
     }
@@ -938,6 +948,10 @@ class _PickUnavailable(Exception):
     """原生目录选择框不可用（`tkinter` 缺失 / 无 GUI 会话 / Tcl 初始化失败）。"""
 
 
+class _OpenUnavailable(Exception):
+    """系统无法打开目录（无桌面会话 / 无可用打开方式 / `os.startfile` 失败）。"""
+
+
 def _env_truthy(name: str) -> bool:
     """该 env 是否设为真值（`1` / `true` / `yes` / `on`，大小写不敏感、忽略首尾空白）。"""
     return (os.environ.get(name) or "").strip().lower() in ("1", "true", "yes", "on")
@@ -999,6 +1013,68 @@ def pick_templates_dir() -> Dict[str, Any]:
                 "message": str(exc), "dir": ""}
     return {"ok": True, "available": True, "reason": "",
             "cancelled": chosen is None, "dir": chosen or ""}
+
+
+def _open_path(path: Path) -> None:
+    """请求操作系统打开 `path`（资源管理器 / 访达 / 文件管理器）。
+
+    平台分支：Windows 用 `os.startfile`（ShellExecute，等同双击）；macOS 用 `open`；
+    其余 POSIX 用 `xdg-open`。后两者用 `Popen` **刻意不等待** —— 文件管理器是常驻
+    进程，等它退出会把本请求线程一直占住（`ThreadingHTTPServer` 线程数无上限，
+    堆积即成隐患）；`os.startfile` 本身即异步返回，无需处理。
+
+    失败（无桌面会话 / 无可用打开方式）一律抛 `_OpenUnavailable`，由
+    `open_directory` 转成 `available=false` 的降级响应。
+    """
+    try:
+        if hasattr(os, "startfile"):
+            os.startfile(str(path))  # noqa: S606 - 仅 Windows 提供；语义等同双击
+        else:
+            opener = "open" if sys.platform == "darwin" else "xdg-open"
+            subprocess.Popen(
+                [opener, str(path)],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+    except Exception as exc:  # noqa: BLE001 - OSError / 无桌面会话 / 无该命令
+        raise _OpenUnavailable(str(exc) or "cannot open directory") from exc
+
+
+def open_directory(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """`POST /api/open-dir`：请求操作系统打开青蔓自己的某个目录（V0.0.51@r7）。
+
+    只接受**枚举标识**（`project` / `data` / `templates`）而非任意路径 —— 白名单是
+    **查表**式的：标识不在表内即拒，全程**不存在**把调用方字符串拼进文件路径的环节，
+    故路径穿越从结构上无从谈起（比「先拼路径再校验是否落在允许列表内」更省事、也更难写错）。
+
+    响应形态对齐 `pick_templates_dir`：**能力缺失不是请求失败**，故恒 `ok=true`：
+
+      * `available=false, reason="disabled"`    —— env `QM_NO_GUI_OPEN` 关断；
+      * `available=false, reason="missing"`     —— 目标目录尚不存在（带 `dir`）；
+      * `available=false, reason="unavailable"` —— 无桌面 / 无可用打开方式（带 `message`）；
+      * `available=true, dir=<绝对路径>`        —— 已请求系统打开。
+
+    标识非法属**客户端错误**（而非能力缺失），抛 `TreeError` → 400。
+    """
+    target = payload.get("target")
+    targets = {
+        "project": config.PROJECT_DIR,
+        "data": config.DATA_DIR,
+        "templates": config.templates_dir(),
+    }
+    if not isinstance(target, str) or target not in targets:
+        raise TreeError("openDirBadTarget", target=str(target))
+
+    d = config.resolve_path(targets[target])
+    if _env_truthy(NO_GUI_OPEN_ENV):
+        return {"ok": True, "available": False, "reason": "disabled", "dir": str(d)}
+    if not d.is_dir():
+        return {"ok": True, "available": False, "reason": "missing", "dir": str(d)}
+    try:
+        _open_path(d)
+    except _OpenUnavailable as exc:
+        return {"ok": True, "available": False, "reason": "unavailable",
+                "message": str(exc), "dir": str(d)}
+    return {"ok": True, "available": True, "reason": "", "dir": str(d)}
 
 
 def get_templates_dir() -> Dict[str, Any]:
