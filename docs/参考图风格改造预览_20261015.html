@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>青蔓 · 「参考图风格」改造对照（提案 · 2026-10-15）</title>
+<!-- 与 src/web/index.html 同一批样式表、同一顺序；另加载默认皮肤 s06（现状侧） -->
+<link rel="stylesheet" href="../src/web/css/tokens.css">
+<link rel="stylesheet" href="../src/web/css/base.css">
+<link rel="stylesheet" href="../src/web/css/layout.css">
+<link rel="stylesheet" href="../src/web/css/soft.css">
+<link rel="stylesheet" href="../src/web/css/skins/s06-moonlight-pengray.css">
+<style>
+/* ============================================================================
+ * A. 「参考图风格」提案层 —— 只作用于 .pv-ref 子树，src/ 零改动、不落地
+ *
+ * 参数依据：docs/reference/neomorphism-风格规格.md 对参考图（neomorphism-reference.jpg
+ *   · md5 94d577a60143cf0729c7b565fe2fb9aa）的 Pillow 实测，非目测：
+ *   §2.1 画布 #E8E7E5 · 卡片面 #EDECE7 · 主黄 #FBD374（大面积）/ #F2B100（图形纯色）
+ *        正文 #3C3C3C（卡片面上 8.93:1 AAA）
+ *   §2.2 双光源：左上白 .92 / 右下暖灰 .22；卡片量级 偏移 6–8 / 模糊 14–18
+ *   §3   落地映射：--qm-accent-ink #7A5A10（5.35:1 AA）· --qm-on-accent #3C3C3C（7.71:1 AAA）
+ *   §8.3 位移:模糊 = 1:2、两侧镜像对称 —— 单变量实验中唯一被证明有效的两招
+ *   §2.3 硬约束：卡片面 vs 画布仅 1.02:1 ⇒ 必须保留 1px 结构线（青蔓化 / hybrid 档）
+ *
+ * 做法：**只覆盖 CSS 变量**（这套架构把「形态」收敛成了 tokens.css 里的语法变量），
+ *   唯一的组件级补充是「琥珀光晕」—— 参考图里激活态带光晕是它的签名手法。
+ * ========================================================================== */
+.pv-ref {
+  /* ---- 配色（参考图实测） ---- */
+  --qm-bg: #e8e7e5;
+  --qm-surface: #edece7;
+  --qm-surface-2: #f4f2ec;
+  --qm-line: #d9d6cf;
+  --qm-line-soft: #e3e0d9;
+  --qm-text: #3c3c3c;
+  --qm-text-dim: #6b655d;
+  --qm-accent: #fbd374;
+  --qm-accent-ink: #7a5a10;
+  --qm-accent-soft: #f8f1de;
+  --qm-on-accent: #3c3c3c;
+  --qm-btn-bg: #fbd374;
+  --qm-btn-bg-hi: #f7c95c;
+  --qm-danger: #b14536;
+  --qm-danger-soft: #f7e6e2;
+  --qm-warn: #8a6212;
+  --qm-btn-hi: rgba(255, 255, 255, .55);
+  --qm-btn-lo: rgba(120, 96, 40, .30);
+  --qm-edge-hi: rgba(255, 255, 255, .92);
+  --qm-edge-lo: rgba(146, 137, 120, .22);
+  --qm-shadow: 0 1px 3px rgba(146, 137, 120, .20);
+  --qm-shadow-dark: rgba(146, 137, 120, .26);
+  --qm-shadow-light: rgba(255, 255, 255, .96);
+
+  /* ---- 圆角：放大两档（并满足你给的复用规范「控件圆角最小不低于 14px」） ---- */
+  --qm-r-sm: 14px;
+  --qm-r-md: 24px;
+  --qm-gap: 14px;
+
+  /* ---- 光影语法：镜像对称 + 模糊 = 位移 × 2 ---- */
+  --qm-soft-dark: var(--qm-shadow-dark);
+  --qm-raise:     -8px -8px 16px var(--qm-shadow-light),   8px  8px 16px var(--qm-shadow-dark);
+  --qm-raise-hi:  -10px -10px 20px var(--qm-shadow-light), 10px 10px 20px var(--qm-shadow-dark);
+  --qm-sink:      inset 5px 5px 10px var(--qm-shadow-dark), inset -5px -5px 10px var(--qm-shadow-light);
+  --qm-tap:       -3px -3px 6px var(--qm-shadow-light),     3px  3px  6px var(--qm-shadow-dark);
+  --qm-tap-hi:    -5px -5px 10px var(--qm-shadow-light),    5px  5px 10px var(--qm-shadow-dark);
+  --qm-tap-in:    inset 3px 3px 6px var(--qm-shadow-dark), inset -3px -3px 6px var(--qm-shadow-light);
+  --qm-scrim: rgba(0, 0, 0, .5);
+
+  --qm-card-edge: inset 1px 1px 2px var(--qm-edge-hi);
+  --qm-topbar-shadow: 0 6px 14px var(--qm-soft-dark);
+  --qm-layer-shadow: 0 6px 14px var(--qm-shadow-dark), 0 18px 34px var(--qm-shadow-dark), 0 34px 68px var(--qm-shadow-dark), 0 0 0 1px var(--qm-line);
+  --qm-pop-shadow: 0 4px 10px var(--qm-shadow-dark), 0 16px 32px var(--qm-shadow-dark), 0 0 0 1px var(--qm-line);
+  --qm-qr-shadow: 0 4px 12px var(--qm-soft-dark);
+  --qm-btn-edge: inset 1px 1px 2px rgba(255, 255, 255, .5);
+
+  background: var(--qm-bg);
+  color: var(--qm-text);
+}
+
+/* 主按钮：琥珀实心 + 一圈琥珀光晕（参考图里「激活态带光晕」是签名手法） */
+.pv-ref .btn.btn-primary {
+  background: var(--qm-btn-bg);
+  border-color: var(--qm-btn-bg);
+  color: var(--qm-on-accent);
+  box-shadow: var(--qm-tap), 0 6px 16px rgba(251, 211, 116, .55), var(--qm-btn-edge);
+}
+.pv-ref .btn.btn-primary:hover:not(:disabled) {
+  background: var(--qm-btn-bg-hi);
+  border-color: var(--qm-btn-bg-hi);
+  box-shadow: var(--qm-tap-hi), 0 8px 20px rgba(251, 211, 116, .65), var(--qm-btn-edge);
+}
+
+/* 选中 / 激活：奶油黄底 + 向外凸起 + 琥珀光晕 */
+.pv-ref .tree-row.is-selected,
+.pv-ref .tpl-row.is-active,
+.pv-ref .tpl-row.is-checked,
+.pv-ref .icon-btn[aria-expanded="true"] {
+  background: var(--qm-accent-soft);
+  color: var(--qm-accent-ink);
+  border-color: var(--qm-accent);
+  box-shadow: var(--qm-tap), 0 0 12px rgba(251, 211, 116, .55);
+}
+
+/* 顶栏「服务就绪」状态点：参考图里就绪点带光晕 */
+.pv-ref .chip-btn .dot { box-shadow: 0 0 8px rgba(242, 177, 0, .95); }
+
+/* ============================================================================
+ * B. 预览页外壳（pv- 前缀，不污染项目类名；不参与落地）
+ * ========================================================================== */
+body {
+  background: #2b2b2a;
+  color: #ececea;
+  font-family: var(--qm-font);
+  font-size: 13px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+.pv-top { max-width: 1420px; margin: 0 auto; padding: 26px 22px 4px; }
+.pv-h1 { font-size: 20px; margin: 0 0 8px; letter-spacing: .5px; }
+.pv-sub { font-size: 12.5px; line-height: 1.9; color: #b6b4af; margin: 0; }
+.pv-sub b { color: #ececea; }
+.pv-sec { max-width: 1420px; margin: 0 auto; padding: 24px 22px 0; }
+.pv-h2 { font-size: 14px; margin: 0 0 6px; color: #fbd374; letter-spacing: .4px; }
+.pv-note { font-size: 12px; line-height: 1.9; color: #a8a6a1; margin: 0 0 12px; }
+.pv-note code { background: rgba(255, 255, 255, .10); color: #e8e6e2; border-radius: 4px; padding: 1px 5px; font-family: var(--qm-mono); font-size: 11.5px; }
+.pv-note b { color: #e8e6e2; }
+.pv-stage {
+  height: 742px; border-radius: 20px; overflow: hidden;
+  background: var(--qm-bg);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
+}
+.pv-ab { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.pv-col { border-radius: 18px; padding: 14px 16px 16px; background: var(--qm-bg); box-shadow: 0 10px 26px rgba(0, 0, 0, .42); }
+.pv-col-h { font-size: 12px; margin: 0 0 10px; letter-spacing: .6px; color: var(--qm-text-dim); }
+.pv-demo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.pv-demo:last-child { margin-bottom: 0; }
+.pv-tag { font-size: 11px; color: var(--qm-text-dim); min-width: 96px; flex: 0 0 96px; }
+.pv-tbl { width: 100%; border-collapse: collapse; font-size: 12px; background: #343432; border-radius: 14px; overflow: hidden; }
+.pv-tbl th, .pv-tbl td { padding: 9px 12px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, .08); vertical-align: top; }
+.pv-tbl th { background: rgba(255, 255, 255, .06); color: #fbd374; font-weight: 600; font-size: 11.5px; letter-spacing: .3px; }
+.pv-tbl td { color: #c9c7c2; }
+.pv-tbl td code { background: rgba(255, 255, 255, .10); border-radius: 4px; padding: 1px 5px; font-family: var(--qm-mono); font-size: 11.5px; color: #e8e6e2; }
+.pv-tbl tr:last-child td { border-bottom: 0; }
+.pv-tbl .cur { color: #9fb8c8; }
+.pv-tbl .new { color: #fbd374; }
+.pv-warn { font-size: 12px; line-height: 1.95; color: #d9c08a; background: rgba(251, 211, 116, .10); border-left: 3px solid #fbd374; border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 0 0 12px; }
+.pv-warn b { color: #fbd374; }
+.pv-foot { max-width: 1420px; margin: 0 auto; padding: 26px 22px 50px; font-size: 11.5px; color: #8a8884; line-height: 1.9; }
+</style>
+</head>
+<body>
+
+<div class="pv-top">
+  <h1 class="pv-h1">青蔓 · 「参考图风格」改造对照</h1>
+  <p class="pv-sub">
+    风格基准：<code>docs/reference/neomorphism-reference.jpg</code>（md5 <code>94d577a60143cf0729c7b565fe2fb9aa</code>，与你这次提供的图<b>逐字节同一</b>）。<br>
+    下面两屏是<b>同一份 DOM</b> —— 取自产品<b>真实运行态</b>（非手搭示意），差异只有一套 CSS 变量。<br>
+    本页<b>不落地</b>：<code>src/</code> 零改动、未提交任何东西。
+  </p>
+</div>
+
+<!-- ============ ① 现状 ============ -->
+<section class="pv-sec">
+  <h2 class="pv-h2">① 现状 · 产品当前默认皮肤（s06 月光铅灰）</h2>
+  <p class="pv-note">
+    强调色 <code>#65696f</code>、主按钮 <code>#55595e</code> —— <b>刻意无彩色</b>。全屏像素取样：66.8% 纯白、
+    <b>平均饱和度 0.4%</b>、高饱和像素仅 <b>0.2%</b>。面板投影为 <code>-3px -3px 6px / 3px 3px 6px</code>（短程）。
+  </p>
+  <div class="pv-stage"><div id="app">
+
+    <header id="topbar">
+      <button type="button" class="brand" id="btnLogo" data-i18n-title="topbar.logoTip" title="点击生成桌面快捷方式">
+        <span class="brand-logo" aria-hidden="true"></span>
+        <span class="brand-mark" data-i18n="app.nameZh">青蔓</span>
+        <span class="brand-sub" data-i18n="app.nameEn">QingMan</span>
+      </button>
+      <div class="topbar-right">
+        <!-- Status zone: a read-only chip (borderless soft bg, 24px) plus a clickable button
+             (solid border, 32px). V0.0.40 (manual 10.2 #7): the service indicator became a
+             button that opens the in-app service dialog. -->
+        <div class="tb-group tb-status">
+          <span class="chip chip-ok" id="chipSave" data-i18n="topbar.save.idle" data-i18n-title="topbar.saveTip" title="编辑内容自动保存到项目内的 data/editor.json">已保存 23:31</span>
+          <button type="button" class="chip-btn" id="chipBackend" aria-haspopup="dialog" data-i18n-title="topbar.backendTip" title="查看服务状态与设置">
+            <span class="dot" aria-hidden="true"></span>
+            <span class="btn-txt" data-i18n="topbar.backend.connecting">服务就绪</span>
+            <span class="caret" aria-hidden="true">▾</span>
+          </button>
+        </div>
+        <!-- Action zone: four always-visible icon buttons plus one narrow-window button
+             (V0.0.40 · manual 10.2 #6). Language / skin moved from a select to icon button +
+             popover; Support / Help became in-app dialogs (manual 10.2 #9). -->
+        <div class="tb-group tb-actions">
+          <button type="button" class="icon-btn" id="btnLang" aria-haspopup="true" aria-expanded="false" data-i18n-aria-label="lang.label" data-i18n-title="lang.label" title="语言" aria-label="语言">
+            <span class="ic ic-globe" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="icon-btn" id="btnSkin" aria-haspopup="true" aria-expanded="false" data-i18n-aria-label="skin.label" data-i18n-title="skin.label" title="皮肤" aria-label="皮肤">
+            <span class="sw-dots" id="skinDots" aria-hidden="true"><i></i><i></i><i></i></span>
+          </button>
+          <button type="button" class="icon-btn" id="btnSupport" aria-haspopup="dialog" data-i18n-aria-label="topbar.support" data-i18n-title="topbar.supportTip" title="赞赏与支持" aria-label="支持">
+            <span class="ic ic-heart" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="icon-btn" id="btnHelp" aria-haspopup="dialog" data-i18n-aria-label="topbar.help" data-i18n-title="topbar.helpTip" title="查看使用说明" aria-label="帮助">
+            <span class="ic ic-help" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="icon-btn" id="btnMore" aria-haspopup="true" aria-expanded="false" data-i18n-aria-label="topbar.more" data-i18n-title="topbar.more" title="更多" aria-label="更多">
+            <span class="ic ic-more" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main">
+
+      <aside id="sidebar">
+        <h2 class="panel-title" data-i18n="sidebar.title">模板工作区</h2>
+        <p class="hint" id="tplNote">
+          <span data-i18n="sidebar.noteLine1">选一套模板一键载入，或在中间自行编辑目录树。</span><br>
+          <span data-i18n="sidebar.noteLine2">模板库位置：</span><code>templates/</code>
+        </p>
+        <div class="panel-block">
+          <div class="panel-head">
+            <h3 class="panel-sub" data-i18n="template.listTitle">模板列表</h3>
+            <!-- Grouped so the head keeps exactly two flex children (title / actions) -->
+            <span class="panel-actions">
+              <button type="button" class="btn btn-ghost btn-mini" id="btnNewTemplate" aria-haspopup="dialog" data-i18n="template.new" data-i18n-title="template.newTip" title="从零创建一套模板（可选空白或库中任一模板作起点）">新建</button>
+              <button type="button" class="btn btn-ghost btn-mini" id="btnImportTemplate" data-i18n="template.import" data-i18n-title="template.importTip" title="从 .json / .md 文件导入一套模板">导入</button>
+              <button type="button" class="btn btn-ghost btn-mini" id="btnSaveTemplate" data-i18n="template.saveAs" data-i18n-title="template.saveAsTip" title="把正在编辑的目录树保存成一套新模板">另存为模板</button>
+            </span>
+          </div>
+          <!-- Template folder binding row (V0.0.38 / 6E): path + "Choose..." / "Refresh"
+               buttons; the hint line (unbound / invalid) is filled by main.js into tplDirHint -->
+          <div class="tpl-dir" id="tplDirRow">
+            <span class="tpl-dir-label" data-i18n="template.dirLabel">模板目录</span>
+            <code class="tpl-dir-path" id="tplDirPath" title="E:\临时\20261009_目录树可视化管理器_1152_文心助手\中文目录树模板库">E:\临时\20261009_目录树可视化管理器_1152_文心助手\中文目录树模板库</code>
+            <span class="tpl-dir-actions">
+              <button type="button" class="btn btn-ghost btn-mini" id="btnPickDir" data-i18n="template.dirPick" data-i18n-title="template.dirPickTip" title="选择一个目录作为模板库（本机原生目录选择框）">选择…</button>
+              <button type="button" class="btn btn-ghost btn-mini" id="btnRefreshTpl" data-i18n="template.refresh" data-i18n-title="template.refreshTip" title="重新读取模板列表">刷新</button>
+            </span>
+          </div>
+          <p class="tpl-dir-hint" id="tplDirHint" hidden=""></p>
+          <!-- items are rendered by main.js from the resolved templates directory -->
+          <ul class="tpl-list" id="templateList"><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P0 · 空白模板：仅项目级横向职能 14 项目录，专业工作区留空，作为综合项目起点。"><span class="tpl-name">P0_空白项目模板</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">14 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P1 · 实拍短视频：项目级横向职能 + 实拍短视频专业工作区（选题/脚本/拍摄/视觉/剪辑/交付）。"><span class="tpl-name">P1_实拍短视频项目</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">30 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P2 · AI 通用生成：项目级横向职能 + AI 专业工作区（提示词/输入素材/多模态生成/评估/交付）。"><span class="tpl-name">P2_AI通用生成项目</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">44 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P3 · AI 短剧：项目级横向职能 + AI 短剧专业工作区（剧本/角色/分镜/镜头生成/配音/剪辑/交付）。"><span class="tpl-name">P3_AI短剧项目</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">55 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P4 · AI 音乐：项目级横向职能 + AI 音乐专业工作区（歌词/作曲编曲/生成/音频制作/交付）。"><span class="tpl-name">P4_AI音乐项目</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">38 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P5 · AI MV：项目级横向职能 + AI MV 专业工作区（歌曲/概念/分镜/视觉生成/音画同步/剪辑/交付）。"><span class="tpl-name">P5_AI_MV项目</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">44 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P6 · 直播：项目级横向职能 + 直播专业工作区（直播前/直播中/直播后/交付）。"><span class="tpl-name">P6_直播项目</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">23 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P7 · 策划：项目级横向职能 + 策划专业工作区（调研/策略/执行/时间预算/招商/风险/交付）。"><span class="tpl-name">P7_策划项目</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">22 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P8 · FDE 前向部署：项目级横向职能 + FDE 专业工作区（客户环境/需求/方案/部署/数据/迭代/移交/交付）。"><span class="tpl-name">P8_FDE项目</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">23 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P9 · 高斯泼溅：项目级横向职能 + 高斯泼溅专业工作区（采集/预处理/训练/输出/评估/交付）。"><span class="tpl-name">P9_高斯泼溅项目</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">36 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="独立系统 S2 · 个人知识库：操作指南、自我觉察、认知、学习与输入、工作、生活、设备与器材、模板等。"><span class="tpl-name">S2_个人知识库</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">87 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="独立系统 S3 · 素材资源库：共用资产（字体/LUT/品牌/音效/模板/授权）、拍摄素材、通用素材、导出成片。"><span class="tpl-name">S3_素材资源库</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">15 目录 · 2 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="独立系统 S4 · 财务台账：记账、凭证、税务合规、进销项发票、银行流水、年度模板（含四季度）。"><span class="tpl-name">S4_财务台账</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">14 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="独立系统 S5 · 文档资料库：电子书、说明书、行业标准、论文报告、表单模板、待归类、归档。"><span class="tpl-name">S5_文档资料库</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">8 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="独立系统 S6 · 个人档案库：证件、健康、财务、车辆、家庭、合同、证书、通讯录、设备与工作档案。"><span class="tpl-name">S6_个人档案库</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">13 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="独立系统 S7 · 产出库：视频、文章、音频、图片四类产出，含发布记录与归档。"><span class="tpl-name">S7_产出库</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">7 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="独立系统 S8 · 提示词与脚本工具库：系统/任务提示词、片段变量、脚本总库、测试用例、文档与短链接登记表。"><span class="tpl-name">S8_提示词与脚本工具库</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">16 目录 · 2 文件</span></span></button></li></ul>
+        </div>
+      </aside>
+
+      <section id="center">
+        <header class="center-head">
+          <h2 class="panel-title" data-i18n="tree.title">目录树工作区</h2>
+        </header>
+
+        <div id="genBar">
+          <button type="button" class="genbar-head" id="btnGenToggle" aria-expanded="true" aria-controls="genFields" title="收起生成参数">
+            <span class="genbar-caret" id="genCaret" aria-hidden="true">▼</span>
+            <span class="genbar-summary" id="genSummary" data-i18n="gen.summaryEmpty">未设置目标位置 · 不建根 · 演练中</span>
+          </button>
+          <div class="genbar-fields" id="genFields">
+            <label class="field field-wide">
+              <span data-i18n="gen.targetLabel">目标位置</span>
+              <span class="field-inline">
+                <input type="text" id="inTarget" data-i18n-placeholder="gen.targetPlaceholder" placeholder="例如：E:\我的项目">
+                <button type="button" class="btn btn-ghost btn-mini" id="btnPickTarget" data-i18n="gen.targetPick" data-i18n-title="gen.targetPickTip" title="选择一个已存在的目录作为目标位置（本机原生目录选择框）">选择…</button>
+              </span>
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="inDryRun" checked="">
+              <span data-i18n="gen.dryRun">仅演练（不写盘）</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- V0.0.43 · G group: three semantic groups (edit / view / output).
+             Splitting rule = "changes data / read-only view / produces output".
+             Undo+redo sit with add/rename/delete because all five change the tree;
+             the old layout separated them with a .divider, which was a mis-group. -->
+        <div id="toolbar" class="bar">
+          <span class="tb-group" role="group" data-i18n-aria-label="tree.groupEdit" aria-label="编辑">
+            <button type="button" id="btnUndo" class="btn btn-ghost" data-i18n="tree.undo" disabled="">撤销</button>
+            <button type="button" id="btnRedo" class="btn btn-ghost" data-i18n="tree.redo" disabled="">重做</button>
+            <button type="button" id="btnAddChild" class="btn" data-i18n="tree.addChild" title="">新建子节点</button>
+            <button type="button" id="btnRename" class="btn" data-i18n="tree.rename" title="">重命名</button>
+            <button type="button" id="btnDelete" class="btn btn-danger" data-i18n="tree.delete">删除</button>
+          </span>
+          <span class="tb-group" role="group" data-i18n-aria-label="tree.groupView" aria-label="视图">
+            <button type="button" id="btnExpandAll" class="btn btn-ghost" data-i18n="tree.expandAll">全部展开</button>
+            <button type="button" id="btnCollapseAll" class="btn btn-ghost" data-i18n="tree.collapseAll">全部折叠</button>
+          </span>
+          <span class="spacer"></span>
+          <span class="tb-group" role="group" data-i18n-aria-label="tree.groupOutput" aria-label="输出">
+            <button type="button" id="btnGenerate" class="btn btn-primary" data-i18n="gen.button">一键生成</button>
+          </span>
+        </div>
+
+        <!-- V0.0.43 · F group: batch bar. Only shown while 2+ nodes are selected,
+             so the multi-select gestures (Ctrl/Cmd-click, Shift-click, Ctrl+A) stay
+             invisible until they are actually useful. Row-count text is filled by JS. -->
+        <div id="batchBar" class="bar" hidden="">
+          <span class="batch-info" id="batchInfo"></span>
+          <span class="batch-hint" data-i18n="tree.batchMoveHint">拖动其中一项可整组移动</span>
+          <span class="spacer"></span>
+          <button type="button" id="btnBatchCopy" class="btn btn-ghost" data-i18n="tree.batchCopy">复制选中路径</button>
+          <button type="button" id="btnBatchDelete" class="btn btn-danger" data-i18n="tree.batchDelete">删除选中</button>
+          <button type="button" id="btnBatchClear" class="btn btn-ghost" data-i18n="tree.batchClear">取消选择</button>
+        </div>
+
+        <div id="treeWrap">
+          <div id="treeCanvas" role="tree" data-i18n-aria-label="tree.canvasLabel" aria-label="目录树"><div class="tree-node"><div class="tree-row is-selected" data-id="dmv89orwt7" role="treeitem" aria-selected="true" draggable="false"><span class="tree-toggle">▼</span><span class="tree-icon">📁</span><span class="tree-name">P0_空白项目模板</span></div><div class="tree-children"><div class="tree-node"><div class="tree-row" data-id="dmv89orwt8" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">日志</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwt9" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">项目原始资料</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwta" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">项目本地资源</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwtb" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle">▼</span><span class="tree-icon">📁</span><span class="tree-name">项目管理</span></div><div class="tree-children"><div class="tree-node"><div class="tree-row" data-id="dmv89orwtc" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">项目章程</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwtd" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">时间表</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwte" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">预算</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwtf" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">相关方</span></div></div></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwtg" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">运营</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwth" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">发布</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwti" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">分析</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwtj" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">复盘</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwtk" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">交付物</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwtl" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">专业工作区</span></div></div><div class="tree-node"><div class="tree-row" data-id="fmv89orwtm" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📄</span><span class="tree-name">说明文档.md</span></div></div></div></div></div>
+        </div>
+
+        <footer id="statusBar">
+          <span id="statusText" data-i18n="status.ready">已恢复上次编辑内容（23:31）</span>
+          <span id="statusCount" class="status-count">目录 14 · 文件 1</span>
+        </footer>
+      </section>
+
+      <aside id="inspector">
+        <!-- V0.0.43 · H group: properties <-> source (the selected node's own subtree
+             serialized exactly as it will be handed to the generator, so the payload
+             can be verified before pressing Generate). Mode persists via qm.inspMode. -->
+        <div class="panel-head insp-head">
+          <h2 class="panel-title" data-i18n="inspector.title">属性工作区</h2>
+          <div class="seg" id="inspMode" role="tablist" data-i18n-aria-label="inspector.modeLabel" aria-label="检视器视图">
+            <button type="button" class="seg-btn is-on" id="btnInspProp" role="tab" aria-selected="true" data-i18n="inspector.modeProp">属性</button>
+            <button type="button" class="seg-btn" id="btnInspSrc" role="tab" aria-selected="false" data-i18n="inspector.modeSrc">源码</button>
+          </div>
+        </div>
+        <div id="inspPropPane">
+          <div class="prop-list">
+            <div class="prop"><span class="prop-key" data-i18n="inspector.name">名称</span><span class="prop-val" id="propName">P0_空白项目模板</span><button type="button" class="btn btn-ghost btn-mini" id="btnCopyName" data-i18n="inspector.copy" data-i18n-title="inspector.copyNameTip" title="复制节点名称">复制</button></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.type">类型</span><span class="prop-val" id="propType">目录</span></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.path">路径</span><span class="prop-val prop-mono" id="propPath">P0_空白项目模板</span><button type="button" class="btn btn-ghost btn-mini" id="btnCopyPath" data-i18n="inspector.copy" data-i18n-title="inspector.copyPathTip" title="复制节点路径">复制</button></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.depth">深度</span><span class="prop-val" id="propDepth">0</span></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.dirs">子目录</span><span class="prop-val" id="propDirs">14</span></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.files">文件</span><span class="prop-val" id="propFiles">1</span></div>
+          </div>
+          <h3 class="panel-sub" data-i18n="inspector.noteTitle">说明</h3>
+          <textarea id="propNote" rows="6" data-i18n-placeholder="inspector.notePlaceholder" placeholder="为该节点写一段说明（纯文本）…"></textarea>
+          <div class="note-actions">
+            <button type="button" class="btn btn-ghost btn-mini" id="btnCopyNote" data-i18n="inspector.copyNote" data-i18n-title="inspector.copyNoteTip" title="复制节点说明">复制说明</button>
+          </div>
+        </div>
+        <div id="inspSrcPane" hidden="">
+          <pre class="result" id="inspSource" data-i18n="inspector.sourceEmpty">{
+  "日志": {},
+  "项目原始资料": {},
+  "项目本地资源": {},
+  "项目管理": {
+    "项目章程": {},
+    "时间表": {},
+    "预算": {},
+    "相关方": {}
+  },
+  "运营": {},
+  "发布": {},
+  "分析": {},
+  "复盘": {},
+  "交付物": {},
+  "专业工作区": {},
+  "说明文档.md": "# 项目说明\n\n- 用途：综合项目起点，专业工作区留空，后续手动补充专业目录\n- 本目录骨架由模板生成，业务内容由用户维护。\n"
+}</pre>
+        </div>
+        <h3 class="panel-sub" data-i18n="inspector.resultTitle">生成结果</h3>
+        <pre class="result" id="genResult" data-i18n="inspector.resultEmpty">尚未生成</pre>
+      </aside>
+
+    </main>
+  </div></div>
+</section>
+
+<!-- ============ ② 参考图风格 ============ -->
+<section class="pv-sec">
+  <h2 class="pv-h2">② 参考图风格 · 提案（暖白画布 + 琥珀 + 大偏移柔影）</h2>
+  <p class="pv-note">
+    画布 <code>#e8e7e5</code>、卡片面 <code>#edece7</code>、主黄 <code>#fbd374</code>、正文 <code>#3c3c3c</code>；
+    面板投影放大到 <code>-8px -8px 16px / 8px 8px 16px</code>（偏移:模糊 = 1:2、两侧镜像对称）；
+    圆角 12/20 → <b>14/24px</b>；栏距 10 → <b>14px</b>。<br>
+    重点看四处：<b>主按钮</b>（深灰 → 琥珀 + 光晕）、<b>选中行</b>（灰 → 奶油黄 + 光晕）、
+    <b>面板投影</b>（短促 → 大而柔）、<b>整体色温</b>（冷 → 暖）。
+  </p>
+  <div class="pv-stage pv-ref"><div id="app">
+
+    <header id="topbar">
+      <button type="button" class="brand" id="btnLogo" data-i18n-title="topbar.logoTip" title="点击生成桌面快捷方式">
+        <span class="brand-logo" aria-hidden="true"></span>
+        <span class="brand-mark" data-i18n="app.nameZh">青蔓</span>
+        <span class="brand-sub" data-i18n="app.nameEn">QingMan</span>
+      </button>
+      <div class="topbar-right">
+        <!-- Status zone: a read-only chip (borderless soft bg, 24px) plus a clickable button
+             (solid border, 32px). V0.0.40 (manual 10.2 #7): the service indicator became a
+             button that opens the in-app service dialog. -->
+        <div class="tb-group tb-status">
+          <span class="chip chip-ok" id="chipSave" data-i18n="topbar.save.idle" data-i18n-title="topbar.saveTip" title="编辑内容自动保存到项目内的 data/editor.json">已保存 23:31</span>
+          <button type="button" class="chip-btn" id="chipBackend" aria-haspopup="dialog" data-i18n-title="topbar.backendTip" title="查看服务状态与设置">
+            <span class="dot" aria-hidden="true"></span>
+            <span class="btn-txt" data-i18n="topbar.backend.connecting">服务就绪</span>
+            <span class="caret" aria-hidden="true">▾</span>
+          </button>
+        </div>
+        <!-- Action zone: four always-visible icon buttons plus one narrow-window button
+             (V0.0.40 · manual 10.2 #6). Language / skin moved from a select to icon button +
+             popover; Support / Help became in-app dialogs (manual 10.2 #9). -->
+        <div class="tb-group tb-actions">
+          <button type="button" class="icon-btn" id="btnLang" aria-haspopup="true" aria-expanded="false" data-i18n-aria-label="lang.label" data-i18n-title="lang.label" title="语言" aria-label="语言">
+            <span class="ic ic-globe" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="icon-btn" id="btnSkin" aria-haspopup="true" aria-expanded="false" data-i18n-aria-label="skin.label" data-i18n-title="skin.label" title="皮肤" aria-label="皮肤">
+            <span class="sw-dots" id="skinDots" aria-hidden="true"><i></i><i></i><i></i></span>
+          </button>
+          <button type="button" class="icon-btn" id="btnSupport" aria-haspopup="dialog" data-i18n-aria-label="topbar.support" data-i18n-title="topbar.supportTip" title="赞赏与支持" aria-label="支持">
+            <span class="ic ic-heart" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="icon-btn" id="btnHelp" aria-haspopup="dialog" data-i18n-aria-label="topbar.help" data-i18n-title="topbar.helpTip" title="查看使用说明" aria-label="帮助">
+            <span class="ic ic-help" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="icon-btn" id="btnMore" aria-haspopup="true" aria-expanded="false" data-i18n-aria-label="topbar.more" data-i18n-title="topbar.more" title="更多" aria-label="更多">
+            <span class="ic ic-more" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main">
+
+      <aside id="sidebar">
+        <h2 class="panel-title" data-i18n="sidebar.title">模板工作区</h2>
+        <p class="hint" id="tplNote">
+          <span data-i18n="sidebar.noteLine1">选一套模板一键载入，或在中间自行编辑目录树。</span><br>
+          <span data-i18n="sidebar.noteLine2">模板库位置：</span><code>templates/</code>
+        </p>
+        <div class="panel-block">
+          <div class="panel-head">
+            <h3 class="panel-sub" data-i18n="template.listTitle">模板列表</h3>
+            <!-- Grouped so the head keeps exactly two flex children (title / actions) -->
+            <span class="panel-actions">
+              <button type="button" class="btn btn-ghost btn-mini" id="btnNewTemplate" aria-haspopup="dialog" data-i18n="template.new" data-i18n-title="template.newTip" title="从零创建一套模板（可选空白或库中任一模板作起点）">新建</button>
+              <button type="button" class="btn btn-ghost btn-mini" id="btnImportTemplate" data-i18n="template.import" data-i18n-title="template.importTip" title="从 .json / .md 文件导入一套模板">导入</button>
+              <button type="button" class="btn btn-ghost btn-mini" id="btnSaveTemplate" data-i18n="template.saveAs" data-i18n-title="template.saveAsTip" title="把正在编辑的目录树保存成一套新模板">另存为模板</button>
+            </span>
+          </div>
+          <!-- Template folder binding row (V0.0.38 / 6E): path + "Choose..." / "Refresh"
+               buttons; the hint line (unbound / invalid) is filled by main.js into tplDirHint -->
+          <div class="tpl-dir" id="tplDirRow">
+            <span class="tpl-dir-label" data-i18n="template.dirLabel">模板目录</span>
+            <code class="tpl-dir-path" id="tplDirPath" title="E:\临时\20261009_目录树可视化管理器_1152_文心助手\中文目录树模板库">E:\临时\20261009_目录树可视化管理器_1152_文心助手\中文目录树模板库</code>
+            <span class="tpl-dir-actions">
+              <button type="button" class="btn btn-ghost btn-mini" id="btnPickDir" data-i18n="template.dirPick" data-i18n-title="template.dirPickTip" title="选择一个目录作为模板库（本机原生目录选择框）">选择…</button>
+              <button type="button" class="btn btn-ghost btn-mini" id="btnRefreshTpl" data-i18n="template.refresh" data-i18n-title="template.refreshTip" title="重新读取模板列表">刷新</button>
+            </span>
+          </div>
+          <p class="tpl-dir-hint" id="tplDirHint" hidden=""></p>
+          <!-- items are rendered by main.js from the resolved templates directory -->
+          <ul class="tpl-list" id="templateList"><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P0 · 空白模板：仅项目级横向职能 14 项目录，专业工作区留空，作为综合项目起点。"><span class="tpl-name">P0_空白项目模板</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">14 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P1 · 实拍短视频：项目级横向职能 + 实拍短视频专业工作区（选题/脚本/拍摄/视觉/剪辑/交付）。"><span class="tpl-name">P1_实拍短视频项目</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">30 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P2 · AI 通用生成：项目级横向职能 + AI 专业工作区（提示词/输入素材/多模态生成/评估/交付）。"><span class="tpl-name">P2_AI通用生成项目</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">44 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P3 · AI 短剧：项目级横向职能 + AI 短剧专业工作区（剧本/角色/分镜/镜头生成/配音/剪辑/交付）。"><span class="tpl-name">P3_AI短剧项目</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">55 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P4 · AI 音乐：项目级横向职能 + AI 音乐专业工作区（歌词/作曲编曲/生成/音频制作/交付）。"><span class="tpl-name">P4_AI音乐项目</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">38 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P5 · AI MV：项目级横向职能 + AI MV 专业工作区（歌曲/概念/分镜/视觉生成/音画同步/剪辑/交付）。"><span class="tpl-name">P5_AI_MV项目</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">44 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P6 · 直播：项目级横向职能 + 直播专业工作区（直播前/直播中/直播后/交付）。"><span class="tpl-name">P6_直播项目</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">23 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P7 · 策划：项目级横向职能 + 策划专业工作区（调研/策略/执行/时间预算/招商/风险/交付）。"><span class="tpl-name">P7_策划项目</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">22 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P8 · FDE 前向部署：项目级横向职能 + FDE 专业工作区（客户环境/需求/方案/部署/数据/迭代/移交/交付）。"><span class="tpl-name">P8_FDE项目</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">23 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="项目类 P9 · 高斯泼溅：项目级横向职能 + 高斯泼溅专业工作区（采集/预处理/训练/输出/评估/交付）。"><span class="tpl-name">P9_高斯泼溅项目</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">36 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="独立系统 S2 · 个人知识库：操作指南、自我觉察、认知、学习与输入、工作、生活、设备与器材、模板等。"><span class="tpl-name">S2_个人知识库</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">87 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="独立系统 S3 · 素材资源库：共用资产（字体/LUT/品牌/音效/模板/授权）、拍摄素材、通用素材、导出成片。"><span class="tpl-name">S3_素材资源库</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">15 目录 · 2 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="独立系统 S4 · 财务台账：记账、凭证、税务合规、进销项发票、银行流水、年度模板（含四季度）。"><span class="tpl-name">S4_财务台账</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">14 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="独立系统 S5 · 文档资料库：电子书、说明书、行业标准、论文报告、表单模板、待归类、归档。"><span class="tpl-name">S5_文档资料库</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">8 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="独立系统 S6 · 个人档案库：证件、健康、财务、车辆、家庭、合同、证书、通讯录、设备与工作档案。"><span class="tpl-name">S6_个人档案库</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">13 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="独立系统 S7 · 产出库：视频、文章、音频、图片四类产出，含发布记录与归档。"><span class="tpl-name">S7_产出库</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">7 目录 · 1 文件</span></span></button></li><li class="tpl-row"><button type="button" class="tpl-item" title="独立系统 S8 · 提示词与脚本工具库：系统/任务提示词、片段变量、脚本总库、测试用例、文档与短链接登记表。"><span class="tpl-name">S8_提示词与脚本工具库</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">16 目录 · 2 文件</span></span></button></li></ul>
+        </div>
+      </aside>
+
+      <section id="center">
+        <header class="center-head">
+          <h2 class="panel-title" data-i18n="tree.title">目录树工作区</h2>
+        </header>
+
+        <div id="genBar">
+          <button type="button" class="genbar-head" id="btnGenToggle" aria-expanded="true" aria-controls="genFields" title="收起生成参数">
+            <span class="genbar-caret" id="genCaret" aria-hidden="true">▼</span>
+            <span class="genbar-summary" id="genSummary" data-i18n="gen.summaryEmpty">未设置目标位置 · 不建根 · 演练中</span>
+          </button>
+          <div class="genbar-fields" id="genFields">
+            <label class="field field-wide">
+              <span data-i18n="gen.targetLabel">目标位置</span>
+              <span class="field-inline">
+                <input type="text" id="inTarget" data-i18n-placeholder="gen.targetPlaceholder" placeholder="例如：E:\我的项目">
+                <button type="button" class="btn btn-ghost btn-mini" id="btnPickTarget" data-i18n="gen.targetPick" data-i18n-title="gen.targetPickTip" title="选择一个已存在的目录作为目标位置（本机原生目录选择框）">选择…</button>
+              </span>
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="inDryRun" checked="">
+              <span data-i18n="gen.dryRun">仅演练（不写盘）</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- V0.0.43 · G group: three semantic groups (edit / view / output).
+             Splitting rule = "changes data / read-only view / produces output".
+             Undo+redo sit with add/rename/delete because all five change the tree;
+             the old layout separated them with a .divider, which was a mis-group. -->
+        <div id="toolbar" class="bar">
+          <span class="tb-group" role="group" data-i18n-aria-label="tree.groupEdit" aria-label="编辑">
+            <button type="button" id="btnUndo" class="btn btn-ghost" data-i18n="tree.undo" disabled="">撤销</button>
+            <button type="button" id="btnRedo" class="btn btn-ghost" data-i18n="tree.redo" disabled="">重做</button>
+            <button type="button" id="btnAddChild" class="btn" data-i18n="tree.addChild" title="">新建子节点</button>
+            <button type="button" id="btnRename" class="btn" data-i18n="tree.rename" title="">重命名</button>
+            <button type="button" id="btnDelete" class="btn btn-danger" data-i18n="tree.delete">删除</button>
+          </span>
+          <span class="tb-group" role="group" data-i18n-aria-label="tree.groupView" aria-label="视图">
+            <button type="button" id="btnExpandAll" class="btn btn-ghost" data-i18n="tree.expandAll">全部展开</button>
+            <button type="button" id="btnCollapseAll" class="btn btn-ghost" data-i18n="tree.collapseAll">全部折叠</button>
+          </span>
+          <span class="spacer"></span>
+          <span class="tb-group" role="group" data-i18n-aria-label="tree.groupOutput" aria-label="输出">
+            <button type="button" id="btnGenerate" class="btn btn-primary" data-i18n="gen.button">一键生成</button>
+          </span>
+        </div>
+
+        <!-- V0.0.43 · F group: batch bar. Only shown while 2+ nodes are selected,
+             so the multi-select gestures (Ctrl/Cmd-click, Shift-click, Ctrl+A) stay
+             invisible until they are actually useful. Row-count text is filled by JS. -->
+        <div id="batchBar" class="bar" hidden="">
+          <span class="batch-info" id="batchInfo"></span>
+          <span class="batch-hint" data-i18n="tree.batchMoveHint">拖动其中一项可整组移动</span>
+          <span class="spacer"></span>
+          <button type="button" id="btnBatchCopy" class="btn btn-ghost" data-i18n="tree.batchCopy">复制选中路径</button>
+          <button type="button" id="btnBatchDelete" class="btn btn-danger" data-i18n="tree.batchDelete">删除选中</button>
+          <button type="button" id="btnBatchClear" class="btn btn-ghost" data-i18n="tree.batchClear">取消选择</button>
+        </div>
+
+        <div id="treeWrap">
+          <div id="treeCanvas" role="tree" data-i18n-aria-label="tree.canvasLabel" aria-label="目录树"><div class="tree-node"><div class="tree-row is-selected" data-id="dmv89orwt7" role="treeitem" aria-selected="true" draggable="false"><span class="tree-toggle">▼</span><span class="tree-icon">📁</span><span class="tree-name">P0_空白项目模板</span></div><div class="tree-children"><div class="tree-node"><div class="tree-row" data-id="dmv89orwt8" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">日志</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwt9" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">项目原始资料</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwta" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">项目本地资源</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwtb" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle">▼</span><span class="tree-icon">📁</span><span class="tree-name">项目管理</span></div><div class="tree-children"><div class="tree-node"><div class="tree-row" data-id="dmv89orwtc" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">项目章程</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwtd" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">时间表</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwte" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">预算</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwtf" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">相关方</span></div></div></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwtg" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">运营</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwth" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">发布</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwti" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">分析</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwtj" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">复盘</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwtk" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">交付物</span></div></div><div class="tree-node"><div class="tree-row" data-id="dmv89orwtl" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📁</span><span class="tree-name">专业工作区</span></div></div><div class="tree-node"><div class="tree-row" data-id="fmv89orwtm" role="treeitem" aria-selected="false" draggable="true"><span class="tree-toggle is-leaf">•</span><span class="tree-icon">📄</span><span class="tree-name">说明文档.md</span></div></div></div></div></div>
+        </div>
+
+        <footer id="statusBar">
+          <span id="statusText" data-i18n="status.ready">已恢复上次编辑内容（23:31）</span>
+          <span id="statusCount" class="status-count">目录 14 · 文件 1</span>
+        </footer>
+      </section>
+
+      <aside id="inspector">
+        <!-- V0.0.43 · H group: properties <-> source (the selected node's own subtree
+             serialized exactly as it will be handed to the generator, so the payload
+             can be verified before pressing Generate). Mode persists via qm.inspMode. -->
+        <div class="panel-head insp-head">
+          <h2 class="panel-title" data-i18n="inspector.title">属性工作区</h2>
+          <div class="seg" id="inspMode" role="tablist" data-i18n-aria-label="inspector.modeLabel" aria-label="检视器视图">
+            <button type="button" class="seg-btn is-on" id="btnInspProp" role="tab" aria-selected="true" data-i18n="inspector.modeProp">属性</button>
+            <button type="button" class="seg-btn" id="btnInspSrc" role="tab" aria-selected="false" data-i18n="inspector.modeSrc">源码</button>
+          </div>
+        </div>
+        <div id="inspPropPane">
+          <div class="prop-list">
+            <div class="prop"><span class="prop-key" data-i18n="inspector.name">名称</span><span class="prop-val" id="propName">P0_空白项目模板</span><button type="button" class="btn btn-ghost btn-mini" id="btnCopyName" data-i18n="inspector.copy" data-i18n-title="inspector.copyNameTip" title="复制节点名称">复制</button></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.type">类型</span><span class="prop-val" id="propType">目录</span></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.path">路径</span><span class="prop-val prop-mono" id="propPath">P0_空白项目模板</span><button type="button" class="btn btn-ghost btn-mini" id="btnCopyPath" data-i18n="inspector.copy" data-i18n-title="inspector.copyPathTip" title="复制节点路径">复制</button></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.depth">深度</span><span class="prop-val" id="propDepth">0</span></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.dirs">子目录</span><span class="prop-val" id="propDirs">14</span></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.files">文件</span><span class="prop-val" id="propFiles">1</span></div>
+          </div>
+          <h3 class="panel-sub" data-i18n="inspector.noteTitle">说明</h3>
+          <textarea id="propNote" rows="6" data-i18n-placeholder="inspector.notePlaceholder" placeholder="为该节点写一段说明（纯文本）…"></textarea>
+          <div class="note-actions">
+            <button type="button" class="btn btn-ghost btn-mini" id="btnCopyNote" data-i18n="inspector.copyNote" data-i18n-title="inspector.copyNoteTip" title="复制节点说明">复制说明</button>
+          </div>
+        </div>
+        <div id="inspSrcPane" hidden="">
+          <pre class="result" id="inspSource" data-i18n="inspector.sourceEmpty">{
+  "日志": {},
+  "项目原始资料": {},
+  "项目本地资源": {},
+  "项目管理": {
+    "项目章程": {},
+    "时间表": {},
+    "预算": {},
+    "相关方": {}
+  },
+  "运营": {},
+  "发布": {},
+  "分析": {},
+  "复盘": {},
+  "交付物": {},
+  "专业工作区": {},
+  "说明文档.md": "# 项目说明\n\n- 用途：综合项目起点，专业工作区留空，后续手动补充专业目录\n- 本目录骨架由模板生成，业务内容由用户维护。\n"
+}</pre>
+        </div>
+        <h3 class="panel-sub" data-i18n="inspector.resultTitle">生成结果</h3>
+        <pre class="result" id="genResult" data-i18n="inspector.resultEmpty">尚未生成</pre>
+      </aside>
+
+    </main>
+  </div></div>
+</section>
+
+<!-- ============ ③ 组件逐项 ============ -->
+<section class="pv-sec">
+  <h2 class="pv-h2">③ 关键组件逐项对照</h2>
+  <p class="pv-note">同一批真实类名，左右唯一差别是那套变量。</p>
+  <div class="pv-ab">
+    <div class="pv-col">
+      <h3 class="pv-col-h">现状（s06 无彩）</h3>
+      <div class="pv-demo"><span class="pv-tag">主按钮</span>
+        <button type="button" class="btn btn-primary">一键生成</button></div>
+      <div class="pv-demo"><span class="pv-tag">普通 / 幽灵 / 危险</span>
+        <button type="button" class="btn">加子节点</button>
+        <button type="button" class="btn btn-ghost">撤销</button>
+        <button type="button" class="btn btn-danger">删除</button></div>
+      <div class="pv-demo"><span class="pv-tag">图标钮 / 状态 chip</span>
+        <span class="icon-btn"><span class="ic ic-globe" aria-hidden="true"></span></span>
+        <span class="icon-btn"><span class="ic ic-gear" aria-hidden="true"></span></span>
+        <span class="chip-btn"><span class="dot"></span><span class="btn-txt">服务就绪</span><span class="caret">&#9662;</span></span></div>
+      <div class="pv-demo"><span class="pv-tag">树行 / 选中行</span>
+        <div style="flex:1 1 auto">
+          <div class="tree-row is-selected"><span class="tree-toggle">&#9660;</span><span class="tree-icon">&#128193;</span><span class="tree-name">P0_空白项目模板</span></div>
+          <div class="tree-row"><span class="tree-toggle"></span><span class="tree-icon">&#128196;</span><span class="tree-name">说明文档.md</span></div>
+        </div></div>
+      <div class="pv-demo"><span class="pv-tag">输入框（凹陷）</span>
+        <input type="text" placeholder="例如：E:\AI_我的项目" style="flex:1 1 auto"></div>
+      <div class="pv-demo"><span class="pv-tag">模板行</span>
+        <ul class="tpl-list" style="flex:1 1 auto; margin:0">
+          <li class="tpl-row is-active"><button type="button" class="tpl-item"><span class="tpl-name">P0_空白项目模板</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">14 目录 · 1 文件</span></span></button></li>
+        </ul></div>
+    </div>
+    <div class="pv-col pv-ref">
+      <h3 class="pv-col-h">参考图风格（提案）</h3>
+      <div class="pv-demo"><span class="pv-tag">主按钮</span>
+        <button type="button" class="btn btn-primary">一键生成</button></div>
+      <div class="pv-demo"><span class="pv-tag">普通 / 幽灵 / 危险</span>
+        <button type="button" class="btn">加子节点</button>
+        <button type="button" class="btn btn-ghost">撤销</button>
+        <button type="button" class="btn btn-danger">删除</button></div>
+      <div class="pv-demo"><span class="pv-tag">图标钮 / 状态 chip</span>
+        <span class="icon-btn"><span class="ic ic-globe" aria-hidden="true"></span></span>
+        <span class="icon-btn"><span class="ic ic-gear" aria-hidden="true"></span></span>
+        <span class="chip-btn"><span class="dot"></span><span class="btn-txt">服务就绪</span><span class="caret">&#9662;</span></span></div>
+      <div class="pv-demo"><span class="pv-tag">树行 / 选中行</span>
+        <div style="flex:1 1 auto">
+          <div class="tree-row is-selected"><span class="tree-toggle">&#9660;</span><span class="tree-icon">&#128193;</span><span class="tree-name">P0_空白项目模板</span></div>
+          <div class="tree-row"><span class="tree-toggle"></span><span class="tree-icon">&#128196;</span><span class="tree-name">说明文档.md</span></div>
+        </div></div>
+      <div class="pv-demo"><span class="pv-tag">输入框（凹陷）</span>
+        <input type="text" placeholder="例如：E:\AI_我的项目" style="flex:1 1 auto"></div>
+      <div class="pv-demo"><span class="pv-tag">模板行</span>
+        <ul class="tpl-list" style="flex:1 1 auto; margin:0">
+          <li class="tpl-row is-active"><button type="button" class="tpl-item"><span class="tpl-name">P0_空白项目模板</span><span class="tpl-meta"><span class="tpl-badge">用户</span><span class="tpl-stats">14 目录 · 1 文件</span></span></button></li>
+        </ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ④ 参数表 ============ -->
+<section class="pv-sec">
+  <h2 class="pv-h2">④ 参数逐项对照</h2>
+  <p class="pv-note">「现状」列实测自盘上文件；「提案」列取自规格文档对参考图的 Pillow 实测。带 <code>*</code> 的是我做了取舍的地方。</p>
+  <table class="pv-tbl">
+    <thead><tr><th style="width:15%">项</th><th style="width:26%">现状（tokens + s06）</th><th style="width:30%">参考图风格（提案）</th><th>依据</th></tr></thead>
+    <tbody>
+      <tr><td>画布</td><td class="cur"><code>#f7f7f5</code></td><td class="new"><code>#e8e7e5</code>（暖灰，R−B = +3）</td><td>规格 §2.1 参考图实测</td></tr>
+      <tr><td>卡片面</td><td class="cur"><code>#ffffff</code></td><td class="new"><code>#edece7</code></td><td>§2.1；与画布仅 1.02:1 ⇒ 必须留结构线</td></tr>
+      <tr><td>强调色</td><td class="cur"><code>#65696f</code>（灰）</td><td class="new"><code>#fbd374</code>（琥珀）</td><td>§2.1 主黄 · 大面积</td></tr>
+      <tr><td>主按钮底</td><td class="cur"><code>#55595e</code>（深灰）</td><td class="new"><code>#fbd374</code> + 光晕</td><td>§8.4 面积律：按钮底取柔化档，不用 100% 饱和 <code>#f2b100</code></td></tr>
+      <tr><td>主按钮字色</td><td class="cur"><code>#fafaf8</code>（白）</td><td class="new"><code>#3c3c3c</code>（深）</td><td>§3：黄底深字 7.71:1 <b>AAA</b></td></tr>
+      <tr><td>圆角 小 / 大</td><td class="cur"><code>12px / 20px</code></td><td class="new"><code>14px / 24px</code></td><td>你给的复用规范「最小不低于 14px」</td></tr>
+      <tr><td>面板投影</td><td class="cur"><code>-3 3 6 / 3 3 6</code></td><td class="new"><code>-8 8 16 / 8 8 16</code></td><td>§2.2 卡片量级 偏移 6–8 / 模糊 14–18</td></tr>
+      <tr><td>小控件投影</td><td class="cur"><code>-2 2 4</code></td><td class="new"><code>-3 3 6</code></td><td>§4.2 硬化规则③：小控件光影必须比区块短</td></tr>
+      <tr><td>输入凹陷</td><td class="cur"><code>inset 3 / 6</code></td><td class="new"><code>inset 5 / 10</code></td><td>§8.2 demo：槽位移 &gt; 块位移</td></tr>
+      <tr><td>投影形状</td><td class="cur">镜像对称（已达标）</td><td class="new">镜像对称 · 模糊 = 位移 × 2</td><td>§8.3 唯一被单变量实验证明有效的两招</td></tr>
+      <tr><td>栏距 *</td><td class="cur"><code>10px</code></td><td class="new"><code>14px</code></td><td>§7.3 记录的结构天花板：栏距窄时相邻面板光影互相抵消</td></tr>
+      <tr><td>结构线 *</td><td class="cur">1px 保留</td><td class="new">1px 保留（hybrid 档）</td><td>§2.3 硬约束：不保留则密集列表分层消失</td></tr>
+      <tr><td>危险色 *</td><td class="cur"><code>#ba3a3a</code></td><td class="new"><code>#b14536</code></td><td>参考图无危险色，沿用项目既有暖红未改</td></tr>
+    </tbody>
+  </table>
+
+  <p class="pv-warn" style="margin-top:16px">
+    <b>补充实测 —— 这一条比上面任何一行都重要。</b><br>
+    我把面板阴影从 <code>-3px/6px</code> 放大到 <code>-8px/16px</code> 之后，<b>去量三栏缝隙里的实际落差，
+    它并没有变大</b>：栏距 10px 时 6.5% → 栏距 14px 时 <b>3.4%</b>；把栏距拉到 22px 才回到 <b>6.5%</b>。
+    （逐列取亮度最大值以避开文字像素；已剔除两侧各 1px 面板描边 —— 否则会把边框值当成阴影峰值。）<br>
+    原因正是规格 <b>§7.3 早就记过的「结构性天花板」</b>：栏距太窄时，相邻面板的白色高光会把本面板的暗影抵消掉。<br>
+    <b>⇒ 配色 / 色温 / 圆角 / 琥珀点缀这一层，换皮肤立刻见效；但「柔光质感」这一层，光调参数无效 —— 得动栏距。</b>
+  </p>
+</section>
+
+<!-- ============ ⑤ 需你知情 ============ -->
+<section class="pv-sec">
+  <h2 class="pv-h2">⑤ 我没做 / 需要你知情的三件事</h2>
+
+  <p class="pv-warn">
+    <b>1. 落地方式必须是「新增一款皮肤」，不能是「全局覆盖」。</b><br>
+    本页为了给你看效果，是把变量直接压在 <code>.pv-ref</code> 上。若照搬进产品，会重演 v14 修过的那个缺陷：
+    15 款皮肤的选择器特异性低于覆盖层 ⇒ <b>切任何皮肤都呈现同一套暖白</b>（当时实测「唯一渲染组合数 = 1」）。
+    正确做法：做成 <code>skins/s16-*.css</code> 一款新皮肤（<b>只覆盖变量</b>），再决定它是否设为默认。
+  </p>
+
+  <p class="pv-warn">
+    <b>2. 栏距 10 → 14px 属结构改动，不在「只换配色」范围内。</b><br>
+    规格 §7.3 把栏距列为「结构性天花板」并注明<code>需单独决策</code> —— 本页一并试给你看，但要不要真动，请你单独点头。
+  </p>
+
+  <p class="pv-note">
+    <b>3. 工具栏按钮图标化（I 组）仍在等你裁定</b>，与本页是两件事：本页的工具栏保持<b>真实现状（文字按钮）</b>，
+    没有把那 8 个自绘图标混进来，以免混淆两案的结论。<br>
+    另：参考图是<b>风格海报</b>不是 APP 界面，青蔓是密集列表型工具 —— 本页按规格 §2.3 已裁定过的
+    <b>hybrid 档（保留 1px 结构线）</b>执行，没有照搬海报的「全无描边」。
+  </p>
+</section>
+
+<div class="pv-foot">
+  本页为<b>提案对照</b>，不落地。所有参数均标注来源；<code>src/</code> 未改动、仓库未提交任何内容。<br>
+  生成于 2026-10-15 · 青蔓 QingMan V0.0.49
+</div>
+
+</body>
+</html>
