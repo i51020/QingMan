@@ -157,10 +157,12 @@
               <span class="ic ic-trash" aria-hidden="true"></span></button>
           </span>
           <span class="tb-group" role="group" data-i18n-aria-label="tree.groupView">
-            <button type="button" id="btnExpandAll" class="btn btn-ghost btn-ic"
-                    data-i18n-aria-label="tree.expandAll" data-i18n-title="tree.expandAllTip">
-              <span class="ic ic-expand-all" aria-hidden="true"></span></button>
-            <button type="button" id="btnCollapseAll" class="btn btn-ghost btn-ic"
+            <!-- V0.0.51@r3 - item 6: the former "expand all" / "collapse all" pair is
+                 merged into ONE toggle button. The attributes below are the
+                 first-paint default only (the tree loads fully expanded, so the first
+                 click collapses); updateToggleAllUI() in main.js then rewrites the
+                 icon and label from the real fold state on every render. -->
+            <button type="button" id="btnToggleAll" class="btn btn-ghost btn-ic"
                     data-i18n-aria-label="tree.collapseAll" data-i18n-title="tree.collapseAllTip">
               <span class="ic ic-collapse-all" aria-hidden="true"></span></button>
           </span>

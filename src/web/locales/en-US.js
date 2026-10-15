@@ -449,7 +449,7 @@ export const dict = {
   'help.tree.2': '"New child" adds a subdirectory under the selected directory',
   'help.tree.3': '"Rename" edits the node name; the root node name IS the generated root folder name - rename it directly, or clear it to create no root folder',
   'help.tree.4': '"Delete" removes the selected node and its children (with confirmation)',
-  'help.tree.5': '"Expand all / Collapse all" toggles all levels',
+  'help.tree.5': '"Expand / Collapse" is a single toggle: it opens every level while anything is folded, and folds everything once it is all open - the icon and tooltip follow, so you can tell what a click will do',
   'help.tree.6': 'Drag a node onto a directory to move it there (cannot move into its own subdirectory)',
   'help.tree.7': 'Right-click a node to open a menu: New child / Rename / Delete / Copy path',
   'help.tree.8': 'Ctrl/Cmd-click to add nodes to the selection, Shift-click to select a contiguous run; Esc (or a plain click) clears it, Ctrl+A selects everything but the root. With several selected you can delete them as a group, copy their paths, or drag one of them to move the whole set',

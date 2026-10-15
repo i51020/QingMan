@@ -30,7 +30,7 @@ export function leftRow(row, event) {
         && event.clientY >= rect.top && event.clientY <= rect.bottom);
 }
 
-export function createTreeView(container, { onSelect, onMove, onContext }) {
+export function createTreeView(container, { onSelect, onMove, onContext, onFold }) {
   /** 折叠状态只存在于视图层，不污染数据模型 */
   const collapsed = new Set();
   let currentRoot = null;
@@ -87,6 +87,9 @@ export function createTreeView(container, { onSelect, onMove, onContext }) {
       if (collapsed.has(node.id)) collapsed.delete(node.id);
       else collapsed.add(node.id);
       render(currentRoot, currentSelectedId, currentSelectedIds);
+      /* V0.0.51@r3 · 第 6 条：这条路径的重渲染只发生在视图层内部，外部无从得知折叠态变了。
+         通知一声，让「展开 / 折叠」切换按钮的图标与提示跟上（回调是可选参数，不传即静默）。 */
+      if (typeof onFold === 'function') onFold();
     });
     row.appendChild(toggle);
 
@@ -190,6 +193,28 @@ export function createTreeView(container, { onSelect, onMove, onContext }) {
   }
 
   /**
+   * 折叠态统计（V0.0.51@r3 · 第 6 条「展开 / 折叠」合一按钮的唯一判据）。
+   *
+   * - `expandable` ＝ 全树**带子节点的目录**数（折叠动作作用的对象）；
+   * - `collapsed`  ＝ 其中**当前处于折叠态**的个数。
+   *
+   * 两个数都**现算**（折叠集合 ∩ 现存目录），而不是直接读 `collapsed.size`：
+   * 折叠集合是视图层私有 `Set`，删掉一个折叠着的节点后它的 id 仍留在集合里 ——
+   * 直接读 size 会让按钮在树已全部展开时仍显示「还有收起的」，且再也回不到
+   * 「全部折叠」（点了也清不掉的幽灵计数）。故此处以**模型为准**反过来筛集合。
+   */
+  function foldStats(root) {
+    let expandable = 0;
+    let folded = 0;
+    walkDirs(root, (node) => {
+      if (node.children.length === 0) return;
+      expandable += 1;
+      if (collapsed.has(node.id)) folded += 1;
+    });
+    return { expandable, collapsed: folded };
+  }
+
+  /**
    * 当前**可视行**的 id 序列（V0.0.43 · F 组）。
    *
    * Shift 范围选择要「从锚点到当前节点」——折叠的子树不在序列里，语义即
@@ -201,5 +226,5 @@ export function createTreeView(container, { onSelect, onMove, onContext }) {
       container.querySelectorAll('.tree-row'), (row) => row.dataset.id);
   }
 
-  return { render, expandAll, collapseAll, visibleIds };
+  return { render, expandAll, collapseAll, foldStats, visibleIds };
 }

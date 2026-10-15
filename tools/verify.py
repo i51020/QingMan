@@ -85,7 +85,8 @@ REQUIRED_IDS = (
     "btnPickTarget",
     "toolbar", "btnAddChild", "btnRename", "btnDelete",
     "btnUndo", "btnRedo",
-    "btnExpandAll", "btnCollapseAll", "btnGenerate",
+    # V0.0.51@r3：视图组「全部展开」「全部折叠」两颗合一为单颗切换 → btnExpandAll/btnCollapseAll 退场
+    "btnToggleAll", "btnGenerate",
     "treeCanvas", "statusText", "statusCount",
     # V0.0.43：F 组批量操作条（多选 ≥2 时出现）
     "batchBar", "batchInfo", "btnBatchCopy", "btnBatchDelete", "btnBatchClear",

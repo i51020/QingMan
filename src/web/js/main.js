@@ -216,6 +216,29 @@ function updateUndoUI() {
   el('btnRedo').disabled = redoStack.length === 0;
 }
 
+/**
+ * 视图组「展开 / 折叠」单按钮的外观同步（V0.0.51@r3 · 第 6 条）。
+ *
+ * 图标与提示跟随**这一下会做什么**（而不是当前是什么状态）：
+ * 树里还有收起的层级 → 显示「全部展开」；已全展开 → 显示「全部折叠」。
+ * 这个方向和点击时的实际动作取自**同一个** `foldStats()` 判据 —— 见上方点击处注释。
+ *
+ * 全树没有「带子节点的目录」时置灰：此时点它不发生任何可见变化，留着可点等于
+ * 给用户一个「程序没反应」的假象（与 `btnUndo / btnRedo` 的空栈置灰同一口径）。
+ */
+function updateToggleAllUI() {
+  const { root } = store.get();
+  const stats = treeView.foldStats(root);
+  const willExpand = stats.collapsed > 0;
+  const btn = el('btnToggleAll');
+  btn.disabled = stats.expandable === 0;
+  const ic = btn.querySelector('.ic');
+  if (willExpand) ic.className = 'ic ic-expand-all';
+  else ic.className = 'ic ic-collapse-all';
+  btn.setAttribute('aria-label', t(willExpand ? 'tree.expandAll' : 'tree.collapseAll'));
+  btn.setAttribute('title', t(willExpand ? 'tree.expandAllTip' : 'tree.collapseAllTip'));
+}
+
 function pushHistory() {
   undoStack.push(snapshotTree());
   if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
@@ -332,6 +355,14 @@ const treeView = createTreeView(el('treeCanvas'), {
   // V0.0.19 右键：选中并弹菜单；菜单项与工具栏同一组动作函数
   onContext(id, x, y) {
     openTreeContextMenu(id, x, y);
+  },
+  /* V0.0.51@r3 · 第 6 条：点**节点自带的三角**折叠 / 展开，走的是视图层的**内部重渲染**
+     （tree-view.js 的 toggle 处理器直接调自己的 render，不经 main.js 的 render()）；
+     视图组那颗切换按钮的图标与提示若只在本文件的 render() 里同步，就会停在上一次的状态 ——
+     出现「点下去其实是展开、图标却画着折叠」的自相矛盾（**实测抓到**：见本轮行为探针 s3）。
+     故视图层每完成一次内部重渲染即回调此处，与主渲染共用同一个同步函数。 */
+  onFold() {
+    updateToggleAllUI();
   },
 });
 
@@ -562,6 +593,7 @@ function render() {
   el('statusCount').textContent = t('status.count', { dirs: stats.dirs, files: stats.files });
   renderSaveChip();
   updateUndoUI();
+  updateToggleAllUI();
 }
 
 /** 批量条：多选 ≥2 项才出现（横幅式常驻说明「已选几项 + 怎么移动」）。 */
@@ -828,13 +860,14 @@ el('btnAddChild').addEventListener('click', () => doAddChild());
 el('btnRename').addEventListener('click', () => doRename());
 el('btnDelete').addEventListener('click', () => doDelete());
 
-el('btnExpandAll').addEventListener('click', () => {
-  treeView.expandAll();
-  render();
-});
-
-el('btnCollapseAll').addEventListener('click', () => {
-  treeView.collapseAll(store.get().root);
+/* V0.0.51@r3 · 第 6 条：展开 / 折叠合为**一颗**切换按钮。
+   方向按**当前真实折叠态**定：树里还有收起的目录 → 全部展开，已全展开 → 全部折叠。
+   判据与图标同步共用 `treeView.foldStats()` 的同一个数，**只有一处真相** —— 若两处各判
+   各的，迟早出现「图标显示折叠、点下去却展开」这类自相矛盾。 */
+el('btnToggleAll').addEventListener('click', () => {
+  const { root } = store.get();
+  if (treeView.foldStats(root).collapsed > 0) treeView.expandAll();
+  else treeView.collapseAll(root);
   render();
 });
 

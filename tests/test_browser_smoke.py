@@ -91,9 +91,10 @@ NORMAL = {
     "rootSumBlank": "Target X · No root folder · Dry run",
     "rootNameBefore": "", "rootNameAfter": "QmRootX", "rootNameBlank": "(no root folder)",
     # V0.0.43 新增：UI 定版差集 G / H / F 三条（真机实测原值）。
-    #   G：工具栏分组 —— 锚点是 9 颗按钮的**归属序列**（见 bs.EXPECT_GROUP_MAP），
+    #   G：工具栏分组 —— 锚点是 8 颗按钮的**归属序列**（见 bs.EXPECT_GROUP_MAP），
     #      只数分组个数会被空壳 div 骗过，故同时钉「组数 / 带标签数 / 归属序列」。
     #      V0.0.50 · I 组：「另存为模板」移入操作带独立成组 → 3 组变 4 组。
+    #      V0.0.51@r3：视图组两颗（全部展开 / 全部折叠）合为单颗切换 → 9 颗变 8 颗。
     "gGroups": "4", "gLabels": "4", "gMap": bs.EXPECT_GROUP_MAP,
     #   H：检视器「属性 ⇄ 源码」—— hJson + hHasChild 是强证据（源码栏须为可解析 JSON
     #      且真的含子节点名，证走的是 toPlainTree 序列化而非随手拼串）；hBack=2 证能复位。
@@ -436,7 +437,7 @@ class VerifyMetricsTests(unittest.TestCase):
 
     def test_v043_group_map_off_fails_exactly(self):
         """G 回归：某颗按钮被移出原分组（归属序列变了）→ 恰好 G 一项 FAIL。"""
-        metrics = dict(NORMAL, gMap="00000012")     # btnCollapseAll 被划入视图外
+        metrics = dict(NORMAL, gMap="00000122")     # 「一键生成」被划入保存组（未独立成组）
         self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_GROUP3])
 
     def test_v043_group_count_or_label_off_fails_exactly(self):

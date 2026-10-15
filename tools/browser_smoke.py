@@ -381,10 +381,13 @@ frame('./index.html', function (doc) {
   }
   /* V0.0.43 · UI 定版差集 G 组：工具栏分组（编辑 / 视图 / 保存 / 输出）。
      判定锚点是「每颗按钮落在第几个分组里」—— 只数分组个数会被空壳 div 骗过，
-     故把 9 颗按钮逐个回溯到所属 .tb-group，期望序列 00000123
+     故把 8 颗按钮逐个回溯到所属 .tb-group，期望序列 00000123
      （撤销/重做/加子/改名/删除 属编辑，展开/折叠 属视图，另存为模板 属保存，生成 属输出）。
      V0.0.50 · I 组：「另存为模板」自模板区移入本带独立成组（第三位），序列末位
-     由 2 变 3 —— 探针同步纳入该按钮，否则新增那一组无人断言。 */
+     由 2 变 3 —— 探针同步纳入该按钮，否则新增那一组无人断言。
+     V0.0.51@r3：视图组两颗（全部展开 / 全部折叠）合为一颗切换 → 序列回到 00000123。
+     注：本行原写「9 颗」而序列给 8 位 —— 那是 V0.0.50 改常量时漏改的**陈旧计数**，
+     本次一并订正（计数与实况不符即假话，见《错误笔记》§三.76 ⑤）。 */
   var tbEl = doc ? doc.getElementById('toolbar') : null;
   if (tbEl && win) {
     var groups = tbEl.querySelectorAll('.tb-group');
@@ -395,7 +398,7 @@ frame('./index.html', function (doc) {
     }
     m.gLabels = labN;
     var gIds = ['btnUndo', 'btnRedo', 'btnAddChild', 'btnRename', 'btnDelete',
-                'btnExpandAll', 'btnCollapseAll', 'btnSaveTemplate', 'btnGenerate'];
+                'btnToggleAll', 'btnSaveTemplate', 'btnGenerate'];
     var gCode = '';
     for (var ga = 0; ga < gIds.length; ga += 1) {
       var gb = doc.getElementById(gIds[ga]);
@@ -810,11 +813,12 @@ def toast_cap() -> int:
     return int(match.group(1)) if match else -1
 
 
-# V0.0.43 · G 组：工具栏 9 颗按钮所属分组的期望序列（5 编辑 / 2 视图 / 1 保存 / 1 输出）。
-#   顺序 = btnUndo, btnRedo, btnAddChild, btnRename, btnDelete, btnExpandAll,
-#   btnCollapseAll, btnSaveTemplate, btnGenerate —— 改分组即须同步此处。
+# V0.0.43 · G 组：工具栏 8 颗按钮所属分组的期望序列（5 编辑 / 1 视图 / 1 保存 / 1 输出）。
+#   顺序 = btnUndo, btnRedo, btnAddChild, btnRename, btnDelete, btnToggleAll,
+#   btnSaveTemplate, btnGenerate —— 改分组即须同步此处。
 #   V0.0.50 · I 组：「另存为模板」移入操作带独立成组 → 00000112 → 000001123（9 位）。
-EXPECT_GROUP_MAP = "000001123"
+#   V0.0.51@r3：视图组两颗（全部展开 / 全部折叠）合为单颗切换 → 000001123 → 00000123（8 位）。
+EXPECT_GROUP_MAP = "00000123"
 
 def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templates: bool) -> None:
     console_free = metrics.get("htmlLang") == "en-US"
