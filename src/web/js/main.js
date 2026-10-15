@@ -1078,11 +1078,31 @@ function setStatus(text) {
 
 let serviceState = 'connecting';
 
+/* 帮助弹窗「模板库位置」一行的运行态快照（V0.0.51@r6）。由 ./modules/templates.js
+   派发的 qmtpldirchange 更新 —— setServiceState 只管服务状态，不耦合模板模块。 */
+const helpDirState = { tplDir: '', tplDirBuiltin: false };
+
+/**
+ * 把「服务状态 + 模板库位置」一并推给帮助弹窗。
+ * 调用点：服务状态变（setServiceState）/ 语言变 / 模板目录变（qmtpldirchange）。
+ * 未连后端时一律传空值 —— 帮助页回落到「未连接后端」说明句，而不是展示陈旧路径。
+ */
+function pushHelpStatus() {
+  if (!helpDoc) return;
+  const ready = serviceState === 'ready';
+  helpDoc.setStatus({
+    version: ready ? store.get().version : '',
+    backendOk: ready,
+    tplDir: ready ? helpDirState.tplDir : '',
+    tplDirBuiltin: ready && helpDirState.tplDirBuiltin,
+  });
+}
+
 /**
  * 同步「服务状态」的三处落点，各取所需：
  *   - 顶栏 #chipBackend：可点按钮（点开服务弹窗），离线加 .is-offline；
  *   - 更多浮层 #popMoreStatus：窄窗下顶栏状态文案被收进这里，须与顶栏一致；
- *   - 帮助弹窗：版本号与「后端」一行的实测值（离线时回落到本机记录值）。
+ *   - 帮助弹窗：版本号 /「后端」/「模板库位置」三行的实测值（离线时回落本机记录值）。
  */
 function setServiceState(state) {
   serviceState = state;
@@ -1101,13 +1121,8 @@ function setServiceState(state) {
     if (wrap) wrap.classList.toggle('is-offline', state === 'offline');
   }
 
-  if (helpDoc) {
-    // 只有真连上才把实测版本号写进帮助弹窗；否则传空值，回落 versionFallback（本机记录值）。
-    helpDoc.setStatus({
-      version: state === 'ready' ? store.get().version : '',
-      backendOk: state === 'ready',
-    });
-  }
+  // 帮助弹窗的三行实测值（版本 / 后端 / 模板库位置）在此统一同步。
+  pushHelpStatus();
 }
 
 async function boot() {
@@ -1209,6 +1224,15 @@ document.addEventListener('qmlocalechange', () => {
    此时 getComputedStyle 读到的已是新皮肤配色。失败静默（launch-icon 内部处理）。 */
 document.addEventListener('qmskinchange', () => {
   ensureLaunchIcon();
+});
+
+/* 模板目录变化（绑定 / 刷新 / 语言切换重渲染）后，同步帮助弹窗的「模板库位置」一行。
+   事件由 ./modules/templates.js 派发 —— 它是唯一知道运行态目录的地方。 */
+document.addEventListener('qmtpldirchange', (event) => {
+  const res = event.detail;
+  helpDirState.tplDir = (res && res.dir) || '';
+  helpDirState.tplDirBuiltin = Boolean(res && res.source === 'default');
+  pushHelpStatus();
 });
 
 /* 启动顺序：偏好**已在模块顶部**恢复（须早于默认示例取词，见上方 defaultRoot 处注释）；

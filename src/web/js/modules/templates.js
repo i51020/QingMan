@@ -51,6 +51,10 @@ function renderTemplatesDir(res) {
   else if (res && res.valid === false) hint = t('template.dirHintInvalid', { reason: res.reason || '' });
   hintEl.textContent = hint;
   hintEl.hidden = !hint;
+
+  // V0.0.51@r6：绑定变化后，帮助页「模板库位置」一行也要跟着变 —— 本模块是唯一
+  // 知道运行态目录的地方，故在此派发事件（与 qmlocalechange / qmskinchange 同风格）。
+  document.dispatchEvent(new CustomEvent('qmtpldirchange', { detail: res }));
 }
 
 async function loadTemplatesDir() {

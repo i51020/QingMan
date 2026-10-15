@@ -93,7 +93,6 @@ export const dict = {
   /* ---------- 左栏：模板工作区 ---------- */
   'sidebar.title': '模板工作区',
   'sidebar.noteLine1': '选一套模板一键载入，或在中间自行编辑目录树。',
-  'sidebar.noteLine2': '模板库位置：',
 
   /* 模板列表（V0.0.11） */
   'template.listTitle': '模板列表',
@@ -435,6 +434,12 @@ export const dict = {
   'about.backendOn': '已连接',
   'about.backendOff': '未连接',
   'about.app': '应用名称',
+  // V0.0.51@r6：模板库位置由侧栏写死行移入帮助页，取后端实测值（随绑定变化）。
+  // 键名刻意避开 V0.0.41 删除的 about.note —— 那条是「设计纪律」脚注，性质不同。
+  'about.tplDir': '模板库位置',
+  'about.tplDirBuiltin': '（内置）',
+  'about.tplDirUnknown': '未连接后端，暂不可读',
+  'about.tplDirNote': '模板库位置可在左栏「模板工作区」用文件夹图标更改绑定，改完立即生效；未绑定时使用程序内置目录。',
   /* 「文档入口」与「版本号说明行」按手册 10.2 节 #10 删除（V0.0.41）—— 前者是开发文档
      入口（不开放给用户），后者是设计纪律而非给用户读的文字。故 about.docs /
      about.docsValue / about.note 三键一并退场（中英同步删，保 7b-3 键对齐）。 */
@@ -449,7 +454,7 @@ export const dict = {
   'help.quickStart.5': '确认结果无误后取消勾选，点「一键生成」真实落盘',
 
   'help.ops.title': '界面说明',
-  'help.ops.sidebar': '左栏「模板工作区」——列出 templates/ 下的模板，点击即载入；标题右侧的「另存为模板」把当前目录树存成一套新模板（**同名不会被覆盖**）；下方为骨架自检清单',
+  'help.ops.sidebar': '左栏「模板工作区」——列出当前模板库中的模板，点击即载入；标题右侧的「另存为模板」把当前目录树存成一套新模板（**同名不会被覆盖**）；下方为骨架自检清单',
   'help.ops.center': '中栏「目录树工作区」——顶部是生成参数与工具栏，主体是目录树',
   'help.ops.genBar': '参数区左上角可点开／收起：收起后只留一行摘要（目标位置 · 根名 · 演练或写盘），当前设定仍一眼可见',
   'help.ops.inspector': '右栏「属性工作区」——选中节点的名称、类型、路径、深度与统计；下方显示生成结果',
@@ -532,6 +537,6 @@ export const helpSections = [
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [
     'help.safety.1', 'help.safety.2', 'help.safety.3', 'help.safety.4', 'help.safety.5',
   ] },
-  { id: 'about', title: 'help.about.title', kind: 'about', items: [] },
+  { id: 'about', title: 'help.about.title', kind: 'about', note: 'about.tplDirNote', items: [] },
   { id: 'disclaimer', title: 'help.disclaimer.title', kind: 'ul', items: ['help.disclaimer.1'] },
 ];

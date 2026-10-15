@@ -23,8 +23,8 @@ import { t, getHelpSections } from '../i18n/index.js';
 export function createHelpDoc(tocEl, docEl, opts = {}) {
   if (!tocEl || !docEl) return null;
 
-  /** 动态字段：version 为空表示尚未拿到后端实测值。 */
-  const state = { version: '', backendOk: false };
+  /** 动态字段：version / tplDir 为空表示尚未拿到后端实测值。 */
+  const state = { version: '', backendOk: false, tplDir: '', tplDirBuiltin: false };
 
   function buildList(section) {
     const list = document.createElement(section.kind === 'ol' ? 'ol' : 'ul');
@@ -36,7 +36,13 @@ export function createHelpDoc(tocEl, docEl, opts = {}) {
     return list;
   }
 
-  function buildAbout() {
+  /** 「模板库位置」一行的文案：未读到 → 说明句；读到 → 实测目录（内置层加后缀）。 */
+  function tplDirText() {
+    if (!state.tplDir) return t('about.tplDirUnknown');
+    return state.tplDir + (state.tplDirBuiltin ? t('about.tplDirBuiltin') : '');
+  }
+
+  function buildAbout(section) {
     const table = document.createElement('table');
     table.className = 'help-table';
     const version = state.version || t('help.versionFallback');
@@ -44,6 +50,8 @@ export function createHelpDoc(tocEl, docEl, opts = {}) {
       { label: 'about.app', value: `${t('app.nameZh')} ${t('app.nameEn')}` },
       { label: 'about.version', value: state.backendOk ? version : `${version} ${t('help.versionStale')}` },
       { label: 'about.backend', value: state.backendOk ? t('about.backendOn') : t('about.backendOff') },
+      // V0.0.51@r6：模板库位置（后端实测值，随绑定变化）—— 与帮助页版同一取词键。
+      { label: 'about.tplDir', value: tplDirText() },
       { label: 'help.support.title', action: true },
     ];
     for (const row of rows) {
@@ -66,7 +74,15 @@ export function createHelpDoc(tocEl, docEl, opts = {}) {
       tr.append(th, td);
       table.appendChild(tr);
     }
-    return table;
+    if (!section.note) return table;
+    const wrap = document.createElement('div');
+    wrap.className = 'help-about';
+    wrap.appendChild(table);
+    const note = document.createElement('p');
+    note.className = 'help-about-note';
+    note.textContent = t(section.note);
+    wrap.appendChild(note);
+    return wrap;
   }
 
   /**
@@ -121,7 +137,7 @@ export function createHelpDoc(tocEl, docEl, opts = {}) {
     title.textContent = t(section.title);
     wrap.appendChild(title);
     let body;
-    if (section.kind === 'about') body = buildAbout();
+    if (section.kind === 'about') body = buildAbout(section);
     else if (section.kind === 'kbd') body = buildKbd(section);
     else body = buildList(section);
     wrap.appendChild(body);
@@ -150,6 +166,8 @@ export function createHelpDoc(tocEl, docEl, opts = {}) {
   function setStatus(next) {
     state.version = (next && next.version) || '';
     state.backendOk = Boolean(next && next.backendOk);
+    state.tplDir = (next && next.tplDir) || '';
+    state.tplDirBuiltin = Boolean(next && next.tplDirBuiltin);
     render();
   }
 

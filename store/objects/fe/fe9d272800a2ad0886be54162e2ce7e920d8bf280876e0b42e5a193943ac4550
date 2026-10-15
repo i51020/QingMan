@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="app.title">QingMan</title>
+  <link rel="stylesheet" href="./css/tokens.css">
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/soft.css">
+</head>
+<body>
+  <div id="app">
+
+    <header id="topbar">
+      <button type="button" class="brand" id="btnLogo" data-i18n-title="topbar.logoTip">
+        <span class="brand-logo" aria-hidden="true"></span>
+        <span class="brand-mark" data-i18n="app.nameZh"></span>
+        <span class="brand-sub" data-i18n="app.nameEn"></span>
+      </button>
+      <div class="topbar-right">
+        <!-- Status zone: a read-only chip (borderless soft bg, 24px) plus a clickable button
+             (solid border, 32px). V0.0.40 (manual 10.2 #7): the service indicator became a
+             button that opens the in-app service dialog. -->
+        <div class="tb-group tb-status">
+          <span class="chip chip-ghost" id="chipSave" data-i18n="topbar.save.idle" data-i18n-title="topbar.saveTip"></span>
+          <button type="button" class="chip-btn" id="chipBackend" aria-haspopup="dialog" data-i18n-title="topbar.backendTip">
+            <span class="dot" aria-hidden="true"></span>
+            <span class="btn-txt" data-i18n="topbar.backend.connecting"></span>
+            <span class="caret" aria-hidden="true">&#9662;</span>
+          </button>
+        </div>
+        <!-- Action zone: four always-visible icon buttons plus one narrow-window button
+             (V0.0.40 · manual 10.2 #6). Language / skin moved from a select to icon button +
+             popover; Support / Help became in-app dialogs (manual 10.2 #9). -->
+        <div class="tb-group tb-actions">
+          <button type="button" class="icon-btn" id="btnLang" aria-haspopup="true" aria-expanded="false"
+                  data-i18n-aria-label="lang.label" data-i18n-title="lang.label">
+            <span class="ic ic-globe" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="icon-btn" id="btnSkin" aria-haspopup="true" aria-expanded="false"
+                  data-i18n-aria-label="skin.label" data-i18n-title="skin.label">
+            <span class="sw-dots" id="skinDots" aria-hidden="true"><i></i><i></i><i></i></span>
+          </button>
+          <button type="button" class="icon-btn" id="btnSupport" aria-haspopup="dialog"
+                  data-i18n-aria-label="topbar.support" data-i18n-title="topbar.supportTip">
+            <span class="ic ic-heart" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="icon-btn" id="btnHelp" aria-haspopup="dialog"
+                  data-i18n-aria-label="topbar.help" data-i18n-title="topbar.helpTip">
+            <span class="ic ic-help" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="icon-btn" id="btnMore" aria-haspopup="true" aria-expanded="false"
+                  data-i18n-aria-label="topbar.more" data-i18n-title="topbar.more">
+            <span class="ic ic-more" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main">
+
+      <aside id="sidebar">
+        <h2 class="panel-title" data-i18n="sidebar.title"></h2>
+        <!-- V0.0.51@r6: the hard-coded "templates/" line is gone -- it never followed a
+             custom folder. The live folder is shown in #tplDirRow below, and repeated
+             in Help > About straight from the backend. -->
+        <p class="hint" id="tplNote">
+          <span data-i18n="sidebar.noteLine1"></span>
+        </p>
+        <div class="panel-block">
+          <div class="panel-head">
+            <h3 class="panel-sub" data-i18n="template.listTitle"></h3>
+            <!-- Grouped so the head keeps exactly two flex children (title / actions)
+                 V0.0.50 · I group: text -> line icons; "save as template" moved into
+                 the toolbar band (design doc v7), so only new / import stay here. -->
+            <span class="panel-actions">
+              <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnNewTemplate"
+                      aria-haspopup="dialog"
+                      data-i18n-aria-label="template.new" data-i18n-title="template.newTip">
+                <span class="ic ic-folder-plus" aria-hidden="true"></span></button>
+              <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnImportTemplate"
+                      data-i18n-aria-label="template.import" data-i18n-title="template.importTip">
+                <span class="ic ic-import" aria-hidden="true"></span></button>
+            </span>
+          </div>
+          <!-- Template folder binding row (V0.0.38 / 6E): path + "Choose..." / "Refresh"
+               buttons; the hint line (unbound / invalid) is filled by main.js into tplDirHint -->
+          <div class="tpl-dir" id="tplDirRow">
+            <span class="tpl-dir-label" data-i18n="template.dirLabel"></span>
+            <code class="tpl-dir-path" id="tplDirPath"></code>
+            <span class="tpl-dir-actions">
+              <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnPickDir"
+                      data-i18n-aria-label="template.dirPick" data-i18n-title="template.dirPickTip">
+                <span class="ic ic-folder-open" aria-hidden="true"></span></button>
+              <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnRefreshTpl"
+                      data-i18n-aria-label="template.refresh" data-i18n-title="template.refreshTip">
+                <span class="ic ic-refresh" aria-hidden="true"></span></button>
+            </span>
+          </div>
+          <p class="tpl-dir-hint" id="tplDirHint" hidden></p>
+          <!-- items are rendered by main.js from the resolved templates directory -->
+          <ul class="tpl-list" id="templateList"></ul>
+        </div>
+      </aside>
+
+      <section id="center">
+        <header class="center-head">
+          <h2 class="panel-title" data-i18n="tree.title"></h2>
+        </header>
+
+        <div id="genBar">
+          <button type="button" class="genbar-head" id="btnGenToggle"
+                  aria-expanded="true" aria-controls="genFields">
+            <span class="genbar-caret" id="genCaret" aria-hidden="true"></span>
+            <span class="genbar-summary" id="genSummary" data-i18n="gen.summaryEmpty"></span>
+          </button>
+          <div class="genbar-fields" id="genFields">
+            <label class="field field-wide">
+              <span data-i18n="gen.targetLabel"></span>
+              <span class="field-inline">
+                <input type="text" id="inTarget" data-i18n-placeholder="gen.targetPlaceholder">
+                <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnPickTarget"
+                        data-i18n-aria-label="gen.targetPick" data-i18n-title="gen.targetPickTip">
+                  <span class="ic ic-folder-open" aria-hidden="true"></span></button>
+              </span>
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="inDryRun" checked>
+              <span data-i18n="gen.dryRun"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- V0.0.43 · G group: three semantic groups (edit / view / output).
+             Splitting rule = "changes data / read-only view / produces output".
+             Undo+redo sit with add/rename/delete because all five change the tree;
+             the old layout separated them with a .divider, which was a mis-group.
+             V0.0.50 · I group: text -> pure line icons (design doc's pure icon
+             button section); the accessible name moves to data-i18n-aria-label and
+             the full description to data-i18n-title (same pair the topbar icons
+             already use). -->
+        <div id="toolbar" class="bar">
+          <span class="tb-group" role="group" data-i18n-aria-label="tree.groupEdit">
+            <button type="button" id="btnUndo" class="btn btn-ghost btn-ic"
+                    data-i18n-aria-label="tree.undo" data-i18n-title="tree.undoTip" disabled>
+              <span class="ic ic-undo" aria-hidden="true"></span></button>
+            <button type="button" id="btnRedo" class="btn btn-ghost btn-ic"
+                    data-i18n-aria-label="tree.redo" data-i18n-title="tree.redoTip" disabled>
+              <span class="ic ic-redo" aria-hidden="true"></span></button>
+            <button type="button" id="btnAddChild" class="btn btn-ic"
+                    data-i18n-aria-label="tree.addChild" data-i18n-title="tree.addChildTip">
+              <span class="ic ic-node-plus" aria-hidden="true"></span></button>
+            <button type="button" id="btnRename" class="btn btn-ic"
+                    data-i18n-aria-label="tree.rename" data-i18n-title="tree.renameTip">
+              <span class="ic ic-pencil" aria-hidden="true"></span></button>
+            <button type="button" id="btnDelete" class="btn btn-danger btn-ic"
+                    data-i18n-aria-label="tree.delete" data-i18n-title="tree.deleteTip">
+              <span class="ic ic-trash" aria-hidden="true"></span></button>
+          </span>
+          <span class="tb-group" role="group" data-i18n-aria-label="tree.groupView">
+            <!-- V0.0.51@r3 - item 6: the former "expand all" / "collapse all" pair is
+                 merged into ONE toggle button. The attributes below are the
+                 first-paint default only (the tree loads fully expanded, so the first
+                 click collapses); updateToggleAllUI() in main.js then rewrites the
+                 icon and label from the real fold state on every render. -->
+            <button type="button" id="btnToggleAll" class="btn btn-ghost btn-ic"
+                    data-i18n-aria-label="tree.collapseAll" data-i18n-title="tree.collapseAllTip">
+              <span class="ic ic-collapse-all" aria-hidden="true"></span></button>
+          </span>
+          <span class="spacer"></span>
+          <!-- V0.0.50 · I group: moved here from the template panel header, per
+               design doc v7 ("it operates on the current tree, not the template
+               library"). Order inside the band is semantic: edit tree -> save as
+               template -> generate to disk. -->
+          <span class="tb-group" role="group" data-i18n-aria-label="tree.groupSave">
+            <button type="button" id="btnSaveTemplate" class="btn btn-ic"
+                    data-i18n-aria-label="template.saveAs" data-i18n-title="template.saveAsTip">
+              <span class="ic ic-save" aria-hidden="true"></span></button>
+          </span>
+          <span class="tb-group" role="group" data-i18n-aria-label="tree.groupOutput">
+            <button type="button" id="btnGenerate" class="btn btn-primary btn-ic"
+                    data-i18n-aria-label="gen.button" data-i18n-title="gen.buttonTip">
+              <span class="ic ic-spark" aria-hidden="true"></span></button>
+          </span>
+        </div>
+
+        <!-- V0.0.43 · F group: batch bar. Only shown while 2+ nodes are selected,
+             so the multi-select gestures (Ctrl/Cmd-click, Shift-click, Ctrl+A) stay
+             invisible until they are actually useful. Row-count text is filled by JS. -->
+        <div id="batchBar" class="bar" hidden>
+          <span class="batch-info" id="batchInfo"></span>
+          <span class="batch-hint" data-i18n="tree.batchMoveHint"></span>
+          <span class="spacer"></span>
+          <button type="button" id="btnBatchCopy" class="btn btn-ghost btn-ic"
+                  data-i18n-aria-label="tree.batchCopy" data-i18n-title="tree.batchCopyTip">
+            <span class="ic ic-copy" aria-hidden="true"></span></button>
+          <button type="button" id="btnBatchDelete" class="btn btn-danger btn-ic"
+                  data-i18n-aria-label="tree.batchDelete" data-i18n-title="tree.batchDeleteTip">
+            <span class="ic ic-trash" aria-hidden="true"></span></button>
+          <button type="button" id="btnBatchClear" class="btn btn-ghost btn-ic"
+                  data-i18n-aria-label="tree.batchClear" data-i18n-title="tree.batchClearTip">
+            <span class="ic ic-close" aria-hidden="true"></span></button>
+        </div>
+
+        <div id="treeWrap">
+          <div id="treeCanvas" role="tree" data-i18n-aria-label="tree.canvasLabel"></div>
+        </div>
+
+        <footer id="statusBar">
+          <span id="statusText" data-i18n="status.ready"></span>
+          <span id="statusCount" class="status-count"></span>
+        </footer>
+      </section>
+
+      <aside id="inspector">
+        <!-- V0.0.43 · H group: properties <-> source (the selected node's own subtree
+             serialized exactly as it will be handed to the generator, so the payload
+             can be verified before pressing Generate). Mode persists via qm.inspMode. -->
+        <div class="panel-head insp-head">
+          <h2 class="panel-title" data-i18n="inspector.title"></h2>
+          <div class="seg" id="inspMode" role="tablist" data-i18n-aria-label="inspector.modeLabel">
+            <button type="button" class="seg-btn" id="btnInspProp" role="tab"
+                    aria-selected="true" data-i18n="inspector.modeProp"></button>
+            <button type="button" class="seg-btn" id="btnInspSrc" role="tab"
+                    aria-selected="false" data-i18n="inspector.modeSrc"></button>
+          </div>
+        </div>
+        <div id="inspPropPane">
+          <div class="prop-list">
+            <div class="prop"><span class="prop-key" data-i18n="inspector.name"></span><span class="prop-val" id="propName">—</span><button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnCopyName" data-i18n-aria-label="inspector.copyNameTip" data-i18n-title="inspector.copyNameTip"><span class="ic ic-copy" aria-hidden="true"></span></button></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.type"></span><span class="prop-val" id="propType">—</span></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.path"></span><span class="prop-val prop-mono" id="propPath">—</span><button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnCopyPath" data-i18n-aria-label="inspector.copyPathTip" data-i18n-title="inspector.copyPathTip"><span class="ic ic-copy" aria-hidden="true"></span></button></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.depth"></span><span class="prop-val" id="propDepth">—</span></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.dirs"></span><span class="prop-val" id="propDirs">0</span></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.files"></span><span class="prop-val" id="propFiles">0</span></div>
+          </div>
+          <h3 class="panel-sub" data-i18n="inspector.noteTitle"></h3>
+          <textarea id="propNote" rows="6" data-i18n-placeholder="inspector.notePlaceholder" disabled></textarea>
+          <div class="note-actions">
+            <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnCopyNote" data-i18n-aria-label="inspector.copyNoteTip" data-i18n-title="inspector.copyNoteTip"><span class="ic ic-copy" aria-hidden="true"></span></button>
+          </div>
+        </div>
+        <div id="inspSrcPane" hidden>
+          <pre class="result" id="inspSource" data-i18n="inspector.sourceEmpty"></pre>
+        </div>
+        <h3 class="panel-sub" data-i18n="inspector.resultTitle"></h3>
+        <pre class="result" id="genResult" data-i18n="inspector.resultEmpty"></pre>
+      </aside>
+
+    </main>
+  </div>
+
+  <div id="toastHost" class="toast-host" aria-live="polite"></div>
+  <div id="ctxMenu" class="ctx-menu" role="menu" hidden></div>
+
+  <!-- ===================== Overlay layers (all outside #app) =====================
+       Must live OUTSIDE #app: #app is set inert while a modal is open, so a layer kept
+       inside it would lose interaction too. Visibility: [hidden] on .layer forces a real
+       display:none; without it the element would only be opacity:0 and still clickable. -->
+  <div id="scrim" hidden></div>
+
+  <!-- M1 · Service settings (modal-md · manual 10.2 #7) -->
+  <div class="layer modal modal-md" id="dlgService" role="dialog" aria-modal="true"
+       aria-labelledby="dlgServiceT" hidden>
+    <div class="lay-head">
+      <span class="ic ic-gear" aria-hidden="true"></span>
+      <h3 id="dlgServiceT" data-i18n="svc.title"></h3>
+      <button type="button" class="icon-btn" data-close
+              data-i18n-aria-label="dlg.close" data-i18n-title="dlg.close">
+        <span class="ic ic-close" aria-hidden="true"></span>
+      </button>
+    </div>
+    <div class="lay-body">
+      <p data-i18n="svc.intro"></p>
+      <div class="kv"><b data-i18n="svc.addr"></b><code id="svcAddr"></code></div>
+      <p id="svcResult" data-i18n="svc.idle"></p>
+      <p data-i18n="svc.note"></p>
+    </div>
+    <div class="lay-foot">
+      <button type="button" class="btn" id="btnSvcTest" data-i18n="svc.test"></button>
+    </div>
+  </div>
+
+  <!-- M2 · Help (modal-lg · toc on the left + body on the right · manual 10.2 #9)
+       Body and table of contents are rendered by js/ui/help-doc.js from i18n helpSections. -->
+  <div class="layer modal modal-lg" id="dlgHelp" role="dialog" aria-modal="true"
+       aria-labelledby="dlgHelpT" hidden>
+    <div class="lay-head">
+      <span class="ic ic-help" aria-hidden="true"></span>
+      <h3 id="dlgHelpT" data-i18n="help.titleTag"></h3>
+      <button type="button" class="icon-btn" data-close
+              data-i18n-aria-label="dlg.close" data-i18n-title="dlg.close">
+        <span class="ic ic-close" aria-hidden="true"></span>
+      </button>
+    </div>
+    <div class="lay-body">
+      <p class="dlg-lead" data-i18n="help.lead"></p>
+      <div class="help-2col">
+        <nav class="help-toc" id="dlgHelpToc" data-i18n-aria-label="help.navTitle"></nav>
+        <div class="help-doc" id="dlgHelpDoc"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- M3 · Support (modal-sm · manual 10.2 #9) -->
+  <div class="layer modal modal-sm" id="dlgSupport" role="dialog" aria-modal="true"
+       aria-labelledby="dlgSupportT" hidden>
+    <div class="lay-head">
+      <span class="ic ic-heart" aria-hidden="true"></span>
+      <h3 id="dlgSupportT" data-i18n="help.support.title"></h3>
+      <button type="button" class="icon-btn" data-close
+              data-i18n-aria-label="dlg.close" data-i18n-title="dlg.close">
+        <span class="ic ic-close" aria-hidden="true"></span>
+      </button>
+    </div>
+    <div class="lay-body">
+      <figure class="sup-qr">
+        <img class="sup-qr-img" src="./assets/sponsor-wechat.png"
+             data-i18n-alt="help.support.qrAlt" alt="">
+      </figure>
+      <p class="sup-note" data-i18n="support.note"></p>
+    </div>
+  </div>
+
+  <!-- M7 · New template (modal-md · manual 9.2 #7 / 10.2 #4): name + description + starting point.
+       Options of #newTplBase are filled by main.js from the CURRENT template library
+       (blank first, then every template found there) -- never hardcoded in markup, because
+       the library can be bound to an external folder via PUT /api/templates-dir. -->
+  <div class="layer modal modal-md" id="dlgNewTemplate" role="dialog" aria-modal="true"
+       aria-labelledby="dlgNewTemplateT" hidden>
+    <div class="lay-head">
+      <span class="ic ic-check" aria-hidden="true"></span>
+      <h3 id="dlgNewTemplateT" data-i18n="template.newTitle"></h3>
+      <button type="button" class="icon-btn" data-close
+              data-i18n-aria-label="dlg.close" data-i18n-title="dlg.close">
+        <span class="ic ic-close" aria-hidden="true"></span>
+      </button>
+    </div>
+    <div class="lay-body">
+      <label class="field">
+        <span data-i18n="template.newNameLabel"></span>
+        <input type="text" id="newTplName" maxlength="60" data-autofocus
+               data-i18n-placeholder="template.newNamePlaceholder">
+      </label>
+      <label class="field">
+        <span data-i18n="template.newDescLabel"></span>
+        <input type="text" id="newTplDesc" data-i18n-placeholder="template.newDescPlaceholder">
+      </label>
+      <label class="field">
+        <span data-i18n="template.newBaseLabel"></span>
+        <span class="select-wrap"><select id="newTplBase"></select></span>
+      </label>
+    </div>
+    <div class="lay-foot">
+      <button type="button" class="btn btn-ghost" data-close data-i18n="dlg.cancel"></button>
+      <button type="button" class="btn btn-primary" id="newTplConfirm"
+              data-i18n="template.newCreate"></button>
+    </div>
+  </div>
+
+  <!-- M4 · Language (popover): options filled by createLangMenu in js/ui/lang-picker.js -->
+  <div class="layer popover" id="popLang" role="menu" data-i18n-aria-label="lang.label" hidden></div>
+
+  <!-- M5 · More (popover): low-frequency entries fold in here when narrower than 920px -->
+  <div class="layer popover" id="popMore" role="menu" data-i18n-aria-label="topbar.more" hidden>
+    <div class="pop-more-status"><span class="dot" aria-hidden="true"></span><span id="popMoreStatus"></span></div>
+    <div class="pop-more-sep" aria-hidden="true"></div>
+    <button type="button" class="menu-item" id="moreService" role="menuitem" data-i18n="popMore.service"></button>
+    <button type="button" class="menu-item" id="moreSupport" role="menuitem" data-i18n="popMore.support"></button>
+    <button type="button" class="menu-item" id="moreHelp" role="menuitem" data-i18n="popMore.help"></button>
+  </div>
+
+  <!-- M6 · Skin swatch grid (popover): cards rendered by js/ui/skin-picker.js from swatches -->
+  <div class="layer popover" id="popSkin" role="listbox" data-i18n-aria-label="skin.label" hidden>
+    <div class="sw-grid" id="skinGrid"></div>
+  </div>
+
+  <!-- OS locale is injected synchronously by /api/env.js: it must load before the module
+       script, otherwise the first paint would use the browser language and then jump. -->
+  <script src="./api/env.js"></script>
+  <script src="./api/locales.js"></script>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

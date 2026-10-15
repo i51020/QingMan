@@ -11,8 +11,8 @@ import { api } from './core/api.js';
 
 const el = (id) => document.getElementById(id);
 
-/** 动态字段的当前值。version 为 null 表示尚未拿到后端实测值。 */
-const state = { version: null, backendOk: false };
+/** 动态字段的当前值。version 为 null 表示尚未拿到后端实测值；tplDir 为 '' 表示未读到。 */
+const state = { version: null, backendOk: false, tplDir: '', tplDirBuiltin: false };
 
 /* ---------- 静态占位 ---------- */
 
@@ -37,7 +37,7 @@ function buildList(section) {
   return list;
 }
 
-function buildAbout() {
+function buildAbout(section) {
   const table = document.createElement('table');
   table.className = 'help-table';
 
@@ -45,6 +45,9 @@ function buildAbout() {
     { label: 'about.app', value: t('app.nameZh') + ' ' + t('app.nameEn') },
     { label: 'about.version', value: '', cellId: 'aboutVersion' },
     { label: 'about.backend', value: '', cellId: 'aboutBackend' },
+    // V0.0.51@r6：模板库位置（后端实测值，随绑定变化）。原先只在侧栏写死一行，
+    // 用户换了目录那行仍是 templates/ —— 移到帮助页，由 paint() 用实测值填。
+    { label: 'about.tplDir', value: '', cellId: 'aboutTplDir' },
     { label: 'help.support.title', value: '', link: { href: './support.html', text: t('help.support.goto'), tip: t('help.support.gotoTip') } },
   ];
 
@@ -70,8 +73,18 @@ function buildAbout() {
   }
 
   // 「版本号只在帮助页展示，主界面不再显示」是**设计纪律**，不是给用户读的说明
-  // （手册 10.2 节 #10 补充说明）—— 故此处不再附 about.note 那段脚注，V0.0.41 随 #10 删。
-  return table;
+  // （手册 10.2 节 #10 补充说明）—— 故此处不再附那段脚注，V0.0.41 随 #10 删。
+  // V0.0.51@r6：本节新增的 note 是**给用户读的操作说明**（模板库位置怎么改），
+  // 与 #10 删掉的那类「设计纪律」脚注性质不同，按分节 note 机制渲染。
+  if (!section.note) return table;
+  const wrap = document.createElement('div');
+  wrap.className = 'help-about';
+  wrap.appendChild(table);
+  const note = document.createElement('p');
+  note.className = 'help-about-note';
+  note.textContent = t(section.note);
+  wrap.appendChild(note);
+  return wrap;
 }
 
 /**
@@ -132,7 +145,7 @@ function buildSection(section) {
   // 「支持」自 V0.0.18 拆为独立页 support.html 后，本页已无 support 分节
   // —— 原先的 buildSupport 分支随之成为死代码，于 V0.0.23 移除。
   let body;
-  if (section.kind === 'about') body = buildAbout();
+  if (section.kind === 'about') body = buildAbout(section);
   else if (section.kind === 'kbd') body = buildKbd(section);
   else body = buildList(section);
   wrap.appendChild(body);
@@ -177,6 +190,15 @@ function paint() {
 
   const backend = el('aboutBackend');
   if (backend) backend.textContent = state.backendOk ? t('about.backendOn') : t('about.backendOff');
+
+  const tplDir = el('aboutTplDir');
+  if (tplDir) {
+    // 未连后端 / 端点异常 → 说明句；连上则给实测目录，内置层加后缀标明。
+    tplDir.textContent = state.tplDir
+      ? state.tplDir + (state.tplDirBuiltin ? t('about.tplDirBuiltin') : '')
+      : t('about.tplDirUnknown');
+    tplDir.title = state.tplDir || '';   // 路径可能长，悬停给全文
+  }
 }
 
 function scrollToHash() {
@@ -209,9 +231,20 @@ async function boot() {
     const info = await api.health();
     state.version = info.version;
     state.backendOk = true;
+    try {
+      // 模板库位置：一次只读查询。失败不影响「版本 / 后端」两行，故独立捕获。
+      const dir = await api.templatesDir();
+      state.tplDir = (dir && dir.dir) || '';
+      state.tplDirBuiltin = Boolean(dir && dir.source === 'default');
+    } catch (err) {
+      state.tplDir = '';
+      state.tplDirBuiltin = false;
+    }
   } catch (err) {
     state.version = null;
     state.backendOk = false;
+    state.tplDir = '';
+    state.tplDirBuiltin = false;
   }
   paint();                       // 后端实测值回来后覆盖
 }

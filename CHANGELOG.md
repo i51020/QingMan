@@ -183,9 +183,54 @@
 
 四件套：`verify` **105/0** · `unittest` **404 OK** · `smoke` **35/0** · `browser_smoke` **31/0**。实拍对照：`outputs\青蔓_UI改版_第3条_快捷键表_改前改后对比_20261016.png`。
 
+### r6 · 2026-10-16 01:15 —— 第 5 条：模板库位置从侧栏移入帮助页（**同版本内，未升版**）
+
+**用户反馈原文**：「『模板库位置：templates/』显示规则 —— 判断是否应放帮助页、如何表达（因为用户手动改模板库路径后应改变）」。**已定决策**：侧栏删掉、只在帮助页说明。
+
+**先说清问题的形状**：侧栏其实有**两处**涉及模板库位置 ——
+
+| 位置 | 内容 | 性质 |
+|---|---|---|
+| `#tplNote` 第二行 | 「模板库位置：」+ 硬编码 `<code>templates/</code>` | **写死**，用户手改绑定后**不变** → 正是误导源 |
+| `#tplDirRow` | 「模板目录」+ `#tplDirPath`（`main.js` 填真实值）+ 选目录 / 刷新两枚按钮 | **动态**，本来就正确 |
+
+所以要删的是**第一处**（写死那行），第二处原样保留。
+
+**改法**：
+
+| # | 文件 | 处置 |
+|---|---|---|
+| 1 | `src/web/index.html` | `#tplNote` 删去第二行（`<br>` + `sidebar.noteLine2` + `<code>templates/</code>`），只留 `sidebar.noteLine1` 那句功能说明 |
+| 2 | `src/web/locales/zh-CN.js` · `en-US.js` | 删 `sidebar.noteLine2`（键集两包同删，7b-3 要求中英一致）；新增 `about.tplDir`（行标签）/ `about.tplDirBuiltin`（内置后缀）/ `about.tplDirUnknown`（未连后端）/ `about.tplDirNote`（表下说明）。**键名刻意避开 `about.note`** —— 该键 V0.0.41 因「设计纪律而非给用户读」被删（手册 §10.2 #10），性质不同，复用会与那条历史决策混淆 |
+| 3 | `src/web/js/help.js` · `src/web/js/ui/help-doc.js` | 两处渲染器**同步**：`buildAbout()` → `buildAbout(section)`；「版本与关于」表在「后端」之后插入「模板库位置」行。页版走既有 `cellId` 机制（`#aboutTplDir`，`paint()` 填）；弹窗版在 `render()` 时用 `tplDirText()` 现算。`section.note` 渲染为表下 `.help-about-note` 小字 |
+| 4 | `src/web/js/main.js` · `src/web/js/modules/templates.js` | **事件贯通**：`templates.js` 的 `renderTemplatesDir()` 末尾派发 `qmtpldirchange`（与 `qmlocalechange` / `qmskinchange` 同风格）；`main.js` 新增 `helpDirState` 快照 + `pushHelpStatus()`，`setServiceState` 改调它 —— 服务状态 / 语言 / 绑定三处变化都能刷到弹窗 |
+| 5 | `src/web/css/help.css` · `src/web/css/layout.css` | 各追加 `.help-about-note`（页面版 / 弹窗版）；与 `.help-kbd-note` 同款但语义不同，**另立类名而非复用**；零新增色值 |
+| 6 | 顺带订正 | `help.ops.sidebar` 文案里同样写死了 `templates/`（「列出 templates/ 下的模板」）—— 属**同一误导源的另一个实例**，改为「列出当前模板库中的模板」/ `lists templates in the current library` |
+
+**为什么放「版本与关于」而不是新开一节**：模板库位置与「版本号」「后端」**同类** —— 都是「只有运行时才知道、且会变的事实」。放同一张表里，`cellId` / `state` / `paint()` 一整套机制直接复用，不必为一行字另造分节。
+
+**核心诉求的落地（「手改后应改变」）**：值取自后端 `GET /api/templates-dir`（返回 `dir` 与 `source` = `env` / `settings` / `default`），即**每次渲染现取**；绑定一改，`qmtpldirchange` 触发 → 弹窗随刷；帮助页每次打开都重新查一次。
+
+**验证（可机器推翻 · 无头 Edge 起真实后端 · 抓渲染后 DOM）**：
+
+| 判据 | 改前（主线 r5） | 改后（隔离区 r6） |
+|---|---|---|
+| 侧栏 `#tplNote` 含写死 `templates/` | **是** | **否** |
+| 侧栏 `#tplNote` 含 `<br>`（两行） | 是 | **否**（单行） |
+| 帮助页 `#sec-about` 表格行数 | 4 | **5** |
+| 「模板库位置」行值 | —— | **后端实测绝对路径**（探针读到沙盒 `templates` 目录） |
+| 页版 `#aboutTplDir` 单元格 | 否 | **是** |
+| `.help-about-note` 且文案正确 | 否 | **是** |
+| 弹窗版 `#dlg-h-about`（同一份 index.html DOM 内） | 4 行 | **5 行 + 注记** |
+| 文本节点未翻译键泄漏 | 无 | **无** |
+
+四件套：`verify` **105/0** · `unittest` **404 OK** · `smoke` **35/0** · `browser_smoke` **31/0**。实拍对照：`outputs\青蔓_UI改版_第5条_侧栏_改前改后对比_20261016.png`、`outputs\青蔓_UI改版_第5条_帮助页_改前改后对比_20261016.png`。
+
+**一处未做的验证（如实标注）**：弹窗版「绑定变化后即时刷新」那条路径（`qmtpldirchange` → `pushHelpStatus`）**未做运行时实测** —— 无头 `--dump-dom` 无法模拟点选原生目录框。已实测的是**首次加载即取到实测值**（弹窗版 5 行含真实路径）；事件链本身仅经静态审查（`renderTemplatesDir` 是绑定 / 刷新 / 语言切换三路的共同出口）。**标注【待核实】**。
+
 ### 四 · 待续（同版本内以 `rN` 续入）
 
-其余 **3 条**：**第 5 条**（模板库位置行：侧栏删除 + 帮助页补节）· **第 2 条**（服务设置补信息与操作按钮，**需动后端**）· **第 9 条**（目标位置鼠标选路径 —— 根因已查明为**解释器缺 tkinter 时的降级**，非产品缺陷）。
+其余 **2 条**：**第 2 条**（服务设置补信息与操作按钮，**需动后端**）· **第 9 条**（目标位置鼠标选路径 —— 根因已查明为**解释器缺 tkinter 时的降级**，非产品缺陷）。
 
 **另**：V0.0.50 遗留的「模板行尾常驻 **⋮**」裁决顺延至本版本收尾时一并处置。
 

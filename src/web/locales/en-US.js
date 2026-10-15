@@ -78,7 +78,6 @@ export const dict = {
   /* ---------- Left: template workspace ---------- */
   'sidebar.title': 'Template Workspace',
   'sidebar.noteLine1': 'Load a template in one click, or edit the tree yourself in the center.',
-  'sidebar.noteLine2': 'Template library location:',
 
   /* Template list (V0.0.11) */
   'template.listTitle': 'Templates',
@@ -424,6 +423,13 @@ export const dict = {
   'about.backendOn': 'Connected',
   'about.backendOff': 'Offline',
   'about.app': 'App name',
+  // V0.0.51@r6: the template folder moved from a hard-coded sidebar line into Help,
+  // pulled live from the backend (follows any rebinding). The key deliberately avoids
+  // the about.note removed in V0.0.41 -- that one was a "design discipline" footnote.
+  'about.tplDir': 'Template library folder',
+  'about.tplDirBuiltin': ' (built-in)',
+  'about.tplDirUnknown': 'Backend not connected -- unavailable',
+  'about.tplDirNote': 'Change the template library folder via the folder icon in the left "Template Workspace"; it takes effect immediately. The built-in folder is used when unbound.',
   /* "Documentation" and the version-note line were removed per manual 10.2 #10 (V0.0.41):
      the former is a developer-doc entry (not user-facing), the latter is a design rule
      rather than text meant for users. about.docs / about.docsValue / about.note are gone
@@ -439,7 +445,7 @@ export const dict = {
   'help.quickStart.5': 'When satisfied, uncheck "Dry run" and click "Generate" to write to disk',
 
   'help.ops.title': 'Interface',
-  'help.ops.sidebar': 'Left "Template Workspace" — lists templates from templates/; click to load. "Save as template" beside the heading stores the current tree as a new template (**existing names are never overwritten**). Below is the self-check list',
+  'help.ops.sidebar': 'Left "Template Workspace" — lists templates in the current library; click to load. "Save as template" beside the heading stores the current tree as a new template (**existing names are never overwritten**). Below is the self-check list',
   'help.ops.center': 'Center "Tree Workspace" — generation options and toolbar at the top, directory tree below',
   'help.ops.genBar': 'The parameter bar can be expanded/collapsed: collapsed it shows one summary line (target · root · dry/write)',
   'help.ops.inspector': 'Right "Property Workspace" — selected node name, type, path, depth and stats; generation result below',
@@ -515,6 +521,6 @@ export const helpSections = [
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [
     'help.safety.1', 'help.safety.2', 'help.safety.3', 'help.safety.4', 'help.safety.5',
   ] },
-  { id: 'about', title: 'help.about.title', kind: 'about', items: [] },
+  { id: 'about', title: 'help.about.title', kind: 'about', note: 'about.tplDirNote', items: [] },
   { id: 'disclaimer', title: 'help.disclaimer.title', kind: 'ul', items: ['help.disclaimer.1'] },
 ];

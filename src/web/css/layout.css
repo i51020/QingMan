@@ -643,6 +643,7 @@
 }
 .help-sec .help-kbd-or { margin: 0 5px; font-size: 11px; color: var(--qm-text-dim); }
 .help-sec .help-kbd-note { margin: 8px 0 0; font-size: 11.5px; line-height: 1.7; color: var(--qm-text-dim); }
+.help-sec .help-about-note { margin: 8px 0 0; font-size: 11.5px; line-height: 1.7; color: var(--qm-text-dim); }
 @media (max-width: 640px) {
   .help-2col { grid-template-columns: minmax(0, 1fr); }
   .help-toc {
