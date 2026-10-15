@@ -82,6 +82,29 @@
   white-space: nowrap;
 }
 
+/* ---------- V0.0.50 · I 组：纯图标按钮（四档方形，图标居中） ----------
+   照设计稿 `prototype.html` 的「纯图标按钮（四档方形，图标居中，与同名文字按钮同高）」节。
+   为何落在这里而不是 base.css：设计稿把它置于样式表**末尾**，靠书写顺序压过
+   `.ob-group .btn{padding:0 10px}` 与 `.btn-mini{padding:0 8px}`；本项目分层为
+   base → layout，而 `.btn-mini` 就在本文件上方、`.btn` 的 `5px 12px` 在 base.css，
+   故放这里即天然排在两者之后，同层同文件解决，不靠 !important、不跨层引用。
+   设计稿另有三条 `.ob-group / .tpl-dir-actions / .prop` 的 padding 归零，
+   在本项目由 `.btn-mini.btn-ic`（0,2,0）一条统一覆盖（对应按钮全部是 btn-mini），
+   未逐个抄录，以免留下永不适用的死规则。 */
+.btn-ic {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0;
+}
+.btn-ic > .ic {
+  width: 16px; height: 16px; flex: 0 0 auto;
+  -webkit-mask-size: 16px 16px; mask-size: 16px 16px;
+}
+.btn-mini.btn-ic { width: 24px; height: 24px; padding: 0; }
+.btn-mini.btn-ic > .ic {
+  width: 14px; height: 14px;
+  -webkit-mask-size: 14px 14px; mask-size: 14px 14px;
+}
+
 /* 模板目录绑定行（V0.0.38 · 6E）：标签 + 省略显示的路径 + 两个迷你按钮 */
 .tpl-dir { display: flex; align-items: center; gap: 6px; margin: 8px 0 4px; font-size: 12px; }
 .tpl-dir-label { flex: 0 0 auto; color: var(--qm-text-dim); }

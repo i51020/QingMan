@@ -88,6 +88,7 @@ export const dict = {
   'skin.13': '苹果银·蓝',
   'skin.14': '黑金·寂海',
   'skin.15': '奶黄·晨曦',
+  'skin.16': '暖灰·琥珀',
 
   /* ---------- 左栏：模板工作区 ---------- */
   'sidebar.title': '模板工作区',
@@ -253,6 +254,7 @@ export const dict = {
   'gen.targetPastePrompt': '本机无法打开目录选择框，请粘贴目标位置的绝对路径',
   'gen.dryRun': '仅演练（不写盘）',
   'gen.button': '一键生成',
+  'gen.buttonTip': '一键生成：按当前目录树在目标位置创建真实目录',
 
   /* 折叠摘要行（参数区收起后常驻显示当前设定） */
   'gen.summaryEmpty': '未设置目标位置',
@@ -275,6 +277,15 @@ export const dict = {
   'tree.redo': '重做',
   'tree.expandAll': '全部展开',
   'tree.collapseAll': '全部折叠',
+  /* V0.0.50 · I 组：工具栏由文字按钮改为纯线性图标，
+     可访问名继续用上面这批短词，功能描述统一移入悬停 tooltip。 */
+  'tree.undoTip': '撤销：回退上一步编辑（Ctrl+Z）',
+  'tree.redoTip': '重做：恢复被撤销的编辑（Ctrl+Y）',
+  'tree.addChildTip': '新建子节点：在选中目录下添加一个子目录',
+  'tree.renameTip': '重命名：修改选中节点名称（F2）',
+  'tree.deleteTip': '删除：移除选中节点及其全部子节点（有二次确认）',
+  'tree.expandAllTip': '全部展开：展开目录树所有层级',
+  'tree.collapseAllTip': '全部折叠：折叠目录树所有层级',
   'tree.newDirPrompt': '新目录名称',
   'tree.newDirDefault': '新建目录',
   'tree.renamePrompt': '重命名',
@@ -285,12 +296,18 @@ export const dict = {
   'tree.groupEdit': '编辑',
   'tree.groupView': '视图',
   'tree.groupOutput': '输出',
+  /* V0.0.50 · I 组：「另存为模板」自模板区移入操作带，独立成组 */
+  'tree.groupSave': '保存',
   /* V0.0.43 · F 组：多选批量 */
   'tree.batchInfo': '已选 {n} 项',
   'tree.batchMoveHint': '拖动其中一项可整组移动',
   'tree.batchDelete': '删除选中',
   'tree.batchCopy': '复制选中路径',
   'tree.batchClear': '取消选择',
+  /* V0.0.50 · I 组：批量条同样去文字（照设计稿的图标语言，但语义按本项目实况） */
+  'tree.batchDeleteTip': '删除选中：移除选中节点及其全部子节点（可用撤销恢复）',
+  'tree.batchCopyTip': '复制选中路径：把选中节点的路径批量复制到剪贴板',
+  'tree.batchClearTip': '取消选择：退出多选状态',
   'tree.batchDeleteConfirm': '确认删除选中的 {n} 个节点及其全部子节点？（可用撤销恢复）',
   'tree.batchDeleteRoot': '选中的项里含根节点，根节点不可删除',
   'tree.addMultiBlocked': '多选状态下不可新建子节点，请先取消多选',
@@ -410,7 +427,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.49',
+  'help.versionFallback': 'V0.0.50',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',

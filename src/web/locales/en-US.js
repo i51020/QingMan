@@ -73,6 +73,7 @@ export const dict = {
   'skin.13': 'Apple Silver · Blue',
   'skin.14': 'Black Gold · Silent Sea',
   'skin.15': 'Cream · Sunrise',
+  'skin.16': 'Warm Gray · Amber',
 
   /* ---------- Left: template workspace ---------- */
   'sidebar.title': 'Template Workspace',
@@ -241,6 +242,7 @@ export const dict = {
   'gen.targetPastePrompt': 'The system folder picker is unavailable here. Paste the absolute path of the target folder.',
   'gen.dryRun': 'Dry run only (do not write)',
   'gen.button': 'Generate',
+  'gen.buttonTip': 'Generate: create the real folders at the target location',
 
   /* Collapsed summary line */
   'gen.summaryEmpty': 'No target path set',
@@ -263,6 +265,15 @@ export const dict = {
   'tree.redo': 'Redo',
   'tree.expandAll': 'Expand all',
   'tree.collapseAll': 'Collapse all',
+  /* V0.0.50 · I group: toolbar went from text buttons to pure line icons;
+     the short words above stay as accessible names, descriptions move to tooltips. */
+  'tree.undoTip': 'Undo: revert the last edit (Ctrl+Z)',
+  'tree.redoTip': 'Redo: reapply an undone edit (Ctrl+Y)',
+  'tree.addChildTip': 'New child node: add a subfolder under the selected folder',
+  'tree.renameTip': 'Rename: change the selected node name (F2)',
+  'tree.deleteTip': 'Delete: remove the selected node and all its children (asks first)',
+  'tree.expandAllTip': 'Expand all: open every level of the tree',
+  'tree.collapseAllTip': 'Collapse all: close every level of the tree',
   'tree.newDirPrompt': 'New directory name',
   'tree.newDirDefault': 'New directory',
   'tree.renamePrompt': 'Rename',
@@ -273,12 +284,19 @@ export const dict = {
   'tree.groupEdit': 'Edit',
   'tree.groupView': 'View',
   'tree.groupOutput': 'Output',
+  /* V0.0.50 · I group: "save as template" moved from the template panel into the band */
+  'tree.groupSave': 'Save',
   /* V0.0.43 · F group: multi-select batch operations */
   'tree.batchInfo': '{n} selected',
   'tree.batchMoveHint': 'Drag one of them to move the whole set',
   'tree.batchDelete': 'Delete selected',
   'tree.batchCopy': 'Copy selected paths',
   'tree.batchClear': 'Clear selection',
+  /* V0.0.50 · I group: batch bar loses its text too (icon language from the design
+     doc, wording kept faithful to what this project actually does) */
+  'tree.batchDeleteTip': 'Delete selected: remove the selected nodes and all their children (undoable)',
+  'tree.batchCopyTip': 'Copy selected paths: copy every selected path to the clipboard',
+  'tree.batchClearTip': 'Clear selection: leave multi-select mode',
   'tree.batchDeleteConfirm': 'Delete the {n} selected nodes and all their children? (undoable)',
   'tree.batchDeleteRoot': 'The selection includes the root node, which cannot be deleted',
   'tree.addMultiBlocked': 'A new child cannot be added while multiple nodes are selected - clear the selection first',
@@ -398,7 +416,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.49',
+  'help.versionFallback': 'V0.0.50',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

@@ -6,8 +6,11 @@
  * 色板仅用于选择器上的三色预览点；组件配色一律来自 skins/<file>.css 的变量覆盖。
  */
 
-/** 默认皮肤：S06 月光序章·钢笔灰（中性、专业）。 */
-export const DEFAULT_SKIN_CID = 6;
+/** 默认皮肤：S16 暖灰·琥珀。
+ * V0.0.50 起默认由 S06 改为 S16 —— S06 刻意无彩色，出厂渲染实测 66.8% 纯白、
+ * 平均饱和度 0.4%、高饱和像素仅 0.2%，与权威风格基准（暖灰画布 + 琥珀点缀，
+ * 高饱和 3.3%）断层。S16 即按该基准复刻，故设为默认。 */
+export const DEFAULT_SKIN_CID = 16;
 
 export const SKINS = [
   { cid: 1, file: 's01-cream-pink', label: 'skin.1', swatch: ['#f9f0f4', '#e32d6a', '#fff5f8'] },
@@ -25,4 +28,5 @@ export const SKINS = [
   { cid: 13, file: 's13-apple-silver-blue', label: 'skin.13', swatch: ['#e3e4e6', '#266cda', '#eff0f2'] },
   { cid: 14, file: 's14-blackgold-silentsea', label: 'skin.14', swatch: ['#202020', '#f0f0c0', '#2c2c2c'] },
   { cid: 15, file: 's15-cream-sunrise', label: 'skin.15', swatch: ['#f5edc8', '#483f36', '#fff9e3'] },
+  { cid: 16, file: 's16-warmgray-amber', label: 'skin.16', swatch: ['#e8e7e5', '#a8730a', '#edece7'] },
 ];

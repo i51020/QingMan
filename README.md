@@ -4,7 +4,7 @@
 
 - 中文名：**青蔓**
 - 英文名：**QingMan**
-- 当前版本：**V0.0.49**
+- 当前版本：**V0.0.50**
 - 运行环境：Windows 10/11 + Python 3.8+，完全离线，仅监听 `127.0.0.1`
 - 实测环境：**Windows 11**（鼠标 + 键盘）。触屏与其他操作系统**未验证**，故不做针对性适配
 
@@ -52,13 +52,13 @@ QingMan/
 │  │  │  ├─ base.css    基础元素 + 品牌区（三页共用）
 │  │  │  ├─ layout.css  主界面布局
 │  │  │  ├─ help.css    帮助页 / 支持页布局
-│  │  │  └─ skins/      皮肤契约（README.md）+ 15 款皮肤文件（皮肤 = 一组变量覆盖，组件不感知皮肤 → §P0-3 L5）
+│  │  │  └─ skins/      皮肤契约（README.md）+ 16 款皮肤文件（皮肤 = 一组变量覆盖，组件不感知皮肤 → §P0-3 L5）
 │  │  └─ js/
 │  │     ├─ main.js     主界面装配层：状态 → 视图 → 交互绑定 → 编辑态自动保存 → 自检
 │  │     ├─ help.js     帮助页渲染层：填充占位 → 渲染分节（幂等）→ 取后端版本
 │  │     ├─ support.js  支持页渲染层
 │  │     ├─ i18n/       取词层：index.js 运行时（t() / applyStatic() / setLocale() / applySkin() / initPrefs() / watchLocale()）
-│  │     │              + zh-CN.js / en-US.js 取词表（各 **296 键**，双语键集零差异）+ skins.js 皮肤注册表
+│  │     │              + zh-CN.js / en-US.js 取词表（各 **395 键**，双语键集零差异）+ skins.js 皮肤注册表
 │  │     ├─ core/       bus.js 事件总线 · store.js 状态仓库 · api.js 后端调用唯一入口（其余模块禁用 fetch）· errors.js 错误码本地化
 │  │     ├─ modules/    tree-model.js 数据模型：增删改查 / 统计 / id 唯一性 / 文档序列化（纯数据，不碰 DOM 与网络）
 │  │     │              selection.js 选择集合语义（V0.0.43 拆出）· templates.js 模板库（V0.0.48 拆出）—— 均为解单文件 64K 上限
@@ -70,8 +70,8 @@ QingMan/
 ├─ store/               内容寻址仓库
 │  ├─ objects/          blob 池：路径 = 内容的 SHA-256，跨版本自动去重
 │  └─ .trash/           checkout 时多余文件的回收区（不真删）
-├─ versions/            版本清单（**只增不改**，V0.0.1 … V0.0.49 每版一目录）
-│  ├─ V0.0.49/          MANIFEST.json（基线 r1，当前版本）＋ 必要的 MANIFEST-r<N>.json
+├─ versions/            版本清单（**只增不改**，V0.0.1 … V0.0.50 每版一目录）
+│  ├─ V0.0.50/          MANIFEST.json（基线 r1，当前版本）＋ 必要的 MANIFEST-r<N>.json
 │  └─ V0.0.1/           MANIFEST.json（基线 r1）+ MANIFEST-r<N>.json（同版本修订）
 ├─ preview/             试运行区（**只服务单次开发**：`promote` 后即清空，不跨版本保留 —— §P1-7）
 │  └─ README.md         用途与规则说明（占位，使目录保留在 git 跟踪内）
@@ -206,8 +206,8 @@ python tools/browser_smoke.py                 # 页面级冒烟（无头浏览�
 | key 命名 | `<模块>.<元素>.<语义>`，如 `inspector.title`、`tree.menu.delete`、`toast.saved` |
 | 取词运行时 | `src/web/js/i18n/index.js`：`t()` / `applyStatic()` / `setLocale()` / `applySkin()` / `initPrefs()` / `watchLocale()` |
 | 颜色 | 组件 CSS **只允许 `var(--qm-*)`**，禁止裸色值；新增变量先在 `tokens.css` 定义（**唯一允许写色值的文件**） |
-| 皮肤 | 皮肤 = **一组变量覆盖文件** `src/web/css/skins/<name>.css`（已内置 **15 款**），经 `applySkin()` 注入 `<link id="skinLink">`。**组件 CSS 不得感知皮肤**（不写 `.skin-dark .btn` 这类选择器） |
-| 偏好 | `localStorage` 的 `qm.lang` / `qm.skin` / `qm.genBar`；启动顺序 `initPrefs()` → `applyStatic()` → `initGenBar()` → `render()` |
+| 皮肤 | 皮肤 = **一组变量覆盖文件** `src/web/css/skins/<name>.css`（已内置 **16 款**；出厂默认 **S16 暖灰·琥珀**），经 `applySkin()` 注入 `<link id="skinLink">`。**组件 CSS 不得感知皮肤**（不写 `.skin-dark .btn` 这类选择器） |
+| 偏好 | `localStorage` 的 **5 键**（权威清单 ＝ 《项目约定》§P0-3 L6）：`qm.lang` / `qm.skin` / `qm.genBar` / `qm.inspMode` / `qm.launchIcon`；启动顺序 `initPrefs()` → `applyStatic()` → `initGenBar()` → `render()` |
 | ⚠️ 新增偏好键 | 必须声明在 `i18n/index.js`（**导出常量**），不能写在别的模块里 —— 「取词键闭包」检查会排除 `i18n/` 目录，而把 JS 里任何 `a.b` 形式的字面量都当成取词键，写在别处会被误判为"漏翻" |
 | SVG 着色 | 一律 ① CSS `mask` 取形状 或 ② 内联 `currentColor`。**禁止 `<img src="*.svg">`** —— `<img>` 中的 SVG 是独立文档，`currentColor` 不继承 |
 
@@ -253,9 +253,9 @@ python tools/browser_smoke.py                 # 页面级冒烟（无头浏览�
 ## 回退
 
 ```bash
-python tools/store.py checkout V0.0.49        # 取当前版本（= 该版本最高修订）
+python tools/store.py checkout V0.0.50        # 取当前版本（= 该版本最高修订）
 python tools/store.py checkout V0.0.1@r1      # 精确回退到某个修订
-python tools/verify.py . --against V0.0.49    # 与当前版本清单比对
+python tools/verify.py . --against V0.0.50    # 与当前版本清单比对
 ```
 
 回退时「当前有、目标版本没有」的文件，会先复制进 `store/.trash/<时间戳>/` 并**逐字节校验**，通过后才移除原文件 —— 全程不真删。

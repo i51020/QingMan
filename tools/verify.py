@@ -942,15 +942,19 @@ def main() -> int:
     #       「新增皮肤时又抄一份形态表达式进来」，把刚统一的「设计风格」重新拆散。
     SHAPE_VARS = ("--qm-shadow-raise", "--qm-inset")
     shape_leak: list[str] = []
+    skin_files: list = []
     if skins_dir.is_dir():
-        for css in sorted(skins_dir.glob("s*.css")):
+        skin_files = sorted(skins_dir.glob("s*.css"))
+        for css in skin_files:
             body = strip_comments(css.read_text(encoding="utf-8"), "css")
             for v in SHAPE_VARS:
                 if re.search(rf"^\s*{re.escape(v)}\s*:", body, re.M):
                     shape_leak.append(f"{css.name}:{v}")
+    # V0.0.50：计数改为**派生** —— 原为写死的「15 款」，加第 16 款皮肤后
+    # 遍历已覆盖新皮肤、提示串却仍说 15，属「报告口径与实况不符」。
     check(not shape_leak, "皮肤只供配色影色 V0.0.45",
           "皮肤不得定义形态变量：" + ", ".join(shape_leak[:4]) if shape_leak
-          else f"15 款皮肤均未定义 {' / '.join(SHAPE_VARS)}（形态唯一来源 = tokens.css）")
+          else f"{len(skin_files)} 款皮肤均未定义 {' / '.join(SHAPE_VARS)}（形态唯一来源 = tokens.css）")
 
     # 7d-6. Soft 转基础层（V0.0.45）：三页 <html> 不得再挂 data-soft；soft.css 选择器不得再带
     #       [data-soft] 前缀；形态字面量（位移 / 模糊）必须已收敛为 var(--qm-*)。另外锚定两处
@@ -1009,7 +1013,8 @@ def main() -> int:
     tier_errs: list[str] = []
     tier_dls: list[float] = []
     _tier_light, _tier_dark = split_light_dark(tokens_txt) if tokens_txt else ({}, {})
-    # 待查「配色面」= tokens 浅 / 深两段（无皮肤时的基座）+ 15 款皮肤（皮肤色叠在 tokens 浅色之上）。
+    # 待查「配色面」= tokens 浅 / 深两段（无皮肤时的基座）+ 各款皮肤（皮肤色叠在 tokens 浅色之上）。
+    # V0.0.46 只覆盖 15 款皮肤；V0.0.47 起连 tokens 浅 / 深两段一并覆盖；V0.0.50 起随 s16 增为 18 面。
     tier_faces: list[tuple[str, dict[str, str]]] = [
         ("tokens.css 浅色段", _tier_light), ("tokens.css 深色段", _tier_dark),
     ]
@@ -2347,8 +2352,15 @@ def main() -> int:
     #      类名与字符，裸查必大量假阳性）；字形抽取**全程不写正则反斜杠**（§三.72）。
     ic_bad: list[str] = []
     # 图标册（形状类）—— base.css 定义域 / 本元组 / §P0-3 L8 规则行，**三方一致**（同 7ai）。
+    # V0.0.50 · I 组：工作区按钮由文字改为纯线性图标，形状表按设计稿补齐 → 7 → 21。
+    # 设计稿另备 ic-checkbox / ic-export / ic-load，本项目无对应控件，**故意不引入**
+    # （引入即「定义了但无人使用」，本段 ① 会立刻报出来）。
     ICON_SHAPES = ("ic-globe", "ic-heart", "ic-help", "ic-gear",
-                   "ic-close", "ic-check", "ic-more")
+                   "ic-close", "ic-check", "ic-more",
+                   "ic-folder-plus", "ic-folder-open", "ic-refresh",
+                   "ic-undo", "ic-redo", "ic-node-plus", "ic-pencil", "ic-trash",
+                   "ic-expand-all", "ic-collapse-all", "ic-copy",
+                   "ic-import", "ic-save", "ic-spark")
     # 字形图标白名单（**新代码禁止新增** —— 新图标一律走 `.ic` mask；D 类不许再长大）。
     GLYPH_ICONS = (chr(0x25BE),                  # 下三角 .caret（#chipBackend 服务 chip）
                    chr(0x25BC), chr(0x25B6),     # 实心下 / 右三角 #genCaret（main.js）
@@ -2371,7 +2383,11 @@ def main() -> int:
         return out
 
     # ① 定义 ↔ 使用 双向配对（「定义未使用」与「使用未定义」都要报）。
-    ic_defined = set(re.findall(r"\.(ic(?:-[a-z0-9]+)?)(?![\w-])", _ic_css))
+    # V0.0.50 修正：原式为 `(?:-[a-z0-9]+)?`，**只允许一个连字符** —— 于是
+    # `.ic-expand-all` / `.ic-folder-plus` / `.ic-node-plus` 这类双连字符形状
+    # **根本抽不到**（此前 7 枚全为单连字符，缺陷从未暴露；I 组一落地即现形）。
+    # 判据锚「`.ic` 开头的类名声明形态」，故改为可重复的 `(?:-[a-z0-9]+)*`。
+    ic_defined = set(re.findall(r"\.(ic(?:-[a-z0-9]+)*)(?![\w-])", _ic_css))
     ic_used: dict[str, set[str]] = {}
     for _p in sorted((root / "src/web").rglob("*")):
         if not _p.is_file() or _p.suffix not in (".html", ".js"):
@@ -2379,7 +2395,9 @@ def main() -> int:
         _rel = str(_p.relative_to(root)).replace(chr(92), "/")
         for _lit in _ic_lits(_p.read_text(encoding="utf-8", errors="ignore")):
             for _tok in _lit.split():
-                if re.fullmatch(r"ic(?:-[a-z0-9]+)?", _tok):
+                # V0.0.50 修正：同 `ic_defined` —— 单连字符写法漏掉 `ic-expand-all`
+                # 这类双连字符形状，会把「已使用」误判为「定义未使用」。
+                if re.fullmatch(r"ic(?:-[a-z0-9]+)*", _tok):
                     ic_used.setdefault(_tok, set()).add(_rel)
     for _miss in sorted(ic_defined - set(ic_used)):
         ic_bad.append(f"base.css 定义了 .{_miss} 但无人使用")
@@ -2421,7 +2439,10 @@ def main() -> int:
                 ic_bad.append(f"{_rel} 用 <img> 引 SVG：{_img[:40]}")
 
     # ⑤ 图标按钮：可访问名必填；顶栏操作区另须 tooltip（把手册 §十四.1 由建议升为判据）。
-    _ic_btns = re.findall(r'<button[^>]*class="[^"]*icon-btn[^"]*"[^>]*>', _idx_html, re.S)
+    #    V0.0.50 起覆盖面含工作区的纯图标按钮 `.btn-ic`（此前只扫顶栏 / 弹窗的 `.icon-btn`，
+    #    而 I 组落地后界面上的图标按钮达 29 颗；不扩面就等于给新按钮开了一条无守卫通道）。
+    _ic_btns = re.findall(r'<button[^>]*class="[^"]*(?:icon-btn|btn-ic)[^"]*"[^>]*>',
+                          _idx_html, re.S)
     for _tag in _ic_btns:
         _m_id = re.search(r'id="([^"]+)"', _tag)
         _bid = _m_id.group(1) if _m_id else "(匿名)"

@@ -67,15 +67,21 @@ NORMAL = {
     #   期望序列由 tools/browser_smoke.py 的 expected_skin_order() 独立复算，
     #   与 src/web/js/ui/skin-picker.js 的 luma() 同公式（改皮肤背景色须同步此处基线）。
     "skinOrder": bs.expected_skin_order(),
-    "skinCount": "15",
+    "skinCount": "16",
     # V0.0.40 新增：目标位置「选择…」按钮（手册 10.2 节 #13）—— 证「在位 + 文案随语言刷新」。
-    #   文案取自 i18n 的 gen.targetPick（en 'Choose...' / zh '选择…'）；改文案须同步此处基线。
-    "pickTargetBtn": "1", "pickTargetEn": "Choose...", "pickTargetZh": "选择…",
+    #   V0.0.50 · I 组：该按钮已去文字改纯线性图标，取词证据改从**可访问名 + tooltip**
+    #   采集（`aria-label | title`），故基线形态随之变化 —— 断言强度不变（非空 + 随语言变）。
+    #   文案取自 i18n 的 gen.targetPick / gen.targetPickTip；改文案须同步此处基线。
+    "pickTargetBtn": "1",
+    "pickTargetEn": "Choose... ／ Choose an existing folder as the target path (system folder picker)",
+    "pickTargetZh": "选择… ／ 选择一个已存在的目录作为目标位置（本机原生目录选择框）",
     # V0.0.41 新增：模板编辑区「新建模板」（手册 9.2 节 #7 / 10.2 节 #4）。
-    #   文案取自 i18n 的 template.new（en 'New' / zh '新建'）；起点首项是 template.newBaseBlank
-    #   （探针读时语言已复位 en-US，故基线为英文文案）。改文案须同步此处基线。
+    #   文案取自 i18n 的 template.new / template.newTip（同上，V0.0.50 起走 aria-label | title）；
+    #   起点首项是 template.newBaseBlank（探针读时语言已复位 en-US，故基线为英文文案）。
+    #   改文案须同步此处基线。
     "tplNewBtn": "1", "tplNewDlg": "1",
-    "tplNewEn": "New", "tplNewZh": "新建",
+    "tplNewEn": "New ／ Create a template from scratch (blank or any template in the library as a starting point)",
+    "tplNewZh": "新建 ／ 从零创建一套模板（可选空白或库中任一模板作起点）",
     "tplNewOpen": "1", "tplNewBaseN": "2", "tplNewBaseText": "Blank (root only)",
     "tplNewClosing": "0", "tplNewClosed": "1",
     # V0.0.42 新增：根名方案 C（手册 10.2 节 #12）—— 根节点名即「根文件夹名」。
@@ -85,9 +91,10 @@ NORMAL = {
     "rootSumBlank": "Target X · No root folder · Dry run",
     "rootNameBefore": "", "rootNameAfter": "QmRootX", "rootNameBlank": "(no root folder)",
     # V0.0.43 新增：UI 定版差集 G / H / F 三条（真机实测原值）。
-    #   G：工具栏三分组 —— 锚点是 8 颗按钮的**归属序列**（见 bs.EXPECT_GROUP_MAP），
-    #      只数分组个数会被三个空壳 div 骗过，故同时钉「组数 / 带标签数 / 归属序列」。
-    "gGroups": "3", "gLabels": "3", "gMap": bs.EXPECT_GROUP_MAP,
+    #   G：工具栏分组 —— 锚点是 9 颗按钮的**归属序列**（见 bs.EXPECT_GROUP_MAP），
+    #      只数分组个数会被空壳 div 骗过，故同时钉「组数 / 带标签数 / 归属序列」。
+    #      V0.0.50 · I 组：「另存为模板」移入操作带独立成组 → 3 组变 4 组。
+    "gGroups": "4", "gLabels": "4", "gMap": bs.EXPECT_GROUP_MAP,
     #   H：检视器「属性 ⇄ 源码」—— hJson + hHasChild 是强证据（源码栏须为可解析 JSON
     #      且真的含子节点名，证走的是 toPlainTree 序列化而非随手拼串）；hBack=2 证能复位。
     "hSeg": "2", "hPropHidden": "1", "hSrcShown": "1", "hJson": "1", "hHasChild": "1",
@@ -125,7 +132,7 @@ FAIL_TPLDLG = "主界面·「新建模板」弹窗可开、起点已填充、可
 FAIL_ROOTRENAME = "主界面·根名即树根：改名后摘要与树区同步（V0.0.42）"
 FAIL_ROOTBLANK = "主界面·根名即树根：清空即不建根（V0.0.42）"
 # V0.0.43（UI 定版差集 G / H / F）：四条判定名
-FAIL_GROUP3 = "主界面·工具栏三分组：按钮各归其组（V0.0.43 · G）"
+FAIL_GROUP3 = "主界面·工具栏语义分组：按钮各归其组（V0.0.43 · G）"
 FAIL_INSPMODE = "主界面·检视器属性⇄源码：可切换且源码为同源 JSON（V0.0.43 · H）"
 FAIL_BATCHGEST = "主界面·多选手势与批量条（Ctrl/Shift/Esc/Ctrl+A）（V0.0.43 · F）"
 FAIL_BATCHDEL = "主界面·批量删除只作用于最外层祖先（V0.0.43 · F）"
@@ -394,8 +401,10 @@ class VerifyMetricsTests(unittest.TestCase):
         self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_PICK])
 
     def test_v0040_target_pick_text_frozen_fails_exactly(self):
-        """V0.0.40 回归：按钮文案未随语言刷新 → 恰好那项 FAIL（说明未走 i18n 取词）。"""
-        metrics = dict(NORMAL, pickTargetZh="Choose...")
+        """V0.0.40 回归：按钮文案未随语言刷新 → 恰好那项 FAIL（说明未走 i18n 取词）。
+        V0.0.50：负控改为「zh := 本基线的 en 值」，不再钉死某个英文字面量 ——
+        后者与产品文案耦合，文案一改（I 组去文字即为一例）负控就会**静默退化成正控**。"""
+        metrics = dict(NORMAL, pickTargetZh=NORMAL["pickTargetEn"])
         self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_PICK])
 
     def test_v0041_new_template_button_missing_fails_exactly(self):
@@ -404,8 +413,9 @@ class VerifyMetricsTests(unittest.TestCase):
         self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_TPLNEW])
 
     def test_v0041_new_template_text_frozen_fails_exactly(self):
-        """V0.0.41 回归：按钮文案未随语言刷新 → 恰好那项 FAIL（说明未走 i18n 取词）。"""
-        metrics = dict(NORMAL, tplNewZh="New")
+        """V0.0.41 回归：按钮文案未随语言刷新 → 恰好那项 FAIL（说明未走 i18n 取词）。
+        V0.0.50：同 pickTarget —— 负控改用本基线的 en 值，避免与产品文案耦合。"""
+        metrics = dict(NORMAL, tplNewZh=NORMAL["tplNewEn"])
         self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_TPLNEW])
 
     def test_v0041_new_template_dialog_regression_fails_exactly(self):

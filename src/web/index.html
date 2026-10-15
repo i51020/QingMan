@@ -69,15 +69,17 @@
         <div class="panel-block">
           <div class="panel-head">
             <h3 class="panel-sub" data-i18n="template.listTitle"></h3>
-            <!-- Grouped so the head keeps exactly two flex children (title / actions) -->
+            <!-- Grouped so the head keeps exactly two flex children (title / actions)
+                 V0.0.50 · I group: text -> line icons; "save as template" moved into
+                 the toolbar band (design doc v7), so only new / import stay here. -->
             <span class="panel-actions">
-              <button type="button" class="btn btn-ghost btn-mini" id="btnNewTemplate"
+              <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnNewTemplate"
                       aria-haspopup="dialog"
-                      data-i18n="template.new" data-i18n-title="template.newTip"></button>
-              <button type="button" class="btn btn-ghost btn-mini" id="btnImportTemplate"
-                      data-i18n="template.import" data-i18n-title="template.importTip"></button>
-              <button type="button" class="btn btn-ghost btn-mini" id="btnSaveTemplate"
-                      data-i18n="template.saveAs" data-i18n-title="template.saveAsTip"></button>
+                      data-i18n-aria-label="template.new" data-i18n-title="template.newTip">
+                <span class="ic ic-folder-plus" aria-hidden="true"></span></button>
+              <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnImportTemplate"
+                      data-i18n-aria-label="template.import" data-i18n-title="template.importTip">
+                <span class="ic ic-import" aria-hidden="true"></span></button>
             </span>
           </div>
           <!-- Template folder binding row (V0.0.38 / 6E): path + "Choose..." / "Refresh"
@@ -86,10 +88,12 @@
             <span class="tpl-dir-label" data-i18n="template.dirLabel"></span>
             <code class="tpl-dir-path" id="tplDirPath"></code>
             <span class="tpl-dir-actions">
-              <button type="button" class="btn btn-ghost btn-mini" id="btnPickDir"
-                      data-i18n="template.dirPick" data-i18n-title="template.dirPickTip"></button>
-              <button type="button" class="btn btn-ghost btn-mini" id="btnRefreshTpl"
-                      data-i18n="template.refresh" data-i18n-title="template.refreshTip"></button>
+              <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnPickDir"
+                      data-i18n-aria-label="template.dirPick" data-i18n-title="template.dirPickTip">
+                <span class="ic ic-folder-open" aria-hidden="true"></span></button>
+              <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnRefreshTpl"
+                      data-i18n-aria-label="template.refresh" data-i18n-title="template.refreshTip">
+                <span class="ic ic-refresh" aria-hidden="true"></span></button>
             </span>
           </div>
           <p class="tpl-dir-hint" id="tplDirHint" hidden></p>
@@ -114,8 +118,9 @@
               <span data-i18n="gen.targetLabel"></span>
               <span class="field-inline">
                 <input type="text" id="inTarget" data-i18n-placeholder="gen.targetPlaceholder">
-                <button type="button" class="btn btn-ghost btn-mini" id="btnPickTarget"
-                        data-i18n="gen.targetPick" data-i18n-title="gen.targetPickTip"></button>
+                <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnPickTarget"
+                        data-i18n-aria-label="gen.targetPick" data-i18n-title="gen.targetPickTip">
+                  <span class="ic ic-folder-open" aria-hidden="true"></span></button>
               </span>
             </label>
             <label class="switch">
@@ -128,22 +133,51 @@
         <!-- V0.0.43 · G group: three semantic groups (edit / view / output).
              Splitting rule = "changes data / read-only view / produces output".
              Undo+redo sit with add/rename/delete because all five change the tree;
-             the old layout separated them with a .divider, which was a mis-group. -->
+             the old layout separated them with a .divider, which was a mis-group.
+             V0.0.50 · I group: text -> pure line icons (design doc's pure icon
+             button section); the accessible name moves to data-i18n-aria-label and
+             the full description to data-i18n-title (same pair the topbar icons
+             already use). -->
         <div id="toolbar" class="bar">
           <span class="tb-group" role="group" data-i18n-aria-label="tree.groupEdit">
-            <button type="button" id="btnUndo" class="btn btn-ghost" data-i18n="tree.undo" disabled></button>
-            <button type="button" id="btnRedo" class="btn btn-ghost" data-i18n="tree.redo" disabled></button>
-            <button type="button" id="btnAddChild" class="btn" data-i18n="tree.addChild"></button>
-            <button type="button" id="btnRename" class="btn" data-i18n="tree.rename"></button>
-            <button type="button" id="btnDelete" class="btn btn-danger" data-i18n="tree.delete"></button>
+            <button type="button" id="btnUndo" class="btn btn-ghost btn-ic"
+                    data-i18n-aria-label="tree.undo" data-i18n-title="tree.undoTip" disabled>
+              <span class="ic ic-undo" aria-hidden="true"></span></button>
+            <button type="button" id="btnRedo" class="btn btn-ghost btn-ic"
+                    data-i18n-aria-label="tree.redo" data-i18n-title="tree.redoTip" disabled>
+              <span class="ic ic-redo" aria-hidden="true"></span></button>
+            <button type="button" id="btnAddChild" class="btn btn-ic"
+                    data-i18n-aria-label="tree.addChild" data-i18n-title="tree.addChildTip">
+              <span class="ic ic-node-plus" aria-hidden="true"></span></button>
+            <button type="button" id="btnRename" class="btn btn-ic"
+                    data-i18n-aria-label="tree.rename" data-i18n-title="tree.renameTip">
+              <span class="ic ic-pencil" aria-hidden="true"></span></button>
+            <button type="button" id="btnDelete" class="btn btn-danger btn-ic"
+                    data-i18n-aria-label="tree.delete" data-i18n-title="tree.deleteTip">
+              <span class="ic ic-trash" aria-hidden="true"></span></button>
           </span>
           <span class="tb-group" role="group" data-i18n-aria-label="tree.groupView">
-            <button type="button" id="btnExpandAll" class="btn btn-ghost" data-i18n="tree.expandAll"></button>
-            <button type="button" id="btnCollapseAll" class="btn btn-ghost" data-i18n="tree.collapseAll"></button>
+            <button type="button" id="btnExpandAll" class="btn btn-ghost btn-ic"
+                    data-i18n-aria-label="tree.expandAll" data-i18n-title="tree.expandAllTip">
+              <span class="ic ic-expand-all" aria-hidden="true"></span></button>
+            <button type="button" id="btnCollapseAll" class="btn btn-ghost btn-ic"
+                    data-i18n-aria-label="tree.collapseAll" data-i18n-title="tree.collapseAllTip">
+              <span class="ic ic-collapse-all" aria-hidden="true"></span></button>
           </span>
           <span class="spacer"></span>
+          <!-- V0.0.50 · I group: moved here from the template panel header, per
+               design doc v7 ("it operates on the current tree, not the template
+               library"). Order inside the band is semantic: edit tree -> save as
+               template -> generate to disk. -->
+          <span class="tb-group" role="group" data-i18n-aria-label="tree.groupSave">
+            <button type="button" id="btnSaveTemplate" class="btn btn-ic"
+                    data-i18n-aria-label="template.saveAs" data-i18n-title="template.saveAsTip">
+              <span class="ic ic-save" aria-hidden="true"></span></button>
+          </span>
           <span class="tb-group" role="group" data-i18n-aria-label="tree.groupOutput">
-            <button type="button" id="btnGenerate" class="btn btn-primary" data-i18n="gen.button"></button>
+            <button type="button" id="btnGenerate" class="btn btn-primary btn-ic"
+                    data-i18n-aria-label="gen.button" data-i18n-title="gen.buttonTip">
+              <span class="ic ic-spark" aria-hidden="true"></span></button>
           </span>
         </div>
 
@@ -154,9 +188,15 @@
           <span class="batch-info" id="batchInfo"></span>
           <span class="batch-hint" data-i18n="tree.batchMoveHint"></span>
           <span class="spacer"></span>
-          <button type="button" id="btnBatchCopy" class="btn btn-ghost" data-i18n="tree.batchCopy"></button>
-          <button type="button" id="btnBatchDelete" class="btn btn-danger" data-i18n="tree.batchDelete"></button>
-          <button type="button" id="btnBatchClear" class="btn btn-ghost" data-i18n="tree.batchClear"></button>
+          <button type="button" id="btnBatchCopy" class="btn btn-ghost btn-ic"
+                  data-i18n-aria-label="tree.batchCopy" data-i18n-title="tree.batchCopyTip">
+            <span class="ic ic-copy" aria-hidden="true"></span></button>
+          <button type="button" id="btnBatchDelete" class="btn btn-danger btn-ic"
+                  data-i18n-aria-label="tree.batchDelete" data-i18n-title="tree.batchDeleteTip">
+            <span class="ic ic-trash" aria-hidden="true"></span></button>
+          <button type="button" id="btnBatchClear" class="btn btn-ghost btn-ic"
+                  data-i18n-aria-label="tree.batchClear" data-i18n-title="tree.batchClearTip">
+            <span class="ic ic-close" aria-hidden="true"></span></button>
         </div>
 
         <div id="treeWrap">
@@ -184,9 +224,9 @@
         </div>
         <div id="inspPropPane">
           <div class="prop-list">
-            <div class="prop"><span class="prop-key" data-i18n="inspector.name"></span><span class="prop-val" id="propName">—</span><button type="button" class="btn btn-ghost btn-mini" id="btnCopyName" data-i18n="inspector.copy" data-i18n-title="inspector.copyNameTip"></button></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.name"></span><span class="prop-val" id="propName">—</span><button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnCopyName" data-i18n-aria-label="inspector.copyNameTip" data-i18n-title="inspector.copyNameTip"><span class="ic ic-copy" aria-hidden="true"></span></button></div>
             <div class="prop"><span class="prop-key" data-i18n="inspector.type"></span><span class="prop-val" id="propType">—</span></div>
-            <div class="prop"><span class="prop-key" data-i18n="inspector.path"></span><span class="prop-val prop-mono" id="propPath">—</span><button type="button" class="btn btn-ghost btn-mini" id="btnCopyPath" data-i18n="inspector.copy" data-i18n-title="inspector.copyPathTip"></button></div>
+            <div class="prop"><span class="prop-key" data-i18n="inspector.path"></span><span class="prop-val prop-mono" id="propPath">—</span><button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnCopyPath" data-i18n-aria-label="inspector.copyPathTip" data-i18n-title="inspector.copyPathTip"><span class="ic ic-copy" aria-hidden="true"></span></button></div>
             <div class="prop"><span class="prop-key" data-i18n="inspector.depth"></span><span class="prop-val" id="propDepth">—</span></div>
             <div class="prop"><span class="prop-key" data-i18n="inspector.dirs"></span><span class="prop-val" id="propDirs">0</span></div>
             <div class="prop"><span class="prop-key" data-i18n="inspector.files"></span><span class="prop-val" id="propFiles">0</span></div>
@@ -194,7 +234,7 @@
           <h3 class="panel-sub" data-i18n="inspector.noteTitle"></h3>
           <textarea id="propNote" rows="6" data-i18n-placeholder="inspector.notePlaceholder" disabled></textarea>
           <div class="note-actions">
-            <button type="button" class="btn btn-ghost btn-mini" id="btnCopyNote" data-i18n="inspector.copyNote" data-i18n-title="inspector.copyNoteTip"></button>
+            <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnCopyNote" data-i18n-aria-label="inspector.copyNoteTip" data-i18n-title="inspector.copyNoteTip"><span class="ic ic-copy" aria-hidden="true"></span></button>
           </div>
         </div>
         <div id="inspSrcPane" hidden>

@@ -199,14 +199,31 @@ frame('./index.html', function (doc) {
       return nm ? nm.textContent : '';
     };
     /* V0.0.40 · 手册 10.2 节 #13：目标位置「选择…」按钮 —— 只采集「在位」与「取词文案」，
-       不伪造点击（真点会弹原生目录框，自动化环境不可控）。 */
+       不伪造点击（真点会弹原生目录框，自动化环境不可控）。
+       V0.0.50 · I 组：这两颗按钮已**去文字、改纯线性图标**，`textContent` 恒为空串 ——
+       取词证据随之改从**可访问名 + tooltip**（aria-label / title）采集。断言强度不变：
+       「非空 + 随语言变」依然证明该按钮走 i18n 取词且 applyStatic 覆盖到它
+       （data-i18n-aria-label 与 data-i18n-title 两条通道都被替换）。
+       只改采集通道、不放宽判据 —— 图标按钮的可见文本本就不该是判据。 */
+    var a11y = function (btn) {
+      if (!btn) { return ''; }
+      var al = (btn.getAttribute('aria-label') || '').trim();
+      var ti = (btn.getAttribute('title') || '').trim();
+      /* ⚠ 拼接符**不能**用 ' | ' —— 探针结果的传输格式是 `RESULT k=v | k=v`，
+         `parse_metrics()` 按 '|' 切分；值里一旦出现 '|'，该字段会被**静默截断**。
+         实测踩过：用 ' | ' 拼 aria-label 与 title 后，tooltip 整段丢失、
+         探针只报回 'Choose...'，看上去像「title 没被 i18n 填上」，
+         于是去查 applyStatic —— 方向完全错。故此处既换分隔符，
+         又把残留的 '|' 一律归一化：**传输格式的分隔符不得出现在值里**。 */
+      return (al + (ti ? ' ／ ' + ti : '')).replace(/\|/g, '/');
+    };
     var pickBtn = doc ? doc.getElementById('btnPickTarget') : null;
-    var pickBtnText = function () { return pickBtn ? (pickBtn.textContent || '').trim() : ''; };
+    var pickBtnText = function () { return a11y(pickBtn); };
     m.pickTargetBtn = pickBtn ? 1 : 0;
     /* V0.0.41 · 手册 9.2 节 #7 / 10.2 节 #4：模板编辑区「新建模板」按钮 —— 与上面同理，
        这里只采集「在位」与「取词文案」（弹窗开合放在阶段 1 末尾实测，见下）。 */
     var newBtnEl = doc ? doc.getElementById('btnNewTemplate') : null;
-    var newBtnText = function () { return newBtnEl ? (newBtnEl.textContent || '').trim() : ''; };
+    var newBtnText = function () { return a11y(newBtnEl); };
     m.tplNewBtn = newBtnEl ? 1 : 0;
     var pickLocale = function (value) {
       var items = langMenu ? langMenu.querySelectorAll('.menu-item') : [];
@@ -362,10 +379,12 @@ frame('./index.html', function (doc) {
       win.prompt = realPrompt;
     }
   }
-  /* V0.0.43 · UI 定版差集 G 组：工具栏三分组（编辑 / 视图 / 输出）。
-     判定锚点是「每颗按钮落在第几个分组里」—— 只数分组个数会被三个空壳 div 骗过，
-     故把 8 颗按钮逐个回溯到所属 .tb-group，期望序列 00000112
-     （撤销/重做/加子/改名/删除 属编辑，展开/折叠 属视图，生成 属输出）。 */
+  /* V0.0.43 · UI 定版差集 G 组：工具栏分组（编辑 / 视图 / 保存 / 输出）。
+     判定锚点是「每颗按钮落在第几个分组里」—— 只数分组个数会被空壳 div 骗过，
+     故把 9 颗按钮逐个回溯到所属 .tb-group，期望序列 00000123
+     （撤销/重做/加子/改名/删除 属编辑，展开/折叠 属视图，另存为模板 属保存，生成 属输出）。
+     V0.0.50 · I 组：「另存为模板」自模板区移入本带独立成组（第三位），序列末位
+     由 2 变 3 —— 探针同步纳入该按钮，否则新增那一组无人断言。 */
   var tbEl = doc ? doc.getElementById('toolbar') : null;
   if (tbEl && win) {
     var groups = tbEl.querySelectorAll('.tb-group');
@@ -376,7 +395,7 @@ frame('./index.html', function (doc) {
     }
     m.gLabels = labN;
     var gIds = ['btnUndo', 'btnRedo', 'btnAddChild', 'btnRename', 'btnDelete',
-                'btnExpandAll', 'btnCollapseAll', 'btnGenerate'];
+                'btnExpandAll', 'btnCollapseAll', 'btnSaveTemplate', 'btnGenerate'];
     var gCode = '';
     for (var ga = 0; ga < gIds.length; ga += 1) {
       var gb = doc.getElementById(gIds[ga]);
@@ -791,10 +810,11 @@ def toast_cap() -> int:
     return int(match.group(1)) if match else -1
 
 
-# V0.0.43 · G 组：工具栏 8 颗按钮所属分组的期望序列（5 编辑 / 2 视图 / 1 输出）。
+# V0.0.43 · G 组：工具栏 9 颗按钮所属分组的期望序列（5 编辑 / 2 视图 / 1 保存 / 1 输出）。
 #   顺序 = btnUndo, btnRedo, btnAddChild, btnRename, btnDelete, btnExpandAll,
-#   btnCollapseAll, btnGenerate —— 改分组即须同步此处。
-EXPECT_GROUP_MAP = "00000112"
+#   btnCollapseAll, btnSaveTemplate, btnGenerate —— 改分组即须同步此处。
+#   V0.0.50 · I 组：「另存为模板」移入操作带独立成组 → 00000112 → 000001123（9 位）。
+EXPECT_GROUP_MAP = "000001123"
 
 def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templates: bool) -> None:
     console_free = metrics.get("htmlLang") == "en-US"
@@ -897,15 +917,22 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
           f"摘要={sum_blank!r} / 树区根名={name_blank!r}"
           + ("" if blank_ok else "（清空后未回到「不建根」）"))
 
-    # V0.0.43 · UI 定版差集 G 组：工具栏三分组。
-    # 锚点是**每颗按钮的归属**（序列 00000112）而非分组个数 —— 后者会被三个空壳容器骗过；
-    # 三组各有 aria-label 才说明分组对读屏也可辨（原先读作一长串按钮）。
+    # V0.0.43 · UI 定版差集 G 组：工具栏语义分组。
+    # 锚点是**每颗按钮的归属**（序列 00000123）而非分组个数 —— 后者会被空壳容器骗过；
+    # 各组各有 aria-label 才说明分组对读屏也可辨（原先读作一长串按钮）。
+    # V0.0.50 · I 组：「另存为模板」移入操作带独立成组（3 → 4 组），标题由「三分组」
+    # 改为「语义分组」—— 组数是可变的，写进标题就会在下一次加组时变成假话。
+    # 组数改为**从 EXPECT_GROUP_MAP 派生**（最大分组序号 + 1）：此前断言里另有一个写死的
+    # `== 3`，与常量分居两处，改一处仍会红 —— 属「报告口径与实况不符」的同类。
+    exp_groups = max(int(c) for c in EXPECT_GROUP_MAP) + 1
     g_map = metrics.get("gMap", "")
-    g_ok = (as_int(metrics.get("gGroups")) == 3 and as_int(metrics.get("gLabels")) == 3
+    g_ok = (as_int(metrics.get("gGroups")) == exp_groups
+            and as_int(metrics.get("gLabels")) == exp_groups
             and g_map == EXPECT_GROUP_MAP)
-    check(g_ok, "主界面·工具栏三分组：按钮各归其组（V0.0.43 · G）",
+    check(g_ok, "主界面·工具栏语义分组：按钮各归其组（V0.0.43 · G）",
           f"组数={metrics.get('gGroups')} 带标签={metrics.get('gLabels')} 归属={g_map or '(空)'}"
-          + ("" if g_ok else f"（期望 {EXPECT_GROUP_MAP} = 5 编辑 / 2 视图 / 1 输出）"))
+          + ("" if g_ok
+             else f"（期望 {EXPECT_GROUP_MAP} = 5 编辑 / 2 视图 / 1 保存 / 1 输出，共 {exp_groups} 组）"))
 
     # V0.0.43 · UI 定版差集 H 组：检视器「属性 ⇄ 源码」。
     # 最强的一条是 hJson + hHasChild：源码栏必须是**可解析的 JSON 且真的含子节点名** ——
