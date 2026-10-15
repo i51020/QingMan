@@ -55,13 +55,13 @@ export const dict = {
   'svc.testing': 'Rechecking…',
   'svc.testOk': 'Connected. The service is available.',
   'svc.testFail': 'Connection failed: {message}',
-  'svc.openProject': 'Open project folder',
+  'svc.openTpl': 'Open template folder',
   'svc.openData': 'Open data folder',
   'svc.openOk': 'Asked the system to open: {dir}',
   'svc.openDisabled': 'Automatic opening is disabled (QM_NO_GUI_OPEN); go there manually: {dir}',
   'svc.openMissing': 'The folder does not exist yet — the service creates it on startup: {dir}',
   'svc.openUnavailable': 'The system cannot open it automatically; go there manually: {dir}',
-  'svc.note': 'The service listens only on the loopback address (127.0.0.1), so other devices on the LAN cannot reach it. If it is unreachable, use “Open project folder” above to find start.bat and run it again.',
+  'svc.note': 'The service listens only on the loopback address (127.0.0.1), so other devices on the LAN cannot reach it. This page is served by that same service: once it stops, the page stops loading too — restart it by double-clicking the “QingMan” shortcut on your desktop.',
 
   /* ---------- Language & skin ---------- */
   'lang.label': 'Language',
@@ -400,6 +400,7 @@ export const dict = {
   'toast.docDupId': 'Document contains duplicate ids: {ids}',
   'toast.restoreFailed': 'Failed to restore last edit: {message}',
   'toast.backendOff': 'Backend offline: {message}',
+  'toast.serviceBack': 'The service is back. Reload the page (F5) to load your saved tree.',
 
   /* ---------- Sample document ---------- */
   'sample.root': 'QingMan Sample Project',

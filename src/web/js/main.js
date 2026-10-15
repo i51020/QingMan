@@ -192,6 +192,49 @@ async function testService() {
 }
 
 /**
+ * **服务状态的自动复查**（V0.0.51@r8）：补上「无轮询」留下的缺口 —— 状态不该靠
+ * 用户点按钮去问，而应**自己更新**。
+ *
+ * 触发点两处（都是用户即将看状态的时刻）：① 打开服务弹窗；② 页面重新可见
+ * （切回标签页 / 从最小化恢复）。**不做定时轮询** —— 空转发请求没有收益。
+ *
+ * 与 `testService()`（手动「重新检测」）的分工：本函数**不碰 `#svcResult`**，
+ * 那是「本次操作」的就地反馈，只有用户点了按钮才该出现；这里只把**常驻字段**
+ * 与顶栏 chip 刷成实测值，用户开窗时看到的就是真值，无需先点一下。
+ *
+ * `serviceDown` 只在**从「连不上」翻回「连上」**时提示刷新 —— 首次加载成功不该弹。
+ * 提示用语是「请刷新页面」而非自动载入：`boot()` 失败时保留的是出厂示例树，
+ * 自动恢复文档会**覆盖用户此刻屏幕上的内容**，属越权动作（与手动「重新检测」
+ * 保持同一语义：只改状态，不动文档）。
+ */
+const RECHECK_MIN_MS = 5000;      // 最短复查间隔：连点弹窗 / 快速切窗不连打请求
+let recheckAt = 0;
+let rechecking = false;
+let serviceDown = false;
+
+async function recheckService() {
+  if (rechecking) return;                       // 单飞：上一次还没回来就跳过
+  const now = Date.now();
+  if (now - recheckAt < RECHECK_MIN_MS) return;
+  recheckAt = now;
+  rechecking = true;
+  try {
+    const info = await api.health();
+    store.set({ version: info.version, connected: true, dataDir: info.dataDir || '' });
+    setServiceState('ready');
+    if (serviceDown) {
+      serviceDown = false;
+      toast(t('toast.serviceBack'), 'info', 6000);
+    }
+  } catch (err) {
+    serviceDown = true;
+    setServiceState('offline');
+  } finally {
+    rechecking = false;
+  }
+}
+
+/**
  * 服务弹窗的「打开目录」：请后端让系统打开青蔓自己的某个目录（V0.0.51@r7）。
  * 就地反馈，且**按 reason 给出可执行的下一步** —— 「目录尚不存在」与「系统打不开」
  * 是两种不同处境（前者等一会儿就有、后者得手动去），笼统一句「失败」帮不上忙。
@@ -244,6 +287,7 @@ function initTopbar() {
   el('btnHelp').addEventListener('click', () => layers.open(el('dlgHelp'), el('btnHelp')));
   el('chipBackend').addEventListener('click', () => {
     resetSvcResult();
+    recheckService();   // 开窗即探一次：让常驻字段是「刚才的实测值」，而非上次遗留
     layers.open(el('dlgService'), el('chipBackend'));
   });
 
@@ -252,6 +296,7 @@ function initTopbar() {
   // 焦点若归还给隐藏元素会丢失，须有可见落点。
   el('moreService').addEventListener('click', () => {
     resetSvcResult();
+    recheckService();   // 同上：窄窗下这里才是真正的入口
     layers.open(el('dlgService'), el('btnMore'));
   });
   el('moreSupport').addEventListener('click', () => layers.open(el('dlgSupport'), el('btnMore')));
@@ -259,8 +304,11 @@ function initTopbar() {
 
   // 服务弹窗（V0.0.51@r7）：常驻字段（状态 / 地址 / 版本 / 数据目录）统一由
   // syncServiceDialog 填；「重新检测」走后端健康检查；两颗「打开目录」请后端调系统打开。
+  // V0.0.51@r8：第一颗的靶子由「项目目录」换成**模板库目录** —— 项目根下混着
+  // `src/` / `tests/` / `tools/` / `.git` 等用户不该碰的东西，而模板库才是用户
+  // 真正会动手放文件的地方（`templates` 本就在后端白名单内，后端零改动）。
   el('btnSvcTest').addEventListener('click', testService);
-  el('btnOpenProject').addEventListener('click', () => openServiceDir('project'));
+  el('btnOpenTpl').addEventListener('click', () => openServiceDir('templates'));
   el('btnOpenData').addEventListener('click', () => openServiceDir('data'));
   syncServiceDialog();
 }
@@ -382,7 +430,7 @@ const store = createStore({
      以保持 tree-view / inspector / 键盘操作既有调用点不变。纯内存，不落盘
      （schema.json 的 editorDocument 契约里没有选中态）。 */
   selectedIds: [],
-  version: '—',
+  version: '',
   connected: false,
   /* V0.0.51@r7：数据目录实测值（服务弹窗展示）。由 boot() / 「重新检测」写入 ——
      与 version 同策：离线时保留最后一次实测值，不刻意清空。 */
@@ -1208,6 +1256,7 @@ async function boot() {
     setServiceState('ready');
     setStatus(t('status.readyWith', { nameZh: info.nameZh, app: info.app }));
   } catch (err) {
+    serviceDown = true;   // 记下「起手就是断的」：日后复查翻回连上时提示刷新（见 recheckService）
     setServiceState('offline');
     setStatus(t('status.backendOffHint'));
     toast(t('toast.backendOff', { message: localizeError(err) }), 'error', 6000);
@@ -1298,6 +1347,14 @@ document.addEventListener('qmlocalechange', () => {
    此时 getComputedStyle 读到的已是新皮肤配色。失败静默（launch-icon 内部处理）。 */
 document.addEventListener('qmskinchange', () => {
   ensureLaunchIcon();
+});
+
+/* 页面重新可见（切回标签页 / 从最小化恢复）时自动复查服务状态（V0.0.51@r8）。
+   选 `visibilitychange` 而非 `focus`：切换窗口时 `focus` 会在「地址栏获得焦点」
+   这类无关场景反复触发，而 `visibilitychange` 只在**页面整体可见性**变化时来一次。
+   两条触发路径（开窗 / 变可见）都汇入 recheckService —— 间隔与单飞守卫在那里。 */
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') recheckService();
 });
 
 /* 模板目录变化（绑定 / 刷新 / 语言切换重渲染）后，同步帮助弹窗的「模板库位置」一行。

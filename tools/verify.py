@@ -99,7 +99,8 @@ REQUIRED_IDS = (
     "scrim", "dlgHelp", "dlgSupport", "dlgService",
     # V0.0.51@r7 · 服务设置补全（手册 §10.2 #3）：常驻「状态/版本/数据目录」三行
     # + 两颗「打开目录」按钮（替代原来唯一那颗「测试连接」）
-    "svcStatus", "svcVersion", "svcDataDir", "btnOpenProject", "btnOpenData",
+    # @r8：第一颗的靶子由 `btnOpenProject`（项目根）换成 `btnOpenTpl`（模板库目录）
+    "svcStatus", "svcVersion", "svcDataDir", "btnOpenTpl", "btnOpenData",
 )
 
 REQUIRED_FILES = (
@@ -1355,6 +1356,9 @@ def main() -> int:
     #      前端 API 封装 → 前端接线 → 错误码），而断链的后果是**静默的** —— 点按钮
     #      毫无反应，静态检查却照绿（脚本能跑、体积不超、i18n 齐备、id 都在）。
     #      故把「链」本身钉住：任一处被删或改名，本条即红。
+    #      @r8 追加两锚点：① `recheckService`（无轮询缺口的手动补丁 → 自动复查）；
+    #      ② `openServiceDir('templates')` —— 换靶后**前端必须指向合规标识**：
+    #      写成 `'project'` 后端也照收（白名单里有），错靶不会被任何一端报错拦下。
     opendir_bad: list[str] = []
     for rel, token in (
         ("src/server/routes.py", "OPEN_DIR_PATH"),
@@ -1364,6 +1368,8 @@ def main() -> int:
         ("src/server/app.py", "routes.open_directory(payload)"),
         ("src/web/js/core/api.js", "openDir(target)"),
         ("src/web/js/main.js", "openServiceDir"),
+        ("src/web/js/main.js", "openServiceDir('templates')"),
+        ("src/web/js/main.js", "recheckService"),
         ("src/shared/error-codes.json", "openDirBadTarget"),
     ):
         p = root / rel

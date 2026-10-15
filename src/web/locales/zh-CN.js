@@ -70,13 +70,13 @@ export const dict = {
   'svc.testing': '正在检测…',
   'svc.testOk': '连接正常，服务可用。',
   'svc.testFail': '连接失败：{message}',
-  'svc.openProject': '打开项目目录',
+  'svc.openTpl': '打开模板库目录',
   'svc.openData': '打开数据目录',
   'svc.openOk': '已请求系统打开：{dir}',
   'svc.openDisabled': '自动打开已被关断（QM_NO_GUI_OPEN），请手动前往：{dir}',
   'svc.openMissing': '目录尚不存在，服务运行后会自动创建：{dir}',
   'svc.openUnavailable': '系统无法自动打开，请手动前往：{dir}',
-  'svc.note': '服务只监听本机回环地址（127.0.0.1），局域网内其他设备无法访问；如无法连接，可点上方「打开项目目录」找到 start.bat 重新运行。',
+  'svc.note': '服务只监听本机回环地址（127.0.0.1），局域网内其他设备无法访问。本页面也由这个服务提供 —— 服务停止后页面会一并打不开，此时请双击桌面上的「青蔓 QingMan」快捷方式重新启动。',
 
   /* ---------- 语言与皮肤 ---------- */
   'lang.label': '语言',
@@ -411,6 +411,7 @@ export const dict = {
   'toast.docDupId': '文档存在重复 id：{ids}',
   'toast.restoreFailed': '读取上次编辑内容失败：{message}',
   'toast.backendOff': '后端未连接：{message}',
+  'toast.serviceBack': '服务已恢复。请刷新页面（F5）以载入已保存的目录树。',
 
   /* ---------- 默认示例文档（用户能直接看到的初始内容） ---------- */
   'sample.root': '青蔓示例项目',
