@@ -89,6 +89,56 @@ class RawFontSizeHitsTests(unittest.TestCase):
             verify.raw_font_size_hits(".a { padding: 6px 10px; border-radius: 4px; }"), [])
 
 
+class SkinTopLevelViolationsTests(unittest.TestCase):
+    """§P0-3 L5 / §P2 第 45 项：皮肤文件**顶层只许 `:root` + `--qm-*` 声明**。
+
+    判据同样是**白名单式** —— 选择器须恰为 `:root`、声明名须以 `--qm-` 打头。
+    发现路径：7c-1 反向验证的**负向对照 N6** —— 往皮肤写
+    `.rev-probe { font-size: var(--qm-fs-md); }` 竟**零新增红项**，证明
+    「用 `var()` 去写组件样式」无人看守。
+    """
+
+    def test_accepts_canonical_skin(self):
+        self.assertEqual(verify.skin_toplevel_violations(
+            ":root { --qm-bg: #fff; --qm-text: #111; }"), [])
+
+    def test_accepts_last_declaration_without_semicolon(self):
+        self.assertEqual(verify.skin_toplevel_violations(":root { --qm-bg: #fff }"), [])
+
+    def test_flags_component_selector(self):
+        # 这正是 N6 注入的形态：合法 :root 之后跟一段组件样式
+        hits = verify.skin_toplevel_violations(
+            ":root { --qm-bg: #fff; }\n.rev-probe { font-size: var(--qm-fs-md); }")
+        self.assertTrue(hits)
+        self.assertTrue(any(h.startswith("选择器:") for h in hits))
+
+    def test_flags_non_variable_declaration(self):
+        hits = verify.skin_toplevel_violations(":root { color: var(--qm-text); }")
+        self.assertTrue(any(h.startswith("非变量声明:") for h in hits))
+
+    def test_flags_selector_not_exactly_root(self):
+        self.assertTrue(verify.skin_toplevel_violations("html { --qm-bg: #fff; }"))
+        self.assertTrue(verify.skin_toplevel_violations(":root, html { --qm-bg: #fff; }"))
+        self.assertTrue(verify.skin_toplevel_violations(
+            "[data-qm-skin=dark] { --qm-bg: #000; }"))
+        self.assertTrue(verify.skin_toplevel_violations(
+            ".skin-dark .btn { --qm-bg: #000; }"))
+
+    def test_flags_at_rule_and_nesting(self):
+        self.assertTrue(verify.skin_toplevel_violations(
+            "@media (prefers-color-scheme: dark) { :root { --qm-bg: #000; } }"))
+
+    def test_flags_toplevel_declaration_outside_block(self):
+        self.assertTrue(verify.skin_toplevel_violations("--qm-bg: #fff;"))
+
+    def test_multiple_violations_are_all_reported(self):
+        hits = verify.skin_toplevel_violations(
+            ":root { --qm-bg: #fff; color: red; }\n.b { --qm-text: #000; }")
+        # 恰 2 处：① `:root` 块里混了一条非变量声明；② 第二块选择器不是 `:root`。
+        # （第二块里的 `--qm-text` 本身合法 —— 判据只否选择器，不否变量名；变量名是否越界归 7d-1。）
+        self.assertEqual(len(hits), 2)
+
+
 class IterManagedNodesTests(unittest.TestCase):
 
     def setUp(self):

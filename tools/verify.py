@@ -23,6 +23,9 @@
      字形图标白名单与图标册三方一致（实现 / 本文件 `ICON_SHAPES` / §P0-3 L8 规则行）
  7al. 「历史版本」端点接线（V0.0.51@r9）：后端常量/枚举/恢复（**须复用 `routes.save_editor`**）
      → 分发两处 → 前端封装 → 接线（**须真拉列表**）→ 错误码，七处任一断开即红
+ 7d-9. 皮肤文件**顶层只许 `:root` + `--qm-*` 声明**（§P0-3 L5）：与 7d「组件 CSS 不感知皮肤」
+     **方向相反**，两者合起来才是完整的**双向隔离**（`skins/README.md` 契约「皮肤 == 一组变量
+     覆盖值，不是一整套组件样式」的机器化；§P2 第 45 项）
  7e. CSS 类名形态（§P2 第 1 项）：一律 kebab-case，不得含下划线或大写
  7f. 体积上限（§P2 第 4 项）：src/** 合计 ≤ 640K，单文件 ≤ 64K
  7g. 帮助页键位登记（§P2 第 8 项）：源码若有修饰键快捷键监听（ctrlKey/metaKey/altKey），
@@ -343,6 +346,65 @@ def raw_font_size_hits(body: str) -> list[str]:
         val = m.group(1).strip()
         if not val.startswith("var(--qm-"):
             hits.append(f"font-size:{val}")
+    return hits
+
+
+def skin_toplevel_violations(body: str) -> list[str]:
+    """返回皮肤 CSS 里违反「顶层只许 `:root` 块 + 块内只许 `--qm-*` 声明」的项。
+
+    §P0-3 L5 与 `src/web/css/skins/README.md` 契约首行：皮肤 == **一组 `--qm-*` 变量的
+    覆盖值**，**不是一整套组件样式**（16 / 16 款文件头亦各写「不写组件选择器」）。
+    既有守卫只覆盖另两个维度 —— **7d-5** 按**变量名**拦、**7c / 7c-1** 按**字面量**拦 ——
+    于是「**用 `var()` 去写组件样式**」这条路无人看守（§P2 第 45 项；由 7c-1 反向验证的
+    **负向对照 N6** 查出：往皮肤追加 `.rev-probe { font-size: var(--qm-fs-md); }` 竟零红项）。
+
+    判据**白名单式**（同 `raw_font_size_hits` 的理由）：选择器须**恰为** `:root`，
+    块内声明名须以 `--qm-` 打头 —— 黑名单只能枚举"已知的坏形态"。
+    传入的 `body` 须**已剥注释**，否则注释里的 `:root` / 示例选择器会成假阳性（§三.62 一族）。
+
+    已知边界：本函数不解析 `@` 规则（皮肤不该有 —— 深浅主题归 `tokens.css`），
+    顶层出现 `@…{` 会被当作「其它选择器」计入；嵌套块亦计入。
+    """
+    hits: list[str] = []
+    i, n = 0, len(body)
+    while i < n:
+        while i < n and body[i].isspace():
+            i += 1
+        if i >= n:
+            break
+        j = i
+        while j < n and body[j] not in "{;}":
+            j += 1
+        head = body[i:j].strip()
+        if j >= n:                       # 末尾只剩文本（无括号）
+            if head:
+                hits.append(f"顶层游离文本:{head[:30]}")
+            break
+        if body[j] == ";":               # 顶层声明（不在任何块内）
+            hits.append(f"顶层游离声明:{head[:30] or '(空)'}")
+            i = j + 1
+            continue
+        if head != ":root":
+            hits.append(f"选择器:{head[:30] or '(空)'}")
+        depth, k = 1, j + 1
+        while k < n and depth:
+            if body[k] == "{":
+                depth += 1
+            elif body[k] == "}":
+                depth -= 1
+            k += 1
+        inner = body[j + 1:k - 1] if depth == 0 else body[j + 1:]
+        for piece in inner.split(";"):
+            d = piece.strip()
+            if not d:
+                continue
+            if "{" in d:                 # 嵌套块（如 @media 里再包 :root）
+                hits.append(f"嵌套块:{d[:30]}")
+                continue
+            prop = d.split(":", 1)[0].strip()
+            if not prop.startswith("--qm-"):
+                hits.append(f"非变量声明:{prop[:30] or d[:30]}")
+        i = k
     return hits
 
 
@@ -1091,6 +1153,28 @@ def main() -> int:
           "；".join(tier_errs[:4]) if tier_errs
           else f"{len(tier_dls)} 个配色面 ΔL* {min(tier_dls):+.2f} ~ {max(tier_dls):+.2f}"
                f"（含 tokens 浅/深；|ΔL*| ≤ {TIER_LIMIT}，方向随区制）")
+
+    # 7d-9. 皮肤文件**顶层只许 `:root` + `--qm-*` 声明**（§P0-3 L5；V0.0.51@r10 后续新增）。
+    #       契约原文 = `skins/README.md` 首行「皮肤 == **一组 `--qm-*` 变量的覆盖值**，
+    #       **不是一整套组件样式**」；16 / 16 款文件头亦各写「**不写组件选择器**」。
+    #       **与 7d「组件 CSS 不感知皮肤」方向相反** —— 7d 管「组件不许知道皮肤存在」，
+    #       本条管「皮肤不许写组件样式」；**合起来才是完整的双向隔离**。只做半边正是
+    #       §P0-3 L4「只做前半句」的教训（《错误笔记》§三.81），故本项按 §P2 第 45 项
+    #       的建议与 7d 成对考虑。
+    #       发现方式（据实）：7c-1 反向验证的**负向对照 N6** 往皮肤追加
+    #       `.rev-probe { font-size: var(--qm-fs-md); }` → **全量零新增红项** ⇒ 无人拦。
+    #       现状自查（立守卫前的**前提**，同 7d-1 / 7c-1 立档做法）：16 款**各恰 1 个
+    #       `:root` 块**、非 `:root` 选择器 **0 处**、非 `--qm-*` 声明 **0 处** ⇒
+    #       本收紧**零假阳性**。款数由 `skins/s*.css` **派生**，加款即自动纳入。
+    skin_shape_errs: list[str] = []
+    if skins_dir.is_dir():
+        for css in sorted(skins_dir.glob("s*.css")):
+            sbody = strip_comments(css.read_text(encoding="utf-8"), "css")
+            for hit in skin_toplevel_violations(sbody):
+                skin_shape_errs.append(f"{css.name}:{hit}")
+    check(not skin_shape_errs, "皮肤顶层只许 :root + 变量声明 §P0-3 L5",
+          f"发现 {len(skin_shape_errs)} 处：{', '.join(skin_shape_errs[:4])}" if skin_shape_errs
+          else f"{len(sorted(skins_dir.glob('s*.css')))} 款皮肤各恰 1 个 :root 块、声明全为 --qm-*")
 
     # 7e. CSS 类名形态：kebab-case，不得含下划线或大写（§P2 第 1 项）
     #     先剥掉 url(...) —— 否则 url("../assets/logo.svg") 里的 `.svg` 会被当成类名。
@@ -2385,9 +2469,18 @@ def main() -> int:
     ):
         if token not in bs_skin:
             skin_bad.append(why)
-    # 7d-8 的「三阶落差」守卫本身也须防被静默摘除（§十三.6 的机器化约定）。
-    if "皮肤三阶落差统一" not in _read("tools/verify.py"):
-        skin_bad.append("verify.py 缺三阶落差守卫（V0.0.46 · §十三.6 的机器化约定）")
+    # 7d-8 / 7d-9 的「防静默摘除」元检查（§十三.6 机器化约定 / §P2 第 45 项）。
+    # ⚠ 判据必须查**运行时已注册的判项名**（`results`，由 `check()` 追加），
+    #   **不可**查源码字符串 —— 后者是**自证**：被判串必然在本元检查**自己的字面量 /
+    #   条件表达式**里再出现一次 ⇒ 文件里恒存在 ⇒ 永远绿。
+    #   此坑由反向验证 **N5 / N7** 实测抓到：**N7** 证明本条原为**存量死检查**
+    #   （改掉 7d-8 的 `check(...)` 整串后，「皮肤体系守卫批」**不红**）；**N5** 证明
+    #   新写的 7d-9 元检查照抄该模式后同样死。两处现统一改为查 `results`。
+    _ran_names = {name for _ok, name, _note in results}
+    for _guard in ("皮肤三阶落差统一 V0.0.46",
+                   "皮肤顶层只许 :root + 变量声明 §P0-3 L5"):
+        if _guard not in _ran_names:
+            skin_bad.append(f"未执行守卫「{_guard}」（防静默摘除 · 反向验证 N5/N7）")
 
     check(not skin_bad, "皮肤体系守卫批 V0.0.39",
           f"缺失：{', '.join(skin_bad)}" if skin_bad

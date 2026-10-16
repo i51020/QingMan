@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>间距档样张 · 青蔓 QingMan · 2026-10-16</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin:0; padding:28px 32px 60px; background:#f4f5f7; color:#24262b;
+         font:14px/1.7 "Segoe UI","Microsoft YaHei",system-ui,sans-serif; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  h2 { font-size:16px; margin:34px 0 10px; padding-left:9px; border-left:4px solid #a8730a; }
+  h3 { font-size:14px; margin:20px 0 8px; color:#4a4d55; }
+  .lead { color:#5d6168; margin:0 0 6px; }
+  .meta { color:#7a7e86; font-size:12.5px; }
+  table { border-collapse:collapse; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.07);
+          border-radius:6px; overflow:hidden; }
+  th,td { padding:5px 12px; border-bottom:1px solid #e6e8ec; text-align:left; font-size:13px; }
+  th { background:#eef0f4; font-weight:600; }
+  tr:last-child td { border-bottom:0; }
+  .mono { font-family:Consolas,"Courier New",monospace; }
+  .dim { color:#7a7e86; }
+  .num { text-align:right; font-variant-numeric:tabular-nums; }
+  .bar { display:inline-block; height:9px; background:#c8a15a; border-radius:2px;
+         vertical-align:middle; }
+  .barn { margin-left:7px; font-size:12px; color:#5d6168; }
+  .wrap { display:flex; gap:26px; flex-wrap:wrap; align-items:flex-start; }
+  .card { background:#fff; border-radius:8px; padding:14px 18px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  .ruler { display:flex; align-items:center; gap:8px; margin:5px 0; }
+  .rl,.rl2 { width:38px; text-align:right; font-family:Consolas,monospace; font-size:12.5px; }
+  .rl2 { width:34px; text-align:left; font-weight:600; color:#8a6210; }
+  .rbar { height:10px; background:#c9ccd2; border-radius:2px; }
+  .rbar2 { height:10px; background:#c8a15a; border-radius:2px; }
+  .rarrow { width:18px; text-align:center; color:#8a8e96; }
+  .rcount { width:44px; font-size:12px; }
+  .pill { display:inline-block; padding:1px 9px; border-radius:999px; font-size:12.5px;
+          background:#eef0f4; color:#4a4d55; margin-right:6px; }
+  .warn { background:#fdf6e6; border-left:4px solid #c8a15a; padding:10px 14px; border-radius:0 6px 6px 0; }
+  .ok { background:#f0f7f2; border-left:4px solid #4d8f63; padding:10px 14px; border-radius:0 6px 6px 0; }
+  .mk { margin:6px 0 10px; }
+  .mkbox { display:inline-flex; align-items:center; background:#edece7; border:1px solid #d9d6cf;
+           border-radius:12px; gap:8px; }
+  .mkgap { display:inline-flex; align-items:center; }
+  .mkgap i { display:inline-block; width:7px; height:7px; border-radius:50%; background:#a8730a; }
+  .mkb { color:#33302b; }
+  .mkcap { font-size:12px; color:#7a7e86; margin-top:5px; }
+  .mkc { display:inline-block; margin-right:26px; vertical-align:top; }
+  .mkh { font-size:12.5px; color:#4a4d55; margin-bottom:2px; }
+  code { background:#eef0f4; padding:1px 5px; border-radius:3px; font-size:12.5px; }
+</style>
+</head>
+<body>
+<h1>间距档样张 —— 是否给「尺寸」立 token 尺度？</h1>
+<p class="lead">对象：<b>§P0-3 L4「禁止裸尺寸」</b>里<b>字号之外</b>的那一半（间距 / 描边 / 圆角 / 宽高 …）。<br>
+本页只解决<b>风险最高</b>的 <b>间距档</b>；圆角档已于同日体检并裁定「不做」（收益近零）。</p>
+<p class="meta">数据：脚本 <code>spacing_sample.py</code> 直读 <code>src/web/css/**/*.css</code>（去 <code>tokens.css</code>）现算；
+取样日 2026-10-16。<b>本页不修改任何 <code>src/</code> 文件</b>，仅供裁定。</p>
+
+<h2>① 现状盘点（据实）</h2>
+<div class="wrap">
+  <div class="card"><h3 style="margin-top:0">按属性</h3>
+    <table><tr><th>属性</th><th>处数</th></tr><tr><td class='mono'>padding</td><td><span class="bar" style="width:120px"></span><span class="barn">70</span></td></tr>
+<tr><td class='mono'>gap</td><td><span class="bar" style="width:86px"></span><span class="barn">50</span></td></tr>
+<tr><td class='mono'>margin</td><td><span class="bar" style="width:53px"></span><span class="barn">31</span></td></tr>
+<tr><td class='mono'>margin-bottom</td><td><span class="bar" style="width:10px"></span><span class="barn">6</span></td></tr>
+<tr><td class='mono'>padding-left</td><td><span class="bar" style="width:7px"></span><span class="barn">4</span></td></tr>
+<tr><td class='mono'>margin-top</td><td><span class="bar" style="width:7px"></span><span class="barn">4</span></td></tr>
+<tr><td class='mono'>margin-left</td><td><span class="bar" style="width:5px"></span><span class="barn">3</span></td></tr>
+<tr><td class='mono'>padding-right</td><td><span class="bar" style="width:3px"></span><span class="barn">2</span></td></tr>
+<tr><td class='mono'>padding-bottom</td><td><span class="bar" style="width:2px"></span><span class="barn">1</span></td></tr></table></div>
+  <div class="card"><h3 style="margin-top:0">总量</h3>
+    <table>
+      <tr><th>口径</th><th class="num">处数</th></tr>
+      <tr><td>间距声明合计</td><td class="num"><b>171</b></td></tr>
+      <tr><td>其中走 <code>var(--qm-*)</code></td><td class="num">15</td></tr>
+      <tr><td>其中裸字面量</td><td class="num"><b>156</b></td></tr>
+      <tr><td>裸值<b>去重</b>取值数</td><td class="num"><b>63</b></td></tr>
+      <tr><td><code>tokens.css</code> 现有间距变量</td><td class="num">1（<code>--qm-gap: 10px</code>）</td></tr>
+    </table>
+    <p class="dim" style="margin:8px 0 0; font-size:12.5px">
+      对照：字号档收敛时是 <b>70 处 → 9 个取值</b>（逐档 1:1）—— 那是"能一次收干净"的前提。</p>
+  </div>
+</div>
+<h3>裸间距：取值分布（降序）</h3>
+<table><tr><th>取值</th><th>处数</th><th>出现于</th></tr><tr><td class='mono'>0</td><td><span class="bar" style="width:120px"></span><span class="barn">28</span></td><td class='dim'>margin / margin-bottom / padding</td></tr>
+<tr><td class='mono'>8px</td><td><span class="bar" style="width:86px"></span><span class="barn">20</span></td><td class='dim'>gap / margin-bottom / margin-top / padding</td></tr>
+<tr><td class='mono'>4px</td><td><span class="bar" style="width:43px"></span><span class="barn">10</span></td><td class='dim'>gap / margin-top / padding / padding-bottom / padding-left / padding-right</td></tr>
+<tr><td class='mono'>6px</td><td><span class="bar" style="width:43px"></span><span class="barn">10</span></td><td class='dim'>gap / margin-top</td></tr>
+<tr><td class='mono'>2px</td><td><span class="bar" style="width:21px"></span><span class="barn">5</span></td><td class='dim'>gap / margin-left</td></tr>
+<tr><td class='mono'>0 5px</td><td><span class="bar" style="width:17px"></span><span class="barn">4</span></td><td class='dim'>margin / padding</td></tr>
+<tr><td class='mono'>14px</td><td><span class="bar" style="width:13px"></span><span class="barn">3</span></td><td class='dim'>gap / padding</td></tr>
+<tr><td class='mono'>16px</td><td><span class="bar" style="width:13px"></span><span class="barn">3</span></td><td class='dim'>margin-bottom / margin-left / margin-top</td></tr>
+<tr><td class='mono'>4px 0</td><td><span class="bar" style="width:13px"></span><span class="barn">3</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>6px 8px</td><td><span class="bar" style="width:13px"></span><span class="barn">3</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>8px 14px</td><td><span class="bar" style="width:13px"></span><span class="barn">3</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>0 0 6px</td><td><span class="bar" style="width:9px"></span><span class="barn">2</span></td><td class='dim'>margin</td></tr>
+<tr><td class='mono'>0 0 8px</td><td><span class="bar" style="width:9px"></span><span class="barn">2</span></td><td class='dim'>margin / padding</td></tr>
+<tr><td class='mono'>0 auto</td><td><span class="bar" style="width:9px"></span><span class="barn">2</span></td><td class='dim'>margin</td></tr>
+<tr><td class='mono'>10px</td><td><span class="bar" style="width:9px"></span><span class="barn">2</span></td><td class='dim'>padding / padding-right</td></tr>
+<tr><td class='mono'>11px 14px</td><td><span class="bar" style="width:9px"></span><span class="barn">2</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>12px</td><td><span class="bar" style="width:9px"></span><span class="barn">2</span></td><td class='dim'>gap / padding-left</td></tr>
+<tr><td class='mono'>18px</td><td><span class="bar" style="width:9px"></span><span class="barn">2</span></td><td class='dim'>gap / padding-left</td></tr>
+<tr><td class='mono'>1px 6px</td><td><span class="bar" style="width:9px"></span><span class="barn">2</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>5px</td><td><span class="bar" style="width:9px"></span><span class="barn">2</span></td><td class='dim'>gap</td></tr>
+<tr><td class='mono'>5px 8px</td><td><span class="bar" style="width:9px"></span><span class="barn">2</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>8px 0 0</td><td><span class="bar" style="width:9px"></span><span class="barn">2</span></td><td class='dim'>margin</td></tr>
+<tr><td class='mono'>9px 0 0</td><td><span class="bar" style="width:9px"></span><span class="barn">2</span></td><td class='dim'>margin</td></tr>
+<tr><td class='mono'>-20px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>margin-left</td></tr>
+<tr><td class='mono'>0 0 16px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>margin</td></tr>
+<tr><td class='mono'>0 11px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>0 2px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>margin</td></tr>
+<tr><td class='mono'>0 4px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>0 9px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>12px 14px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>14px 0 6px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>margin</td></tr>
+<tr><td class='mono'>18px var(--qm-gap) 32px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>1px 4px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>1px 7px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>20px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding-left</td></tr>
+<tr><td class='mono'>2px 0</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>2px 6px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>2px 8px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>3px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>gap</td></tr>
+<tr><td class='mono'>3px 0</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>3px 12px 3px 0</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>3px 5px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>3px 6px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>3px 9px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>4px 22px 4px 8px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>4px 7px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>4px 8px 4px 0</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>4px var(--qm-gap)</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>gap</td></tr>
+<tr><td class='mono'>5px 0</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>5px 12px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>5px 12px 5px 0</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>5px 2px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>margin</td></tr>
+<tr><td class='mono'>5px 7px 6px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>5px 9px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>6px 0 0</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>margin</td></tr>
+<tr><td class='mono'>6px 10px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>6px 12px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>6px 9px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>7px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>gap</td></tr>
+<tr><td class='mono'>7px 11px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>8px 0 4px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>margin</td></tr>
+<tr><td class='mono'>8px 10px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr>
+<tr><td class='mono'>8px 12px</td><td><span class="bar" style="width:4px"></span><span class="barn">1</span></td><td class='dim'>padding</td></tr></table>
+
+<h2>② 三条路，各自的代价</h2>
+<table>
+<tr><th>路线</th><th>做法</th><th>视觉变更</th><th>token 数</th><th>主要代价</th></tr>
+<tr><td><b>甲 · 1:1 搬迁</b></td><td>每个<br>去重取值各立一个 token，逐处替换</td>
+    <td class="ok" style="background:none;border:0;padding:5px 12px"><b>零</b>（逐处等价）</td>
+    <td><b>63</b> 个</td>
+    <td>token 表<b>膨胀 63 倍</b>（<code>--qm-sp-22</code> 之类只用 1 次的档大量存在）；
+        且<b>同值不同义被绑死</b>（<code>6px</code> 既作图标内距又作外距，从此必须同步改）</td></tr>
+<tr><td><b>乙 · 立尺度并归并</b></td><td>立 8~14 档网格，就近归并</td>
+    <td><b>会变</b>：4px 网格 <b>76</b> 处 / 2px 网格 <b>34</b> 处</td>
+    <td>8（4px）/ 14（2px）</td>
+    <td>改视觉 ⇒ 须重做视觉验收；且"6px 图标内距"会被拉成 8px，<b>可能不好看</b></td></tr>
+<tr><td><b>丙 · 不机器化</b></td><td>维持现状，把 L4 措辞<b>据实收窄</b>为「色值与字号」</td>
+    <td><b>零</b></td><td>0</td>
+    <td>放弃"尺寸全 token 化"这一目标本身 —— 但换来 L4 <b>不再"读起来像完成"</b>（§三.81 的正题）</td></tr>
+</table>
+
+<h2>③ 若选「乙」：归并映射与影响面</h2>
+<div class="wrap">
+  <div class="card"><h3 style="margin-top:0">4px 网格（激进）</h3>
+    <p class="meta" style="margin:0 0 8px">变 <b>76</b> 处；
+       单处最大位移 <b>2px</b>；位移总和 <b>148px</b></p>
+    <table><tr><th>现状</th><th>→</th><th>属性</th><th class="num">处数</th></tr><tr><td class='mono'>6px</td><td class='mono'>4px</td><td class='mono dim'>gap,margin-top</td><td class='num'>10</td></tr>
+<tr><td class='mono'>2px</td><td class='mono'>0px</td><td class='mono dim'>gap,margin-left</td><td class='num'>5</td></tr>
+<tr><td class='mono'>0 5px</td><td class='mono'>0 4px</td><td class='mono dim'>margin,padding</td><td class='num'>4</td></tr>
+<tr><td class='mono'>14px</td><td class='mono'>12px</td><td class='mono dim'>gap,padding</td><td class='num'>3</td></tr>
+<tr><td class='mono'>6px 8px</td><td class='mono'>4px 8px</td><td class='mono dim'>padding</td><td class='num'>3</td></tr>
+<tr><td class='mono'>8px 14px</td><td class='mono'>8px 12px</td><td class='mono dim'>padding</td><td class='num'>3</td></tr>
+<tr><td class='mono'>0 0 6px</td><td class='mono'>0 0 4px</td><td class='mono dim'>margin</td><td class='num'>2</td></tr>
+<tr><td class='mono'>10px</td><td class='mono'>8px</td><td class='mono dim'>padding,padding-right</td><td class='num'>2</td></tr>
+<tr><td class='mono'>11px 14px</td><td class='mono'>12px 12px</td><td class='mono dim'>padding</td><td class='num'>2</td></tr>
+<tr><td class='mono'>18px</td><td class='mono'>16px</td><td class='mono dim'>gap,padding-left</td><td class='num'>2</td></tr>
+<tr><td class='mono'>1px 6px</td><td class='mono'>0px 4px</td><td class='mono dim'>padding</td><td class='num'>2</td></tr>
+<tr><td class='mono'>5px</td><td class='mono'>4px</td><td class='mono dim'>gap</td><td class='num'>2</td></tr>
+<tr><td class='mono'>5px 8px</td><td class='mono'>4px 8px</td><td class='mono dim'>padding</td><td class='num'>2</td></tr>
+<tr><td class='mono'>9px 0 0</td><td class='mono'>8px 0 0</td><td class='mono dim'>margin</td><td class='num'>2</td></tr>
+<tr><td class='mono'>0 11px</td><td class='mono'>0 12px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>0 2px</td><td class='mono'>0 0px</td><td class='mono dim'>margin</td><td class='num'>1</td></tr>
+<tr><td class='mono'>0 9px</td><td class='mono'>0 8px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>12px 14px</td><td class='mono'>12px 12px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>14px 0 6px</td><td class='mono'>12px 0 4px</td><td class='mono dim'>margin</td><td class='num'>1</td></tr>
+<tr><td class='mono'>18px var(--qm-gap) 32px</td><td class='mono'>16px var(--qm-gap) 32px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>1px 4px</td><td class='mono'>0px 4px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>1px 7px</td><td class='mono'>0px 8px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>2px 0</td><td class='mono'>0px 0</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>2px 6px</td><td class='mono'>0px 4px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>2px 8px</td><td class='mono'>0px 8px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>3px</td><td class='mono'>4px</td><td class='mono dim'>gap</td><td class='num'>1</td></tr>
+<tr><td class='mono'>3px 0</td><td class='mono'>4px 0</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>3px 12px 3px 0</td><td class='mono'>4px 12px 4px 0</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>3px 5px</td><td class='mono'>4px 4px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>3px 6px</td><td class='mono'>4px 4px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>3px 9px</td><td class='mono'>4px 8px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>4px 22px 4px 8px</td><td class='mono'>4px 20px 4px 8px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>4px 7px</td><td class='mono'>4px 8px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>5px 0</td><td class='mono'>4px 0</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>5px 12px</td><td class='mono'>4px 12px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>5px 12px 5px 0</td><td class='mono'>4px 12px 4px 0</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>5px 2px</td><td class='mono'>4px 0px</td><td class='mono dim'>margin</td><td class='num'>1</td></tr>
+<tr><td class='mono'>5px 7px 6px</td><td class='mono'>4px 8px 4px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>5px 9px</td><td class='mono'>4px 8px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>6px 0 0</td><td class='mono'>4px 0 0</td><td class='mono dim'>margin</td><td class='num'>1</td></tr>
+<tr><td class='mono'>6px 10px</td><td class='mono'>4px 8px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>6px 12px</td><td class='mono'>4px 12px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>6px 9px</td><td class='mono'>4px 8px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>7px</td><td class='mono'>8px</td><td class='mono dim'>gap</td><td class='num'>1</td></tr>
+<tr><td class='mono'>7px 11px</td><td class='mono'>8px 12px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>8px 10px</td><td class='mono'>8px 8px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr></table>
+  </div>
+  <div class="card"><h3 style="margin-top:0">2px 网格（保守）</h3>
+    <p class="meta" style="margin:0 0 8px">变 <b>34</b> 处；
+       单处最大位移 <b>1px</b>；位移总和 <b>42px</b></p>
+    <table><tr><th>现状</th><th>→</th><th>属性</th><th class="num">处数</th></tr><tr><td class='mono'>0 5px</td><td class='mono'>0 4px</td><td class='mono dim'>margin,padding</td><td class='num'>4</td></tr>
+<tr><td class='mono'>11px 14px</td><td class='mono'>10px 14px</td><td class='mono dim'>padding</td><td class='num'>2</td></tr>
+<tr><td class='mono'>1px 6px</td><td class='mono'>0px 6px</td><td class='mono dim'>padding</td><td class='num'>2</td></tr>
+<tr><td class='mono'>5px</td><td class='mono'>4px</td><td class='mono dim'>gap</td><td class='num'>2</td></tr>
+<tr><td class='mono'>5px 8px</td><td class='mono'>4px 8px</td><td class='mono dim'>padding</td><td class='num'>2</td></tr>
+<tr><td class='mono'>9px 0 0</td><td class='mono'>8px 0 0</td><td class='mono dim'>margin</td><td class='num'>2</td></tr>
+<tr><td class='mono'>0 11px</td><td class='mono'>0 10px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>0 9px</td><td class='mono'>0 8px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>1px 4px</td><td class='mono'>0px 4px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>1px 7px</td><td class='mono'>0px 6px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>3px</td><td class='mono'>2px</td><td class='mono dim'>gap</td><td class='num'>1</td></tr>
+<tr><td class='mono'>3px 0</td><td class='mono'>2px 0</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>3px 12px 3px 0</td><td class='mono'>2px 12px 2px 0</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>3px 5px</td><td class='mono'>2px 4px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>3px 6px</td><td class='mono'>2px 6px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>3px 9px</td><td class='mono'>2px 8px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>4px 7px</td><td class='mono'>4px 6px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>5px 0</td><td class='mono'>4px 0</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>5px 12px</td><td class='mono'>4px 12px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>5px 12px 5px 0</td><td class='mono'>4px 12px 4px 0</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>5px 2px</td><td class='mono'>4px 2px</td><td class='mono dim'>margin</td><td class='num'>1</td></tr>
+<tr><td class='mono'>5px 7px 6px</td><td class='mono'>4px 6px 6px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>5px 9px</td><td class='mono'>4px 8px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>6px 9px</td><td class='mono'>6px 8px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr>
+<tr><td class='mono'>7px</td><td class='mono'>6px</td><td class='mono dim'>gap</td><td class='num'>1</td></tr>
+<tr><td class='mono'>7px 11px</td><td class='mono'>6px 10px</td><td class='mono dim'>padding</td><td class='num'>1</td></tr></table>
+  </div>
+</div>
+
+<h2>④ 尺规样张（灰 = 现状 · 金 = 4px 网格归并后）</h2>
+<div class="card">
+<div class='ruler'><span class='rl'>8px</span><span class='rbar' style='width:34px'></span><span class='rarrow'>=</span><span class='rbar2' style='width:34px'></span><span class='rl2'>8px</span><span class='rcount dim'>×20</span></div>
+<div class='ruler'><span class='rl'>4px</span><span class='rbar' style='width:18px'></span><span class='rarrow'>=</span><span class='rbar2' style='width:18px'></span><span class='rl2'>4px</span><span class='rcount dim'>×10</span></div>
+<div class='ruler'><span class='rl'>6px</span><span class='rbar' style='width:26px'></span><span class='rarrow'>→</span><span class='rbar2' style='width:18px'></span><span class='rl2'>4px</span><span class='rcount dim'>×10</span></div>
+<div class='ruler'><span class='rl'>2px</span><span class='rbar' style='width:10px'></span><span class='rarrow'>→</span><span class='rbar2' style='width:2px'></span><span class='rl2'>0px</span><span class='rcount dim'>×5</span></div>
+<div class='ruler'><span class='rl'>14px</span><span class='rbar' style='width:58px'></span><span class='rarrow'>→</span><span class='rbar2' style='width:50px'></span><span class='rl2'>12px</span><span class='rcount dim'>×3</span></div>
+<div class='ruler'><span class='rl'>16px</span><span class='rbar' style='width:66px'></span><span class='rarrow'>=</span><span class='rbar2' style='width:66px'></span><span class='rl2'>16px</span><span class='rcount dim'>×3</span></div>
+<p class="dim" style="font-size:12.5px;margin:8px 0 0">
+  只列出现最多的<b>单值</b>（复合值如 <code>6px 8px</code> 逐分量归并，见 §③ 表）；
+  左侧灰条＝现状、右侧金条＝4px 网格归并后，「=」表示该档不动。</p>
+</div>
+
+<h2>⑤ 控件间距示意（数值取自真实 CSS，构形为示意）</h2>
+<h3>现状</h3>
+<div class="card"><div class='mkc'><div class='mkh'>主按钮 `.btn`</div><div class='mk'><div class='mkbox' style='padding:5px 12px'><span class='mkb'>控件</span></div><div class='mkcap'>padding: <b>5px 12px</b></div></div></div>
+<div class='mkc'><div class='mkh'>图标按钮 `.btn-mini`</div><div class='mk'><div class='mkbox' style='padding:2px 8px'><span class='mkb'>控件</span></div><div class='mkcap'>padding: <b>2px 8px</b></div></div></div>
+<div class='mkc'><div class='mkh'>树行 `.tree-row`</div><div class='mk'><div class='mkbox' style='padding:3px 6px'><span class='mkgap' style='gap:6px'><i></i><i></i><i></i></span><span class='mkb'>控件</span></div><div class='mkcap'>padding: <b>3px 6px</b> · gap: <b>6px</b></div></div></div>
+<div class='mkc'><div class='mkh'>模板项 `.tpl-item`</div><div class='mk'><div class='mkbox' style='padding:6px 8px'><span class='mkgap' style='gap:2px'><i></i><i></i><i></i></span><span class='mkb'>控件</span></div><div class='mkcap'>padding: <b>6px 8px</b> · gap: <b>2px</b></div></div></div>
+<div class='mkc'><div class='mkh'>右键菜单项 `.ctx-item`</div><div class='mk'><div class='mkbox' style='padding:6px 10px'><span class='mkb'>控件</span></div><div class='mkcap'>padding: <b>6px 10px</b></div></div></div>
+<div class='mkc'><div class='mkh'>帮助分节 `.help-section`</div><div class='mk'><div class='mkbox' style='padding:12px 14px'><span class='mkb'>控件</span></div><div class='mkcap'>padding: <b>12px 14px</b></div></div></div></div>
+<h3>4px 网格归并后</h3>
+<div class="card" style="background:#fbf7ee"><div class='mkc'><div class='mkh'>主按钮 `.btn`</div><div class='mk'><div class='mkbox' style='padding:4px 12px'><span class='mkb'>控件</span></div><div class='mkcap'>padding: <b>4px 12px</b></div></div></div>
+<div class='mkc'><div class='mkh'>图标按钮 `.btn-mini`</div><div class='mk'><div class='mkbox' style='padding:0px 8px'><span class='mkb'>控件</span></div><div class='mkcap'>padding: <b>0px 8px</b></div></div></div>
+<div class='mkc'><div class='mkh'>树行 `.tree-row`</div><div class='mk'><div class='mkbox' style='padding:4px 4px'><span class='mkgap' style='gap:4px'><i></i><i></i><i></i></span><span class='mkb'>控件</span></div><div class='mkcap'>padding: <b>4px 4px</b> · gap: <b>4px</b></div></div></div>
+<div class='mkc'><div class='mkh'>模板项 `.tpl-item`</div><div class='mk'><div class='mkbox' style='padding:4px 8px'><span class='mkgap' style='gap:0px'><i></i><i></i><i></i></span><span class='mkb'>控件</span></div><div class='mkcap'>padding: <b>4px 8px</b> · gap: <b>0px</b></div></div></div>
+<div class='mkc'><div class='mkh'>右键菜单项 `.ctx-item`</div><div class='mk'><div class='mkbox' style='padding:4px 8px'><span class='mkb'>控件</span></div><div class='mkcap'>padding: <b>4px 8px</b></div></div></div>
+<div class='mkc'><div class='mkh'>帮助分节 `.help-section`</div><div class='mk'><div class='mkbox' style='padding:12px 12px'><span class='mkb'>控件</span></div><div class='mkcap'>padding: <b>12px 12px</b></div></div></div></div>
+
+<h2>⑥ 结论与建议（我的判断）</h2>
+<div class="warn">
+<b>建议：先不做「乙」，也暂不做「甲」；优先做「丙」里那半件"诚实"的事。</b>
+<ul>
+<li><b>乙的问题不是"会变"，是"变了未必更好"</b>：76 处改动里，多数是
+    <code>6px→4px</code> / <code>10px→8px</code> / <code>14px→12px</code> 这类<b>±2px 以内</b>的抖动，收益是"数字更整"，
+    代价是<b>整套视觉要重新验收</b>（且本项目刚在 V0.0.51 批次做过按钮尺寸的整体上调，
+    再叠一次尺寸变更会把两批视觉改动<b>搅在一起</b>）。</li>
+<li><b>甲的问题不是"不划算"，是"不解决任何事"</b>：它把 <b>63 个魔数改名成 63 个 token</b>，
+    视觉零变更、语义零收敛，只为让一条守卫能立起来 —— 而那条守卫本身还要再写一遍、
+    再反向验证一遍。</li>
+<li><b>真正值得先做的是「丙」里的措辞</b>：L4 现在写的是「禁止裸色值、<b>裸尺寸</b>」，
+    但"尺寸"里只有字号档落地了。<b>这半个承诺每多挂一天，就多一天"读起来像完成"</b>（§三.81）。
+    把它<b>据实收窄为「色值与字号」</b>（或显式声明"间距/描边/圆角<b>有意</b>不 token 化，
+    理由是语义绑定代价 > 收益"），比继续留着待决更诚实。</li>
+</ul>
+</div>
+<div class="ok">
+<b>若你仍想推进「乙」</b>：建议取 <b>2px 网格</b>（34 处、单处最大 1px），
+并在<b>独立批次</b>里做 —— 先出真实皮肤下的对照截图，再由你点选；
+守卫（7c-2「组件 CSS 无裸间距」之类）必须<b>在尺度落地之后</b>再补，顺序不可颠倒
+（反过来会当场数百条红，然后人会去放宽守卫 —— §P2 第 44 项的原话）。
+</div>
+
+<hr style="margin:34px 0 10px;border:0;border-top:1px solid #e2e4e9">
+<p class="meta">生成：<code>tools/…</code> 之外的临时脚本 <code>spacing_sample.py</code>（一次性，不落仓）；
+本页为<b>dated 快照</b>，src 改动后须重跑。裁定后请在《项目约定》§P2 第 44 项回填结论。</p>
+</body>
+</html>
