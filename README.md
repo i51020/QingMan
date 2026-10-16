@@ -210,7 +210,7 @@ python tools/browser_smoke.py                 # 页面级冒烟（无头浏览�
 | key 命名 | `<模块>.<元素>.<语义>`，如 `inspector.title`、`tree.menu.delete`、`toast.saved` |
 | 取词运行时 | `src/web/js/i18n/index.js`：`t()` / `applyStatic()` / `setLocale()` / `applySkin()` / `initPrefs()` / `watchLocale()` |
 | 颜色 | 组件 CSS **只允许 `var(--qm-*)`**，禁止裸色值；新增变量先在 `tokens.css` 定义（**唯一允许写色值的文件**） |
-| 字号 | 组件 CSS 字号**只允许 `var(--qm-fs-*)`**（V0.0.51@r10 起）：`tokens.css` 定 **9 档尺度**（`--qm-fs-3xs` 9px … `--qm-fs-3xl` 16px），组件不得写裸 `font-size`（含 `1rem` / `inherit`），守卫 **7c-1**，覆盖面含 `skins/`。⚠️ **L4 的「裸尺寸」目前只落地了字号这一档** —— 间距 / 描边 / 圆角等仍未 token 化（《项目约定》§P2 第 44 项） |
+| 字号 | 组件 CSS 字号**只允许 `var(--qm-fs-*)`**（V0.0.51@r10 起）：`tokens.css` 定 **9 档尺度**（`--qm-fs-3xs` 9px … `--qm-fs-3xl` 16px），组件不得写裸 `font-size`（含 `1rem` / `inherit`），守卫 **7c-1**，覆盖面含 `skins/`。⚠️ **L4 的强制范围已据实收窄为「色值与字号」**（2026-10-16 裁定：「丙」不机器化）—— 间距 / 描边 / 圆角等尺寸档位**不做机器化**（《项目约定》§P2 第 44 项） |
 | 皮肤形态 | 皮肤文件**顶层只许 `:root` + `--qm-*` 声明**（V0.0.51@r10 后续起）：不得写组件选择器（`.btn` / `[data-qm-skin=…]`）、不得写非 `--qm-*` 声明 —— 与「组件 CSS 不感知皮肤」**方向相反**，合起来才是**双向隔离**；守卫 **7d-9**，现状 16 款零违规 |
 | 皮肤 | 皮肤 = **一组变量覆盖文件** `src/web/css/skins/<name>.css`（已内置 **16 款**；出厂默认 **S16 暖灰·琥珀**），经 `applySkin()` 注入 `<link id="skinLink">`。**组件 CSS 不得感知皮肤**（不写 `.skin-dark .btn` 这类选择器） |
 | 偏好 | `localStorage` 的 **4 键**（权威清单 ＝ 《项目约定》§P0-3 L6）：`qm.lang` / `qm.skin` / `qm.inspMode` / `qm.launchIcon`；启动顺序 `initPrefs()` → `applyStatic()` → `renderGenBar()` → `render()` |
