@@ -112,7 +112,8 @@ export const dict = {
 
   /* ---------- Left: template workspace ---------- */
   'sidebar.title': 'Template Workspace',
-  'sidebar.noteLine1': 'Load a template in one click, or edit the tree yourself in the center.',
+  /* V0.0.51@r12: `sidebar.noteLine1` (the line under the panel title) was removed --
+     it restated `help.quickStart.3`, and explanatory prose lives on the help page. */
 
   /* Template list (V0.0.11) */
   'template.listTitle': 'Templates',

@@ -127,7 +127,8 @@ export const dict = {
 
   /* ---------- 左栏：模板工作区 ---------- */
   'sidebar.title': '模板工作区',
-  'sidebar.noteLine1': '选一套模板一键载入，或在中间自行编辑目录树。',
+  /* V0.0.51@r12：原 `sidebar.noteLine1`（面板标题下的解说句）已删 —— 它讲的就是
+     `help.quickStart.3` 的同一件事，解说文案归帮助页、不占主界面。别在这里加回来。 */
 
   /* 模板列表（V0.0.11） */
   'template.listTitle': '模板列表',

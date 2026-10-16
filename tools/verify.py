@@ -7,7 +7,8 @@
 `--against <版本>` 的清单**只在该根目录之下的 versions/<版本>/ 查找**（不从项目根兜底）。
 校验项与《错误笔记》交付清单一致：
   1. 必需文件存在
-  2. HTML 标签闭合、关键 id 存在
+  2. HTML 标签闭合、关键 id 存在；**已退场 id 未回流**（`REMOVED_IDS`，V0.0.51@r12；
+     与「关键 id 存在」是一对方向相反的清单 —— 只记前者等于只记住一半决定）
   3. main.js 中引用的 id 在 index.html 中真实存在
   4. JS 语法（ESM 方式交由 node --check 解析）
   5. CSS 大括号平衡
@@ -79,8 +80,7 @@ PAIRED_TAGS = (
     "main", "span", "button", "label", "ul", "li", "pre", "h1", "h2", "h3", "p", "code",
 )
 
-REQUIRED_IDS = (
-    "topbar", "chipSave", "chipBackend", "btnHelp", "btnSupport", "btnLogo",
+REQUIRED_IDS = ("topbar", "chipSave", "chipBackend", "btnHelp", "btnSupport", "btnLogo",
     # V0.0.40：语言 / 皮肤由 `<select>` 改为「图标按钮 + 浮层」（设计提案 §2）；
     # 窄窗低频入口折入 btnMore。故 langSelect / skinSelect 退场，换为下列 id。
     "btnLang", "btnSkin", "btnMore",
@@ -111,6 +111,18 @@ REQUIRED_IDS = (
     # @r9：加第三颗 `btnBackups`（历史版本入口）+ 历史版本弹窗 `dlgBackups` / 列表 `bakList`
     "svcStatus", "svcVersion", "svcDataDir", "btnOpenTpl", "btnOpenData",
     "btnBackups", "dlgBackups", "bakList",
+)
+
+# 已退场 id（V0.0.51@r12 立）：这些 id 曾属主界面结构，**删掉它们是一个决定**，故反向钉住
+# —— 不得在 `index.html` 里复活。它与 `REQUIRED_IDS` 是一对方向相反的清单：一个管「必须
+# 还在」，一个管「不许回来」。只登记前者，等于只记住了一半（§三.81「读起来像完成」）。
+# 注：`checklist` 的「已移除」由 7m 单独把关（它带着上下文：左栏自检收敛为顶栏三态按钮），
+# 此处不重复登记，避免同一条属性日后在两个判据里分叉。
+REMOVED_IDS = (
+    # V0.0.51@r12：左栏面板标题下的解说句。它在 @r6 先被摘掉第一行（硬编码的
+    # `templates/`），本批摘掉最后一行 ⇒ 外层 `<p>` 一并删除，而不是留一个空盒子。
+    # 那句文案讲的是 `help.quickStart.3` 的同一件事，解说归帮助页。
+    "tplNote",
 )
 
 REQUIRED_FILES = (
@@ -349,6 +361,23 @@ def raw_font_size_hits(body: str) -> list[str]:
         if not val.startswith("var(--qm-"):
             hits.append(f"font-size:{val}")
     return hits
+
+
+# 「取词表里到底有哪些键」的**唯一**口径（V0.0.51@r12 立，检查项 7b-2 与 7b-3 共用）。
+#   ⚠ 必须①按**键位**取 ②**先剥注释**。两条都是踩过的坑：
+#     ① 旧 7b-2 用「任何带点的引号串」，于是把**值**也算了进来 ——
+#        `'help.versionFallback': 'V0.0.51'` 的值 `V0.0.51` 被当成一个键（取词表因此
+#        虚记 442 键，实为 441）；
+#     ② 旧 7b-3 用带 `^...$` 锚点的整串匹配且**未加 `re.M`**，而取词表是「缩进 +
+#        `'键': '值',`」的多行字典 ⇒ 正则要求「整个文件就是一个键名」才匹配，
+#        **两侧永远各得 0 个键 ⇒ 本项恒 PASS**（一条不可能失败的守卫）。
+#   键位形态：行首缩进之后紧跟 `'键':`。
+KEY_ENTRY = re.compile(r"""^\s*'([A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+)+)'\s*:""", re.M)
+
+
+def locale_dict_keys(text: str) -> set[str]:
+    """取词表源码文本 → 条目**键**集合（剥注释后按键位取；键值对里的**值**不参与）。"""
+    return set(KEY_ENTRY.findall(strip_comments(text, "js")))
 
 
 def skin_toplevel_violations(body: str) -> list[str]:
@@ -594,8 +623,15 @@ def main() -> int:
 
         missing = [i for i in REQUIRED_IDS if f'id="{i}"' not in html]
         check(not missing, "HTML 关键 id", ", ".join(missing) if missing else f"{len(REQUIRED_IDS)} 项齐全")
+
+        # 反向：已退场 id 不得回流（V0.0.51@r12）。与上一项合起来才是一份完整的结构清单。
+        back = [i for i in REMOVED_IDS if f'id="{i}"' in html]
+        check(not back, "HTML 退场 id 未回流",
+              f"{', '.join(back)} 又回来了 —— 若确要恢复，请从 REMOVED_IDS 摘除并说明理由"
+              if back else f"{len(REMOVED_IDS)} 项确认不在")
     else:
         check(False, "HTML 标签闭合", "index.html 未读到")
+        check(False, "HTML 退场 id 未回流", "index.html 未读到")
         check(False, "HTML 关键 id", "index.html 未读到")
 
     # 3. 主界面模块引用的 id 必须真实存在。
@@ -722,12 +758,12 @@ def main() -> int:
 
     # 7b-2. 取词键闭包（§P0-3 L2）：页面与 JS 引用的键必须在取词表里存在
     KEY_SHAPE = re.compile(r"^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+)+$")
+    #   键集合取自模块级 `locale_dict_keys()`（V0.0.51@r12 统一口径：剥注释 + 按键位取，
+    #   值不参与）。旧写法拿「任何带点的引号串」当键，会把值 `V0.0.51` 也算成键 ——
+    #   判据偏宽，遇到「真的少了某个键」时可能被一个幻影键掩盖。
     dict_file = root / "src/web/locales/zh-CN.js"
-    known: set[str] = set()
-    if dict_file.is_file():
-        known = set(re.findall(
-            r"""['"]([A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+)+)['"]""",
-            dict_file.read_text(encoding="utf-8")))
+    known: set[str] = (locale_dict_keys(dict_file.read_text(encoding="utf-8"))
+                       if dict_file.is_file() else set())
     used_keys: dict[str, str] = {}
     for page in ("src/web/index.html", "src/web/help.html", "src/web/support.html"):
         page_file = root / page
@@ -750,12 +786,21 @@ def main() -> int:
           else f"{len(used_keys)} 个引用键全部命中（取词表 {len(known)} 键）")
 
     # 7b-3. 中英取词表键对齐（§P0-3 L1）：en-US.js 必须与 zh-CN.js 键集一致
+    #   ⚠ V0.0.51@r12 **据实修复一条不可能失败的守卫**。原判据是
+    #       `set(re.findall(KEY_SHAPE, text))`，而 KEY_SHAPE 自带 `^...$` 且**未加
+    #       `re.M`**，取词表又是「缩进 + '键': '值',」的多行字典 ⇒ 正则要求「整个
+    #       文件就是一个键名」才匹配，**两侧永远各得 0 个键，本项恒 PASS**。
+    #       反向验证（沙盒 `E:\qm_r12_rev`，只改 `en-US.js`）：删掉 `help.quickStart.1`
+    #       整行后本项仍打印「中英键集一致」—— 即「中英键对齐」自设立起从未真正生效。
+    #       （《任务进度》282–287 行曾以「7b-3 要求中英键集一致」为由解释一次删键，
+    #        该理由当时**引用了一条空守卫**，属 §三.85 家族「守卫自身失效」。）
+    #   现改用与 7b-2 同一份 `locale_dict_keys()` 口径（剥注释 + 按键位取）。
     zh_file = root / "src/web/locales/zh-CN.js"
     en_file = root / "src/web/locales/en-US.js"
     align_bad = ""
     if zh_file.is_file() and en_file.is_file():
-        zh_keys = set(re.findall(KEY_SHAPE, zh_file.read_text(encoding="utf-8")))
-        en_keys = set(re.findall(KEY_SHAPE, en_file.read_text(encoding="utf-8")))
+        zh_keys = locale_dict_keys(zh_file.read_text(encoding="utf-8"))
+        en_keys = locale_dict_keys(en_file.read_text(encoding="utf-8"))
         only_zh = sorted(zh_keys - en_keys)
         only_en = sorted(en_keys - zh_keys)
         if only_zh or only_en:
@@ -763,7 +808,7 @@ def main() -> int:
     elif not en_file.is_file():
         align_bad = "缺少 en-US.js"
     check(not align_bad, "中英取词键对齐 §P0-3 L1",
-          align_bad if align_bad else "中英键集一致")
+          align_bad if align_bad else f"中英键集一致（各 {len(zh_keys)} 键）")
 
     # 7b-4. 错误码本地化闭包 + 占位符一致性（§P0-3 L1）
     # 后端返回结构化 {code, detail}，前端按 `err.<code>` 重新成句 —— 因此每个

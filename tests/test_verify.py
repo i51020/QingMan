@@ -229,6 +229,79 @@ class TemplateRowMoreViolationsTests(unittest.TestCase):
         self.assertTrue(any("调用点" in h for h in hits), hits)
 
 
+class LocaleDictKeysTests(unittest.TestCase):
+    """V0.0.51@r12：取词表「键集合」的唯一口径 `locale_dict_keys()`（7b-2 / 7b-3 共用）。
+
+    **判据为何存在**：旧 7b-3「中英取词键对齐」用带 `^...$` 锚点且未加 `re.M` 的整串
+    正则去匹配多行字典 ⇒ 两侧**永远各得 0 个键**，本项自设立起**恒 PASS**（一条不可能
+    失败的守卫）；旧 7b-2 则拿「任何带点的引号串」当键，把**值** `V0.0.51` 也算了进去。
+    故这里把新口径钉死：**按键位取、先剥注释、值不参与**。
+    """
+
+    # 一屏真实形态：正常条目 + 值里带点号的条目 + 注释里的「键」 + 正文里的点号串
+    SAMPLE = (
+        "/*\n"
+        " * LOCALE        语言标签（必须与文件名一致）\n"
+        " * 例：'sidebar.title' 曾在此处被提及\n"
+        " */\n"
+        "export default {\n"
+        "  'sidebar.title': '模板工作区',\n"
+        "  'help.versionFallback': 'V0.0.51',\n"
+        "  'shortcut.fileName': 'QingMan.lnk',\n"
+        "  'sample.readme': 'README.md',\n"
+        "  'template.stats': '{dirs} 目录 · {files} 文件',\n"
+        "};\n"
+    )
+
+    def test_takes_keys_not_values(self):
+        """`'help.versionFallback': 'V0.0.51'` 只能产出**键**；值 `V0.0.51` 不得被当成键。
+
+        这正是旧判据的幻影键（取词表因此虚记 442 键，实为 441）。
+        """
+        keys = verify.locale_dict_keys(self.SAMPLE)
+        self.assertIn("help.versionFallback", keys)
+        self.assertNotIn("V0.0.51", keys)
+
+    def test_ignores_dotted_value_strings(self):
+        """值是 `QingMan.lnk` / `README.md` 这类带点串时，同样不得被当成键。
+
+        旧判据里这两个幻影键会让 en 侧凭空多出 2 个键。
+        """
+        keys = verify.locale_dict_keys(self.SAMPLE)
+        self.assertNotIn("QingMan.lnk", keys)
+        self.assertNotIn("README.md", keys)
+
+    def test_ignores_commented_out_entries(self):
+        """注释里出现的 `'sidebar.title'` 不算条目 —— 否则「注释里提一句」就能骗过闭包。"""
+        text = self.SAMPLE.replace("  'sidebar.title': '模板工作区',\n", "")
+        keys = verify.locale_dict_keys(text)
+        self.assertNotIn("sidebar.title", keys)
+        self.assertIn("shortcut.fileName", keys)   # 别处的真条目仍在
+
+    def test_collects_all_keys_across_lines(self):
+        """多行字典要**逐行全收**（旧判据正是死在「整串才匹配」上，收到 0 个）。"""
+        keys = verify.locale_dict_keys(self.SAMPLE)
+        self.assertEqual(
+            keys,
+            {"sidebar.title", "help.versionFallback", "shortcut.fileName",
+             "sample.readme", "template.stats"})
+
+    def test_empty_text_yields_empty_set(self):
+        self.assertEqual(verify.locale_dict_keys(""), set())
+
+    def test_matches_real_locale_file(self):
+        """与**盘上真实取词表**对齐：条目数、真键在、幻影键不在。"""
+        zh = (Path(verify.PROJECT_ROOT) / "src/web/locales/zh-CN.js").read_text(encoding="utf-8")
+        keys = verify.locale_dict_keys(zh)
+        self.assertIn("sidebar.title", keys)
+        self.assertIn("help.quickStart.3", keys)
+        self.assertNotIn("V0.0.51", keys)
+        self.assertNotIn("sidebar.noteLine1", keys)   # V0.0.51@r12 已删（解说句归帮助页）
+        # 条目数按盘上派生，不写死：两侧同源时才谈得上「中英键集一致」
+        en = (Path(verify.PROJECT_ROOT) / "src/web/locales/en-US.js").read_text(encoding="utf-8")
+        self.assertEqual(keys, verify.locale_dict_keys(en))
+
+
 class IterManagedNodesTests(unittest.TestCase):
 
     def setUp(self):

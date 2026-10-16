@@ -64,10 +64,14 @@
         <h2 class="panel-title" data-i18n="sidebar.title"></h2>
         <!-- V0.0.51@r6: the hard-coded "templates/" line is gone -- it never followed a
              custom folder. The live folder is shown in #tplDirRow below, and repeated
-             in Help > About straight from the backend. -->
-        <p class="hint" id="tplNote">
-          <span data-i18n="sidebar.noteLine1"></span>
-        </p>
+             in Help > About straight from the backend.
+
+             V0.0.51@r12: #tplNote itself is gone with it. The element used to hold two
+             note lines; @r6 took the first, this batch takes the last, so the wrap is
+             deleted rather than left as an empty box. The surviving sentence only
+             restated Help > Quick Start item 3 ("load a template, or edit the tree
+             yourself") -- explanatory prose belongs on the help page, not in the panel
+             it describes. Do not re-add a hint line here without removing it there. -->
         <div class="panel-block">
           <div class="panel-head">
             <h3 class="panel-sub" data-i18n="template.listTitle"></h3>
