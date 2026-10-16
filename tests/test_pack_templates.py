@@ -6,6 +6,9 @@
     且 `.md` 自身是往返不动点 —— 任一单边改动都必须被拒。
   * **可复算**：清单 `digest` 与 zip `sha256` 都能由盘上内容独立复算出来；且 zip 是
     **确定性**的（同一份源连跑两次字节相同，§P1-4 工具幂等）。
+  * **运行时指纹**（§三.78）：清单 `zip.env` 登记构建时的 `python` / `zlib`，使
+    「绝对 `sha256` 只在**同一运行时**内可比」这一前提**可判定**。指纹一致 → 强判
+    绝对 `sha256`；不一致 → 降级为自洽断言并**显式声明降级**（不 skip、不静默）。
   * **退出码契约**：1 = 环境 / IO（目录或内置件缺失）；2 = 内容不通过（孤儿 `.md` /
     缺同名件 / 等价性 / 规范渲染 / 清单失配）。两类必须可分，见 `CheckModeTests`。
 
@@ -203,11 +206,78 @@ class DeterministicZipTests(unittest.TestCase):
                 self.assertEqual(info.date_time, pt.ZIP_STAMP)
                 self.assertEqual(info.external_attr, pt.ZIP_MODE)
 
-    def test_manifest_zip_sha256_matches_build(self):
+    def test_manifest_records_build_env_fingerprint(self):
+        """清单 `zip` 块必须登记**构建时运行时指纹**与**仓内落点**（§三.78 / §三.79）。
+
+        没有指纹，「同一运行时才比绝对 sha256」这条前提就**无法判定** —— 只能假设，
+        而假设正是 CPython 3.14（zlib-ng）与本机 3.13（上游 zlib）之间那 423 字节
+        差异长期隐身的原因。
+
+        `zip.file` 另立一条**与运行时不相关**的判据：入库清单只能描述**仓内**那一份
+        zip。`--zip <外部路径>` 会把外部路径回写进清单（§三.79）—— 那属「机器相关的值
+        渗进仓库产物」，与 zlib 是同一族病，故在此拦下。
+        """
         manifest = pt.load_manifest(REAL_PACK)
-        self.assertEqual(manifest["zip"]["sha256"],
-                         pt.sha256_bytes(pt.build_zip_bytes(REAL_PACK)))
-        self.assertEqual(manifest["zip"]["members"], 34)
+        zblock = manifest.get("zip") or {}
+        env = zblock.get("env")
+        self.assertIsInstance(env, dict, "zip.env 缺失：跨运行时字节不可判（§三.78）")
+        for key in ("python", "zlib"):
+            self.assertTrue(isinstance(env.get(key), str) and env[key],
+                            f"zip.env.{key} 须为非空字符串，实测 {env.get(key)!r}")
+        # ★ 刻意**不**断言「env == 本运行时指纹」：那会让受管 3.13（仅作下限抽样）
+        #   下恒红，而红的原因是"你换了解释器"、不是"清单错了" —— 正是 §三.78 要消灭的
+        #   假红。清单与当前运行时的关系改由 `test_manifest_zip_sha256_matches_build`
+        #   按指纹分流把关（那两个分支都成立）。
+        self.assertEqual(zblock.get("file"), pt.ZIP_NAME,
+                         f"入库清单的 zip.file 须为仓内规范名 {pt.ZIP_NAME!r}；"
+                         f"实测 {zblock.get('file')!r} —— 若刚跑过 `--zip <外部路径>`，"
+                         "该命令会回写清单（§三.79），须用默认模式在 `py -3` 下重建")
+        # 只断言「盘上清单恰好有」不够 —— 那摘掉**登记点**也抓不住（反向验证 N2 实测）。
+        # 故直接打构建函数：finalize_manifest 必须负责写入指纹。
+        built = pt.finalize_manifest({"count": 0}, REAL_PACK, "x.zip", b"")
+        self.assertEqual(built["zip"]["env"], pt.build_env_fingerprint(),
+                         "finalize_manifest 必须登记运行时指纹（登记点缺失即红）")
+
+    def test_manifest_zip_sha256_matches_build(self):
+        """指纹一致 → 比绝对 sha256；不一致 → 降级为**自洽断言**（§三.78）。
+
+        降级分支**不是跳过**：它仍断言「同一份源连跑两次字节相同」—— 那才是
+        「确定性」的真实语义。用 `skipTest` 会让覆盖变薄，而绿看起来与全过无异
+        （§P2 第 20 项）。
+        """
+        manifest = pt.load_manifest(REAL_PACK)
+        zinfo = manifest["zip"]
+        self.assertEqual(zinfo["members"], 34)
+        if zinfo.get("env") == pt.build_env_fingerprint():
+            self.assertEqual(zinfo["sha256"],
+                             pt.sha256_bytes(pt.build_zip_bytes(REAL_PACK)),
+                             "同一运行时下绝对 sha256 必须一致")
+        else:
+            self.assertTrue(pt.zip_self_consistent(REAL_PACK),
+                            "跨运行时改判自洽后，本运行时仍须连跑两次字节相同")
+
+    def test_zip_self_consistent_detects_drift(self):
+        """反向用例：构建一旦不自洽，判据必须为 False（否则它只是空壳）。"""
+        real = pt.build_zip_bytes
+        calls = {"n": 0}
+
+        def flaky(pack_dir):
+            calls["n"] += 1
+            return real(pack_dir) + bytes([calls["n"]])
+
+        pt.build_zip_bytes = flaky
+        try:
+            self.assertFalse(pt.zip_self_consistent(REAL_PACK, real(REAL_PACK)),
+                             "两次构建不同却判 True —— 自洽断言失效")
+        finally:
+            pt.build_zip_bytes = real
+
+    def test_fmt_env_marks_missing(self):
+        """旧清单（无 env）须渲染成「未登记」—— 「空」与「有」必须可辨。"""
+        self.assertEqual(pt._fmt_env(None), "未登记")
+        self.assertEqual(pt._fmt_env({}), "未登记")
+        self.assertEqual(pt._fmt_env({"python": "3.14.8", "zlib": "1.3.1.zlib-ng"}),
+                         "python 3.14.8 / zlib 1.3.1.zlib-ng")
 
 
 class CheckModeTests(unittest.TestCase):
@@ -291,6 +361,47 @@ class CheckModeTests(unittest.TestCase):
             self.assertEqual(
                 _quiet(pt.main, ["--check", "--pack-dir", str(pack),
                                  "--templates-dir", str(tpl)]), 2)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_check_downgrades_on_env_mismatch(self):
+        """指纹不符 → 降级为自洽断言：退出码 0，但**必须显式声明降级**（§三.78）。
+
+        这是本轮修复的正面用例：修复前该场景**必然 FAIL**（`py -3` / zlib-ng 下
+        重建出的 24,693 B zip 与清单记录的 24,270 B 版本 sha256 永不相同）。
+        """
+        tmp, pack, tpl = _fixture()
+        try:
+            self.assertEqual(_quiet(pt.main, ["--pack-dir", str(pack),
+                                              "--templates-dir", str(tpl)]), 0)
+            path = pack / pt.MANIFEST_NAME
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["zip"]["env"] = {"python": "3.0.0", "zlib": "0.0.0-other-runtime"}
+            path.write_text(json.dumps(data, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+                            encoding="utf-8", newline="\n")
+            rc, out = _quiet_capture(pt.main, ["--check", "--pack-dir", str(pack),
+                                               "--templates-dir", str(tpl)])
+            self.assertEqual(rc, 0, f"指纹不符应降级通过，实测 {rc}\n{out}")
+            self.assertIn("运行时指纹与清单不一致", out, "降级必须显式声明，不得静默放过")
+            self.assertIn("绝对 sha256 未比对", out)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_check_flags_sha_mismatch_when_env_matches(self):
+        """指纹一致 → 绝对 sha256 仍须强判（降级不得顺手放过真失配）。"""
+        tmp, pack, tpl = _fixture()
+        try:
+            self.assertEqual(_quiet(pt.main, ["--pack-dir", str(pack),
+                                              "--templates-dir", str(tpl)]), 0)
+            path = pack / pt.MANIFEST_NAME
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data["zip"]["sha256"] = "0" * 64      # env 一字不动
+            path.write_text(json.dumps(data, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+                            encoding="utf-8", newline="\n")
+            rc, out = _quiet_capture(pt.main, ["--check", "--pack-dir", str(pack),
+                                               "--templates-dir", str(tpl)])
+            self.assertEqual(rc, 2, f"同运行时下 sha256 失配应判 2，实测 {rc}\n{out}")
+            self.assertIn("zip sha256 复算失配", out)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 

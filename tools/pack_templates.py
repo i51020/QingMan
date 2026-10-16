@@ -22,6 +22,15 @@
     可由包目录恒定推导的**可再生产物**（`.gitignore` 收口，§P1-4 / §P1-7 R3 同理）。
   * **确定性**：zip 条目时间戳固定 + 名字典序 + 固定压缩参数 → 同一份源连跑两次
     字节相同（§P1-4「工具幂等」）。跨 Python 运行时不做字节承诺。
+  * **运行时指纹**（V0.0.51 修订，见《错误笔记》§三.78）：既然上面的字节承诺**只限
+    同一运行时**，清单 `zip.env` 就登记**构建时**的 `python` / `zlib` 指纹 —— 使
+    「同一运行时」这一前提**可判定**，不再靠假设。`--check` 与单测据此分流：
+    指纹一致 → 比绝对 `sha256`；不一致 → 降级为**自洽断言**（本运行时连跑两次字节
+    相同）并**显式声明降级**，不静默放过。
+    ⚠️ 病根是实测出来的：CPython 3.14 的 Windows 构建用 **zlib-ng**，其 deflate 输出
+    与上游 zlib 不同 —— 同一份源在两个解释器下重建出 **24,693 B vs 24,270 B** 两个
+    zip，绝对 `sha256` 必然失配。原实现「文档说不承诺、机器却强判」自相矛盾（§三.7
+    的镜像形态）。
   * 本工具**不进** `store.TRACK_ITEMS`；`templates/` 与 `templates-pack/` 同样不进
     （版本清单只跟踪 `src` / `start.bat` / `VERSION`，见 §P0-6）。
 """
@@ -35,6 +44,7 @@ import json
 import os
 import sys
 import zipfile
+import zlib
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -81,6 +91,19 @@ class PackIOError(PackError):
 
 def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def build_env_fingerprint() -> Dict[str, str]:
+    """本运行时指纹：决定 zip 字节的那两个变量（§三.78）。
+
+    `zlib` 取 **运行时** 版本（`ZLIB_RUNTIME_VERSION`）而非编译期常量 —— 实测
+    CPython 3.14 的 Windows 构建把它报成 `1.3.1.zlib-ng`，与上游 zlib 的 `1.3.1`
+    可区分；这正是 deflate 输出分叉的判据来源。**承担判定职责 → 有单测。**
+    """
+    return {
+        "python": sys.version.split()[0],
+        "zlib": zlib.ZLIB_RUNTIME_VERSION,
+    }
 
 
 def _rel_to(path: Path, base: Path) -> str:
@@ -263,6 +286,25 @@ def build_zip_bytes(pack_dir: Path) -> bytes:
     return buf.getvalue()
 
 
+def zip_self_consistent(pack_dir: Path, reference: "bytes | None" = None) -> bool:
+    """自洽判据：`reference`（省略则现构建一次）与**再构建一次**的字节是否相同。
+
+    这是「确定性」的真实语义 —— 工具 docstring 承诺的从来不是**跨运行时**同一串
+    字节，而是**同一份源连跑两次字节相同**（§P1-4「工具幂等」）。**承担判定职责
+    → 有单测，含反向用例。**
+    """
+    if reference is None:
+        reference = build_zip_bytes(pack_dir)
+    return build_zip_bytes(pack_dir) == reference
+
+
+def _fmt_env(env: "Dict[str, str] | None") -> str:
+    """把指纹渲染成人读串；缺失（旧清单）显式写「未登记」而非空白。"""
+    if not env:
+        return "未登记"
+    return f"python {env.get('python', '?')} / zlib {env.get('zlib', '?')}"
+
+
 def finalize_manifest(payload: Dict[str, Any], pack_dir: Path,
                       zip_file_field: str, zip_bytes: bytes) -> Dict[str, Any]:
     out = dict(payload)
@@ -271,6 +313,10 @@ def finalize_manifest(payload: Dict[str, Any], pack_dir: Path,
         "file": zip_file_field,
         "members": len(zip_members(pack_dir)),
         "sha256": sha256_bytes(zip_bytes),
+        # 构建时运行时指纹：让「同运行时才比绝对 sha256」这一前提**可判定**（§三.78）。
+        # 放在 `zip` 块内 → 由 `canonical_bytes` 规则自动**不进 digest**，
+        # 故登记指纹不会改动已入库的 `digest`（零 ripple）。
+        "env": build_env_fingerprint(),
     }
     return out
 
@@ -383,18 +429,35 @@ def _run_check(pack_dir: Path, manifest: Dict[str, Any], zip_out: Path,
         bad.append("清单 digest 与当前模板不符")
 
     got_zip = (on_disk.get("zip") or {})
-    if got_zip.get("sha256") != sha256_bytes(zip_bytes):
-        bad.append("zip sha256 复算失配")
+    env_now = build_env_fingerprint()
+    env_rec = got_zip.get("env")
+    # 条目数与运行时无关 → 恒比（它不依赖 zlib 实现）
     if got_zip.get("members") != len(zip_members(pack_dir)):
         bad.append("zip 条目数与盘上不符")
-    if zip_out.is_file():
-        if sha256_bytes(zip_out.read_bytes()) != sha256_bytes(zip_bytes):
-            bad.append(f"{zip_out.name} 实体与确定性构建不一致")
+    if env_rec == env_now:
+        # 同一运行时：字节承诺成立，绝对 sha256 与实体都可比
+        if got_zip.get("sha256") != sha256_bytes(zip_bytes):
+            bad.append("zip sha256 复算失配")
+        if zip_out.is_file():
+            if sha256_bytes(zip_out.read_bytes()) != sha256_bytes(zip_bytes):
+                bad.append(f"{zip_out.name} 实体与确定性构建不一致")
+        else:
+            print(f"[提示] {zip_out.name} 不在盘上（可再生产物不入库），仅核 sha256 复算值")
     else:
-        print(f"[提示] {zip_out.name} 不在盘上（可再生产物不入库），仅核 sha256 复算值")
+        # 运行时指纹不同 → **字节不可比**（工具 docstring 本就写明「跨运行时不做字节
+        # 承诺」，§三.78）。降级为自洽断言，且**显式声明降级** —— 静默少一项会让
+        # 「覆盖变薄」看起来和「全过」一样（§P2 第 20 项）。
+        if not zip_self_consistent(pack_dir, zip_bytes):
+            bad.append("本运行时 zip 自洽断言失败（同一份源连跑两次字节不同）")
+        print(f"[提示] 运行时指纹与清单不一致：清单 {_fmt_env(env_rec)} → 本机 {_fmt_env(env_now)}")
+        print("[提示] 跨运行时字节不作承诺（工具 docstring / §三.78）→ 已降级为**自洽断言**，"
+              "绝对 sha256 未比对")
+        if zip_out.is_file():
+            print(f"[提示] {zip_out.name} 实体亦未比对（它可能由另一运行时构建）")
+        print("[提示] 需比对绝对 sha256 时，请在构建该清单的同一运行时下重跑 `--check`")
 
     print(f"[校验] 清单 digest={on_disk.get('digest')}  "
-          f"zip sha256={got_zip.get('sha256')}")
+          f"zip sha256={got_zip.get('sha256')}  zip env={_fmt_env(env_rec)}")
     if bad:
         for item in bad:
             print(f"  [不一致] {item}")
