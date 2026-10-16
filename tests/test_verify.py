@@ -139,6 +139,96 @@ class SkinTopLevelViolationsTests(unittest.TestCase):
         self.assertEqual(len(hits), 2)
 
 
+class TemplateRowMoreViolationsTests(unittest.TestCase):
+    """V0.0.51@r11：模板行 ⋮ 常驻入口的接线判据（挂在 7aj 的 ⑤b 上）。
+
+    **判据为何存在**：7aj ⑤ 只扫 `src/web/index.html` 的**静态**标记，而 ⋮ 由
+    `modules/templates.js` **动态创建** ⇒ 静态扫描天然扫不到，等于给「JS 造出来的图标
+    按钮」开了一条无守卫通道。故改判**产出方源码**，并把「⋮ 与右键同源」一并机器化。
+
+    这里逐条钉住四个子判据，防「判据自己悄悄失效」—— 同 `skin_toplevel_violations`
+    的做法（§三.85：自查类的判据物须与被查对象不同一处）。
+    """
+
+    # 合规样例：定义 1 处 + 调用 2 处（右键 / ⋮），showAt 恰 1 处，三样标记齐备
+    GOOD_JS = (
+        "function openTemplateContextMenu(item, x, y) {\n"
+        "  ctxMenu.showAt(x, y, []);\n"
+        "}\n"
+        "li.addEventListener('contextmenu',"
+        " (e) => openTemplateContextMenu(item, e.clientX, e.clientY));\n"
+        "more.addEventListener('click', () => {\n"
+        "  const box = more.getBoundingClientRect();\n"
+        "  openTemplateContextMenu(item, box.left, box.bottom);\n"
+        "});\n"
+        "more.className = 'btn btn-ghost btn-mini btn-ic tpl-more';\n"
+        "moreIc.className = 'ic ic-more';\n"
+        "more.setAttribute('aria-label', t('template.more'));\n"
+        "more.title = t('template.moreTip');\n"
+    )
+    GOOD_LAYOUT = ".tpl-row .tpl-more { opacity: .45; }\n"
+    GOOD_SOFT = "html .tpl-row .tpl-more { background: transparent; }\n"
+
+    def _run(self, js=None, layout=None, soft=None):
+        return verify.template_row_more_violations(
+            self.GOOD_JS if js is None else js,
+            self.GOOD_LAYOUT if layout is None else layout,
+            self.GOOD_SOFT if soft is None else soft)
+
+    def test_accepts_canonical_wiring(self):
+        self.assertEqual(self._run(), [])
+
+    def test_flags_missing_marker(self):
+        hits = self._run(js=self.GOOD_JS.replace("tpl-more", "tpl-x"))
+        self.assertTrue(any("类名" in h for h in hits), hits)
+
+    def test_flags_missing_icon(self):
+        hits = self._run(js=self.GOOD_JS.replace("ic-more", "ic-x"))
+        self.assertTrue(any("图标" in h for h in hits), hits)
+
+    def test_flags_missing_accessible_name(self):
+        # 只删 `aria-label` 那句，**保留** tooltip —— 这正是引号锚定要挡的情形：
+        # `template.more` 是 `template.moreTip` 的子串，裸查会放它过去。
+        hits = self._run(js=self.GOOD_JS.replace(
+            "more.setAttribute('aria-label', t('template.more'));\n", ""))
+        self.assertTrue(any("可访问名" in h for h in hits), hits)
+
+    def test_flags_tooltip_only(self):
+        # 极端情形：整份 JS 里只剩 `template.moreTip`，没有任何 `'template.more'`
+        hits = self._run(js=self.GOOD_JS.replace(
+            "more.setAttribute('aria-label', t('template.more'));\n", ""))
+        self.assertEqual(sum(1 for h in hits if "可访问名" in h), 1, hits)
+
+    def test_flags_single_call_site(self):
+        # 抽掉 ⋮ 那处调用 ⇒ 只剩右键盘路 ⇒ 判「⋮ 可能绕开了同一份菜单」
+        hits = self._run(js=self.GOOD_JS.replace(
+            "  openTemplateContextMenu(item, box.left, box.bottom);\n", ""))
+        self.assertTrue(any("调用点" in h for h in hits), hits)
+
+    def test_flags_second_menu(self):
+        # 给 ⋮ 另造一套菜单 ⇒ `ctxMenu.showAt` 变 2 处
+        hits = self._run(js=self.GOOD_JS + "ctxMenu.showAt(1, 2, []);\n")
+        self.assertTrue(any("showAt" in h for h in hits), hits)
+
+    def test_flags_missing_css_pairing(self):
+        self.assertTrue(any("layout.css" in h for h in self._run(layout="")))
+        self.assertTrue(any("soft.css" in h for h in self._run(soft="")))
+
+    def test_definition_line_is_not_counted_as_call(self):
+        # 负向对照：定义行本身含 `openTemplateContextMenu(`。若判据不减去这 1 处基准，
+        # 「只有 1 个调用点」也会算成 2 ⇒ 漏报。此例只有右键盘路 ⇒ 必须命中。
+        only_ctxmenu = (
+            "function openTemplateContextMenu(item, x, y) {\n"
+            "  ctxMenu.showAt(x, y, []);\n"
+            "}\n"
+            "li.oncontextmenu = () => openTemplateContextMenu(item, 1, 2);\n"
+            "more.className = 'tpl-more';\n"
+            "ic.className = 'ic-more';\n"
+            "more.setAttribute('aria-label', t('template.more'));\n")
+        hits = self._run(js=only_ctxmenu)
+        self.assertTrue(any("调用点" in h for h in hits), hits)
+
+
 class IterManagedNodesTests(unittest.TestCase):
 
     def setUp(self):

@@ -33,17 +33,22 @@
  *   ② 父子不能都浮起 —— 父层浅底+柔光、子按钮再浮起，两层影会叠成一圈白晕。
  *   ③ 小控件的光影必须比大区块短 —— 偏移 2–4px、模糊 5–10px。
  *
- * ⚠ 本节选择器对应元素的实现状态（2026-10-14 实测，扫 `src/web/**` 的 `.html` + `.js`）：
+ * ⚠ 本节选择器对应元素的实现状态（2026-10-14 实测，扫 `src/web/**` 的 `.html` + `.js`；
+ *    **2026-10-17 复核更新**，见 `.tpl-more` 一行）：
  *   · **已实现、规则已命中**：
  *       `.icon-btn` / `.tb-status`  —— 顶栏图标钮与状态组（V0.0.40）
  *       `.layer.*`                  —— 应用内弹层 / 浮层（V0.0.40，`ui/layer.js`）
  *       `.sup-qr-img`               —— 支持页赞赏码
- *       `.tpl-badge`                —— 模板行格式徽标（`main.js` 动态创建，非静态 HTML）
+ *       `.tpl-badge`                —— 模板行格式徽标（`templates.js` 动态创建，非静态 HTML）
+ *       `.tpl-more`                 —— 模板行行尾 ⋮（V0.0.51@r11 装回；`templates.js`
+ *                                      动态创建）。⚠ 原记「⋮ 已于 V0.0.38 随右键菜单改造
+ *                                      移除、下方规则已成死码」系**史实错误**，据实更正：
+ *                                      V0.0.38 移除的是 `.tpl-ops` **文字**按钮，而 ⋮
+ *                                      **从未装过**（`git log --all -S "tpl-more"` 在
+ *                                      `src/web/js/` 命中 0）—— 故本节这两条规则自
+ *                                      V0.0.40 起一直是**无消费者的死码**，装回 ⋮ 后**当场生效**
  *   · **未实现、规则暂不命中**：
  *       `.ob-group`                 —— v4–v7 设计提案的按钮组，主界面未落地
- *       `.tpl-more`                 —— ⋮ 按钮已于 V0.0.38 随「右键菜单改造」**移除**，
- *                                      故下方 `:not(.tpl-more)` 与 `.tpl-row .tpl-more`
- *                                      相关规则已成**死码**（保留待议，勿照抄）
  */
 
 /* ---------- 1. 板块：三栏 / 顶栏 —— 结构线保留，投影换成柔性 ---------- */
@@ -166,9 +171,13 @@ html .tpl-row .tpl-item:active { box-shadow: var(--qm-tap-in); }
    soft 体系里模板行卡片由 `.tpl-row` 承担、行内容恒透明；且 hover 若也用 accent-soft
    会与「选中态」(`.tpl-row.is-active`) 视觉混淆。故显式压制（(0,3,1) > (0,2,0)）。 */
 html .tpl-row .tpl-item:hover { background: transparent; border-color: transparent; }
-/* ⋮ 保持 v7.1 的透明圆形 —— 两处都得挡：本组 :not(.tpl-more) 排除不了第 2 节的
+/* ⋮ 的**透明复位** —— 两处都得挡：本组 `:not(.tpl-more)` 排除不了第 2 节的
    通用 `.btn` 规则（⋮ 本身是 `.btn.btn-ghost.btn-mini.btn-ic`），故此处再给一条
-   (0,3,1) 的复位，高于 `.btn` 的 (0,2,1)。 */
+   (0,3,1) 的复位，高于 `.btn` 的 (0,2,1)。
+   ⚠ 形态取**我方按钮族**（`.btn-mini.btn-ic` ⇒ 27×27、圆角 `--qm-r-sm` = 12px 的
+   **方块**），**不是**设计稿 v7.1 的 22×22 圆形 —— 本批（V0.0.51@r11）采纳的是
+   「丙-1」：与既有图标钮同形，不为此单独引入一套外观。半透明常驻与点亮见
+   `layout.css` 的 `.tpl-row` 节（那是**交互态**，不属本层的柔光职责）。 */
 html .tpl-row .tpl-more {
   background: transparent; border-color: transparent; box-shadow: none;
 }

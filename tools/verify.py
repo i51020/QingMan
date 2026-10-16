@@ -21,6 +21,8 @@
  7aj. 图标契约（§P0-3 L8）：`.ic-*` 定义↔使用双向配对 / 形状类须声明 `--m` /
      禁 `background-image`、`<img>` 引 SVG 与 `@font-face` / 图标按钮可访问名（顶栏另须 tooltip）/
      字形图标白名单与图标册三方一致（实现 / 本文件 `ICON_SHAPES` / §P0-3 L8 规则行）
+     ＋ **动态**图标按钮（模板行 ⋮，V0.0.51@r11）的可访问名与「与右键同源」接线：
+     上一条只扫静态 `index.html`，故 JS 造出来的按钮改判产出方源码（补盲区）
  7al. 「历史版本」端点接线（V0.0.51@r9）：后端常量/枚举/恢复（**须复用 `routes.save_editor`**）
      → 分发两处 → 前端封装 → 接线（**须真拉列表**）→ 错误码，七处任一断开即红
  7d-9. 皮肤文件**顶层只许 `:root` + `--qm-*` 声明**（§P0-3 L5）：与 7d「组件 CSS 不感知皮肤」
@@ -405,6 +407,53 @@ def skin_toplevel_violations(body: str) -> list[str]:
             if not prop.startswith("--qm-"):
                 hits.append(f"非变量声明:{prop[:30] or d[:30]}")
         i = k
+    return hits
+
+
+def template_row_more_violations(js: str, layout: str, soft: str) -> list[str]:
+    """返回「模板行 ⋮ 常驻入口」的接线 / 配对违规项（V0.0.51@r11 · 补 7aj ⑤ 的盲区）。
+
+    入参须为**已剔注释**的正文 —— 本仓注释习惯逐字复述类名，裸查必大量假阳性
+    （§三.69 / §三.71），与 7aj / 7c / 7d-9 同一口径。
+
+    **为什么需要它**：7aj ⑤ 的「图标按钮可访问名」只扫 `src/web/index.html` 的
+    **静态**标记，而本入口由 `modules/templates.js` **动态创建** ⇒ 静态扫描天然扫不到，
+    等于给这类按钮开了一条无守卫通道（本批勘察实测确认）。故改从**产出方源码**判。
+
+    四条判据（只锚声明形态，不锚具体文案 / 变量名）：
+      ① 标记产出：JS 里须有 `tpl-more`（类名）/ `ic-more`（图标）/ `template.more`（可访问名）
+      ② 接线在：`openTemplateContextMenu` 的**调用点** ≥ 2（右键盘路 + ⋮ 盘路）
+      ③ 不复造：`ctxMenu.showAt` 在 JS 里**恰 1 处** —— 菜单只许由该函数开。⋮ 若另写一套
+         菜单，这里会变成 2 ⇒ 当场红。这是「动作来源唯一」的机器化，也是设计稿
+         「行尾 ⋮：打开既有 #ctxMenu …… 不另造一套」的落地保证。
+      ④ 样式配对：`layout.css` 有 `.tpl-more` 基础态、`soft.css` 有 `.tpl-row .tpl-more` 复位
+    """
+    hits: list[str] = []
+    # ① 标记产出
+    # ⚠ 两侧口径不同：**JS 里类名不带前导点**（`el.className = '… tpl-more'`），
+    #   只有 CSS 才写 `.tpl-more` —— 初版把 JS 判据写成 `.tpl-more`，当场误报自己的实现。
+    # ⚠ 可访问名的判据**必须带引号锚定**：`template.more` 是 `template.moreTip` 的**子串**，
+    #   裸查会让「只写了 tooltip、没写 aria-label」照样判过（本批写单测时发现的判据弱点）。
+    for token, why in (("tpl-more", "类名"), ("ic-more", "图标"),
+                       ("'template.more'", "可访问名")):
+        if token not in js:
+            hits.append(f"templates.js 缺 ⋮ 的{why}（{token.strip(chr(39))}）"
+                        " —— 常驻入口被摘除？")
+    # ② 调用点在（减去 1 处函数定义）
+    calls = js.count("openTemplateContextMenu(") - js.count("function openTemplateContextMenu(")
+    if calls < 2:
+        hits.append(f"openTemplateContextMenu 调用点 {calls} 处（应 ≥2：右键 + ⋮）"
+                    " —— ⋮ 可能绕开了同一份菜单")
+    # ③ 不另造菜单
+    showat = js.count("ctxMenu.showAt(")
+    if showat != 1:
+        hits.append(f"ctxMenu.showAt 出现 {showat} 处（应恰 1：菜单只由 openTemplateContextMenu 开）"
+                    " —— 疑似为 ⋮ 另造了一套")
+    # ④ 样式配对
+    if ".tpl-more" not in layout:
+        hits.append("layout.css 缺 .tpl-more 基础态（占位 / 显隐）")
+    if ".tpl-row .tpl-more" not in soft:
+        hits.append("soft.css 缺 .tpl-row .tpl-more 复位（该组规则会退回死码）")
     return hits
 
 
@@ -2691,6 +2740,18 @@ def main() -> int:
         if 'id="' + _bid + '"' not in _idx_html:
             ic_bad.append(f"index.html 已无顶栏图标按钮 #{_bid}（守卫清单须同步）")
 
+    # ⑤b. **动态**图标按钮的可访问名（V0.0.51@r11 · 补 ⑤ 的盲区）。
+    #      ⑤ 只扫 `src/web/index.html` 的**静态**标记，而模板行行尾 ⋮ 由
+    #      `modules/templates.js` **动态创建** ⇒ 静态扫描天然扫不到 —— 等于给「JS 造出来的
+    #      图标按钮」开了一条无守卫通道（本批勘察实测确认）。故改从**产出方源码**判。
+    #      顺带把「⋮ 与右键**同源**」（复用同一函数、不另造菜单、CSS 两处配对）机器化 ——
+    #      那是本批采纳「丙-1」的**核心不变量**，也是设计稿「行尾 ⋮：打开既有 #ctxMenu……
+    #      不另造一套」的落地保证。判据实现见模块级 `template_row_more_violations()`（可单测）。
+    ic_bad.extend(template_row_more_violations(
+        strip_comments(_read("src/web/js/modules/templates.js"), "js"),
+        strip_comments(_read("src/web/css/layout.css"), "css"),
+        strip_comments(_read("src/web/css/soft.css"), "css")))
+
     # ⑥ 字形图标白名单：只从**声明形态**抽取，实况集合必须 == 白名单（新增即 FAIL）。
     ic_glyphs: list[str] = []
 
@@ -2731,8 +2792,8 @@ def main() -> int:
     check(not ic_bad, "图标系统契约 §P0-3 L8",
           "；".join(ic_bad) if ic_bad
           else f"{len(ICON_SHAPES)} 个 mask 形状定义↔使用配对 / "
-               f"{len(_ic_btns)} 个图标按钮可访问名齐备 / "
-               f"字形图标 {len(GLYPH_ICONS)} 个未增长")
+               f"{len(_ic_btns)} 个静态图标按钮可访问名齐备 / "
+               f"字形图标 {len(GLYPH_ICONS)} 个未增长 / 动态按钮（⋮）接线同源")
 
     # 8. 接续说明实况段须与盘上一致（§P1-6 H4；文件未建立则跳过，不阻塞预览目录的校验）
     handoff_file = root / "docs/接续说明.md"

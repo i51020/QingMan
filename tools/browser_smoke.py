@@ -357,6 +357,21 @@ frame('./index.html', function (doc) {
       m.tplMenu = labels.join('/');
       doc.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));   /* 关掉菜单 */
     }
+    /* V0.0.51@r11：模板行 ⋮ 常驻入口 —— 点击后必须打开**同一个** #ctxMenu（5 项）。
+       与上一段同款走真实监听器（⋮ 的 click → openTemplateContextMenu → ctx-menu.showAt），
+       故它同时证明「入口在」与「入口复用同一菜单」，而不是静态断言。 */
+    var tplMoreBtn = doc ? doc.querySelector(TPL_ROW_SEL + ' .tpl-more') : null;
+    m.tplMoreThere = tplMoreBtn ? 1 : 0;
+    if (tplMoreBtn && win) {
+      tplMoreBtn.click();
+      var menu2 = doc.getElementById('ctxMenu');
+      var mbtns2 = menu2 ? menu2.querySelectorAll('button') : [];
+      m.tplMoreN = mbtns2.length;
+      var labels2 = [];
+      for (var bj = 0; bj < mbtns2.length; bj += 1) { labels2.push(mbtns2[bj].textContent); }
+      m.tplMoreMenu = labels2.join('/');
+      doc.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));   /* 关掉菜单 */
+    }
   } catch (e) { m.err1 = String(e && e.message ? e.message : e); }
   /* V0.0.42 · 手册 10.2 节 #12「根文件夹名与第一个目录逻辑重设计」—— 方案 C：
      根节点名**即**「根文件夹名」。走真实用户路径（选中根行 → 工具栏「重命名」），
@@ -1091,6 +1106,17 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
         check(menu_ok, "主界面·模板行右键菜单项齐备（V0.0.38）",
               f"{menu_n} 项：{menu_text or '(空)'}"
               + ("" if menu_ok else "（6E 回归：菜单项缺失或未挂到模板行）" + gate_hint))
+
+        # V0.0.51@r11：模板行 ⋮ 常驻入口 —— 点击后打开**同一个** #ctxMenu（5 项）。
+        # 与上一条同源（都走真实监听器），但多一层意义：证明入口**复用同一菜单**而非
+        # 另造一套 —— 那正是本批采纳「丙-1」的核心不变量（设计稿「不另造一套」的落地）。
+        more_there = as_int(metrics.get("tplMoreThere"), -1)
+        more_n = as_int(metrics.get("tplMoreN"), -1)
+        more_text = metrics.get("tplMoreMenu", "")
+        more_ok = more_there == 1 and more_n == 5 and "Export" in more_text
+        check(more_ok, "主界面·模板行 ⋮ 常驻入口（V0.0.51@r11）",
+              f"入口 {more_there} 个 / 点击后菜单 {more_n} 项：{more_text or '(空)'}"
+              + ("" if more_ok else "（⋮ 缺失、未接通，或绕开了同一菜单）" + gate_hint))
 
         # V0.0.38 · 6E：轮询**实证** —— 导入一套后等 ≥1 个周期，列表须自动 1 → 2。
         # 只断言「界面没坏」是不够的：轮询被整个摘掉时该断言同样成立。

@@ -62,6 +62,11 @@ NORMAL = {
     # V0.0.38 新增：6E（绑定 UI / 右键菜单项 / 轮询实证）
     "tplDirRow": "1", "tplDirPath": "D:/x/templates", "tplDirBtns": "3",
     "tplMenuN": "5", "tplMenu": "Load/Rename/Duplicate/Export/Delete",
+    # V0.0.51@r11 新增：模板行 ⋮ 常驻入口 —— 7aj⑤b 的**运行期**对照。
+    #   静态判据（verify 7aj⑤b）只能证「产出方源码里有这三样标记 + 调用点 ≥2 + 不另造菜单」，
+    #   证不了「点了它**真的**开同一个 #ctxMenu」—— 只有本探针走真实监听器能证。
+    "tplMoreThere": "1", "tplMoreN": "5",
+    "tplMoreMenu": "Load/Rename/Duplicate/Export/Delete",
     "pollBefore": "1", "pollAfter": "2",
     # V0.0.39 新增：皮肤 swatch 绑定（网格按 swatch[0] 背景明度亮 → 暗排序）
     #   期望序列由 tools/browser_smoke.py 的 expected_skin_order() 独立复算，
@@ -137,6 +142,8 @@ FAIL_GROUP3 = "主界面·工具栏语义分组：按钮各归其组（V0.0.43 �
 FAIL_INSPMODE = "主界面·检视器属性⇄源码：可切换且源码为同源 JSON（V0.0.43 · H）"
 FAIL_BATCHGEST = "主界面·多选手势与批量条（Ctrl/Shift/Esc/Ctrl+A）（V0.0.43 · F）"
 FAIL_BATCHDEL = "主界面·批量删除只作用于最外层祖先（V0.0.43 · F）"
+# V0.0.51@r11：模板行 ⋮ 常驻入口的判定名（⋮ 由 JS 动态创建 ⇒ 7aj⑤ 的静态扫描扫不到）
+FAIL_TPLMORE = "主界面·模板行 ⋮ 常驻入口（V0.0.51@r11）"
 
 
 def run_metrics(metrics: dict, expected_version: str = VERSION,
@@ -252,7 +259,9 @@ class VerifyMetricsTests(unittest.TestCase):
     def test_normal_all_pass(self):
         results = run_metrics(NORMAL)
         self.assertEqual(failed_names(results), [], "正常指标不应有任何失败项")
-        self.assertEqual(len(results), 28, "verify_metrics 应产生 28 项判定（24 + V0.0.43 的 G/H/F 四条）")
+        self.assertEqual(len(results), 29,
+                         "verify_metrics 应产生 29 项判定"
+                         "（24 + V0.0.43 的 G/H/F 四条 + V0.0.51@r11 的 ⋮ 一条）")
 
     def test_p1_1_regression_fails_exactly_section_idempotence(self):
         """P1-1 回归：帮助页切语言累积分节（7 → 14 → 21）→ 恰好那项 FAIL。"""
@@ -526,6 +535,32 @@ class VerifyMetricsTests(unittest.TestCase):
         """
         for key in ("softShadow", "softRef"):
             self.assertIn(key, NORMAL, f"基线缺少 V0.0.45 指标 {key}")
+
+    def test_v0051r11_more_entry_missing_fails_exactly(self):
+        """V0.0.51@r11：模板行 ⋮ 缺失 → 恰好那项 FAIL。
+
+        这是 7aj⑤b 的**运行期**对照 —— 静态判据管「源码里有没有」，它管「点了有没有用」。
+        """
+        metrics = dict(NORMAL, tplMoreThere="0")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_TPLMORE])
+
+    def test_v0051r11_more_menu_rewired_fails_exactly(self):
+        """V0.0.51@r11：⋮ 绕开同一菜单（点开后项数不是 5）→ 恰好那项 FAIL。
+
+        「复用同一菜单、不另造一套」是本批采纳「丙-1」的核心不变量；静态侧由
+        `ctxMenu.showAt` 恰 1 处把关（verify 7aj⑤b），运行期由本条把关。
+        """
+        metrics = dict(NORMAL, tplMoreN="3")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_TPLMORE])
+
+    def test_v0051r11_probe_metrics_present(self):
+        """V0.0.51@r11：探针须真的写出 3 个 ⋮ 指标键（否则判定读到空值会**静默 FAIL**）。
+
+        与 `verify.py` 的 7aj⑤b 静态判据互补：那里保证「产出方源码里有标记与接线」，
+        这里保证「基线把这 3 个运行时量都当成了判定输入」—— 少一个就是判据缺口。
+        """
+        for key in ("tplMoreThere", "tplMoreN", "tplMoreMenu"):
+            self.assertIn(key, NORMAL, f"基线缺少 V0.0.51@r11 指标 {key}")
 
 
 class FirstIntTests(unittest.TestCase):

@@ -186,6 +186,9 @@ export const dict = {
   'template.refreshTip': '重新读取模板列表',
 
   /* 模板右键菜单 + 导入导出（V0.0.38 · 6E） */
+  /* V0.0.51@r11：模板行 ⋮ 常驻入口的可访问名 + tooltip（动作清单与右键**完全同源**） */
+  'template.more': '更多操作',
+  'template.moreTip': '载入 / 重命名 / 复制 / 导出 / 删除',
   'template.load': '载入',
   'template.duplicate': '复制为副本',
   'template.duplicatePrompt': '为新模板命名（副本）',

@@ -193,10 +193,27 @@
 .bak-size { color: var(--qm-text-dim); font-size: var(--qm-fs-xs); }
 .bak-empty { color: var(--qm-text-dim); font-size: var(--qm-fs-md); padding: 4px 0; }
 
-/* 模板行（V0.0.11）。V0.0.38 · 6E 起操作全部收进**右键菜单**（载入 / 重命名 /
-   复制 / 导出 / 删除），行内不再有常驻按钮 —— 故 .tpl-ops / .tpl-op 那套样式已移除。 */
+/* 模板行（V0.0.11）。V0.0.38 · 6E 把操作收进**右键菜单**（载入 / 重命名 / 复制 / 导出 /
+   删除）并移除行内**文字**按钮（`.tpl-ops` / `.tpl-op`，该套样式随之删除）；V0.0.51@r11
+   又补回**一颗 ⋮** 作常驻入口 —— 但它**不承载任何动作**，只负责把**同一个**右键菜单开在
+   同一位置（动作与右键完全同源，见 `modules/templates.js` 的 `openTemplateContextMenu`）。
+   故本节只写它的**占位与显隐**；外观复位仍归 `soft.css` 的 `html .tpl-row .tpl-more` 一节。 */
 .tpl-row { position: relative; display: flex; align-items: stretch; }
 .tpl-row .tpl-item { flex: 1 1 auto; }
+/* ⋮：`flex: 0 0 auto` 保证它不参与伸缩、不挤压行文字；平时半透明常驻，hover / 键盘聚焦全亮。
+   半透明常驻的出处是设计稿 `prototype.html` 的 `.tpl-more { opacity: .45 }` 一节。
+   ⚠ 点亮条件只用**真实可达态**（`:hover` / `:focus-within` / `:focus-visible`）——
+   不要写成 `.tpl-row.is-active`：该组合类在 `src/web/js` 里**零消费者**，产品中根本不存在
+   「模板行选中态」，照抄它等于再添一条死码（此坑由本批勘察实测：`is-active` / `is-checked`
+   在全 `src/web/js` 命中 0，仅 `soft.css` 与历史样张里有）。 */
+.tpl-row .tpl-more {
+  flex: 0 0 auto; align-self: center;
+  opacity: .45; transition: opacity .12s ease;
+}
+.tpl-row:hover .tpl-more,
+.tpl-row:focus-within .tpl-more,
+.tpl-more:focus-visible { opacity: 1; }
+.tpl-more:hover { color: var(--qm-accent-ink); }
 
 /* 中栏 */
 #center { background: var(--qm-surface); padding: 0; overflow: hidden; }

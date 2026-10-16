@@ -194,13 +194,37 @@ async function loadTemplateList({ force = true } = {}) {
     btn.append(name, meta);
     btn.addEventListener('click', () => applyTemplate(item));
 
+    // V0.0.51@r11：行尾**常驻 ⋮**（恢复可发现性）。两条硬约束：
+    //   ① **动作来源仍唯一** —— 点击只是把 `openTemplateContextMenu` 以按钮坐标为锚再调一次，
+    //      **不另造菜单、不复制菜单项**；与右键共用同一个 `ctx-menu` 与同一份定位夹取。
+    //      （设计稿 `prototype.html`「行尾 ⋮：打开既有 #ctxMenu …… 不另造一套」即此意。）
+    //   ② **样式零新增** —— `.tpl-more` 的复位规则 `soft.css` 早已写好，此前因无消费者
+    //      沦为死码；本按钮即其**唯一消费者**，故它是「复活」而非「新写」。基础态（占位 /
+    //      半透明常驻 / 点亮）在 `layout.css` 的 `.tpl-row` 节。
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'btn btn-ghost btn-mini btn-ic tpl-more';
+    more.title = t('template.moreTip');
+    more.setAttribute('aria-label', t('template.more'));
+    more.setAttribute('aria-haspopup', 'true');
+    const moreIc = document.createElement('span');
+    moreIc.className = 'ic ic-more';
+    moreIc.setAttribute('aria-hidden', 'true');
+    more.append(moreIc);
+    more.addEventListener('click', () => {
+      // 锚在按钮下沿左缘（视口坐标，同 `contextmenu` 的 clientX/Y 口径）——
+      // 贴底时由 `ctx-menu` 自行向上翻转，此处不重复做边界判断。
+      const box = more.getBoundingClientRect();
+      openTemplateContextMenu(item, box.left, box.bottom);
+    });
+
     // V0.0.38 · 6E：改名 / 删除等操作**收进右键菜单**（去常驻按钮），与目录树共用 `ctx-menu`
     li.addEventListener('contextmenu', (event) => {
       event.preventDefault();
       openTemplateContextMenu(item, event.clientX, event.clientY);
     });
 
-    li.append(btn);
+    li.append(btn, more);
     host.appendChild(li);
   }
 }

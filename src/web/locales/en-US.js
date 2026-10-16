@@ -171,6 +171,9 @@ export const dict = {
   'template.refreshTip': 'Reload the template list',
 
   /* Template context menu, import & export (V0.0.38 / 6E) */
+  /* V0.0.51@r11: accessible name + tooltip for the per-row ⋮ entry (same action list as the menu) */
+  'template.more': 'More actions',
+  'template.moreTip': 'Load / Rename / Duplicate / Export / Delete',
   'template.load': 'Load',
   'template.duplicate': 'Duplicate',
   'template.duplicatePrompt': 'Name for the duplicated template',
