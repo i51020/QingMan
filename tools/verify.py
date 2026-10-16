@@ -2671,12 +2671,14 @@ def main() -> int:
     # 7aj. 图标系统契约（2026-10-15 · UI 图标设计约定检查 · §P0-3 L8）。
     #      背景：项目「图标」概念盘上有 **4 条并行实现路径**，而 §P0-3 L8 原只覆盖
     #      「SVG 资源」两支，且**无任何机器判据**：
-    #        A 形状内联 data-URI（`base.css` 的 `.ic-*`，声明局部 `--m`）—— 7 个
+    #        A 形状内联 data-URI（`base.css` 的 `.ic-*`，声明局部 `--m`）—— 23 个
     #        B 形状存 `tokens.css` 变量（`--qm-select-arrow-mask`）—— 1 个
     #        C 形状指向文件（`.brand-logo` → `assets/logo.svg`）—— 1 个
-    #        D **文字字形**（`.caret` U+25BE / `.tree-icon` U+1F4C1·U+1F4C4）—— 2 处，
+    #        D **文字字形**（`.caret` U+25BE，服务 chip 的下三角）—— **1 处**（V0.0.52 后），
     #          此前**无任何成文记载**。V0.0.51@r9：`#genCaret`（U+25BC·U+25B6）随生成参数区
-    #          折叠撤销而退场，白名单由 5 个字符缩为 3 个 —— 白名单只许缩小、不许长大。
+    #          折叠撤销而退场（白名单 5 个字符 → 3 个）；V0.0.52：`.tree-icon` 的
+    #          📁 / 📄（U+1F4C1·U+1F4C4）归一为 `.ic-folder` / `.ic-file` mask
+    #          （白名单 3 个字符 → 1 个）。**本条只许缩小、不许长大。**
     #      且 `base.css` 头注释断言「图标**全部**为 currentColor SVG mask」—— 对 B / C
     #      的着色描述已不准（B 取 `--qm-text-dim`、C 取 `--qm-accent-ink`），对 D 直接为假。
     #      判据只锚**声明形态**、不锚裸字面量（§三.69 / §三.71：本仓库注释习惯逐字复述
@@ -2684,18 +2686,20 @@ def main() -> int:
     ic_bad: list[str] = []
     # 图标册（形状类）—— base.css 定义域 / 本元组 / §P0-3 L8 规则行，**三方一致**（同 7ai）。
     # V0.0.50 · I 组：工作区按钮由文字改为纯线性图标，形状表按设计稿补齐 → 7 → 21。
+    # V0.0.52：树行图标归一，补 `.ic-folder` / `.ic-file` → 21 → **23**。
     # 设计稿另备 ic-checkbox / ic-export / ic-load，本项目无对应控件，**故意不引入**
     # （引入即「定义了但无人使用」，本段 ① 会立刻报出来）。
     ICON_SHAPES = ("ic-globe", "ic-heart", "ic-help", "ic-gear",
                    "ic-close", "ic-check", "ic-more",
-                   "ic-folder-plus", "ic-folder-open", "ic-refresh",
+                   "ic-folder", "ic-folder-plus", "ic-folder-open", "ic-file", "ic-refresh",
                    "ic-undo", "ic-redo", "ic-node-plus", "ic-pencil", "ic-trash",
                    "ic-expand-all", "ic-collapse-all", "ic-copy",
                    "ic-import", "ic-save", "ic-spark")
     # 字形图标白名单（**新代码禁止新增** —— 新图标一律走 `.ic` mask；D 类不许再长大）。
-    # V0.0.51@r9：`#genCaret` 的实心下 / 右三角随折叠撤销退场，故本条**只减不增**。
-    GLYPH_ICONS = (chr(0x25BE),                  # 下三角 .caret（#chipBackend 服务 chip）
-                   chr(0x1F4C1), chr(0x1F4C4))   # 文件夹 / 文件 .tree-icon（tree-view.js）
+    # V0.0.51@r9：`#genCaret` 的实心下 / 右三角随折叠撤销退场。
+    # V0.0.52：`.tree-icon` 的 📁 / 📄 归一为 `.ic-folder` / `.ic-file` mask ⇒ **再减 2 个**。
+    # 现仅剩服务 chip 的下三角 —— 本条只减不增，若将来连它也 mask 化，本元组应为空。
+    GLYPH_ICONS = (chr(0x25BE),)                 # 下三角 .caret（#chipBackend 服务 chip）
     # 顶栏操作区图标按钮：除可访问名外**另须** tooltip（《项目手册》§九.2-2 / §十四.1）。
     TOPBAR_ICON_IDS = ("btnLang", "btnSkin", "btnSupport", "btnHelp", "btnMore")
 
@@ -2808,6 +2812,11 @@ def main() -> int:
     for _g in re.findall(r"const CARET_(?:OPEN|CLOSED)\s*=\s*'([^']*)'",
                          _read("src/web/js/main.js")):
         ic_glyphs.append(_de_u(_g))
+    # ⚠ V0.0.52：树行图标已由 emoji 归一为 `.ic` mask ⇒ 下式**当前恒无命中**。
+    #   但它**刻意保留**：「谁把 emoji 写回来」正是本条唯一的看守对象。下式在，
+    #   则 `icon.textContent = dir ? '📁' : '📄'` 一写回，字形集合立刻多出两个未登记
+    #   字符，本段当场 FAIL；下式删掉，emoji 回流便无人看守 —— 等于把刚做完的归一
+    #   重新交还给纪律（同 §三.86：把「已移除」写成史实之前，先确认看守还在不在）。
     for _a, _b in re.findall(r"textContent\s*=\s*dir\s*\?\s*'([^']*)'\s*:\s*'([^']*)'",
                              _read("src/web/js/ui/tree-view.js")):
         ic_glyphs.append(_de_u(_a))
@@ -2821,6 +2830,13 @@ def main() -> int:
             ic_bad.append(f"白名单字形 U+{ord(_g):04X} 已不在源码中（白名单须同步）")
 
     # ⑦ 图标册三方一致：base.css 形状类 == 本元组 == §P0-3 L8 规则行（标「图标册」者）。
+    # ⚠ 抽取口径：该行里**反引号包裹**的 `ic-*` 才算册内条目 ⇒ 该行的**权威枚举只能有一处**，
+    #   沿革 / 修订注记里提到的形状名**一律不加反引号**（本行原本就这么处置设计稿那三枚
+    #   备选名，并写明理由）。V0.0.52 本批**实测踩到过**：我在修订注记里又写了一次
+    #   「（补 `ic-folder` / `ic-file`）」，于是把权威枚举里那份的反引号摘掉后，集合仍是 23、
+    #   本项照旧 PASS —— 反向验证 **R4** 当场不命中才暴露「同一个名字在行内出现两次」。
+    #   教训同 7ai 的「退场键被当成仍在用的键」：**收集式判据必须先划定唯一的权威区段**，
+    #   否则判据会被**自己写的沿革文字**喂饱，看起来在把关、实际上永远绿。
     ic_css_shapes = {_s for _s in ic_defined if _s.startswith("ic-") and _s != "ic-sm"}
     if ic_css_shapes != set(ICON_SHAPES):
         ic_bad.append(f"图标册漂移：base.css {sorted(ic_css_shapes)} ≠ 守卫 {sorted(ICON_SHAPES)}")

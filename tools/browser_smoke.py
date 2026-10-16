@@ -265,15 +265,17 @@ frame('./index.html', function (doc) {
       m.skinOrder = order.join(',');
       m.skinCount = order.length;
     }
-    /* C-P3-2 / C-P3-3（V0.0.32）：拖拽落点**预判**「自身 / 自身子孙」+ 高亮不因划子元素闪烁。
+      /* C-P3-2 / C-P3-3（V0.0.32）：拖拽落点**预判**「自身 / 自身子孙」+ 高亮不因划子元素闪烁。
        合成 DragEvent 走**真实监听器**（dataTransfer 用 new DataTransfer()），不做静态断言。
-       目录行用图标码点判定（📁 U+1F4C1）—— 走 codePointAt 而非字面量，
-       避开多层转义（同 §P2-18 把 `\\u4e00` 换成 `CJK` 标识符的教训）。 */
+       目录行判定（V0.0.52 改）：原判「图标字形是 📁」（`textContent.codePointAt(0) ===
+       0x1F4C1`，走码点而非字面量以避开多层转义，同 §P2-18 的教训）—— 树行图标归一为
+       `.ic` mask 后字形已不存在，故改为判「图标是否挂了**目录**的 mask 类」。
+       同一件事的两种问法，后者不再依赖彩色 emoji 的存在。 */
     if (doc && win && typeof win.DragEvent === 'function') {
       var allRows = doc.querySelectorAll('.tree-row');
       var isDirRow = function (r) {
         var ic = r.querySelector('.tree-icon');
-        return !!ic && ic.textContent.codePointAt(0) === 0x1F4C1;
+        return !!ic && ic.classList.contains('ic-folder');
       };
       var rowDepth = function (r) {
         var d = 0, p = r.parentNode;
@@ -372,6 +374,12 @@ frame('./index.html', function (doc) {
       m.tplMoreMenu = labels2.join('/');
       doc.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));   /* 关掉菜单 */
     }
+    /* V0.0.52：树行图标归一 —— 取首行的**类名**与**文字长度**。两个量要一起看：
+       类名证「mask 挂上了」，文字长度 = 0 证「彩色字形真的撤了」。
+       只看类名的话，emoji 与 mask 并存照样判过（旧实现删除不彻底也发现不了）。 */
+    var ticEl = doc ? doc.querySelector('.tree-row .tree-icon') : null;
+    m.treeIconCls = ticEl ? ticEl.className : '';
+    m.treeIconTxtLen = ticEl ? ticEl.textContent.length : -1;
   } catch (e) { m.err1 = String(e && e.message ? e.message : e); }
   /* V0.0.42 · 手册 10.2 节 #12「根文件夹名与第一个目录逻辑重设计」—— 方案 C：
      根节点名**即**「根文件夹名」。走真实用户路径（选中根行 → 工具栏「重命名」），
@@ -1117,6 +1125,15 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
         check(more_ok, "主界面·模板行 ⋮ 常驻入口（V0.0.51@r11）",
               f"入口 {more_there} 个 / 点击后菜单 {more_n} 项：{more_text or '(空)'}"
               + ("" if more_ok else "（⋮ 缺失、未接通，或绕开了同一菜单）" + gate_hint))
+
+        # V0.0.52：树行图标归一 —— 首行图标的类名必须是 mask 形状，**且**文字长度为 0。
+        # 两个条件缺一不可：只查类名，则「emoji 没删干净、只是又挂了个 mask 类」照样过。
+        tic_cls = metrics.get("treeIconCls", "")
+        tic_len = as_int(metrics.get("treeIconTxtLen"), -1)
+        tic_ok = (("ic-folder" in tic_cls) or ("ic-file" in tic_cls)) and tic_len == 0
+        check(tic_ok, "主界面·树行图标走 mask（V0.0.52）",
+              f"首行图标 class=「{tic_cls or '(无)'}」/ 文字长度 {tic_len}"
+              + ("" if tic_ok else "（仍是彩色字形，或没挂 mask 形状类）" + gate_hint))
 
         # V0.0.38 · 6E：轮询**实证** —— 导入一套后等 ≥1 个周期，列表须自动 1 → 2。
         # 只断言「界面没坏」是不够的：轮询被整个摘掉时该断言同样成立。

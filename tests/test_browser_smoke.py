@@ -120,6 +120,11 @@ NORMAL = {
     #   两者天然相等；改 soft 对 #sidebar 的表达式须同步此处。
     "softShadow": "rgba(255, 255, 255, 0.55) -3px -3px 6px 0px, rgba(99, 99, 98, 0.15) 3px 3px 6px 0px, rgba(255, 255, 255, 0.62) 0.5px 0.5px 1px 0px inset",
     "softRef": "rgba(255, 255, 255, 0.55) -3px -3px 6px 0px, rgba(99, 99, 98, 0.15) 3px 3px 6px 0px, rgba(255, 255, 255, 0.62) 0.5px 0.5px 1px 0px inset",
+    # V0.0.52 新增：树行图标归一（emoji 📁/📄 → `.ic` mask）。
+    #   取值是 `tree-view.js` 组装出的**真实类名字符串**（`className` 一个整串 +
+    #   `classList.add` 追加的形状），故基线写全串而非子串匹配。
+    #   treeIconTxtLen = 0 是「彩色字形真的撤了」的证据 —— 与类名互补缺一不可。
+    "treeIconCls": "ic ic-sm tree-icon ic-folder", "treeIconTxtLen": "0",
 }
 
 FAIL = "帮助页·分节渲染幂等"
@@ -144,6 +149,8 @@ FAIL_BATCHGEST = "主界面·多选手势与批量条（Ctrl/Shift/Esc/Ctrl+A）
 FAIL_BATCHDEL = "主界面·批量删除只作用于最外层祖先（V0.0.43 · F）"
 # V0.0.51@r11：模板行 ⋮ 常驻入口的判定名（⋮ 由 JS 动态创建 ⇒ 7aj⑤ 的静态扫描扫不到）
 FAIL_TPLMORE = "主界面·模板行 ⋮ 常驻入口（V0.0.51@r11）"
+# V0.0.52：树行图标由 emoji 归一为 `.ic` mask 的判定名
+FAIL_TREEICON = "主界面·树行图标走 mask（V0.0.52）"
 
 
 def run_metrics(metrics: dict, expected_version: str = VERSION,
@@ -259,8 +266,8 @@ class VerifyMetricsTests(unittest.TestCase):
     def test_normal_all_pass(self):
         results = run_metrics(NORMAL)
         self.assertEqual(failed_names(results), [], "正常指标不应有任何失败项")
-        self.assertEqual(len(results), 29,
-                         "verify_metrics 应产生 29 项判定"
+        self.assertEqual(len(results), 30,
+                         "verify_metrics 应产生 30 项判定"
                          "（24 + V0.0.43 的 G/H/F 四条 + V0.0.51@r11 的 ⋮ 一条）")
 
     def test_p1_1_regression_fails_exactly_section_idempotence(self):
@@ -561,6 +568,32 @@ class VerifyMetricsTests(unittest.TestCase):
         """
         for key in ("tplMoreThere", "tplMoreN", "tplMoreMenu"):
             self.assertIn(key, NORMAL, f"基线缺少 V0.0.51@r11 指标 {key}")
+
+
+class TreeIconMaskTests(unittest.TestCase):
+    """V0.0.52：树行图标归一（emoji → `.ic` mask）的判定必须**两个条件都查**。
+
+    只查类名 → 「字形没删干净、只是又挂了个 mask 类」照样判过（旧实现删除不彻底）；
+    只查文字长度 → 「把 emoji 换成了一串空白」也判过。两条各来一个反例。
+    """
+
+    def test_baseline_ok(self):
+        self.assertEqual(failed_names(run_metrics(NORMAL)), [])
+
+    def test_flags_missing_mask_class(self):
+        """类名没挂形状（或仍是旧的裸 `tree-icon`）→ 恰该项 FAIL。"""
+        metrics = dict(NORMAL, treeIconCls="tree-icon")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_TREEICON])
+
+    def test_flags_leftover_glyph(self):
+        """mask 类挂上了、但彩色字形**没删干净** → 仍须 FAIL（类名查不出这一条）。"""
+        metrics = dict(NORMAL, treeIconTxtLen="1")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_TREEICON])
+
+    def test_v0052_probe_metrics_present(self):
+        """探针须真的写出这 2 个指标键，否则判定读到空值会**静默 FAIL**（判据缺口）。"""
+        for key in ("treeIconCls", "treeIconTxtLen"):
+            self.assertIn(key, NORMAL, f"基线缺少 V0.0.52 指标 {key}")
 
 
 class FirstIntTests(unittest.TestCase):

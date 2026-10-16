@@ -340,7 +340,15 @@
   flex: 0 0 auto;
 }
 .tree-toggle.is-leaf { visibility: hidden; }
-.tree-icon { flex: 0 0 auto; font-size: var(--qm-fs-md); }
+/* 树行图标（V0.0.52）：由 emoji（📁 / 📄）归一为 `.ic` mask。
+   旧实现靠 `font-size: var(--qm-fs-md)` 撑起一个**彩色字形** —— emoji 不吃 `color`，
+   于是换肤时树行图标**不随配色**（这正是 §P0-3 L8 落地行里登记的最后一条 D 类遗留）。
+   改 mask 后由 `.ic` 基类的 `background-color: currentColor` 着色，16 款皮肤自动跟随。
+   尺寸走**既有**的尺寸修饰符 `.ic-sm`（14px），不新造尺寸词汇；形状名（`ic-folder` /
+   `ic-file`）由 `tree-view.js` 按节点类型挂上，本文件只管占位与不参与伸缩。
+   本规则原有的 `font-size` 一并删掉 —— 留着即是**无消费者的死码**（同 V0.0.51@r11 的
+   `.tpl-more` 教训：先写样式、后找消费者，正是「先写后删」那种半成品）。 */
+.tree-icon { flex: 0 0 auto; }
 .tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* V0.0.42：根节点空名占位（「（不建根）」）—— 弱化显示，与真实节点名区分 */
 .tree-name.is-placeholder { color: var(--qm-text-dim); font-style: italic; }

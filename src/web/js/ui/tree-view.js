@@ -94,8 +94,18 @@ export function createTreeView(container, { onSelect, onMove, onContext, onFold 
     row.appendChild(toggle);
 
     const icon = document.createElement('span');
-    icon.className = 'tree-icon';
-    icon.textContent = dir ? '\uD83D\uDCC1' : '\uD83D\uDCC4';
+    /* V0.0.52：树行图标由 emoji（📁 / 📄）归一为 `.ic` mask —— 与全项目图标同一套
+       （§P0-3 L8）。emoji 是**彩色字形**、不吃 `color`，换肤时树行图标不随配色；
+       mask 走 `.ic` 基类的 `background-color: currentColor`，16 款皮肤自动跟随。
+       尺寸用**既有**修饰符 `.ic-sm`（14px），不新造尺寸词汇。
+       ⚠ 两个形状名**各写成一条独立字面量**，不要合并为三元表达式：
+         `verify` 7aj ① 是从「类名声明形态」的**字面量**里抽「定义 ↔ 使用」配对的，
+         写成 `classList.add(dir ? 'ic-folder' : 'ic-file')` 会让两枚形状都抽不到，
+         于是当场误报「base.css 定义了 .ic-folder 但无人使用」（本批预防性记此坑）。 */
+    icon.className = 'ic ic-sm tree-icon';
+    if (dir) icon.classList.add('ic-folder');
+    else icon.classList.add('ic-file');
+    icon.setAttribute('aria-hidden', 'true');
     row.appendChild(icon);
 
     const name = document.createElement('span');

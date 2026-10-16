@@ -254,12 +254,20 @@ input[type="text"]:focus { outline: 2px solid var(--qm-accent-soft); border-colo
 /* V0.0.50 · I 组「按钮图标化」：形状表逐字节复刻设计稿 `prototype.html` 的图标系统节
    （该处头注释：「v5 新增：随「按钮去文字」一同补齐的线性图标（全部 currentColor mask，
    无一第三方图标字体）」）。本轮新增 14 枚 → 定义域 7 → 21。
+   V0.0.52 再 +2（`.ic-folder` / `.ic-file`，树行图标归一）→ **定义域 23**。
    设计稿另备 ic-checkbox / ic-export / ic-load 三枚，本项目无对应控件（多选靠手势、
    批量条是「复制路径」而非导出 ZIP、模板区无载入按钮），故**不引入** —— 图标契约要求
    定义与使用双向配对，引入即留死形状。占位色 %23000 只参与 mask 形状、不参与着色，
    属 §P0-3 L4 的成文豁免。 */
 .ic-folder-plus { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h3.6l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3Cpath d='M12 11.6v4.2M9.9 13.7h4.2'/%3E%3C/svg%3E"); }
 .ic-folder-open { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h3.6l1.8 2H19a2 2 0 0 1 2 2v1.4H3z'/%3E%3Cpath d='M3 10.4h18l-1.7 6.7a2 2 0 0 1-1.9 1.4H5.6a2 2 0 0 1-1.9-1.4z'/%3E%3C/svg%3E"); }
+
+/* V0.0.52：树行图标由 emoji 归一为 mask —— 补「文件夹 / 文件」两枚形状。
+   笔画参数（viewBox 24 / stroke-width 1.8 / 圆头圆角）与同族 `.ic-folder-plus` /
+   `.ic-folder-open` 完全一致，故同一行里两族图标粗细相同。
+   消费者只有一个：`tree-view.js` 按节点类型给 `.tree-icon` 挂上其一（见该文件注释）。 */
+.ic-folder { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h3.6l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3C/svg%3E"); }
+.ic-file { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3.2h6.6L18 8.6v11.2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5.2a2 2 0 0 1 2-2z'/%3E%3Cpath d='M12.6 3.2v5.4H18'/%3E%3C/svg%3E"); }
 .ic-refresh { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.5 12a8.5 8.5 0 1 1-2.5-6'/%3E%3Cpath d='M20.8 4.2v4.3h-4.3'/%3E%3C/svg%3E"); }
 .ic-undo { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 8.6h9.4a5.4 5.4 0 0 1 0 10.8H8.2'/%3E%3Cpath d='M7.6 5.1 4 8.6l3.6 3.5'/%3E%3C/svg%3E"); }
 .ic-redo { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 8.6h-9.4a5.4 5.4 0 0 0 0 10.8h5.2'/%3E%3Cpath d='M16.4 5.1 20 8.6l-3.6 3.5'/%3E%3C/svg%3E"); }
