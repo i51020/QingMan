@@ -96,6 +96,11 @@ var out = document.getElementById('out');
 console.log('[qm-smoke] probe-boot');   /* 正面控制：证明控制台日志通道确实在投递（§P2-13） */
 var m = {};
 var CJK = /[\\u4e00-\\u9fff]/;
+/* 门禁判据与断言判据**只写一处**。二者曾各写一份：门禁数 `#templateList li`（宽）、
+   断言数 `li.tpl-row`（窄）—— 而 templates.js 的 renderTemplateState() 会先渲染
+   `<li class="tpl-empty">` 占位行，宽判据**当场开门**、窄断言随即读到 0 条 → 偶发假红
+   （实测 6 跑 1 红，且同批「轮询 1→2 行」为 PASS，证明是探针跑早、非功能缺陷）。 */
+var TPL_ROW_SEL = '#templateList li.tpl-row';
 
 function names(doc) {
   var list = doc.querySelectorAll('.tree-name');
@@ -113,8 +118,10 @@ function frame(url, probe, done) {
       var doc = f.contentDocument;
       var ok = false;
       try { ok = Boolean(doc) && Boolean(probe(doc)); } catch (e) { ok = false; }
-      if (ok) { return done(doc); }
-      if (n <= 0) { return done(doc); }
+      if (ok) { return done(doc, true); }
+      /* 超时**显式告知未就绪**（ready=false），由调用方记进指标 —— 不再静默继续：
+         「门禁没等到」与「页面真的没渲染」是两回事，混在一起就无法定位。 */
+      if (n <= 0) { return done(doc, false); }
       n -= 1;
       setTimeout(tick, 25);
     }());
@@ -132,14 +139,17 @@ try { localStorage.setItem('qm.skin', 'not-a-real-skin'); } catch (e) {}
 
 frame('./index.html', function (doc) {
   return doc.querySelectorAll('.tree-row').length > 0
-    && doc.querySelectorAll('#templateList li').length > 0;
-}, function (doc) {
+    && doc.querySelectorAll(TPL_ROW_SEL).length > 0;
+}, function (doc, gateReady) {
   try {
     m.htmlLang = doc ? doc.documentElement.lang : '';
     m.idxRows = doc ? doc.querySelectorAll('.tree-row').length : -1;
     m.idxCjk = names(doc).filter(function (s) { return CJK.test(s); }).length;
     m.idxSkin = doc && doc.getElementById('skinLink') ? 1 : 0;
-    m.tplRows = doc ? doc.querySelectorAll('#templateList li.tpl-row').length : -1;
+    m.tplRows = doc ? doc.querySelectorAll(TPL_ROW_SEL).length : -1;
+    /* 门禁是否**真正就绪**：1=等到 li.tpl-row 出现；0=6s 超时后仍无（此时 tplRows=0
+       是「探针没等到」而非「功能缺失」，Python 侧据此在失败说明里点出区别）。 */
+    m.gateReady = gateReady ? 1 : 0;
     /* C-P3-5 / D-P3-2（V0.0.29；V0.0.40 迁移）：偏好已写入**非法**皮肤名 ——
        ① skinLink.href 不得指向该非法名，须回落出厂默认（否则装载失败 → 落裸色）；
        ② 顶栏配色随皮肤变量：下拉（.topbar-select）已退场，改钉图标按钮 #btnLang 的 color
@@ -334,7 +344,7 @@ frame('./index.html', function (doc) {
     /* 6E：模板行右键菜单项齐备 —— 在行上派发 contextmenu，读 #ctxMenu 的按钮数 / 文案。
        走真实监听器（li 上的 contextmenu → openTemplateContextMenu → ctx-menu.showAt），
        不做静态断言。 */
-    var tplFirstRow = doc ? doc.querySelector('#templateList li.tpl-row') : null;
+    var tplFirstRow = doc ? doc.querySelector(TPL_ROW_SEL) : null;
     if (tplFirstRow && win) {
       tplFirstRow.dispatchEvent(new win.MouseEvent('contextmenu', {
         bubbles: true, cancelable: true, clientX: 40, clientY: 40,
@@ -1054,10 +1064,15 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
 
     if expect_templates:
         tpl = as_int(metrics.get("tplRows"))
+        # 门禁超时时 tplRows 必为 0 —— 那是「探针没等到」，不是功能缺失。在失败说明里点出来，
+        # 免得下次把它当成「模板列表真的空了」查错方向（§三.80）。
+        gate_ready = as_int(metrics.get("gateReady"), -1)
+        gate_hint = ("" if gate_ready != 0
+                     else "（门禁超时：6s 内未出现 li.tpl-row —— 探针未就绪，非功能缺陷）")
         # V0.0.37（6D）：交付形态改为「内置仅 P0 + 独立模板包」，故断言由「≥1」收紧为
         # **恰好 1** —— 否则业务模板被放回 templates/ 也照样通过，「工具不带业务模板」失守。
         check(tpl == 1, "主界面·内置模板仅 P0（V0.0.37）",
-              f"模板行 {tpl} 条（应恰好 1；业务模板归 templates-pack/）")
+              f"模板行 {tpl} 条（应恰好 1；业务模板归 templates-pack/）" + gate_hint)
 
         # V0.0.38 · 6E：绑定行骨架 —— 行本身 + 路径文本 + 三个入口按钮（选择/刷新/导入）
         dir_row = as_int(metrics.get("tplDirRow"), -1)
@@ -1075,7 +1090,7 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
         menu_ok = menu_n == 5 and "Export" in menu_text
         check(menu_ok, "主界面·模板行右键菜单项齐备（V0.0.38）",
               f"{menu_n} 项：{menu_text or '(空)'}"
-              + ("" if menu_ok else "（6E 回归：菜单项缺失或未挂到模板行）"))
+              + ("" if menu_ok else "（6E 回归：菜单项缺失或未挂到模板行）" + gate_hint))
 
         # V0.0.38 · 6E：轮询**实证** —— 导入一套后等 ≥1 个周期，列表须自动 1 → 2。
         # 只断言「界面没坏」是不够的：轮询被整个摘掉时该断言同样成立。
@@ -1085,7 +1100,7 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
         check(poll_ok, "主界面·模板列表轮询生效（V0.0.38）",
               f"导入后 {poll_before} → {poll_after} 行（应 1 → 2）"
               + (f"；异常 {metrics.get('pollErr')}" if metrics.get("pollErr") else "")
-              + ("" if poll_ok else "（6E 回归：轮询未生效或未刷新列表）"))
+              + ("" if poll_ok else "（6E 回归：轮询未生效或未刷新列表）" + gate_hint))
 
     sec_before = as_int(metrics.get("secBefore"), 0)
     sec_en = as_int(metrics.get("secEn"), 0)

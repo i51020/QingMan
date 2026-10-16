@@ -77,7 +77,7 @@ QingMan/
 │  └─ README.md         用途与规则说明（占位，使目录保留在 git 跟踪内）
 ├─ templates/           内置模板库：**仅 `P0_空白项目模板.json`**（+ 运行时 `.trash/` 软删除回收区）
 ├─ templates-pack/      独立可分发的**模板包**（16 套业务模板 `.md`(主) + `.json`(等价) +
-│                       `P0_空白项目模板.md` 同源件 + 来源说明 + `pack.manifest.json`）
+│                       来源说明 + `pack.manifest.json`；**不含** P0 —— 全项目只内置一套空模板）
 │                       `QingMan-模板包.zip` 由 `tools/pack_templates.py` 确定性重建，**不入库**
 ├─ tests/               回归测试网（**13 模块**，标准库 unittest，零第三方依赖 —— §P0-2）
 │  ├─ test_dtree_core.py   切分 / 统计 / 文档校验 / check_target(R1–R5) / build_tree(R6–R8)

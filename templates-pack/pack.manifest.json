@@ -1,26 +1,10 @@
 {
-  "count": 17,
-  "digest": "sha256:0a316ff8d19bb6aaa2da72c61a0c0dd64e2eb80ba1825313f17188d3bd635116",
+  "count": 16,
+  "digest": "sha256:c9b4b45f166905ed13fff0d87b8a2ee5eba0e9d0ff58fd5346a0a57c71ea80d0",
   "digestRule": "sha256(utf8(json.dumps(<本清单去掉 digest / zip 两键>, ensure_ascii=False, sort_keys=True, separators=(\",\", \":\"))))",
   "generatedBy": "tools/pack_templates.py",
   "schemaVersion": 1,
   "templates": [
-    {
-      "builtin": true,
-      "description": "项目类 P0 · 空白模板：仅项目级横向职能 14 项目录，专业工作区留空，作为综合项目起点。",
-      "dirs": 14,
-      "files": 1,
-      "json": {
-        "file": "../templates/P0_空白项目模板.json",
-        "sha256": "4bca308be8770879ebd376821aa8bd6c347ca6112ffd0785a95acfa64c924070"
-      },
-      "md": {
-        "file": "P0_空白项目模板.md",
-        "sha256": "74378cbeb55b9abee52b8f4e0c3cdedc9b96b17ce977fbd72b392f7db3d7381c"
-      },
-      "name": "空白项目模板",
-      "stem": "P0_空白项目模板"
-    },
     {
       "builtin": false,
       "description": "项目类 P1 · 实拍短视频：项目级横向职能 + 实拍短视频专业工作区（选题/脚本/拍摄/视觉/剪辑/交付）。",
@@ -279,8 +263,8 @@
     }
   ],
   "totals": {
-    "dirs": 489,
-    "files": 19
+    "dirs": 475,
+    "files": 18
   },
   "zip": {
     "env": {
@@ -288,7 +272,7 @@
       "zlib": "1.3.1.zlib-ng"
     },
     "file": "QingMan-模板包.zip",
-    "members": 34,
-    "sha256": "c44e5746f7cad46d360adfc7f61a00d32c7edfbc50efcf65bd985f1b3c63081f"
+    "members": 33,
+    "sha256": "a00f06e47955084c19cdd6daaf6fe403db7774726122bd2bda3868d6fec99253"
   }
 }

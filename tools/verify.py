@@ -2138,14 +2138,17 @@ def main() -> int:
           f"缺失：{', '.join(fmt_bad)}" if fmt_bad
           else "双格式列表+source / 统一读取分派 / 导入归一+全量校验+格式保持 / 接线 / 错误码 齐备")
 
-    # 7ae. 模板迁移与打包批（V0.0.37，§十.3 E · 6D）
-    #      交付形态从「工具内置 17 套」改为「内置 P0 + 独立可分发包」，四条不变量：
+    # 7ae. 模板迁移与打包批（V0.0.37，§十.3 E · 6D；2026-10-16 收窄为「包内 16 套」）
+    #      交付形态：**项目内只有一套空模板**（`templates/P0_空白项目模板.json`，随工具交付），
+    #      16 套业务模板独立成包。五条不变量：
     #      ① **内置层收窄**：`templates/` 只允许内置 P0 —— 业务模板回流必须被抓（否则
     #         「工具不带业务模板」在无人察觉的情况下回退）；
-    #      ② **分发层成形**：`templates-pack/` 内 17 套 `.md` + 16 套 `.json` + 说明 + 清单；
+    #      ② **分发层成形**：`templates-pack/` 内 16 套 `.md` + 16 套 `.json` + 说明 + 清单；
     #      ③ **清单可复算**：`digest` 由本校验**按 digestRule 独立复算**（不调用工具函数 ——
     #         调工具就等于拿工具证明它自己，改坏规则也照样通过）；
-    #      ④ **zip 不入库**：可再生产物必须被 `.gitignore` 收口（否则每次改模板都产生新 blob）。
+    #      ④ **zip 不入库**：可再生产物必须被 `.gitignore` 收口（否则每次改模板都产生新 blob）；
+    #      ⑤ **只有一套空模板**：包内**不得**再收 P0 的同名件（否则导入后列表里会有第二套），
+    #         且清单**不得**有 builtin 项、**不得**有任何引用越出包目录。
     pack_bad: list[str] = []
     tpl_dir = root / "templates"
     tpl_names = sorted(p.name for p in tpl_dir.iterdir()) if tpl_dir.is_dir() else []
@@ -2159,13 +2162,17 @@ def main() -> int:
         pack_names = sorted(p.name for p in pack_dir.iterdir())
         n_md = sum(1 for n in pack_names if n.endswith(".md"))
         n_json = sum(1 for n in pack_names if n.endswith(".json") and n != "pack.manifest.json")
-        if n_md != 18:
-            pack_bad.append(f"包内 .md 应 18（17 套 + 1 说明），实测 {n_md}")
+        if n_md != 17:
+            pack_bad.append(f"包内 .md 应 17（16 套 + 1 说明），实测 {n_md}")
         if n_json != 16:
             pack_bad.append(f"包内 .json 应 16，实测 {n_json}")
-        for rel in ("P0_空白项目模板.md", "模板库来源说明.md", "pack.manifest.json"):
+        for rel in ("模板库来源说明.md", "pack.manifest.json"):
             if rel not in pack_names:
                 pack_bad.append(f"缺 templates-pack/{rel}")
+        # ⑤ 负向：包内不得再收内置空模板的同名件 —— 「项目内只有一套空模板」。
+        for stray in ("P0_空白项目模板.md", "P0_空白项目模板.json"):
+            if stray in pack_names:
+                pack_bad.append(f"包内不得出现内置空模板的同名件：{stray}")
 
     man_path = pack_dir / "pack.manifest.json"
     if not man_path.is_file():
@@ -2184,15 +2191,23 @@ def main() -> int:
             want_digest = "sha256:" + hashlib.sha256(canon).hexdigest()
             if man.get("digest") != want_digest:
                 pack_bad.append("清单 digest 复算失配（规则见清单 digestRule）")
-            if man.get("count") != 17:
-                pack_bad.append(f"清单套数 {man.get('count')} ≠ 17")
-            if (man.get("totals") or {}) != {"dirs": 489, "files": 19}:
-                pack_bad.append("清单合计 ≠ 489 目录 / 19 文件")
+            if man.get("count") != 16:
+                pack_bad.append(f"清单套数 {man.get('count')} ≠ 16")
+            if (man.get("totals") or {}) != {"dirs": 475, "files": 18}:
+                pack_bad.append("清单合计 ≠ 475 目录 / 18 文件")
             if not (man.get("zip") or {}).get("sha256"):
                 pack_bad.append("清单缺 zip.sha256（确定性构建不可复算）")
+            # ⑤ 负向：包内不得再有内置项，且引用不得越出包目录（P0 的 `.json` 曾以
+            #    `../templates/...` 跨目录指向，2026-10-16 已消除）。
             builtin_items = [t for t in (man.get("templates") or []) if t.get("builtin")]
-            if len(builtin_items) != 1 or builtin_items[0].get("stem") != "P0_空白项目模板":
-                pack_bad.append("清单未正确标注唯一内置项（builtin=true 应恰好 1 条 = P0）")
+            if builtin_items:
+                pack_bad.append("清单仍有 builtin=true 项（包内不该再有内置空模板）")
+            for t in man.get("templates") or []:
+                for key in ("md", "json"):
+                    rel = ((t.get(key) or {}).get("file") or "")
+                    if ".." in rel or "/" in rel:
+                        pack_bad.append(
+                            f"清单条目 {t.get('stem')}.{key} 引用越出包目录：{rel}")
 
     # 另锚工具自身的**退出码契约**：环境类（PackIOError）与内容类必须分码，否则 CI 会把
     # 「模板被改坏」误报成「环境没配好」（2026-10-11 反向验证 N7a 暴露并修复）。
@@ -2225,7 +2240,7 @@ def main() -> int:
 
     check(not pack_bad, "模板迁移与打包批 V0.0.37",
           f"缺失：{', '.join(pack_bad)}" if pack_bad
-          else "内置仅 P0 / 包 17 套 .md+16 .json / 清单 digest 独立复算一致 / zip 收口 齐备")
+          else "内置仅 P0 一套 / 包 16 套 .md+16 .json（引用全在包内）/ 清单 digest 独立复算一致 / zip 收口 齐备")
 
     # 7af. 模板前端批（V0.0.38，§十.3 6E）——「绑定 UI / 轮询 / 右键菜单 / 导入导出」四件事。
     #      本段守的是**接线**（后端能力另有单测与 smoke），因为 6E 的性质恰恰是「后端早就

@@ -1,11 +1,16 @@
 """青蔓 QingMan · 模板包校验与打包（§十.3 E 分发层 · 批 6D）。
 
-把「`templates-pack/` 的 16 套业务模板 + 内置 `templates/P0_空白项目模板.json`」固化为
-**可复算**的分发包：逐套校验 → 反向解析 `.md` 与原 `.json` **逐节点等价** → 写
-`pack.manifest.json`（含逐套 sha256 与整份清单 digest）→ 确定性构建 `QingMan-模板包.zip`。
+把 `templates-pack/` 的 **16 套业务模板**固化为**可复算**的分发包：逐套校验 →
+反向解析 `.md` 与原 `.json` **逐节点等价** → 写 `pack.manifest.json`（含逐套 sha256
+与整份清单 digest）→ 确定性构建 `QingMan-模板包.zip`。
 
 用法：
     python tools/pack_templates.py [--check] [--zip PATH] [--pack-dir DIR] [--templates-dir DIR]
+
+**三种模式**（2026-10-16 裁定：把「打包到别处」与「改仓内清单」解耦，见《错误笔记》§三.79）：
+  * 默认（不带 `--zip`）：校验 → **写清单** → 打 zip 到 `<包目录>/QingMan-模板包.zip`；
+  * `--zip PATH`：校验 → **只产 zip 到 PATH**，**不触碰**仓内清单（清单只由默认模式刷新）；
+  * `--check`：只校验，不写盘。
 
 退出码：0 通过；1 环境 / IO 错误（包目录或内置件缺失，抛 `PackIOError`）；
         2 内容校验不通过（等价性 / 规范渲染 / 孤儿 `.md` / 缺同名件 / 清单不一致）。
@@ -16,8 +21,10 @@
 
 约定：
   * `.md` 为**主分发格式**（AI / Agent / Skill 直读），`.json` 为等价副本。
-  * `P0_空白项目模板.md` 与内置 `templates/P0_空白项目模板.json` **同源**；该 `.json`
-    **不在本包内**（它是工具唯一内置模板，随工具交付）。
+  * **项目内只有一套空模板**：`templates/P0_空白项目模板.json` 是工具唯一内置空模板，随
+    工具交付；本包**只放 16 套业务模板**，**不得**再收它的同名件（2026-10-16 裁定：原
+    `P0_空白项目模板.md` 同源件已移出）。包内引用自此**全部落在包目录内**，不再跨目录
+    指向 `../templates/`。`--templates-dir` 因此不产出任何条目，只作该约束的**负向守卫**。
   * 清单**入版本库**（纯文本、可 diff、digest 可复算）；`*.zip` **不入库** —— 它是
     可由包目录恒定推导的**可再生产物**（`.gitignore` 收口，§P1-4 / §P1-7 R3 同理）。
   * **确定性**：zip 条目时间戳固定 + 名字典序 + 固定压缩参数 → 同一份源连跑两次
@@ -115,31 +122,36 @@ def _rel_to(path: Path, base: Path) -> str:
 
 
 def discover(pack_dir: Path, templates_dir: Path) -> List[Dict[str, Any]]:
-    """盘点 17 套模板：内置 P0（`.json` 在 `templates_dir`）+ 16 套（`pack_dir` 内成对）。
+    """盘点**包内 16 套业务模板**（`pack_dir` 内 `.md` / `.json` 成对）。
 
     每套记为 `{stem, json_path, md_path, json_rel, md_rel}`；按 stem 升序。
+
+    `templates_dir` **不产出条目**，只作两条**负向守卫**，把「项目内只有一套空模板」
+    变成机器可判的事实（2026-10-16 裁定）：
+      ① 内置层有且仅有那**一套**空模板 —— 业务模板回流到 `templates/` 即报错；
+      ② 包内**不得**出现该空模板的同名件 —— 否则导入后列表会多出第二套空模板。
     """
     if not pack_dir.is_dir():
         raise PackIOError(f"找不到模板包目录：{pack_dir}")
     if not templates_dir.is_dir():
         raise PackIOError(f"找不到内置模板目录：{templates_dir}")
 
-    entries: List[Dict[str, Any]] = []
+    # ① 内置件缺失 → 环境类（返回 1，与「内容不通过」分码）。
+    if not (templates_dir / BUILTIN_JSON).is_file():
+        raise PackIOError(f"缺内置空模板：{templates_dir / BUILTIN_JSON}")
+    # ② 内置层**混入了别的件** → 内容类（返回 2）：这是「工具不带业务模板」失守。
+    built_ins = sorted(p.name for p in templates_dir.iterdir() if p.is_file())
+    if built_ins != [BUILTIN_JSON]:
+        raise PackError(f"templates/ 应只留内置空模板 {BUILTIN_JSON}，实测 {built_ins}")
+    # ③ 包内不得再放同一套空模板 —— 「项目内只有一套空模板」的正面判据。
+    builtin_stem = BUILTIN_JSON[:-5]
+    for stray_name in (builtin_stem + ".md", builtin_stem + ".json"):
+        if (pack_dir / stray_name).is_file():
+            raise PackError(
+                f"包内不得再收内置空模板的同名件：{stray_name}"
+                f"（项目内只允许 {templates_dir.name}/{BUILTIN_JSON} 一套空模板）")
 
-    builtin_json = templates_dir / BUILTIN_JSON
-    builtin_md = pack_dir / (BUILTIN_JSON[:-5] + ".md")
-    if not builtin_json.is_file():
-        raise PackIOError(f"缺内置模板：{builtin_json}")
-    if not builtin_md.is_file():
-        raise PackIOError(f"缺内置模板的 .md 同源件：{builtin_md}")
-    entries.append({
-        "stem": BUILTIN_JSON[:-5],
-        "json_path": builtin_json,
-        "md_path": builtin_md,
-        "json_rel": _rel_to(builtin_json, pack_dir),
-        "md_rel": _rel_to(builtin_md, pack_dir),
-        "builtin": True,
-    })
+    entries: List[Dict[str, Any]] = []
 
     for json_path in sorted(pack_dir.glob("*.json")):
         if json_path.name == MANIFEST_NAME:
@@ -351,11 +363,12 @@ def load_manifest(pack_dir: Path) -> Dict[str, Any]:
 
 def main(argv: "List[str] | None" = None) -> int:
     parser = argparse.ArgumentParser(
-        description="校验 templates-pack/（17 套）并生成清单与确定性 zip")
+        description="校验 templates-pack/（16 套）并生成清单与确定性 zip")
     parser.add_argument("--check", action="store_true",
-                        help="只校验：17/17 + md/json 等价 + 清单与盘上一致 + digest/zip 可复算；不写盘")
+                        help="只校验：16/16 + md/json 等价 + 清单与盘上一致 + digest/zip 可复算；不写盘")
     parser.add_argument("--zip", dest="zip_path", default=None,
-                        help=f"zip 落点（默认 <包目录>/{ZIP_NAME}）")
+                        help=f"只产 zip 到该落点（默认 <包目录>/{ZIP_NAME}）；**不写清单**"
+                             "（清单只由默认模式刷新）")
     parser.add_argument("--pack-dir", dest="pack_dir", default=str(DEFAULT_PACK_DIR))
     parser.add_argument("--templates-dir", dest="templates_dir",
                         default=str(DEFAULT_TEMPLATES_DIR))
@@ -391,18 +404,28 @@ def main(argv: "List[str] | None" = None) -> int:
 
     zip_default = pack_dir / ZIP_NAME
     zip_out = Path(args.zip_path).resolve() if args.zip_path else zip_default
-    zip_field = (zip_out.name if zip_out.parent == pack_dir
-                 else zip_out.as_posix())
     zip_bytes = build_zip_bytes(pack_dir)
-    manifest = finalize_manifest(payload, pack_dir, zip_field, zip_bytes)
+    # 清单 `zip.file` **恒为**仓内规范分发件名 —— 不再随 `--zip` 落点漂移（§三.79）：
+    # 「这次打到哪儿」是一次性诉求，不是包的结构事实，不该写进仓内产物。
+    manifest = finalize_manifest(payload, pack_dir, ZIP_NAME, zip_bytes)
 
     if args.check:
-        return _run_check(pack_dir, manifest, zip_out, zip_bytes)
+        return _run_check(pack_dir, manifest, zip_default, zip_bytes)
+
+    if args.zip_path:
+        # `--zip <路径>` = **只产 zip、不动清单**（2026-10-16 裁定）。诊断 / 实验用它时，
+        # 仓内清单不再被顺带改写 —— 原先那种耦合正是 §三.79 记录的那个坑。
+        _write_atomic(zip_out, zip_bytes)
+        print(f"[打包] {zip_out}  members={manifest['zip']['members']}  "
+              f"sha256={manifest['zip']['sha256']}")
+        print(f"[清单] 未触碰（--zip 只产 zip；要刷新 {MANIFEST_NAME} 请不带 --zip 跑默认模式）")
+        print("[结论] 全部通过")
+        return 0
 
     _write_atomic(pack_dir / MANIFEST_NAME, render_manifest(manifest))
-    _write_atomic(zip_out, zip_bytes)
+    _write_atomic(zip_default, zip_bytes)
     print(f"[清单] {MANIFEST_NAME}  digest={manifest['digest']}")
-    print(f"[打包] {zip_out}  members={manifest['zip']['members']}  "
+    print(f"[打包] {zip_default}  members={manifest['zip']['members']}  "
           f"sha256={manifest['zip']['sha256']}")
     print("[结论] 全部通过")
     return 0

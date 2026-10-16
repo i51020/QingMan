@@ -2,10 +2,16 @@
 
 覆盖 `tools/pack_templates.py` 承担判定职责的**纯函数**与两条核心不变量：
 
-  * **内容保真**：17 套的 `.md` 与 `.json` **逐节点等价**（name / description / tree），
+  * **内容保真**：16 套的 `.md` 与 `.json` **逐节点等价**（name / description / tree），
     且 `.md` 自身是往返不动点 —— 任一单边改动都必须被拒。
   * **可复算**：清单 `digest` 与 zip `sha256` 都能由盘上内容独立复算出来；且 zip 是
     **确定性**的（同一份源连跑两次字节相同，§P1-4 工具幂等）。
+  * **项目内只有一套空模板**（2026-10-16 裁定）：`templates/` 只留内置
+    `P0_空白项目模板.json` 一套；包内**不得**再收它的同名件。这是**负向守卫** ——
+    正向的「包内 16 套」由 `discover()` 直接给出，负向的「不许再有第二套空模板」
+    只有断言才守得住。
+  * **打包与清单解耦**（《错误笔记》§三.79）：`--zip <路径>` **只产 zip**，不触碰仓内
+    清单 —— 否则「打到别处」会把外部路径回写进仓库产物（机器相关的值渗进版本库）。
   * **运行时指纹**（§三.78）：清单 `zip.env` 登记构建时的 `python` / `zlib`，使
     「绝对 `sha256` 只在**同一运行时**内可比」这一前提**可判定**。指纹一致 → 强判
     绝对 `sha256`；不一致 → 降级为自洽断言并**显式声明降级**（不 skip、不静默）。
@@ -64,7 +70,7 @@ def _fixture():
 
 
 class PackLayoutTests(unittest.TestCase):
-    """盘上布局：内置只留 P0；包内 17 套 .md + 16 套 .json。"""
+    """盘上布局：内置只留一套空模板；包内 16 套 `.md` + 16 套 `.json` + 1 说明件。"""
 
     def test_templates_dir_has_only_builtin(self):
         left = sorted(p.name for p in REAL_TPL.iterdir())
@@ -75,27 +81,54 @@ class PackLayoutTests(unittest.TestCase):
         mds = [p.name for p in REAL_PACK.glob("*.md")]
         jsons = [p.name for p in REAL_PACK.glob("*.json")
                  if p.name != pt.MANIFEST_NAME]
-        self.assertEqual(len(mds), 18, f"包内 .md 应为 17 套 + 1 说明，实测 {len(mds)}")
+        self.assertEqual(len(mds), 17, f"包内 .md 应为 16 套 + 1 说明，实测 {len(mds)}")
         self.assertEqual(len(jsons), 16, f"包内 .json 应为 16 套，实测 {len(jsons)}")
 
-    def test_discover_marks_builtin_first(self):
+    def test_discover_is_pack_only(self):
+        """包只盘点自身 16 套，且**不引用包外文件**（2026-10-16 裁定）。"""
         entries = pt.discover(REAL_PACK, REAL_TPL)
-        self.assertEqual(len(entries), 17)
-        self.assertTrue(entries[0]["builtin"])
-        self.assertEqual(entries[0]["stem"], pt.BUILTIN_JSON[:-5])
-        self.assertEqual(entries[0]["json_rel"], "../templates/" + pt.BUILTIN_JSON,
-                         "P0 的 .json 必须指向包外的内置件")
-        self.assertTrue(all(not e["builtin"] for e in entries[1:]))
+        self.assertEqual(len(entries), 16)
+        self.assertFalse(any(e["builtin"] for e in entries),
+                         "包内不应再有内置项（P0 已移出，见 §三.80）")
+        self.assertNotIn(pt.BUILTIN_JSON[:-5], {e["stem"] for e in entries})
+        for e in entries:
+            for rel in (e["json_rel"], e["md_rel"]):
+                self.assertFalse(rel.startswith("..") or "/" in rel,
+                                 f"{e['stem']} 的引用越出了包目录：{rel}")
+
+    def test_rejects_builtin_template_in_pack(self):
+        """包内出现内置空模板的同名件 → 拒（否则导入后会有第二套空模板）。"""
+        tmp, pack, tpl = _fixture()
+        try:
+            (pack / (pt.BUILTIN_JSON[:-5] + ".md")).write_text(
+                "# 第二套空模板\n- 甲/\n", encoding="utf-8", newline="\n")
+            with self.assertRaises(pt.PackError) as ctx:
+                pt.discover(pack, tpl)
+            self.assertIn("不得再收内置空模板的同名件", str(ctx.exception))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_rejects_business_template_in_builtin_dir(self):
+        """业务模板回流到 templates/ → 拒（「工具不带业务模板」失守）。"""
+        tmp, pack, tpl = _fixture()
+        try:
+            shutil.copy2(REAL_PACK / "S5_文档资料库.json", tpl / "S5_文档资料库.json")
+            with self.assertRaises(pt.PackError) as ctx:
+                pt.discover(pack, tpl)
+            self.assertIn("应只留内置空模板", str(ctx.exception))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
 
 
 class PackEquivalenceTests(unittest.TestCase):
-    """17/17 逐节点等价 + 规模与来源说明自洽。"""
+    """16/16 逐节点等价 + 规模与来源说明自洽。"""
 
     def test_all_entries_pass(self):
         entries = pt.discover(REAL_PACK, REAL_TPL)
         n, dirs, files = pt.validate_pack(entries)
-        self.assertEqual((n, dirs, files), (17, 489, 19),
-                         "17 套 / 489 目录 / 19 文件（与《模板库来源说明》一致）")
+        self.assertEqual((n, dirs, files), (16, 475, 18),
+                         "16 套 / 475 目录 / 18 文件（与《模板库来源说明》一致）")
 
     def test_rejects_md_json_mismatch(self):
         tmp, pack, tpl = _fixture()
@@ -150,7 +183,7 @@ class PackEquivalenceTests(unittest.TestCase):
         entries = pt.discover(REAL_PACK, REAL_TPL)
         stems = {e["stem"] for e in entries}
         self.assertNotIn("模板库来源说明", stems)
-        self.assertEqual(len(entries), 17)
+        self.assertEqual(len(entries), 16)
 
 
 class ManifestTests(unittest.TestCase):
@@ -176,10 +209,10 @@ class ManifestTests(unittest.TestCase):
 
     def test_totals_match_entries(self):
         manifest = pt.load_manifest(REAL_PACK)
-        self.assertEqual(manifest["count"], 17)
-        self.assertEqual(manifest["totals"], {"dirs": 489, "files": 19})
-        self.assertEqual(sum(t["dirs"] for t in manifest["templates"]), 489)
-        self.assertEqual(sum(t["files"] for t in manifest["templates"]), 19)
+        self.assertEqual(manifest["count"], 16)
+        self.assertEqual(manifest["totals"], {"dirs": 475, "files": 18})
+        self.assertEqual(sum(t["dirs"] for t in manifest["templates"]), 475)
+        self.assertEqual(sum(t["files"] for t in manifest["templates"]), 18)
         for item in manifest["templates"]:
             self.assertTrue(item["md"]["sha256"] and item["json"]["sha256"])
 
@@ -194,7 +227,7 @@ class DeterministicZipTests(unittest.TestCase):
 
     def test_members_exclude_manifest_and_zip(self):
         names = [p.name for p in pt.zip_members(REAL_PACK)]
-        self.assertEqual(len(names), 34, f"34 个成员（18 .md + 16 .json），实测 {len(names)}")
+        self.assertEqual(len(names), 33, f"33 个成员（17 .md + 16 .json），实测 {len(names)}")
         self.assertNotIn(pt.MANIFEST_NAME, names)
         self.assertFalse([n for n in names if n.lower().endswith(".zip")])
         self.assertEqual(names, sorted(names), "成员须按名字典序")
@@ -214,8 +247,9 @@ class DeterministicZipTests(unittest.TestCase):
         差异长期隐身的原因。
 
         `zip.file` 另立一条**与运行时不相关**的判据：入库清单只能描述**仓内**那一份
-        zip。`--zip <外部路径>` 会把外部路径回写进清单（§三.79）—— 那属「机器相关的值
-        渗进仓库产物」，与 zlib 是同一族病，故在此拦下。
+        zip。2026-10-16 起它**结构上不可能漂移** —— `--zip <外部路径>` 已改为只产 zip、
+        不写清单（§三.79 裁定的落点），`zip.file` 恒由默认模式写成 `ZIP_NAME`。本断言
+        作为**护栏**保留：日后若有人把回写行为放回来，此断言即红。
         """
         manifest = pt.load_manifest(REAL_PACK)
         zblock = manifest.get("zip") or {}
@@ -230,8 +264,7 @@ class DeterministicZipTests(unittest.TestCase):
         #   按指纹分流把关（那两个分支都成立）。
         self.assertEqual(zblock.get("file"), pt.ZIP_NAME,
                          f"入库清单的 zip.file 须为仓内规范名 {pt.ZIP_NAME!r}；"
-                         f"实测 {zblock.get('file')!r} —— 若刚跑过 `--zip <外部路径>`，"
-                         "该命令会回写清单（§三.79），须用默认模式在 `py -3` 下重建")
+                         f"实测 {zblock.get('file')!r}")
         # 只断言「盘上清单恰好有」不够 —— 那摘掉**登记点**也抓不住（反向验证 N2 实测）。
         # 故直接打构建函数：finalize_manifest 必须负责写入指纹。
         built = pt.finalize_manifest({"count": 0}, REAL_PACK, "x.zip", b"")
@@ -247,7 +280,7 @@ class DeterministicZipTests(unittest.TestCase):
         """
         manifest = pt.load_manifest(REAL_PACK)
         zinfo = manifest["zip"]
-        self.assertEqual(zinfo["members"], 34)
+        self.assertEqual(zinfo["members"], 33)
         if zinfo.get("env") == pt.build_env_fingerprint():
             self.assertEqual(zinfo["sha256"],
                              pt.sha256_bytes(pt.build_zip_bytes(REAL_PACK)),
@@ -429,6 +462,31 @@ class CheckModeTests(unittest.TestCase):
             self.assertNotIn(b"\r", raw, "清单必须是纯 LF（§编码基线）")
             self.assertTrue(raw.endswith(b"\n"))
             json.loads(raw.decode("utf-8"))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_zip_mode_does_not_touch_manifest(self):
+        """`--zip <路径>` 只产 zip，**不得**动仓内清单（2026-10-16 裁定，§三.79）。
+
+        这是本裁定的**正面锁**：把 `--zip` 分支摘掉、退回「写清单 + 写 zip」的老路径，
+        本用例必红 —— 否则它就只是空壳。
+        """
+        tmp, pack, tpl = _fixture()
+        try:
+            self.assertEqual(_quiet(pt.main, ["--pack-dir", str(pack),
+                                              "--templates-dir", str(tpl)]), 0)
+            man = pack / pt.MANIFEST_NAME
+            before = man.read_bytes()
+            out = tmp / "别处" / "包.zip"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            rc = _quiet(pt.main, ["--zip", str(out), "--pack-dir", str(pack),
+                                  "--templates-dir", str(tpl)])
+            self.assertEqual(rc, 0)
+            self.assertEqual(man.read_bytes(), before,
+                             "`--zip` 改写了仓内清单：打包与清单又耦合回去了（§三.79）")
+            self.assertTrue(out.is_file(), "`--zip` 未产出 zip")
+            self.assertEqual(out.read_bytes(), pt.build_zip_bytes(pack),
+                             "落点虽在包外，内容仍须是同一份确定性 zip")
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
