@@ -225,7 +225,7 @@ frame('./index.html', function (doc) {
          探针只报回 'Choose...'，看上去像「title 没被 i18n 填上」，
          于是去查 applyStatic —— 方向完全错。故此处既换分隔符，
          又把残留的 '|' 一律归一化：**传输格式的分隔符不得出现在值里**。 */
-      return (al + (ti ? ' ／ ' + ti : '')).replace(/\|/g, '/');
+      return (al + (ti ? ' ／ ' + ti : '')).replace(/\\|/g, '/');
     };
     var pickBtn = doc ? doc.getElementById('btnPickTarget') : null;
     var pickBtnText = function () { return a11y(pickBtn); };

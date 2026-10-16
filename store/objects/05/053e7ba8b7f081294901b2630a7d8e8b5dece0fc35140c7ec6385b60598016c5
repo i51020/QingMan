@@ -1,0 +1,144 @@
+/* 青蔓 QingMan · 设计变量（唯一色彩与尺寸来源） */
+
+:root {
+  --qm-bg: #eceff4;
+  --qm-surface: #f6f8fb;
+  /* V0.0.47：由 #ffffff 收窄至 #f3f5f8（CIE ΔL* +2.49 → −1.04）。--qm-surface-2 是**填充色**、
+     不承担凸凹语义（凸凹归 soft.css 的 --qm-tap / --qm-tap-in），故与 --qm-surface 的 CIE L*
+     落差须 ≤1.5 且**浅色区制为负**；原值 #ffffff 比面板更亮，方向与 11 款浅色皮肤全相反。
+     取面板同色相降一档（缩放 --qm-surface 而非 #ffffff，以保住冷调）。规则见 css/skins/README.md。 */
+  --qm-surface-2: #f3f5f8;
+  --qm-line: #d5dbe5;
+  --qm-line-soft: #e4e9f0;
+  --qm-text: #1e2732;
+  --qm-text-dim: #5d6a7c;
+  --qm-accent: #2f8f6b;
+  --qm-accent-ink: #1d6d50;
+  --qm-accent-soft: #e2f0e9;
+  /* 强调色背景上的文字色（§P0-3 L4：组件 CSS 不得写裸色值） */
+  --qm-on-accent: #ffffff;
+  /* 主按钮底色（§P2 第 13 项）：--qm-accent 作白字底仅 3.99，未达 AA 4.5；
+     故单列本变量调深一档（同色相、仅降明度）→ 白字对比度 4.82，且**不动品牌主色**——
+     --qm-accent 仍用于描边 / 选中态 / 进度点等「非文本」用途（3:1 门槛下 3.99 已达标）。 */
+  --qm-btn-bg: #2a8060;
+  --qm-btn-bg-hi: #257154;
+  --qm-danger: #b14536;
+  --qm-danger-soft: #f7e6e2;
+  /* §P2 第 13 项：原 #a8721a 在 --qm-surface 上仅 3.88，调深一档 → 4.82 */
+  --qm-warn: #946417;
+
+  /* V0.0.40「青蔓化」：圆角放大（原 6 / 8），与 soft.css 的柔光语言配套 */
+  --qm-r-sm: 12px;
+  --qm-r-md: 20px;
+  --qm-gap: 10px;
+
+  /* ---------- 字号尺度（§P0-3 L4「禁止裸尺寸」的**字号档**；V0.0.51@r10）----------
+     9 档，**逐档对应一个既有取值** —— 本轮只做「字面量 → 变量」搬迁，取值一字未改
+     （零视觉变更，逐处等价）。组件 CSS 一律 `font-size: var(--qm-fs-*)`，由 `verify.py`
+     的「组件 CSS 无裸字号 §P0-3 L4」（7c-1）把关；`tokens.css` 自身豁免（变量定义处）。
+     半档（11.5 / 12.5px）**刻意保留**：它们是既有的「说明文字 / 正文」与「正文 / 小节标题」
+     之分，抹平即改视觉 —— 迁移不等于顺手统一，要统一须单独立项裁定。
+     注意：`--qm-fs-*` 是**字号**，与 `--qm-font`（字体族）不是一事。 */
+  --qm-fs-3xs: 9px;
+  --qm-fs-2xs: 10px;
+  --qm-fs-xs: 11px;
+  --qm-fs-sm: 11.5px;
+  --qm-fs-md: 12px;
+  --qm-fs-lg: 12.5px;
+  --qm-fs-xl: 13px;
+  --qm-fs-2xl: 14px;
+  --qm-fs-3xl: 16px;
+
+  --qm-shadow: 0 1px 2px rgba(30, 39, 50, .07);
+  /* V0.0.45 形态统一：形态表达式**只此一份**，影/边色由变量**动态解析** ——
+     皮肤只提供 --qm-shadow-* / --qm-edge-* 的「颜色」，表达式随变量自动适配明暗，
+     故下方 @media(dark) 段**不再需要**升影 / 内陷的覆写。
+     （15 款皮肤中原本各自复制的同名表达式，实测 15 份**取值完全一致**，已全部剥离。） */
+  --qm-shadow-raise: 4px 4px 9px var(--qm-shadow-dark), -3px -3px 8px var(--qm-shadow-light), inset 1px 1px 1.5px var(--qm-edge-hi), inset -1px -1px 1.5px var(--qm-edge-lo);
+
+  /* 新拟物锐利边缘变量（皮肤文件可覆盖；§P0-3 L4：仅 tokens.css 允许字面量色值） */
+  --qm-edge-hi: rgba(255, 255, 255, .55);
+  --qm-edge-lo: rgba(30, 39, 50, .10);
+  --qm-shadow-dark: rgba(30, 39, 50, .12);
+  --qm-shadow-light: rgba(255, 255, 255, .85);
+  --qm-inset: inset 2px 2px 5px var(--qm-shadow-dark), inset -2px -2px 5px var(--qm-shadow-light), inset .5px .5px 1px var(--qm-edge-lo), inset -.5px -.5px 1px var(--qm-edge-hi);
+  /* 主按钮内高光 / 按下内阴影（D-P2-1：自 base.css 的裸 rgba 上移为变量；值不变 → 零视觉变更）。
+     light / dark 同值：搬迁前 base.css 是**单一字面量**、本就不随主题变化，同值才是等价搬迁。 */
+  --qm-btn-hi: rgba(255, 255, 255, .18);
+  --qm-btn-lo: rgba(0, 0, 0, .25);
+
+  /* ---------- 软光「语法层」变量（V0.0.40 · 并入自设计稿 prototype.html 的 qmSoftSkin）----------
+     本组只定**光源方向与比例**，不写死任何色相：影/光颜色一律引用皮肤变量 ——
+       浅色皮肤 → --qm-shadow-dark 灰 α.15 / --qm-shadow-light 白 α.55
+       深色皮肤 → --qm-shadow-dark 黑 α.62 / --qm-shadow-light 白 α.06
+     早先把影色写死成 rgba(140,140,138) 时，深色皮肤上灰影比底色还亮 → 光影方向整体反转。
+     语法两条：① 两侧镜像对称（光源固定左上）；② 模糊 = 位移 × 2（能量集中 → 窄缝更「实」）。 */
+  --qm-soft-dark: var(--qm-shadow-dark);
+  --qm-raise:     -3px -3px 6px  var(--qm-shadow-light),  3px  3px  6px  var(--qm-shadow-dark);
+  --qm-raise-hi:  -5px -5px 10px var(--qm-shadow-light),  5px  5px 10px  var(--qm-shadow-dark);
+  --qm-sink:      inset  3px  3px 6px var(--qm-shadow-dark), inset -3px -3px 6px var(--qm-shadow-light);
+  --qm-tap:       -2px -2px 4px  var(--qm-shadow-light),  2px  2px  4px  var(--qm-shadow-dark);
+  --qm-tap-hi:    -3px -3px 6px  var(--qm-shadow-light),  3px  3px  6px  var(--qm-shadow-dark);
+  --qm-tap-in:    inset  2px  2px 4px var(--qm-shadow-dark), inset -2px -2px 4px var(--qm-shadow-light);
+  /* 遮罩：纯黑。原是暖灰 rgba(48,46,44,.5)，深色皮肤下会把背景压到与弹窗面同亮度 → 边界消失；
+     改纯黑后浅色皮肤弹窗/背景落差 98 → 131，深色皮肤 −4 → +27（由反转转正向）。 */
+  --qm-scrim: rgba(0, 0, 0, .5);
+
+  /* ---------- 形态语法变量（V0.0.45 · 「变量切换」）----------
+     soft.css 中原本**硬编码**的位移 / 模糊一律收敛到此处，使「形态」只有这一处出口 ——
+     要调整全站立体感（更平 / 更深）只改这里，不必翻组件规则。
+     影色仍引用皮肤变量，故各皮肤仅"配色不同、形态相同"。 */
+  --qm-card-edge:     inset .5px .5px 1px var(--qm-edge-hi);
+  --qm-topbar-shadow: 0 5px 10px var(--qm-soft-dark);
+  --qm-layer-shadow:  0 3px 6px var(--qm-shadow-dark), 0 8px 16px var(--qm-shadow-dark), 0 18px 36px var(--qm-shadow-dark), 0 0 0 1px var(--qm-line);
+  --qm-pop-shadow:    0 3px 6px var(--qm-shadow-dark), 0 10px 20px var(--qm-shadow-dark), 0 0 0 1px var(--qm-line);
+  --qm-qr-shadow:     0 2px 8px var(--qm-soft-dark);
+  --qm-btn-edge:      inset 0 1px 0 var(--qm-edge-hi);
+
+  /* 下拉箭头**遮罩**（D-P3-2）：遮罩本身不带颜色，实际颜色由 base.css 的
+     `.topbar-select::after` 以 `background-color: var(--qm-text-dim)` 上色 ——
+     于是箭头随**皮肤**（皮肤覆盖 --qm-text-dim）与 light/dark 一同变化，
+     不再是一枚烘死在 SVG 里的灰色常客（旧版仅随 light/dark，选深色皮肤时对比度不足）。
+     描边取白色：遮罩无论按 alpha 还是 luminance 解释，白色都表示"完全显示"。 */
+  --qm-select-arrow-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%23fff' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+
+  --qm-font: "Microsoft YaHei UI", "Microsoft YaHei", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --qm-mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --qm-bg: #161a1f;
+    --qm-surface: #1d2229;
+    /* V0.0.47：由 #232a32 收窄至 #1f242b（CIE ΔL* +3.70 → +0.97）。本段是 help / support
+       两页在深色系统下的**直接生效值**（两页无皮肤选择器）；取面板同色相升一档。 */
+    --qm-surface-2: #1f242b;
+    --qm-line: #323a44;
+    --qm-line-soft: #2a313a;
+    --qm-text: #e7ecf2;
+    --qm-text-dim: #9aa7b5;
+    --qm-accent: #4fbf90;
+    --qm-accent-ink: #7dd6b0;
+    --qm-accent-soft: #1f3a31;
+    /* 深色主题下 --qm-accent 本身是浅绿，叠加白字对比度不足，改用深墨绿 */
+    --qm-on-accent: #0f1a16;
+    /* 深色下按钮底色即 --qm-accent（本主题 0 处对比度违规，无需调深） */
+    --qm-btn-bg: #4fbf90;
+    --qm-btn-bg-hi: #5ec499;
+    --qm-danger: #e0776a;
+    --qm-danger-soft: #3a2422;
+    --qm-warn: #d9a45b;
+    --qm-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+
+    --qm-edge-hi: rgba(255, 255, 255, .08);
+    --qm-edge-lo: rgba(0, 0, 0, .35);
+    --qm-shadow-dark: rgba(0, 0, 0, .45);
+    --qm-shadow-light: rgba(255, 255, 255, .03);
+    /* --qm-shadow-raise / --qm-inset 在此**刻意不再覆写**（V0.0.45）：
+       二者已改为引用上面这几个影 / 边色变量，随本段自动切换，无需重复。 */
+    --qm-btn-hi: rgba(255, 255, 255, .18);
+    --qm-btn-lo: rgba(0, 0, 0, .25);
+
+    /* 箭头遮罩无颜色 → 深色主题无需另设一份（颜色由 ::after 的 --qm-text-dim 决定，D-P3-2）。 */
+  }
+}

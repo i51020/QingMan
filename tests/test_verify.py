@@ -61,6 +61,34 @@ class RawColorHitsTests(unittest.TestCase):
             verify.raw_color_hits("color: var(--qm-text); box-shadow: var(--qm-inset);"), [])
 
 
+class RawFontSizeHitsTests(unittest.TestCase):
+    """§P0-3 L4「禁止裸尺寸」的**字号档**：判据须**白名单式** —— 取值必须以 `var(--qm-` 打头。
+
+    只否掉 px 会让 `1rem` / `inherit` 溜过去（"不是 px"≠"走了 token"）。
+    """
+
+    def test_detects_px_literal(self):
+        self.assertIn("font-size:12px", verify.raw_font_size_hits(".a { font-size: 12px; }"))
+
+    def test_detects_non_px_literal(self):
+        self.assertTrue(verify.raw_font_size_hits(".a { font-size: 1rem; }"))
+        self.assertTrue(verify.raw_font_size_hits(".a { font-size: inherit; }"))
+
+    def test_detects_without_trailing_semicolon(self):
+        self.assertTrue(verify.raw_font_size_hits(".a { font-size: 13px }"))
+
+    def test_ignores_token_reference(self):
+        self.assertEqual(
+            verify.raw_font_size_hits(".a { font-size: var(--qm-fs-md); }"), [])
+        self.assertEqual(
+            verify.raw_font_size_hits(".a{font-size:var(--qm-fs-3xl)}"), [])
+
+    def test_ignores_other_size_properties(self):
+        # 本条**只管字号**：间距 / 圆角的裸值不在判据内（已知缺口，见 §P2 第 44 项）
+        self.assertEqual(
+            verify.raw_font_size_hits(".a { padding: 6px 10px; border-radius: 4px; }"), [])
+
+
 class IterManagedNodesTests(unittest.TestCase):
 
     def setUp(self):

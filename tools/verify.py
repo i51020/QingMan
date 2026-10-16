@@ -314,6 +314,10 @@ def strip_comments(text: str, kind: str) -> str:
 # `rgb()/rgba()/hsl()/hsla()` 逃逸（D-P2-1：base.css 的 2 处裸 rgba 即由此漏过）。
 # 按「函数名 + 左括号」判定，与具体数值无关，故不会误伤 `var(--qm-*)`。
 RAW_COLOR_LIKE = re.compile(r"#[0-9a-fA-F]{3,8}\b|(?:rgb|rgba|hsl|hsla)\s*\(", re.I)
+# 裸字号：`font-size` 的取值**未经 `var(--qm-*)`**（§P0-3 L4「禁止裸尺寸」的**字号档**）。
+# 刻意**不**写成「未以 px 结尾即通过」—— `1rem` / `inherit` 同属"不走 token"，不能因为
+# "不是 px"就放过；故判据取**白名单式**：取值必须以 `var(--qm-` 打头。
+RAW_FONT_SIZE_LIKE = re.compile(r"font-size\s*:\s*([^;{}]+)")
 
 
 def raw_color_hits(body: str) -> list[str]:
@@ -323,6 +327,23 @@ def raw_color_hits(body: str) -> list[str]:
     承担判定职责，故提为模块级函数以便单测（§P2 第 19 项裁定）。
     """
     return RAW_COLOR_LIKE.findall(body)
+
+
+def raw_font_size_hits(body: str) -> list[str]:
+    """返回 CSS 文本中出现的**裸字号**声明（取值未经 `var(--qm-*)`）。
+
+    §P0-3 L4：组件 CSS 不得写裸尺寸。字号已收敛为 `tokens.css` 的 `--qm-fs-*` 尺度
+    （V0.0.51@r10），故判据取**白名单式** —— 取值须以 `var(--qm-` 打头；`12px` /
+    `1rem` / `inherit` 一律计入。与 `raw_color_hits` 对称，提为模块级函数以便单测
+    （§P2 第 19 项同款理由）。**本判据只管字号**，其余裸尺寸（间距 / 描边 / 圆角…）
+    尚未 token 化，属已知缺口（§P2 第 44 项），不得据本条反推「L4 已全部落地」。
+    """
+    hits: list[str] = []
+    for m in RAW_FONT_SIZE_LIKE.finditer(body):
+        val = m.group(1).strip()
+        if not val.startswith("var(--qm-"):
+            hits.append(f"font-size:{val}")
+    return hits
 
 
 def check_fingerprint(root: Path, version: str) -> None:
@@ -759,6 +780,21 @@ def main() -> int:
     check(not raw_color, "组件 CSS 无裸色值 §P0-3 L4",
           f"发现 {len(raw_color)} 处：{', '.join(raw_color[:4])}" if raw_color
           else "组件样式全部经 var(--qm-*) 取色")
+
+    # 7c-1. 组件 CSS 只允许 var(--qm-*) 取字号（§P0-3 L4「禁止裸尺寸」的**字号档**）。
+    #       与 7c 同一姿态：`tokens.css` 豁免（尺度定义处）。覆盖面用 rglob（含 skins/）——
+    #       §P0-3 L5 规定皮肤**只供配色 + 影色**，故皮肤里出现字号同样违规（实测 15 款皮肤
+    #       0 处，收紧零假阳性）。**本条只管字号**：其余裸尺寸（间距 / 描边 / 圆角…）尚未
+    #       token 化，属**已知缺口**（§P2 第 44 项）—— 不得据本条反推「L4 已全部落地」。
+    raw_fs: list[str] = []
+    for css in sorted((root / "src/web/css").rglob("*.css")):
+        if css.name == "tokens.css":
+            continue   # 尺度定义处，字号字面量只能写在这里
+        for hit in raw_font_size_hits(strip_comments(css.read_text(encoding="utf-8"), "css")):
+            raw_fs.append(f"{css.name}:{hit}")
+    check(not raw_fs, "组件 CSS 无裸字号 §P0-3 L4",
+          f"发现 {len(raw_fs)} 处：{', '.join(raw_fs[:4])}" if raw_fs
+          else "组件样式字号全部经 var(--qm-fs-*) 取用")
 
     # 7d. 组件 CSS 不得感知皮肤（§P0-3 L5）—— 换肤只靠覆盖变量
     skin_aware = []
