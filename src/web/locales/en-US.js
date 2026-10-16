@@ -110,8 +110,14 @@ export const dict = {
   'skin.15': 'Cream · Sunrise',
   'skin.16': 'Warm Gray · Amber',
 
-  /* ---------- Left: template workspace ---------- */
-  'sidebar.title': 'Template Workspace',
+  /* ---------- Left: template list ---------- */
+  /* V0.0.53: `sidebar.title` ("Template Workspace") is gone -- that label left the main
+     UI together with the center / right column titles (user decision). The column's
+     name is now carried by the "Templates" sub-heading right below.
+     Corrected in the same pass: the three help strings that used the label as a
+     signpost (`help.quickStart.3` / `help.ops.sidebar` / `about.tplDirNote`) now point
+     at a label that really exists (or at the column itself) -- a signpost aimed at a
+     name that is no longer on screen is worse than no signpost. */
   /* V0.0.51@r12: `sidebar.noteLine1` (the line under the panel title) was removed --
      it restated `help.quickStart.3`, and explanatory prose lives on the help page. */
 
@@ -294,8 +300,8 @@ export const dict = {
   'gen.summaryWrite': 'Write',
   'gen.summarySep': ' · ',
 
-  /* ---------- Center: tree workspace ---------- */
-  'tree.title': 'Tree Workspace',
+  /* ---------- Center: directory tree ---------- */
+  /* V0.0.53: `tree.title` ("Tree Workspace") is gone -- same reason as the left column. */
   'tree.canvasLabel': 'Directory tree',
   'tree.addChild': 'New child',
   'tree.rename': 'Rename',
@@ -341,8 +347,10 @@ export const dict = {
   'tree.addMultiBlocked': 'A new child cannot be added while multiple nodes are selected - clear the selection first',
   'tree.renameMultiBlocked': 'Rename is unavailable while multiple nodes are selected - clear the selection first',
 
-  /* ---------- Right: property workspace ---------- */
-  'inspector.title': 'Property Workspace',
+  /* ---------- Right: inspector (properties / source) ---------- */
+  /* V0.0.53: `inspector.title` ("Property Workspace") is gone -- same reason; the
+     properties <-> source segmented control keeps its top-right spot (.insp-head
+     pins it right with justify-content: flex-end). */
   /* V0.0.43 · H group: properties <-> source dual mode */
   'inspector.modeLabel': 'Inspector view',
   'inspector.modeProp': 'Properties',
@@ -456,7 +464,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.52',
+  'help.versionFallback': 'V0.0.53',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',
@@ -470,7 +478,7 @@ export const dict = {
   'about.tplDir': 'Template library folder',
   'about.tplDirBuiltin': ' (built-in)',
   'about.tplDirUnknown': 'Backend not connected -- unavailable',
-  'about.tplDirNote': 'Change the template library folder via the folder icon in the left "Template Workspace"; it takes effect immediately. The built-in folder is used when unbound.',
+  'about.tplDirNote': 'Change the template library folder via the folder icon on the left "Template folder" row; it takes effect immediately. The built-in folder is used when unbound.',
   /* "Documentation" and the version-note line were removed per manual 10.2 #10 (V0.0.41):
      the former is a developer-doc entry (not user-facing), the latter is a design rule
      rather than text meant for users. about.docs / about.docsValue / about.note are gone
@@ -480,16 +488,16 @@ export const dict = {
 
   'help.quickStart.title': 'Quick Start',
   'help.quickStart.1': 'Double-click start.bat in the project root to launch the local server',
-  'help.quickStart.2': 'Browser opens automatically; confirm the top bar shows "Backend connected"',
-  'help.quickStart.3': 'Load a template from the left "Template Workspace", or edit the tree yourself in the center',
+  'help.quickStart.2': 'Browser opens automatically; a status dot in the ready colour at the top right means the service is up (click it for service status and settings)',
+  'help.quickStart.3': 'Load a template from "Templates" in the left column, or edit the tree yourself in the center',
   'help.quickStart.4': 'Fill in the target path and keep "Dry run" checked for a test run',
   'help.quickStart.5': 'When satisfied, uncheck "Dry run" and click "Generate" to write to disk',
 
   'help.ops.title': 'Interface',
-  'help.ops.sidebar': 'Left "Template Workspace" — lists templates in the current library; click to load. "Save as template" beside the heading stores the current tree as a new template (**existing names are never overwritten**). Below is the self-check list',
-  'help.ops.center': 'Center "Tree Workspace" — generation options and toolbar at the top, directory tree below',
+  'help.ops.sidebar': 'Left column — "Templates" lists the templates in the current library; click to load. The two icons beside the heading are "New" and "Import". The "Template folder" row below shows the current library location; its icons rebind and refresh it (effective immediately). To store the current tree as a new template use "Save as template" in the center toolbar: an existing name is not overwritten unless you confirm, and the old template moves to the trash and can be recovered',
+  'help.ops.center': 'Center column — generation options and toolbar at the top, directory tree below',
   'help.ops.genBar': 'The parameter bar is always visible and cannot be collapsed: the summary line above (target · root · dry/write) is a pre-generation check; the target path and "dry run" below stay editable',
-  'help.ops.inspector': 'Right "Property Workspace" — selected node name, type, path, depth and stats; generation result below',
+  'help.ops.inspector': 'Right column — switch between the "Properties / Source" views at the top; shows name, type, path, depth and stats for the selected node, plus the generation result',
 
   'help.tree.title': 'Tree operations',
   'help.tree.1': 'Click a node to select it; the property panel updates',

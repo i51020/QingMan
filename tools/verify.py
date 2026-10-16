@@ -9,6 +9,8 @@
   1. 必需文件存在
   2. HTML 标签闭合、关键 id 存在；**已退场 id 未回流**（`REMOVED_IDS`，V0.0.51@r12；
      与「关键 id 存在」是一对方向相反的清单 —— 只记前者等于只记住一半决定）
+     ⚠ V0.0.53：标签配对数**先剥注释再数** —— 注释里写出被删标签的字面量曾让本项误报
+     （见 7. 之后的「2.」段内注释）。
   3. main.js 中引用的 id 在 index.html 中真实存在
   4. JS 语法（ESM 方式交由 node --check 解析）
   5. CSS 大括号平衡
@@ -26,6 +28,9 @@
      上一条只扫静态 `index.html`，故 JS 造出来的按钮改判产出方源码（补盲区）
  7al. 「历史版本」端点接线（V0.0.51@r9）：后端常量/枚举/恢复（**须复用 `routes.save_editor`**）
      → 分发两处 → 前端封装 → 接线（**须真拉列表**）→ 错误码，七处任一断开即红
+ 7am. 顶栏状态区契约（V0.0.53）：两个状态读数改**纯图标**后的接线 —— 文字形态（`btn-txt`）
+     不得回流 / `#chipBackend` 仍须带状态点与下三角 / `setServiceState` 须写 `aria-label` /
+     `#chipSave` 不得再挂 `data-i18n`（会覆盖图标）/ 旋转须留 reduced-motion 退出口
  7d-9. 皮肤文件**顶层只许 `:root` + `--qm-*` 声明**（§P0-3 L5）：与 7d「组件 CSS 不感知皮肤」
      **方向相反**，两者合起来才是完整的**双向隔离**（`skins/README.md` 契约「皮肤 == 一组变量
      覆盖值，不是一整套组件样式」的机器化；§P2 第 45 项）
@@ -486,6 +491,67 @@ def template_row_more_violations(js: str, layout: str, soft: str) -> list[str]:
     return hits
 
 
+def status_chip_violations(index_html: str, main_js: str, layout_css: str) -> list[str]:
+    """返回「顶栏状态区改成纯图标后」的接线违规项（V0.0.53）。
+
+    背景：文字一旦退场，「状态」就搬进了**图标 / 颜色 / aria-label** 这三样
+    **不会报错**的东西里 —— 被顺手删掉时页面照常渲染，只是信息没了。本函数把
+    「东西还在不在」机器化。五条判据，每条对应一种「改完还能跑、但东西丢了」的失效：
+
+      ① `btn-txt` 不得回流（回流即文字又上屏，与用户裁定相反）
+      ② `#chipBackend` 仍须带 `.dot` 与 `.caret`（文字退场后仅剩的两个可见信号）
+      ③ `setServiceState` 须写 `aria-label`（文字退场后状态唯一的无障碍出口）
+      ④ `#chipSave` 不得再挂 `data-i18n`（applyStatic 会用文本节点覆盖图标）
+      ⑤ 保存中的旋转须留 `prefers-reduced-motion` 退出口
+
+    两侧口径（写单测时踩出来的）：
+      ⚠ ④ 必须锚 `data-i18n="`（**带等号**）。写成裸 `data-i18n` 会同时命中同一标签上
+        合规的 `data-i18n-title=` ⇒ 恒真 —— 与 `template.more` ⊂ `template.moreTip`
+        （V0.0.51@r11）是同一族「子串判据」陷阱。
+      ⚠ 三个入参一律**先剥注释**再判：注释里提一句 `btn-txt` / 写出那段标记的字面量
+        都不算「还在用」（本批实测：一条说明注释就让标签配对数误报，同类坑）。
+    """
+    html = re.sub(r"<!--.*?-->", "", index_html, flags=re.S)
+    js = strip_comments(main_js, "js")
+    css = strip_comments(layout_css, "css")
+    hits: list[str] = []
+
+    if "btn-txt" in html:
+        hits.append("index.html 又出现 btn-txt（服务 chip 的文字形态回流）")
+
+    block = re.search(r'<button[^>]*id="chipBackend"[^>]*>([\s\S]*?)</button>', html)
+    if not block:
+        hits.append("index.html 未找到 #chipBackend 按钮")
+    else:
+        for token, why in (('class="dot"', "状态点"), ('class="caret"', "下三角")):
+            if token not in block.group(1):
+                hits.append(f"#chipBackend 缺{why}（{token}）")
+
+    fn = re.search(r"function setServiceState\([\s\S]*?\n\}", js)
+    if not fn or "aria-label" not in fn.group(0):
+        hits.append("setServiceState 未写 aria-label（状态将失去无障碍出口）")
+
+    tag = re.search(r'<[^>]*id="chipSave"[^>]*>', html)
+    if not tag:
+        hits.append("index.html 未找到 #chipSave")
+    elif 'data-i18n="' in tag.group(0):
+        hits.append('#chipSave 又挂了 data-i18n（applyStatic 会覆盖图标）')
+
+    if ".ic.is-spinning" not in css:
+        hits.append("layout.css 缺 .ic.is-spinning（保存中不再有动效）")
+    elif "prefers-reduced-motion" not in css:
+        # ⚠ 本分支是**写这条守卫的单测时踩出来的洞**：只写下面那句 `split(...)[-1]`，
+        #   在「文件里根本没有 prefers-reduced-motion」时 `split()` 返回**整串** ⇒
+        #   整串里当然有 `.ic.is-spinning` ⇒ 判过。即「退出口缺失」这种最该报的情形
+        #   反而被漏掉。同族教训见 §三.87 一带：**用「切分后取某段」表达「某段里要有
+        #   某物」时，必须先确认切分真的发生过**。
+        hits.append("layout.css 无 prefers-reduced-motion（旋转动画缺退出口）")
+    elif ".ic.is-spinning" not in css.split("prefers-reduced-motion")[-1]:
+        hits.append("旋转动画缺 prefers-reduced-motion 退出口")
+
+    return hits
+
+
 def check_fingerprint(root: Path, version: str) -> None:
     """与 versions/<版本>/ 的**最高修订**清单逐文件比对 SHA-256。
 
@@ -612,11 +678,19 @@ def main() -> int:
     html = html_path.read_text(encoding="utf-8") if html_path.is_file() else ""
 
     # 2. HTML 标签闭合
+    #    ⚠ V0.0.53：计数前**必须先剥掉 HTML 注释**。原判据直接在原文上数尖括号，
+    #    而注释为了说明「删掉了哪个标签」天然会写出该标签的**字面量** ⇒ 一句注释就能
+    #    把配对数数成 `header(2/1)`（本批实测：一条写着 `<header class="center-head">`
+    #    的说明注释，让本项在一片「标签其实是平衡的」盘面上报红）。注释不是标记，
+    #    不该参与**结构**判定。
+    #    只改这一处计数：下面两项 id 判据仍是**文本**比对（`id="x"` 字面查找），
+    #    故意保守不动 —— 「退场 id 未回流」宁可严一点，误报比漏报可接受。
+    html_markup = re.sub(r"<!--.*?-->", "", html, flags=re.S)
     if html:
         unbalanced = []
         for tag in PAIRED_TAGS:
-            opens = len(re.findall(rf"<{tag}[\s>]", html))
-            closes = len(re.findall(rf"</{tag}>", html))
+            opens = len(re.findall(rf"<{tag}[\s>]", html_markup))
+            closes = len(re.findall(rf"</{tag}>", html_markup))
             if opens != closes:
                 unbalanced.append(f"{tag}({opens}/{closes})")
         check(not unbalanced, "HTML 标签闭合", ", ".join(unbalanced) if unbalanced else "全部平衡")
@@ -1668,6 +1742,22 @@ def main() -> int:
     check(not svc_bad, "服务状态三态 V0.0.16",
           f"缺失：{', '.join(svc_bad)}" if svc_bad
           else "左栏清单已移除 / 顶栏三态接线 / 三态取词键齐备")
+
+    # 7am. 顶栏状态区契约（V0.0.53）：两个状态读数都改成**纯图标**之后的接线判据。
+    #      为什么需要它：文字一旦退场，「状态」就搬进了**图标 / 颜色 / aria-label** 三样
+    #      **不会报错**的东西里 —— 它们被顺手删掉时页面照常渲染，只是信息没了。
+    #      五条判据与两侧口径（含「④ 必须锚 `data-i18n=` 带等号、三个入参一律先剥注释」）
+    #      全部写在模块级 `status_chip_violations()` 的 docstring 里 —— 提到模块级
+    #      是为了能被单测锚住（`tests/test_verify.py::StatusChipTests`）。
+    #      ⚠ 这里**不能**用本文件后文的 `_read()` —— 它是 main() 内、7x 段才定义的闭包，
+    #        在本行位置还是未绑定名字（实测：`UnboundLocalError`）。故直接读盘。
+    _lay_file = root / "src/web/css/layout.css"
+    status_bad = status_chip_violations(
+        ihtml, mtext,
+        _lay_file.read_text(encoding="utf-8") if _lay_file.is_file() else "")
+    check(not status_bad, "顶栏状态区契约 V0.0.53",
+          "；".join(status_bad) if status_bad
+          else "文字形态已退场 / 状态点与下三角齐备 / aria-label 有出口 / 图标不与 i18n 抢位 / 动效有退出")
 
     # 7n. note 契约与 .md 边界（V0.0.17：节点说明 + 三粒度复制）
     #     裁定：note 与 .md content 一律**纯文本** —— 工具不解析、不渲染、不校验 Markdown。
@@ -2728,12 +2818,24 @@ def main() -> int:
         if not _p.is_file() or _p.suffix not in (".html", ".js"):
             continue
         _rel = str(_p.relative_to(root)).replace(chr(92), "/")
-        for _lit in _ic_lits(_p.read_text(encoding="utf-8", errors="ignore")):
+        _body = _p.read_text(encoding="utf-8", errors="ignore")
+        for _lit in _ic_lits(_body):
             for _tok in _lit.split():
                 # V0.0.50 修正：同 `ic_defined` —— 单连字符写法漏掉 `ic-expand-all`
                 # 这类双连字符形状，会把「已使用」误判为「定义未使用」。
                 if re.fullmatch(r"ic(?:-[a-z0-9]+)*", _tok):
                     ic_used.setdefault(_tok, set()).add(_rel)
+        # V0.0.53 补：**间接引用**也要算「使用」。保存状态 chip 的图标名不写在
+        # `className = '…'` 里，而是存在 `SAVE_CHIP_ICON` 这张**表**中、由模板串拼出
+        # —— 上面那条只认「类名声明形态」，故表里的名字对守卫**完全隐形**。
+        # 后果不小：名字一写错 ⇒ `--m` 取不到 ⇒ `mask` 整条声明失效 ⇒ 该处渲染成
+        # 一个 14×14 **实心方块**（`.ic` 的 `background-color: currentColor` 仍在）。
+        # 故对 JS 补扫「形如 ic-xxx 的**引号包裹**字面量」，且**先剥注释**
+        # （注释里提一句名字不算使用）。只放宽**「使用」**方向，另一半判据不动。
+        if _p.suffix == ".js":
+            for _tok in re.findall(r"['\"`](ic(?:-[a-z0-9]+)*)['\"`]",
+                                   strip_comments(_body, "js")):
+                ic_used.setdefault(_tok, set()).add(_rel)
     for _miss in sorted(ic_defined - set(ic_used)):
         ic_bad.append(f"base.css 定义了 .{_miss} 但无人使用")
     for _miss in sorted(set(ic_used) - ic_defined):

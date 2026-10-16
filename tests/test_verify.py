@@ -229,6 +229,100 @@ class TemplateRowMoreViolationsTests(unittest.TestCase):
         self.assertTrue(any("调用点" in h for h in hits), hits)
 
 
+class StatusChipTests(unittest.TestCase):
+    """V0.0.53：顶栏状态区「纯图标」后的接线判据 `status_chip_violations()`（守卫 7am）。
+
+    **判据为何存在**：文字退场后，「状态」搬进了**图标 / 颜色 / aria-label** 三样
+    **不会报错**的东西里 —— 被顺手删掉时页面照常渲染，只是信息没了。故逐条钉住五个
+    子判据，防「判据自己悄悄失效」（同 `skin_toplevel_violations` 的做法）。
+
+    ⚠ 其中两条是**陷阱对照**（写实现时先踩过才补的）：
+      `test_accepts_data_i18n_title_only` —— ④ 若把判据写成裸 `data-i18n`，
+      同一标签上合规的 `data-i18n-title=` 会让它**恒真**；
+      `test_ignores_markup_hidden_in_comments` —— 三个入参若不先剥注释，
+      注释里写出那段标记的字面量就会被当成「还在用」。
+    """
+
+    GOOD_HTML = (
+        '<div class="tb-group tb-status">'
+        '<span class="chip chip-ghost" id="chipSave"'
+        ' data-i18n-title="topbar.saveTip"></span>'
+        '<button type="button" class="chip-btn" id="chipBackend"'
+        ' aria-haspopup="dialog" data-i18n-aria-label="topbar.backendTip"'
+        ' data-i18n-title="topbar.backendTip">'
+        '<span class="dot" aria-hidden="true"></span>'
+        '<span class="caret" aria-hidden="true">&#9662;</span>'
+        "</button></div>\n"
+    )
+    GOOD_JS = (
+        "function setServiceState(state) {\n"
+        "  const btn = el('chipBackend');\n"
+        "  if (btn) {\n"
+        "    btn.classList.toggle('is-offline', state === 'offline');\n"
+        "    btn.setAttribute('aria-label', 'x');\n"
+        "  }\n"
+        "}\n"
+    )
+    GOOD_CSS = (
+        "@keyframes qm-spin { to { transform: rotate(360deg); } }\n"
+        ".ic.is-spinning { animation: qm-spin 1s linear infinite; }\n"
+        "@media (prefers-reduced-motion: reduce) {\n"
+        "  .ic.is-spinning { animation: none !important; }\n"
+        "}\n"
+    )
+
+    def _run(self, html=None, js=None, css=None):
+        return verify.status_chip_violations(
+            self.GOOD_HTML if html is None else html,
+            self.GOOD_JS if js is None else js,
+            self.GOOD_CSS if css is None else css)
+
+    def test_accepts_canonical_wiring(self):
+        self.assertEqual(self._run(), [])
+
+    def test_flags_btn_txt_return(self):
+        hits = self._run(html=self.GOOD_HTML.replace(
+            '<span class="dot"', '<span class="btn-txt"></span><span class="dot"'))
+        self.assertTrue(any("btn-txt" in h for h in hits), hits)
+
+    def test_flags_missing_dot(self):
+        hits = self._run(html=self.GOOD_HTML.replace('class="dot"', 'class="nope"'))
+        self.assertTrue(any("状态点" in h for h in hits), hits)
+
+    def test_flags_missing_caret(self):
+        hits = self._run(html=self.GOOD_HTML.replace('class="caret"', 'class="nope"'))
+        self.assertTrue(any("下三角" in h for h in hits), hits)
+
+    def test_flags_missing_accessible_state(self):
+        hits = self._run(js=self.GOOD_JS.replace("aria-label", "data-x"))
+        self.assertTrue(any("aria-label" in h for h in hits), hits)
+
+    def test_flags_data_i18n_on_chip_save(self):
+        hits = self._run(html=self.GOOD_HTML.replace(
+            '<span class="chip chip-ghost" id="chipSave"',
+            '<span class="chip chip-ghost" id="chipSave" data-i18n="topbar.save.idle"'))
+        self.assertTrue(any("data-i18n" in h for h in hits), hits)
+
+    def test_accepts_data_i18n_title_only(self):
+        """陷阱对照：`data-i18n-title=` 是**合规**的，不得被判红（子串判据会恒真）。"""
+        self.assertEqual(self._run(), [])
+
+    def test_flags_spin_without_reduced_motion_optout(self):
+        css = self.GOOD_CSS.split("@media")[0]
+        hits = self._run(css=css)
+        self.assertTrue(any("reduced-motion" in h for h in hits), hits)
+
+    def test_flags_missing_spin_rule(self):
+        hits = self._run(css=self.GOOD_CSS.replace(".ic.is-spinning", ".ic.is-x"))
+        self.assertTrue(any("is-spinning" in h for h in hits), hits)
+
+    def test_ignores_markup_hidden_in_comments(self):
+        """陷阱对照：整段标记只出现在**注释**里 ⇒ 视为不存在（须报「未找到」而非通过）。"""
+        html = "<!-- " + self.GOOD_HTML + " -->\n"
+        hits = self._run(html=html)
+        self.assertTrue(any("未找到" in h for h in hits), hits)
+
+
 class LocaleDictKeysTests(unittest.TestCase):
     """V0.0.51@r12：取词表「键集合」的唯一口径 `locale_dict_keys()`（7b-2 / 7b-3 共用）。
 
@@ -293,10 +387,15 @@ class LocaleDictKeysTests(unittest.TestCase):
         """与**盘上真实取词表**对齐：条目数、真键在、幻影键不在。"""
         zh = (Path(verify.PROJECT_ROOT) / "src/web/locales/zh-CN.js").read_text(encoding="utf-8")
         keys = verify.locale_dict_keys(zh)
-        self.assertIn("sidebar.title", keys)
+        self.assertIn("template.listTitle", keys)
         self.assertIn("help.quickStart.3", keys)
         self.assertNotIn("V0.0.51", keys)
         self.assertNotIn("sidebar.noteLine1", keys)   # V0.0.51@r12 已删（解说句归帮助页）
+        # V0.0.53：三栏面板标题退场，三个键随之下岗（中英两包一起删，保 7b-3 对齐）。
+        # 用 assertNotIn 而不是删掉断言 —— 让「已删」这件事本身也被钉住，防静默回流。
+        self.assertNotIn("sidebar.title", keys)
+        self.assertNotIn("tree.title", keys)
+        self.assertNotIn("inspector.title", keys)
         # 条目数按盘上派生，不写死：两侧同源时才谈得上「中英键集一致」
         en = (Path(verify.PROJECT_ROOT) / "src/web/locales/en-US.js").read_text(encoding="utf-8")
         self.assertEqual(keys, verify.locale_dict_keys(en))

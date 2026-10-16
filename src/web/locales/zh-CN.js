@@ -125,8 +125,11 @@ export const dict = {
   'skin.15': '奶黄·晨曦',
   'skin.16': '暖灰·琥珀',
 
-  /* ---------- 左栏：模板工作区 ---------- */
-  'sidebar.title': '模板工作区',
+  /* ---------- 左栏：模板列表 ---------- */
+  /* V0.0.53：`sidebar.title`（「模板工作区」）已删 —— 该标题连同中 / 右两栏的标题
+     一起退出主界面（用户裁定）。这一栏的名字现由下方的「模板列表」小标题承担。
+     同批订正：帮助页里拿这个标签指路的三句（`help.quickStart.3` / `help.ops.sidebar` /
+     `about.tplDirNote`）改为按**真实存在的标签或方位**指，否则指路话指向屏幕上没有的名字。 */
   /* V0.0.51@r12：原 `sidebar.noteLine1`（面板标题下的解说句）已删 —— 它讲的就是
      `help.quickStart.3` 的同一件事，解说文案归帮助页、不占主界面。别在这里加回来。 */
 
@@ -306,8 +309,8 @@ export const dict = {
   'gen.summaryWrite': '写盘',
   'gen.summarySep': ' · ',
 
-  /* ---------- 中栏：目录树工作区 ---------- */
-  'tree.title': '目录树工作区',
+  /* ---------- 中栏：目录树 ---------- */
+  /* V0.0.53：`tree.title`（「目录树工作区」）已删 —— 同上，标题退出主界面。 */
   'tree.canvasLabel': '目录树',
   'tree.addChild': '新建子节点',
   'tree.rename': '重命名',
@@ -352,8 +355,9 @@ export const dict = {
   'tree.addMultiBlocked': '多选状态下不可新建子节点，请先取消多选',
   'tree.renameMultiBlocked': '多选状态下不可重命名，请先取消多选',
 
-  /* ---------- 右栏：属性工作区 ---------- */
-  'inspector.title': '属性工作区',
+  /* ---------- 右栏：检视器（属性 / 源码） ---------- */
+  /* V0.0.53：`inspector.title`（「属性工作区」）已删 —— 同上；右上角那两颗
+     「属性 ⇄ 源码」切换按钮留在原位（`.insp-head` 补 justify-content: flex-end 钉住）。 */
   /* V0.0.43 · H 组：属性 ⇄ 源码 双模式 */
   'inspector.modeLabel': '检视器视图',
   'inspector.modeProp': '属性',
@@ -467,7 +471,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.0.52',
+  'help.versionFallback': 'V0.0.53',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',
@@ -480,7 +484,7 @@ export const dict = {
   'about.tplDir': '模板库位置',
   'about.tplDirBuiltin': '（内置）',
   'about.tplDirUnknown': '未连接后端，暂不可读',
-  'about.tplDirNote': '模板库位置可在左栏「模板工作区」用文件夹图标更改绑定，改完立即生效；未绑定时使用程序内置目录。',
+  'about.tplDirNote': '模板库位置可在左栏「模板目录」那一行的文件夹图标处更改绑定，改完立即生效；未绑定时使用程序内置目录。',
   /* 「文档入口」与「版本号说明行」按手册 10.2 节 #10 删除（V0.0.41）—— 前者是开发文档
      入口（不开放给用户），后者是设计纪律而非给用户读的文字。故 about.docs /
      about.docsValue / about.note 三键一并退场（中英同步删，保 7b-3 键对齐）。 */
@@ -489,16 +493,16 @@ export const dict = {
 
   'help.quickStart.title': '快速开始',
   'help.quickStart.1': '双击项目根目录的 start.bat 启动本地服务',
-  'help.quickStart.2': '浏览器自动打开，确认顶栏显示「后端已连接」',
-  'help.quickStart.3': '在左侧「模板工作区」选一套模板直接载入，或在中间自行编辑目录树',
+  'help.quickStart.2': '浏览器自动打开；顶栏右侧那颗状态点呈就绪色即表示服务正常（点它可查看服务状态与设置）',
+  'help.quickStart.3': '在左栏「模板列表」里选一套模板直接载入，或在中栏自行编辑目录树',
   'help.quickStart.4': '填写「目标位置」，先保持「仅演练」勾选试跑一次',
   'help.quickStart.5': '确认结果无误后取消勾选，点「一键生成」真实落盘',
 
   'help.ops.title': '界面说明',
-  'help.ops.sidebar': '左栏「模板工作区」——列出当前模板库中的模板，点击即载入；标题右侧的「另存为模板」把当前目录树存成一套新模板（**同名不会被覆盖**）；下方为骨架自检清单',
-  'help.ops.center': '中栏「目录树工作区」——顶部是生成参数与工具栏，主体是目录树',
+  'help.ops.sidebar': '左栏——「模板列表」列出当前模板库中的模板，点击即载入；标题右侧两颗图标是「新建」与「导入」；下一行「模板目录」显示当前绑定的模板库位置，其右侧图标用于改绑与刷新（改完立即生效）。把当前目录树存成一套新模板，用中栏工具栏的「另存为模板」：同名模板默认不覆盖，确认后才覆盖，且旧模板移入回收站可找回',
+  'help.ops.center': '中栏——顶部是生成参数与工具栏，主体是目录树',
   'help.ops.genBar': '参数区**常驻**一行，不折叠：上方摘要句（目标位置 · 根名 · 演练或写盘）供生成前核验，下方「目标位置」与「仅演练」两项随时可改',
-  'help.ops.inspector': '右栏「属性工作区」——选中节点的名称、类型、路径、深度与统计；下方显示生成结果',
+  'help.ops.inspector': '右栏——顶部可切换「属性 / 源码」两种视图；显示选中节点的名称、类型、路径、深度与统计，以及生成结果',
 
   'help.tree.title': '目录树操作',
   'help.tree.1': '单击节点选中，右栏属性面板同步刷新',

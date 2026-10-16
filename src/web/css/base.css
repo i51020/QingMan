@@ -298,11 +298,18 @@ input[type="text"]:focus { outline: 2px solid var(--qm-accent-soft); border-colo
 /* 顶栏图标比正文图标大半档（20px），flex:0 0 auto 保证「声明 20px = 实际 20px」 */
 .icon-btn .ic { width: 20px; height: 20px; flex: 0 0 auto; -webkit-mask-size: 20px 20px; mask-size: 20px 20px; }
 
-/* ---------- 状态按钮：可点的服务状态 chip（实线边框 + hover 抬升，34px 与按钮齐平） ---------- */
+/* ---------- 状态按钮：可点的服务状态 chip（实线边框 + hover 抬升，34px 与按钮齐平） ----------
+   V0.0.53：由「圆点 + 文字 + 下三角」的**胶囊**压成 **34×34 圆圈**（用户裁定「只留颜色点
+   与下三角、不显示文字」）。padding 归零 + 内容居中即可 —— 这**不是新形态**：窄窗
+   (`@media (max-width: 920px)`) 早已用同一套规则把它收成这个样子，本批只是把它从
+   「窄窗应急形态」提升为**常态**（那两条窄窗规则随之删除）。
+   ⚠ 文字退场后，可见状态信号只剩「圆点颜色 + 下三角」；无障碍名由 `setServiceState()`
+   合成进 `aria-label`（默认名 + 状态词）。状态**原话**并没有消失 —— 它仍在「更多 ⋮」
+   浮层 `#popMoreStatus` 与服务弹窗里，只是不再占顶栏。 */
 .chip-btn {
   appearance: none; font: inherit; font-size: var(--qm-fs-md); cursor: pointer;
-  display: inline-flex; align-items: center; gap: 5px;
-  height: 34px; padding: 0 11px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  width: 34px; height: 34px; padding: 0; border-radius: 999px;
   border: 1px solid var(--qm-line); background: var(--qm-surface); color: var(--qm-text-dim);
 }
 .chip-btn:hover { color: var(--qm-accent-ink); border-color: var(--qm-accent); }

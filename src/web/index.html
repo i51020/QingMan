@@ -19,14 +19,25 @@
         <span class="brand-sub" data-i18n="app.nameEn"></span>
       </button>
       <div class="topbar-right">
-        <!-- Status zone: a read-only chip (borderless soft bg, 24px) plus a clickable button
-             (solid border, 32px). V0.0.40 (manual 10.2 #7): the service indicator became a
-             button that opens the in-app service dialog. -->
+        <!-- Status zone: two status readouts, BOTH icon-only since V0.0.53 (user decision)
+             -- a save chip (borderless soft bg, 24px) carrying one icon per save state,
+             plus a clickable round service button (34px circle) keeping only the state
+             dot + caret. V0.0.40 (manual 10.2 #7): the service indicator became a button
+             that opens the in-app service dialog.
+             icon-only does NOT mean information removed: the save state is written into
+             `aria-label` by renderSaveChip (each state has its own key), and the service
+             state wording still lives in the "more" popover #popMoreStatus and in the
+             service dialog -- it just no longer occupies the top bar.
+             NOTE #chipSave must NOT carry `data-i18n` again: applyStatic would overwrite
+             the icon with a text node on every language switch (the icon is produced
+             solely by renderSaveChip).
+             NOTE comments in this file stay English -- verify.py 7b counts CJK
+             characters in index.html and pages must resolve text through data-i18n. -->
         <div class="tb-group tb-status">
-          <span class="chip chip-ghost" id="chipSave" data-i18n="topbar.save.idle" data-i18n-title="topbar.saveTip"></span>
-          <button type="button" class="chip-btn" id="chipBackend" aria-haspopup="dialog" data-i18n-title="topbar.backendTip">
+          <span class="chip chip-ghost" id="chipSave" data-i18n-title="topbar.saveTip"></span>
+          <button type="button" class="chip-btn" id="chipBackend" aria-haspopup="dialog"
+                  data-i18n-aria-label="topbar.backendTip" data-i18n-title="topbar.backendTip">
             <span class="dot" aria-hidden="true"></span>
-            <span class="btn-txt" data-i18n="topbar.backend.connecting"></span>
             <span class="caret" aria-hidden="true">&#9662;</span>
           </button>
         </div>
@@ -61,7 +72,13 @@
     <main id="main">
 
       <aside id="sidebar">
-        <h2 class="panel-title" data-i18n="sidebar.title"></h2>
+        <!-- V0.0.53: the "Template Workspace" panel title is gone -- the three column
+             labels leave the main UI (user decision, together with the tree/property
+             ones below). No CSS change was needed for the offset: the list used to sit
+             under a collapsed 8px/16px margin pair, and .panel-block's own 16px top
+             margin reproduces exactly that gap, so nothing moved except the line that
+             was removed. NOTE: .panel-title itself is NOT dead -- help.html still uses
+             it for the help dialog's nav heading. -->
         <!-- V0.0.51@r6: the hard-coded "templates/" line is gone -- it never followed a
              custom folder. The live folder is shown in #tplDirRow below, and repeated
              in Help > About straight from the backend.
@@ -109,10 +126,11 @@
       </aside>
 
       <section id="center">
-        <header class="center-head">
-          <h2 class="panel-title" data-i18n="tree.title"></h2>
-        </header>
-
+        <!-- V0.0.53: the "Tree Workspace" title is gone and its <header
+             class="center-head"> wrapper went with it. The wrapper could NOT simply be
+             left empty: it carries padding plus a bottom border, so an empty header
+             would have painted a stray rule above #genBar -- which brings its own
+             padding and bottom border, and is now the first child of #center. -->
         <div id="genBar">
           <p class="genbar-summary" id="genSummary" data-i18n="gen.summaryEmpty"></p>
           <div class="genbar-fields" id="genFields">
@@ -217,8 +235,12 @@
         <!-- V0.0.43 · H group: properties <-> source (the selected node's own subtree
              serialized exactly as it will be handed to the generator, so the payload
              can be verified before pressing Generate). Mode persists via qm.inspMode. -->
+        <!-- V0.0.53: the "Property Workspace" title is gone, but .insp-head stays as
+             the wrapper for the segmented control. .panel-head is space-between with
+             two children, so without the title the control would slide to the LEFT;
+             .insp-head pins it right (justify-content: flex-end) to keep it exactly
+             where it has always been. -->
         <div class="panel-head insp-head">
-          <h2 class="panel-title" data-i18n="inspector.title"></h2>
           <div class="seg" id="inspMode" role="tablist" data-i18n-aria-label="inspector.modeLabel">
             <button type="button" class="seg-btn" id="btnInspProp" role="tab"
                     aria-selected="true" data-i18n="inspector.modeProp"></button>

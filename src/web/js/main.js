@@ -739,7 +739,7 @@ function updateSelectionUI(ids) {
 
 store.subscribe(render);
 
-/* ---------- 保存状态指示（复用现有 chip 变体，不新造视觉语言） ---------- */
+/* ---------- 保存状态指示（复用现有 chip 变体，不新造视觉语言；V0.0.53：改纯图标） ---------- */
 
 const SAVE_CHIP_CLASS = {
   idle: 'chip-ghost',
@@ -749,6 +749,19 @@ const SAVE_CHIP_CLASS = {
   error: 'chip-bad',
 };
 
+/* 四态图标（V0.0.53）。全部取自**既有图标册** —— 本批零新增形状（§P0-3 L8 要求
+   图标「定义 ↔ 使用」双向配对，凭空加一枚没人用的形状会当场被守卫 7aj 判红）。
+   `idle` 与 `pending` 共用 `ic-save`：两者原本也都写作「未保存」，若连它也强行区分，
+   就得为「无改动」再引入一枚形状，而该态在产品里几乎不可见（启动后立刻转 saved）。 */
+const SAVE_CHIP_ICON = {
+  idle: 'ic-save',
+  pending: 'ic-save',
+  saving: 'ic-refresh',   // 配 .is-spinning 转起来
+  saved: 'ic-check',
+  error: 'ic-close',
+};
+
+/* 四态文案（V0.0.53：**不再上屏**，改作 `aria-label` —— 视线看不见，屏幕阅读器仍读得到）。 */
 const SAVE_CHIP_KEY = {
   idle: 'topbar.save.idle',
   pending: 'topbar.save.pending',
@@ -756,15 +769,28 @@ const SAVE_CHIP_KEY = {
   error: 'topbar.save.error',
 };
 
+/**
+ * 保存状态 chip：**只产出一枚图标** + 一句给无障碍的名字（文字不再上屏）。
+ *
+ * ⚠ 本函数是 `#chipSave` 内容的**唯一**产出方 ⇒ index.html 上**不得**挂 `data-i18n`，
+ *   否则 applyStatic 会在每次切语言时用文本节点覆盖掉这里产出的图标。
+ * ⚠ 语言切换后**必须**重跑（`qmlocalechange` 已接好），否则 `aria-label` 会停在
+ *   上一种语言 —— 与 `setServiceState()` 同一个坑。
+ */
 function renderSaveChip() {
   const { saveState, savedAt } = store.get();
   const chip = el('chipSave');
   if (!chip) return;
   chip.className = `chip ${SAVE_CHIP_CLASS[saveState] || ''}`.trim();
-  const key = SAVE_CHIP_KEY[saveState];
-  chip.textContent = saveState === 'saved'
+  const name = saveState === 'saved'
     ? (savedAt ? t('topbar.save.savedAt', { at: savedAt }) : t('topbar.save.saved'))
-    : (key ? t(key) : '');
+    : (SAVE_CHIP_KEY[saveState] ? t(SAVE_CHIP_KEY[saveState]) : '');
+  chip.setAttribute('aria-label', name);
+  const icon = document.createElement('span');
+  icon.className = `ic ic-sm ${SAVE_CHIP_ICON[saveState] || 'ic-save'}`
+    + (saveState === 'saving' ? ' is-spinning' : '');
+  icon.setAttribute('aria-hidden', 'true');
+  chip.replaceChildren(icon);
 }
 
 /* ---------- 编辑态持久化（见 docs/项目约定.md §P0-7） ---------- */
@@ -1219,9 +1245,12 @@ function setServiceState(state) {
 
   const btn = el('chipBackend');
   if (btn) {
+    // V0.0.53：按钮压成圆圈后**不再显示文字**，可见状态信号只剩「圆点颜色 + 下三角」；
+    // 故 `.btn-txt` 的写入退场，改为把状态**合成进 `aria-label`**（状态词 + 默认名）。
+    // 文字内容并没有丢：它仍在「更多 ⋮」浮层 #popMoreStatus 与服务弹窗里。
     btn.classList.toggle('is-offline', state === 'offline');
-    const txt = btn.querySelector('.btn-txt');
-    if (txt) txt.textContent = t('topbar.backend.' + state);
+    btn.setAttribute('aria-label',
+      `${t('topbar.backend.' + state)}${t('list.separator')}${t('topbar.backendTip')}`);
   }
 
   const moreText = el('popMoreStatus');

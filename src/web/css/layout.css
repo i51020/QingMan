@@ -47,6 +47,11 @@
 
 #sidebar, #inspector { padding: var(--qm-gap); overflow: auto; }
 
+/* 面板标题（左 / 中 / 右三栏的「模板工作区 / 目录树工作区 / 属性工作区」）。
+   V0.0.53：主界面那三处消费者**全部退场**（用户裁定「三行小标题退出主界面」）
+   —— 本规则现**只余 `help.html` 的帮助导航标题**一名消费者，**不是死码，勿删**。
+   两条与主界面容器绑定的修饰规则（`.center-head .panel-title` /
+   `.insp-head .panel-title`）随各自容器一并删除。 */
 .panel-title {
   font-size: var(--qm-fs-md);
   letter-spacing: 1px;
@@ -218,12 +223,10 @@
 /* 中栏 */
 #center { background: var(--qm-surface); padding: 0; overflow: hidden; }
 
-.center-head {
-  flex: 0 0 auto;
-  padding: var(--qm-gap) var(--qm-gap) 0;
-  border-bottom: 1px solid var(--qm-line-soft);
-}
-.center-head .panel-title { margin-bottom: 8px; }
+/* V0.0.53：中栏标题行整体退场 —— 标题 `<h2 class="panel-title">` 与包裹它的
+   `<header class="center-head">` 一并从 index.html 删除。它**不能只留空壳**：
+   本条自带 padding + 底边框，留空会在 #genBar 上方画出一条**多余的横线**
+   （#genBar 自带 padding 与底边框，现已是 #center 的首个子项）。 */
 
 .bar {
   flex: 0 0 auto;
@@ -418,9 +421,11 @@
 
 /* 检视器标题行（V0.0.43 · H 组）：标题左、模式分段控件右。
    复用 .panel-head 的 flex + space-between，只把基线对齐改为居中 ——
-   分段控件是带边框的块，与 12px 文字按基线对齐会偏低。 */
-.insp-head { align-items: center; }
-.insp-head .panel-title { margin-bottom: 0; }
+   分段控件是带边框的块，与 12px 文字按基线对齐会偏低。
+   V0.0.53：标题退场后本行**只剩一个子项**，而 space-between 会把独子**推到左缘**
+   ⇒ 分段控件会从右上角滑到左上角。故补 `justify-content: flex-end` 把它**钉回原位**
+   —— 「去掉标题」是对方要的，「按钮跑位」不是，两件事不能混为一谈。 */
+.insp-head { align-items: center; justify-content: flex-end; }
 #inspPropPane, #inspSrcPane { margin-top: 8px; }
 /* 分段控件（属性 ⇄ 源码）：两个相邻 .seg-btn 共用一圈外框，中间一条缝。
    注意类名不得带 .skin- 前缀（7d）。 */
@@ -540,11 +545,23 @@
 .tb-status { border: 1px solid var(--qm-line-soft); background: var(--qm-surface-2); }
 .tb-actions { gap: 2px; }
 
-/* 只读 chip：无边框淡底、24px 高 —— 比同行按钮矮一档，一眼看出「不可点」 */
+/* 只读 chip：无边框淡底、24px 高 —— 比同行按钮矮一档，一眼看出「不可点」。
+   V0.0.53：内容由**文字**（未保存 / 保存中… / 已保存 / 保存失败 ＋ 时间）改为一枚 14px
+   图标，故左右内边距归零、收成 24×24 圆。它与旁边那颗 34px 的**可点**圆之间仍留着
+   三重差异（矮一档 / 无边框 / 无下三角），不会看混。
+   ⚠ 时间戳（「已保存 23:56」）随之**离开可见界面** —— 现只存在于 `aria-label`。
+   若要它回到鼠标可见处，唯一入口是把状态写进本元素的 `title`。 */
 .chip.chip-ghost {
   border-color: transparent; background: var(--qm-surface);
-  height: 24px; display: inline-flex; align-items: center; padding: 0 9px;
+  height: 24px; width: 24px; display: inline-flex; align-items: center;
+  justify-content: center; padding: 0;
 }
+
+/* 保存中：那颗 `ic-refresh` 转起来（V0.0.53）。全项目**仅此一处**动画，就近声明、
+   不进 tokens.css —— 只有一枚图标会用到的东西，放通用层反而是负担。
+   动效偏好为「减少动态效果」时停转（见下文的 @media prefers-reduced-motion）。 */
+@keyframes qm-spin { to { transform: rotate(360deg); } }
+.ic.is-spinning { animation: qm-spin 1s linear infinite; }
 
 /* 皮肤按钮 = 三枚圆点，**三角排列**（顶 1 底 2）。
    颜色取 currentColor 单色：设计稿实测 s06 的 swatch 头尾两色几乎等于面板底色，
@@ -625,6 +642,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   #scrim, .layer { transition: none !important; }
+  .ic.is-spinning { animation: none !important; }   /* V0.0.53：保存中的旋转 */
 }
 
 /* ---------- 3. 浮层菜单项（语言 / 更多 共用） ---------- */
@@ -757,9 +775,11 @@
   .tb-actions #btnSupport, .tb-actions #btnHelp { display: none; }
   #btnMore { display: inline-flex; }
   .tb-status #chipSave { display: none; }   /* 保存状态让位，窄窗优先保证操作区 */
-  .chip-btn .btn-txt { display: none; }     /* 服务 chip 收成一个状态圆点 */
-  .chip-btn { padding: 2px 6px; }
   #topbar { gap: 6px; }
+  /* V0.0.53：这里原有两条 —— `.chip-btn .btn-txt { display:none }`（服务 chip 收成圆点）
+     与 `.chip-btn { padding: 2px 6px }` —— 已删除：宽窗下服务 chip 现在**本来就是**圆圈
+     （无文字 + padding: 0），窄窗无须再「收」一次。
+     性质是「把早已跑通的窄窗形态提升为常态」，不是新写规则。 */
 }
 
 /* ---------- 8. 自绘悬停提示（V0.0.51@r4 · UI 改版第 7 条） ----------

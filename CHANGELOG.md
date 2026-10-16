@@ -7,6 +7,68 @@
 
 ---
 
+## V0.0.53 — 2026-10-17
+
+**主题**：**三行小标题退出主界面 ＋ 顶栏两枚状态件图标化**（用户对上一版挂起的两项给出裁定）。① 三个面板标题「模板工作区 / 目录树工作区 / 属性工作区」**全部退出主界面**；② 顶栏那条长「服务就绪」**压成小圆圈**（只留**颜色点 + 小三角**），**保存状态一并改图标展示**。**升 patch `V0.0.52` → `V0.0.53`**。**无新增错误码**。**契约变更 1 处**：`src/shared/schema.json` 的 `version`（版本戳，随升版同步）。
+
+> **为什么是一批**：两条诉求指向**同一个目标** —— 把顶栏与面板头条**让给内容**。「服务就绪」四个字 + 保存态文字占了顶栏右侧一整段，而这两处状态**本来就有别的出口**（见下 §一 的「信息没消失」）。
+
+### 一 · 改动明细（5 个 `src/` 文件 + 版本戳）
+
+| # | 文件 | 处置 |
+|---|---|---|
+| 1 | `src/web/index.html` | 删 3 个 `<h2 class="panel-title">`（侧栏 / 中栏 / 检视器）；**中栏 `<header class="center-head">` 外层一并删** —— 它自带 `padding` + `border-bottom`，留空会画一道**杂线**；顶栏状态区删 `.btn-txt`，`#chipSave` **摘掉 `data-i18n`** |
+| 2 | `src/web/css/layout.css` | `.center-head` 整段退场；`.insp-head` 改 `align-items: center` + **`justify-content: flex-end`**（只剩一个子元素时 `space-between` 会把分段控件**推到左边**）；`.chip.chip-ghost` 收 **24×24 圆**；新增 `@keyframes qm-spin` + `.ic.is-spinning`；**窄窗媒体查询里那两条予以删除**（`.chip-btn .btn-txt { display:none }` + `.chip-btn { padding: 2px 6px }`）；`prefers-reduced-motion` 补 `.ic.is-spinning { animation: none !important; }` |
+| 3 | `src/web/css/base.css` | `.chip-btn` 收 **34×34 圆**（`padding: 0` + `border-radius: 999px`，仍保留 `gap`） |
+| 4 | `src/web/js/main.js` | `renderSaveChip()` 改为**只产图标 + 写 `aria-label`**（图标名走新增表 `SAVE_CHIP_ICON`：`idle`/`pending`→`ic-save`、`saving`→`ic-refresh` 配 `.is-spinning`、`saved`→`ic-check`、`error`→`ic-close`）；`setServiceState()` 改写 `aria-label`，不再写 `.btn-txt` |
+| 5 | `src/web/locales/{zh-CN,en-US}.js` | 删 `sidebar.title` / `tree.title` / `inspector.title` **三键**（各留 tombstone 注释防静默加回）；**顺带订正 6 条已失真的帮助页文案**（见 §一末） |
+| 6 | `VERSION` · `src/shared/schema.json` · `src/web/locales/{zh-CN,en-US}.js` | **版本戳** `V0.0.52 → V0.0.53`（四处同改：`VERSION` + 契约字段 `version` + 两包 `help.versionFallback`）；漏改任一处，「版本兜底一致 §P0-3 L1」或「共享契约版本戳」立刻红 |
+
+**★ 零新增 token（形态早就存在）**：`layout.css` 的 `@media (max-width: 920px)` 里**早已**藏着「隐藏 `.btn-txt` + 缩 padding」两条规则 —— 用户要的形态**就是窄窗形态**，本批只是把它**提升为常态**，故那两条**删除**（留着即同义死码，同 V0.0.51@r11 的 `.tpl-more` 教训）。
+
+**★「不显示文字」≠「信息消失」**（顶栏只是不再占那格）：
+- **保存态** → 写进 `aria-label`，且**每个状态各有一键**（`topbar.save.idle/pending/saving/saved/savedAt/error`）；
+- **服务态** → 文字仍在**「更多」浮层的 `#popMoreStatus`** 与**服务设置弹窗**里（两处**同源**，单一出口 `syncServiceDialog()`）。
+
+**★ 顺带订正 6 条已失真的帮助页文案**（追着标签名改的时候查出来的，均据盘上实证）：
+| 键 | 原文 | 实况 |
+|---|---|---|
+| `help.ops.sidebar` | 「**另存为模板**…在模板区」 | **V0.0.50 已挪进中栏工具栏**（`index.html:177` `#btnSaveTemplate` 在 `tree.groupSave`） |
+| `help.ops.sidebar` | 「**同名不会被覆盖**」 | **假** —— V0.0.21 起会二次确认后**覆盖**，旧件进 `templates/.trash/` |
+| `help.ops.sidebar` | 「下方为**骨架自检清单**」 | **V0.0.16 已撤**（守卫 7m 断言 `id="checklist"` 不存在） |
+| `help.quickStart.2` | 「顶栏显示「**后端已连接**」」 | 该标签**从来就叫「服务就绪」**（`topbar.backend.ready`） |
+| `help.ops.center` | 指「目录树工作区」标题 | 标题已退场 → 改指「顶部生成参数与工具栏 / 主体目录树」 |
+| `help.ops.inspector` | 指「属性工作区」标题 | 同上 → 改指「顶部属性 ⇄ 源码切换」 |
+
+### 二 · 守卫同步（7am 新增 / 7aj / 标签闭合）
+
+| 项 | 变化 |
+|---|---|
+| **7am（新增）**「顶栏状态区契约 V0.0.53」 | 五判据：① `btn-txt` 不得回流 ② `#chipBackend` 须有 `.dot` **且** `.caret` ③ `setServiceState` 须写 `aria-label` ④ `#chipSave` **不得**挂 `data-i18n` ⑤ `.ic.is-spinning` 须存在，**且**有 `prefers-reduced-motion` 退出口。判据抽成模块级 `status_chip_violations(index_html, main_js, layout_css)` 以便单测 ⇒ **项数 110 → 111** |
+| **7aj ①** | 增**「间接引用」方向**：JS 文件里**被引号包裹的 `ic-*`** 也算「被使用」。`SAVE_CHIP_ICON` 是**一张表**，`className='…'` 形态**扫不到**它 —— 不补这条，写错名会**静默渲染成 14×14 实心方块** |
+| **「HTML 标签闭合」** | 改为**先剥注释再数**（`re.sub(r"<!--.*?-->", "", html, flags=re.S)`）。**只改这一处**计数点，`id` 类检查**刻意**保持保守 |
+| 7b「主界面无硬编码中文」 | **不改**（它是本批**拦对**我的那道门，见 §三） |
+| 7ah | VERSION 升版 ⇒「当前版本 / 主线 / 回退点 / README / 手册头部」五处**首版本号**随改；「主线」行项数 **110 → 111** |
+
+### 三 · 验证
+
+- **四件套**：**111/0 · 475 OK（+10）· 35/0 · 33/0**
+- **`tests/test_verify.py`** 新增 `StatusChipTests` **10 条**：`test_accepts_canonical_wiring` / `test_flags_btn_txt_return` / `test_flags_missing_dot` / `test_flags_missing_caret` / `test_flags_missing_accessible_state` / `test_flags_data_i18n_on_chip_save` / `test_accepts_data_i18n_title_only`（**陷阱对照**）/ `test_flags_spin_without_reduced_motion_optout` / `test_flags_missing_spin_rule` / `test_ignores_markup_hidden_in_comments`（**陷阱对照**）
+- **反向验证 11/11**（沙盒 `E:\qm_r14_rev`，逐例注入后跑**真** `verify.py`）：**N1** 全 PASS（证明判据非恒真）／**R1** `btn-txt` 回流 → 7am 红／**R2** 去掉 `.dot` → 红／**R3** 去掉 `.caret` → 红／**R4** `setServiceState` 不写 `aria-label` → 红／**R5** `#chipSave` 挂回 `data-i18n` → 红／**R6** `SAVE_CHIP_ICON` 里写错形状名 → **7aj** 红／**R7**（对照）形状名**只出现在注释里** → 仍 **PASS**（证明「剥注释」是对的）／**R8**（对照）标签不闭合**只出现在注释里** → 仍 **PASS**／**R9** 真标签不闭合 → 红／**R10** 证明 **7b** 确实是会拦我的那道门。
+- **真机**：真实服务 + 无头 Edge，改前 / 改后同窗口同皮肤实拍（顶栏右侧由「灰 chip 文字 + 长条按钮」变为「一枚图标 chip + 一颗圆钮」；三处面板顶不再有标题行）。
+
+### 四 · 实测抓到的两个坑（→《错误笔记》§三.89）
+
+1. **守卫 7b「主界面无硬编码中文」把我自己写的注释判成了字面量**（73 处）。该守卫数的是 `index.html` 里的 **CJK 字符，注释也算**；而 `index.html` 的 CJK 基线是 **0**（文案一律经 `data-i18n` 取）—— 我按惯例写了中文注释，当场红。**守卫是对的、我是错的**：改回英文注释，并把「本文件注释一律英文，因为 7b 会数」写进文件内注释。
+2. **「切分后取一段」表达「某段里要有某物」，必须先确认切分真的发生过**。新守卫里 `css.split("prefers-reduced-motion")[-1]` 在该串**不存在**时返回**整串** ⇒「`.ic.is-spinning` 必须在退出口段里」这条**恒真** —— 而**最该红的那一例**（整个文件根本没有退出口）恰恰被静默放过。由自己的单测 `test_flags_spin_without_reduced_motion_optout` 抓到，补 `elif "prefers-reduced-motion" not in css:` 分支。
+
+### 五 · 同批未动（待用户裁定）
+
+- 帮助页**仍未记录** V0.0.51@r11 新增的**行尾 ⋮**。
+- 帮助页有 **3 处 `**粗体**` 标记字面裸露**（两个渲染器都不解析 Markdown，真机可见）。
+
+---
+
 ## V0.0.52 — 2026-10-17
 
 **主题**：**树行图标 emoji → mask 归一**（用户裁定推进「剩余两项到期待办」的第 1 项）。目录树每行前面那颗**彩色小图标**（📁 文件夹 / 📄 文件）换成与全项目一致的**线性 mask 图标**。**升 patch `V0.0.51` → `V0.0.52`**。**无新增错误码**。**契约变更 1 处**：`src/shared/schema.json` 的 `version`（版本戳，随升版同步）。
