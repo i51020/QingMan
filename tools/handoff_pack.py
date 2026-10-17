@@ -9,18 +9,25 @@
 
 **与发布包的区别**（两者**不互相替代**）：
 
-| | 发布包 `package_release.py` | 接续包 `handoff_pack.py` |
-|---|---|---|
-| 给谁 | **最终用户** | **下一个接手的人 / AI** |
-| 内容 | `src/` + 模板 + 运行时 + 使用说明 | `src/` + `docs/` + `manifest.json` + 契约文档 |
-| 必不含 | `docs/`（开发者文档）、`store/` | `runtime/`（40 MB 级，与接手无关） |
+| | 发布包 `package_release.py` | 接续包 `handoff_pack.py` | 完整开发包 `--full` |
+|---|---|---|---|
+| 给谁 | **最终用户** | **下一个接手的人 / AI** | **要继续开发并交付的人 / AI** |
+| 内容 | `src/` + 模板 + 运行时 + 使用说明 | `src/` + `docs/` + `locales/` + 契约文档 | 工作树全量：上者 + `tools/` `tests/` `templates/` `templates-pack/` `store/` `versions/` `.git/` |
+| 必不含 | `docs/`（开发者文档）、`store/` | `runtime/`、`store/`、`versions/`、`data/`、`.git/` | `data/`（用户草稿）、`dist/`（可再生产物） |
 
-**用法**：`py -3 tools/handoff_pack.py`（可选 `--out-dir`、`--verify`）。
+**为什么需要 `--full`（V0.3.0 实测后补）**：接续包**只能读代码、不能验证**——
+实测把它解压后 `tools/gate.py` / `tools/verify.py` 都不存在，`unittest discover -s tests`
+报 `Start directory is not importable`；`store/` `versions/` 也不在包里，于是**没有任何回退点**。
+即「四件套」与「回退」在接续包里全部失效。要接着开发并交付，必须用 `--full`。
+
+**用法**：`py -3 tools/handoff_pack.py`（接续包）、`--full`（完整开发包）；
+可选 `--out-dir`、`--verify`、`--built-at`、`--no-git`（不带走 `.git/`，省约 7 MB）。
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import sys
 import tempfile
@@ -37,6 +44,7 @@ import package_release as pr  # noqa: E402  （复用确定性打包与 sha256 �
 VERSION = pr.VERSION
 DATE = time.strftime("%Y%m%d")
 PREFIX = f"QingMan-接续包_{VERSION}_{DATE}"
+FULL_PREFIX = f"QingMan-完整开发包_{VERSION}_{DATE}"
 
 # 白名单：接手者**必然需要**的东西。少一件就交接不清。
 INCLUDE_FILES = ("VERSION", "start.bat", "manifest.json", "README_使用说明.md",
@@ -47,6 +55,12 @@ INCLUDE_FILES = ("VERSION", "start.bat", "manifest.json", "README_使用说明.m
 INCLUDE_DIRS = ("src", "docs", "locales")
 EXCLUDE_DIR_NAMES = {"__pycache__", ".git", "data", "store", "versions", "dist"}
 EXCLUDE_SUFFIXES = {".pyc", ".pyo", ".log"}
+
+# `--full`：语义是「整棵工作树」，故用**排除表**而非白名单 ——
+# 白名单会让日后新增的目录（如 `legacy/`）静默漏出包外，而「完整包缺东西」正是最难发现的一类错。
+FULL_EXCLUDE_TOP = {"data", "dist"}
+FULL_EXCLUDE_ANY = {"__pycache__", ".trash"}
+
 
 
 def iter_handoff_files() -> "list[tuple[Path, str]]":
@@ -70,54 +84,117 @@ def iter_handoff_files() -> "list[tuple[Path, str]]":
     return sorted({rel: (src, rel) for src, rel in out}.values(), key=lambda kv: kv[1])
 
 
-def build(out_dir: Path, built_at: "str | None" = None) -> Path:
-    """构建接续包；`built_at` 用于复算一致性（默认当前时间）。"""
-    files = iter_handoff_files()
+def iter_full_files(with_git: bool = True) -> "list[tuple[Path, str]]":
+    """完整开发包的文件清单（整棵工作树 − 排除表），已排序。
+
+    用 `os.walk` 而不是 `rglob`：可以在**进入之前**剪掉 `data/`、`dist/`、`__pycache__/`，
+    否则要先遍历 `dist/` 里几十 MB 的既有 zip 再逐个丢弃。
+    """
+    out: "list[tuple[Path, str]]" = []
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        rel_dir = Path(dirpath).relative_to(ROOT)
+        keep: "list[str]" = []
+        for name in sorted(dirnames):
+            if name in FULL_EXCLUDE_ANY:
+                continue
+            if name == ".git" and not with_git:
+                continue
+            if rel_dir == Path(".") and name in FULL_EXCLUDE_TOP:
+                continue
+            keep.append(name)
+        dirnames[:] = keep            # 必须原地改，os.walk 才会真的不进去
+        for name in sorted(filenames):
+            path = Path(dirpath) / name
+            if path.suffix.lower() in EXCLUDE_SUFFIXES:
+                continue
+            out.append((path, path.relative_to(ROOT).as_posix()))
+    return out
+
+
+def build(out_dir: Path, built_at: "str | None" = None, *, full: bool = False,
+          with_git: bool = True) -> Path:
+    """构建接续包（默认）或完整开发包（`full=True`）；`built_at` 用于复算一致性。"""
+    files = iter_full_files(with_git) if full else iter_handoff_files()
+    prefix = FULL_PREFIX if full else PREFIX
     staging = Path(tempfile.mkdtemp(prefix="qm_handoff_"))
     try:
         manifest = pr.build_staging(staging, files, None, built_at)
-        manifest["package"] = "handoff"
+        manifest["package"] = "dev" if full else "handoff"
         pr.write_manifest(staging, manifest)
-        out = out_dir / f"{PREFIX}.zip"
-        pr.build_zip(staging, out, prefix=PREFIX)
+        out = out_dir / f"{prefix}.zip"
+        pr.build_zip(staging, out, prefix=prefix)
     finally:
         shutil.rmtree(staging, ignore_errors=True)
     return out
 
 
-def verify(zip_path: Path) -> int:
-    """结构自检：必需件齐全、**不含**开发期重资产（store/versions/data/runtime）。"""
+def verify(zip_path: Path, *, full: bool = False, with_git: bool = True) -> int:
+    """结构自检。
+
+    接续包：必需件齐全、**不含**开发期重资产（store/versions/data/runtime/.git）。
+    完整开发包（`full`）：工具、测试、版本库、模板包、`.git` **都必须有** ——
+    这几样任一缺失，「改完能验证 / 改坏能回退」就从成立变成不成立，而包本身不会报错。
+    """
     problems: "list[str]" = []
     with zipfile.ZipFile(zip_path) as zf:
         names = zf.namelist()
-    for must in ("VERSION", "manifest.json", "docs/项目约定.md", "docs/任务进度.md",
-                 "src/server/app.py", "locales/zh-CN.js", "locales/en-US.js",
-                 "发布包清单.json"):
-        if f"{PREFIX}/{must}" not in names:
-            problems.append(f"缺 {must}")
-    for banned in ("/store/", "/versions/", "/data/", "/runtime/", "/.git/"):
-        if any(banned in n for n in names):
-            problems.append(f"误带 {banned}")
-    print(f"[接续包] {zip_path.name}  {zip_path.stat().st_size/1024:.0f} KB  文件 {len(names)} 个")
+    prefix = names[0].split("/")[0] if names else ""
+    if full:
+        for must in ("VERSION", "manifest.json", "发布包清单.json",
+                     "src/server/app.py", "locales/zh-CN.js", "locales/en-US.js",
+                     "tools/gate.py", "tools/verify.py", "tools/package_release.py",
+                     "tests/test_routes.py", "templates/P0_空白项目模板.json",
+                     "templates-pack/pack.manifest.json"):
+            if f"{prefix}/{must}" not in names:
+                problems.append(f"缺 {must}")
+        for need, why in ((f"{prefix}/store/objects/", "store/ 版本库（回退对象池）"),
+                          (f"{prefix}/versions/", "versions/ 版本清单"),
+                          (f"{prefix}/tools/gate.py", "四件套入口"),
+                          (f"{prefix}/tests/", "回归测试网")):
+            if not any(n.startswith(need) for n in names):
+                problems.append(f"缺 {why}")
+        if with_git and not any(n.startswith(f"{prefix}/.git/") for n in names):
+            problems.append("缺 .git/（历史与 diff；如需省体积请加 --no-git）")
+        for banned in ("/data/", "/dist/", "/__pycache__/", "/.trash/"):
+            if any(banned in n for n in names):
+                problems.append(f"误带 {banned}")
+    else:
+        for must in ("VERSION", "manifest.json", "docs/项目约定.md", "docs/任务进度.md",
+                     "src/server/app.py", "locales/zh-CN.js", "locales/en-US.js",
+                     "发布包清单.json"):
+            if f"{prefix}/{must}" not in names:
+                problems.append(f"缺 {must}")
+        for banned in ("/store/", "/versions/", "/data/", "/runtime/", "/.git/"):
+            if any(banned in n for n in names):
+                problems.append(f"误带 {banned}")
+    print(f"[{'完整开发包' if full else '接续包'}] {zip_path.name}  "
+          f"{zip_path.stat().st_size/1024:.0f} KB  文件 {len(names)} 个")
     if problems:
         for item in problems:
             print(f"  [FAIL] {item}")
         return 1
-    print("  [OK] 必需件齐全；未带 store/versions/data/runtime")
+    print("  [OK] 必需件齐全；" + ("已带 tools/tests/store/versions"
+                                 + ("/.git" if with_git else "（无 .git）")
+                                 + "，未带 data/dist"
+                                 if full else "未带 store/versions/data/runtime"))
     return 0
 
 
 def main(argv: "list[str] | None" = None) -> int:
-    ap = argparse.ArgumentParser(description="构建青蔓接续包（交接用）")
+    ap = argparse.ArgumentParser(description="构建青蔓接续包 / 完整开发包（交接用）")
     ap.add_argument("--out-dir", default=str(ROOT / "dist"))
-    ap.add_argument("--verify", metavar="ZIP", help="只自检已构建的接续包")
+    ap.add_argument("--verify", metavar="ZIP", help="只自检已构建的包")
     ap.add_argument("--built-at", help="固定构建时间（复算用）")
+    ap.add_argument("--full", action="store_true",
+                    help="构建完整开发包：含 tools/ tests/ templates/ templates-pack/ store/ versions/ .git/")
+    ap.add_argument("--no-git", action="store_true",
+                    help="配合 --full：不带走 .git/（省约 7 MB，但失去 diff 与历史）")
     args = ap.parse_args(argv)
     if args.verify:
-        return verify(Path(args.verify))
-    out = build(Path(args.out_dir), args.built_at)
+        return verify(Path(args.verify), full=args.full, with_git=not args.no_git)
+    out = build(Path(args.out_dir), args.built_at, full=args.full, with_git=not args.no_git)
     print(f"[构建] {out}")
-    return verify(out)
+    return verify(out, full=args.full, with_git=not args.no_git)
 
 
 if __name__ == "__main__":

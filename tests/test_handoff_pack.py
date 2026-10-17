@@ -53,6 +53,63 @@ class HandoffPackTests(unittest.TestCase):
             self.assertIn(f"{hp.PREFIX}/发布包清单.json", names)
 
 
+class FullPackTests(unittest.TestCase):
+    """`--full` 完整开发包（V0.3.0 实测后新增）。
+
+    存在的理由：接续包实测**跑不了四件套**（无 `tools/` `tests/`）、**没有回退点**
+    （无 `store/` `versions/`），于是「改完能验证、改坏能回退」两条都断。
+    `--full` 就是把这个缺口补上 —— 单测钉住「该有的必须有、不该带的必须不带」。
+    """
+
+    def test_带齐开发与回退所需(self):
+        rels = {rel for _src, rel in hp.iter_full_files()}
+        for must in ("tools/gate.py", "tools/verify.py", "tests/test_routes.py",
+                     "templates/P0_空白项目模板.json", "templates-pack/pack.manifest.json",
+                     "src/server/app.py", "locales/zh-CN.js", ".git/HEAD"):
+            self.assertIn(must, rels, f"完整开发包缺 {must}")
+        self.assertTrue(any(r.startswith("store/objects/") for r in rels), "缺 store/objects/")
+        self.assertTrue(any(r.startswith("versions/") and r.endswith("MANIFEST.json") for r in rels),
+                        "缺 versions/*/MANIFEST.json")
+
+    def test_不带用户数据与可再生产物(self):
+        rels = {rel for _src, rel in hp.iter_full_files()}
+        for banned in ("data", "dist", "__pycache__", ".trash"):
+            self.assertFalse(any(r == banned or r.startswith(banned + "/") or f"/{banned}/" in r
+                                 for r in rels), f"完整开发包不应包含 {banned}")
+
+    def test_可省掉git(self):
+        rels = {rel for _src, rel in hp.iter_full_files(with_git=False)}
+        self.assertFalse(any(r.startswith(".git/") for r in rels), "--no-git 仍带了 .git/")
+        self.assertIn("tools/gate.py", rels, "省 .git 不该连带丢工具")
+
+    def test_自检能抓缺件与越界(self):
+        def make_zip(path: Path, extra: "list[str]", drop: str = "") -> None:
+            base = ["VERSION", "manifest.json", "发布包清单.json",
+                    "src/server/app.py", "locales/zh-CN.js", "locales/en-US.js",
+                    "tools/gate.py", "tools/verify.py", "tools/package_release.py",
+                    "tests/test_routes.py", "templates/P0_空白项目模板.json",
+                    "templates-pack/pack.manifest.json",
+                    "store/objects/00/abc", "versions/V0.3.0/MANIFEST.json", ".git/HEAD"]
+            with zipfile.ZipFile(path, "w") as zf:
+                for name in [n for n in base if n != drop] + extra:
+                    zf.writestr(f"{hp.FULL_PREFIX}/{name}", b"x")
+
+        with tempfile.TemporaryDirectory(prefix="qm_full_") as d:
+            ok = Path(d) / "ok.zip"
+            make_zip(ok, [])
+            self.assertEqual(hp.verify(ok, full=True), 0, "该过的没过")
+
+            # 反向验证①：抽掉 tools/ → 必须判红（这正是接续包的真实状态）
+            no_tools = Path(d) / "no_tools.zip"
+            make_zip(no_tools, [], drop="tools/gate.py")
+            self.assertEqual(hp.verify(no_tools, full=True), 1, "缺 tools/ 竟未判红")
+
+            # 反向验证②：带上 data/ → 必须判红（用户草稿不得外发）
+            dirty = Path(d) / "dirty.zip"
+            make_zip(dirty, ["data/editor.json"])
+            self.assertEqual(hp.verify(dirty, full=True), 1, "带了 data/ 竟未判红")
+
+
 class BudgetAlertTests(unittest.TestCase):
     """预算预警分级（V0.2.3 起）：余量 <5% 预警、<2% 临界。
 
