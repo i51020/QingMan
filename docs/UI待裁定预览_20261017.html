@@ -1931,6 +1931,11 @@ h1 { font-size: 22px; margin: 0 0 6px; }
 .verdict { border: 1px solid var(--qm-line-soft); background: var(--qm-surface);
   border-radius: var(--qm-r-sm); padding: 12px 14px; font-size: 13px; line-height: 1.8; }
 .verdict b { color: var(--qm-accent-ink); }
+.decided { margin: 14px 0 4px; padding: 12px 14px; font-size: 13px; line-height: 1.85;
+  border: 1px solid var(--qm-accent); border-left-width: 4px; border-radius: var(--qm-r-sm);
+  background: var(--qm-accent-soft); color: var(--qm-text); }
+.decided .note-inline { color: var(--qm-text-dim); font-size: 12px; }
+.decided code, .decided .mono { background: transparent; }
 .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .skin-card { margin: 0; border: 1px solid var(--qm-line-soft); border-radius: var(--qm-r-sm);
   background: var(--qm-bg); padding: 10px; }
@@ -1978,6 +1983,17 @@ th { background: var(--qm-surface-2); font-weight: 600; }
   故可同页并列 —— <b>不是手绘 mock</b>。<br>
   页面底色＝<b>S16 暖灰·琥珀</b>（出厂默认）；每张皮肤卡内自带该款配色。
   <b>产品代码未因生成此页改动一行。</b></p>
+
+  <div class="decided">
+    <b>✅ 本页已结案（2026-10-17）</b> ——
+    ① 表面三阶：<b>结案</b>（实测已符合契约，无需选择）；
+    ② 目标位置按钮：<b>选 A</b>（维持纯图标，不改）；
+    ③ 模板行 ⋮：<b>选 A</b>（维持 27×27 / 圆角 12，不改）。
+    <br>三项均<b>未改动产品代码</b>（`src/` 一字未改，无升版）；本页保留为<b>决策留痕 + 候选样张存档</b>，
+    若日后要重提，直接看下面的 A/B/C 即可。<br>
+    <span class="note-inline">遗留小账（已量未修）：`#btnPickTarget` 声明 27×27、实渲染 25.33×27 ——
+    补 `flex: 0 0 auto` 即可，与本页三项裁定无关。</span>
+  </div>
 
   <section class="sec">
     <h2><span class="no">1</span>表面三阶方向 —— 建议直接结案，不用你选</h2>
