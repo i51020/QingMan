@@ -233,6 +233,13 @@ function sortCtx() {
 /** 最近一次 `GET /api/templates-dir` 的响应；切换语言时用它重渲染动态文案（不再请求）。 */
 let lastDirRes = null;
 
+/** 当前**生效**的模板目录（服务端回报值）。V0.3.5：输入框改为可编辑后，它是
+ *  「脏值判断」与「Esc 还原」的基线 —— 没有它就无法区分「用户改了」与「渲染回填」。 */
+let dirBase = '';
+
+/** 绑定请求序号（V0.3.5）：失焦提交可能连发两次，用序号作废旧响应。 */
+let dirBindSeq = 0;
+
 /**
  * 渲染绑定行：路径 + 状态提示。
  *
@@ -245,8 +252,13 @@ function renderTemplatesDir(res) {
   const pathEl = el('tplDirPath');
   const hintEl = el('tplDirHint');
   const dir = (res && res.dir) || '';
-  pathEl.textContent = dir || t('template.dirUnknown');
+  /* V0.3.5：控件是 <input>，路径走 `value`（原 <code> 用 textContent）。
+     占位符沿用 `dirUnknown`（「（未读取）」）—— 读不到目录时框内是空值，
+     正好由它说明状态，不必新增取词键。 */
+  pathEl.value = dir;
+  pathEl.placeholder = t('template.dirUnknown');
   pathEl.title = dir;
+  dirBase = dir;
 
   let hint = '';
   if (res && res.source === 'default') hint = t('template.dirHintDefault');
@@ -268,25 +280,73 @@ async function loadTemplatesDir() {
   }
 }
 
-/** 绑定目录 → 成功后刷新路径行与列表；被 env 遮蔽时如实提示（settings 已写但未生效）。 */
+/** 绑定目录 → 成功后刷新路径行与列表；被 env 遮蔽时如实提示（settings 已写但未生效）。
+ *
+ *  ⚠ V0.3.5 `create: false`：服务端默认会 `mkdir` 目标目录，好让「先绑定后放模板」
+ *  这种用法成立。但手输通道上线后，打错一个字的代价是**凭空多一个空目录 + 模板
+ *  列表被清空**，用户只看到一句「已绑定」。故两条通道统一要求目录**已存在**：
+ *  不存在就报错，由 `catch` 把输入框退回原值。
+ */
 async function bindTemplatesDir(dir) {
+  /* V0.3.5：失焦提交让「连着改两次」变得容易（A 失焦 → 输入 B → 再失焦），而两次
+     PUT 的返回顺序没有保证。用序号作废旧响应 —— 只作废**提示与回退**，刷新照旧，
+     否则旧请求的 toast / 回退会盖掉新请求的结果。 */
+  const seq = ++dirBindSeq;
   try {
-    const res = await api.setTemplatesDir(dir);
-    if (res.applied === false) {
-      toast(t('template.dirEnvShadow', { dir: res.effectiveDir || '' }), 'warn', 6000);
-    } else {
-      toast(t('template.dirBound', { dir: res.dir || dir }), 'ok');
+    const res = await api.setTemplatesDir(dir, { create: false });
+    if (seq === dirBindSeq) {
+      if (res.applied === false) {
+        toast(t('template.dirEnvShadow', { dir: res.effectiveDir || '' }), 'warn', 6000);
+      } else {
+        toast(t('template.dirBound', { dir: res.dir || dir }), 'ok');
+      }
     }
     await loadTemplatesDir();
     await loadTemplateList();
   } catch (err) {
+    if (seq !== dirBindSeq) return;   // 已有更新的绑定在途：本次错误不再打扰用户
     toast(t('template.dirBindFailed', { message: localizeError(err) }), 'warn', 6000);
+    /* V0.3.5：绑定失败时把输入框退回「当前生效值」。否则框里留着一条非法路径，
+       看上去像已经切过去了 —— 而列表显示的其实还是旧目录。 */
+    el('tplDirPath').value = dirBase;
   }
 }
 
 /**
- * 「选择…」：优先原生目录框；本机用不了（缺 tkinter / 无 GUI / env 关断）则降级为
- * **手动粘贴路径**（设计文档《模板系统重设计_方案原型_20261011.md》第六节）。
+ * 提交输入框里的路径（V0.3.5）。
+ *
+ * 只在「非空且确实改过」时才发请求：失焦会频繁触发，若每次都打一次
+ * `templates-dir` 写接口，用户点一下别处就等于重绑一次目录（还会弹 toast）。
+ */
+function commitDirInput() {
+  const input = el('tplDirPath');
+  const typed = (input.value || '').trim();
+  if (!typed || typed === dirBase) {
+    input.value = dirBase;   // 空值 / 未改动：回到生效值，不发请求
+    return;
+  }
+  bindTemplatesDir(typed);
+}
+
+/** 路径输入框的两条键盘出口：Enter 提交、Esc 放弃本次编辑。 */
+function initDirInput() {
+  const input = el('tplDirPath');
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commitDirInput();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      input.value = dirBase;
+      input.blur();
+    }
+  });
+  input.addEventListener('blur', commitDirInput);
+}
+
+/**
+ * 「选择…」：优先原生目录框；本机用不了（缺 tkinter / 无 GUI / env 关断）则把焦点交回
+ * **输入框**（V0.3.5 之前的降级是 `window.prompt`，现由常驻输入框承担同一条通道）。
  * 选中后只把路径交给 `bindTemplatesDir` —— 「选择」与「绑定」两步分离。
  */
 async function chooseTemplatesDir() {
@@ -301,10 +361,12 @@ async function chooseTemplatesDir() {
     return;
   }
   if (res.available && res.cancelled) return;   // 用户主动取消：静默
-  const typed = window.prompt(t('template.dirPastePrompt'), el('tplDirPath').textContent || '');
-  if (typed === null) return;
-  const picked = typed.trim();
-  if (picked) await bindTemplatesDir(picked);
+  /* V0.3.5：原生框不可用 → 说明一句并把焦点送到输入框，用户当场就能手输 + 回车。
+     比弹 prompt 少一次转场，也不会出现「prompt 文本无法换行/无法粘贴多段」的问题。 */
+  const input = el('tplDirPath');
+  toast(t('template.dirPastePrompt'), 'info', 6000);
+  input.focus();
+  input.select();
 }
 
 function renderTemplateState(text, kind) {
@@ -850,6 +912,15 @@ async function submitNewTemplate() {
     loadTemplatesDir();
     loadTemplateList();
   });
+
+  /* V0.3.5：路径输入框的双通道另一半（Enter / Esc / 失焦提交）。
+     ⚠ 两个按钮各自吃掉 `mousedown` 的默认行为：不让点击把它们抢焦点过去，
+     否则敲了一半的路径会先触发 blur 提交、紧接着按钮又发起一次绑定 ——
+     同一次点击打两个写请求，还会连弹两条 toast。 */
+  initDirInput();
+  for (const id of ['btnPickDir', 'btnRefreshTpl']) {
+    el(id).addEventListener('mousedown', (event) => event.preventDefault());
+  }
 
   /* 语言切换后刷新本模块的动态文案（静态文案由 applyStatic 在 setLocale 内处理） */
   document.addEventListener('qmlocalechange', () => {

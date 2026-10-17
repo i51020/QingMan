@@ -579,6 +579,9 @@ def set_templates_dir(payload: Dict[str, Any]) -> Dict[str, Any]:
     校验链（任一步失败即抛错，**不产生半完成态**）：
       非空 → resolve → 拒自绑 / 系统区（`_templates_dir_blocked`）→ 实测可写 → 写 settings。
 
+    `create`（V0.3.5，默认 `True`）：`True` 允许顺手建目录；`False` 要求目录已存在。
+    前端两条通道（手输 / 原生框）都传 `False` —— 理由见该参数处的注释。
+
     `QM_TEMPLATES_DIR` env 的优先级**高于** settings —— 被 env 覆盖时 `effectiveDir`
     会与请求值不同，响应如实回报 `applied=false`，供前端提示「需先清除环境变量」。
     """
@@ -590,7 +593,13 @@ def set_templates_dir(payload: Dict[str, Any]) -> Dict[str, Any]:
     reason = _templates_dir_blocked(d)
     if reason:
         raise TreeError("templateDirBlocked", dir=str(d), reason=reason)
-    writable, why = _probe_writable(d)
+    # V0.3.5：`create` 默认 True —— 保持既有语义（绑定时顺手把目录建出来）。
+    # 前端手输通道显式传 `false`：输入框让「打错一个字」变成常见操作，而自动 mkdir
+    # 会**凭空建出一个空目录**、模板列表随即清空，用户却只看到「已绑定」。
+    # 走 `create=False` 时，不存在的路径直接报错，由调用方回退到原目录。
+    # 只认真正的布尔 False（JSON 传 `"false"` 之类的畸形值仍按默认放行）。
+    create = payload.get("create", True)
+    writable, why = _probe_writable(d, create=(create is not False))
     if not writable:
         raise TreeError("templateDirNotWritable", dir=str(d), message=why)
 

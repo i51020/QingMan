@@ -171,7 +171,7 @@ export const dict = {
   'template.dirHintInvalid': 'The bound folder is unusable: {reason}',
   'template.dirPick': 'Choose...',
   'template.dirPickTip': 'Choose a folder as the template library (system folder picker)',
-  'template.dirPastePrompt': 'The system folder picker is unavailable here. Paste the absolute path of the template folder.',
+  'template.dirPastePrompt': 'The system folder picker could not open. Type the path into the "Template folder" field above and press Enter.',
   'template.dirBound': 'Template folder bound: {dir}',
   'template.dirEnvShadow': 'An environment variable overrides the binding; using: {dir}',
   'template.dirBindFailed': 'Failed to bind template folder: {message}',
@@ -291,7 +291,7 @@ export const dict = {
   'gen.targetPlaceholder': 'e.g. E:\\MyProject (or click the icon on the right)',
   'gen.targetPick': 'Choose...',
   'gen.targetPickTip': 'Choose an existing folder as the target path (system folder picker)',
-  'gen.targetPastePrompt': 'The system folder picker is unavailable here. Paste the absolute path of the target folder.',
+  'gen.targetPastePrompt': 'The system folder picker could not open. Type the path into the "Target location" field instead.',
   'gen.dryRun': 'Dry run only (do not write)',
   'gen.button': 'Generate',
   'gen.buttonTip': 'Generate: create the real folders at the target location',
@@ -472,7 +472,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.3.4',
+  'help.versionFallback': 'V0.3.5',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

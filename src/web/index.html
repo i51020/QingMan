@@ -106,10 +106,16 @@
             </span>
           </div>
           <!-- Template folder binding row (V0.0.38 / 6E): path + "Choose..." / "Refresh"
-               buttons; the hint line (unbound / invalid) is filled by main.js into tplDirHint -->
+               buttons; the hint line (unbound / invalid) is filled by main.js into tplDirHint.
+               V0.3.5: the path used to be a read-only <code> — the only way in was the
+               system picker, and its fallback was a window.prompt. It is now a real text
+               input, so the row carries **two** paths: type a path (Enter / blur commits)
+               or click the folder button. The input doubles as the fallback when the
+               native picker is unavailable, so the prompt is gone. -->
           <div class="tpl-dir" id="tplDirRow">
             <span class="tpl-dir-label" data-i18n="template.dirLabel"></span>
-            <code class="tpl-dir-path" id="tplDirPath"></code>
+            <input type="text" class="tpl-dir-path" id="tplDirPath"
+                   data-i18n-aria-label="template.dirLabel" spellcheck="false" autocomplete="off">
             <span class="tpl-dir-actions">
               <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnPickDir"
                       data-i18n-aria-label="template.dirPick" data-i18n-title="template.dirPickTip">

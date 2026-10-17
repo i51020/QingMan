@@ -920,7 +920,28 @@ class TemplatesDirRouteTests(unittest.TestCase):
         self.assertEqual(ctx.exception.code, "templateDirNotWritable")
         self.assertFalse(self.settings.exists())
 
-    def test_env_overrides_settings(self):
+    def test_put_create_false_rejects_missing_dir(self):
+        """V0.3.5：`create: false` 时**不得**顺手建目录。
+
+        手输路径让「打错一个字」成为常见操作，而自动 `mkdir` 会凭空建出一个空
+        目录、模板列表随即清空 —— 用户却只看到「已绑定」。故前端两条通道都传
+        `false`：目录不存在就报错，由调用方回退。
+        """
+        missing = self.tmp / "并不存在"
+        with self.assertRaises(TreeError) as ctx:
+            routes.set_templates_dir({"dir": str(missing), "create": False})
+        self.assertEqual(ctx.exception.code, "templateDirNotWritable")
+        self.assertFalse(missing.exists(), "create:false 不得创建目录")
+        self.assertFalse(self.settings.exists(), "校验失败不得写 settings")
+
+    def test_put_default_create_still_makes_dir(self):
+        """不传 `create` 时保留**既有**语义（顺手建目录）—— 兼容位，别被上一条带走。"""
+        made = self.tmp / "随手建的"
+        res = routes.set_templates_dir({"dir": str(made)})
+        self.assertTrue(res["ok"])
+        self.assertTrue(made.is_dir())
+
+
         """env 优先于 settings：PUT 照写盘，但 `applied=false` 如实回报。"""
         os.environ["QM_TEMPLATES_DIR"] = str(self.tmp / "envdir")
         res = routes.set_templates_dir({"dir": str(self.bind)})

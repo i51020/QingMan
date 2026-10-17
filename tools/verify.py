@@ -2889,6 +2889,10 @@ def main() -> int:
         ("function templateSignature", "6E 缺 file+mtime+size 变化判据（轮询会每 2.5s 重建 DOM）"),
         ("function openTemplateContextMenu", "6E 模板右键菜单缺失"),
         ("function chooseTemplatesDir", "6E 目录选择（含手动粘贴降级）缺失"),
+        # V0.3.5：路径改为可编辑输入框后，「绑定时不许自动建目录」成了必须项 ——
+        # 手输让「打错一个字」变成常见操作，若仍走服务端默认的 mkdir，代价是
+        # 凭空多一个空目录 + 模板列表被清空，而用户只看到「已绑定」。
+        ("{ create: false }", "绑定未关掉服务端「自动建目录」（手输错字的代价是凭空建目录 + 列表清空）"),
         ("function importTemplateFlow", "6E 导入未接线"),
         ("function exportTemplateItem", "6E 导出未接线"),
     ):
@@ -2904,6 +2908,10 @@ def main() -> int:
         ('id="tplDirRow"', "index.html 缺绑定行"),
         ('id="btnPickDir"', "index.html 缺「选择…」按钮"),
         ('id="btnImportTemplate"', "index.html 缺「导入」按钮"),
+        # V0.3.5：路径必须是**可编辑输入框**。退回只读 <code> 等于删掉手输通道 ——
+        # 选择器不可用时又只剩 window.prompt 一条死路（原生框在某些环境恒不可用）。
+        ('<input type="text" class="tpl-dir-path" id="tplDirPath"',
+         "index.html 的模板目录路径不是可编辑输入框（手输通道丢失）"),
     ):
         if token not in idx_html:
             fe_bad.append(why)

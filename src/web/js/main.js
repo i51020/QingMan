@@ -1336,10 +1336,13 @@ async function chooseTargetDir() {
     return;
   }
   if (res.available && res.cancelled) return;   // 用户主动取消：静默
-  const typed = window.prompt(t('gen.targetPastePrompt'), el('inTarget').value.trim());
-  if (typed === null) return;
-  const picked = typed.trim();
-  if (picked) applyTargetDir(picked);
+  /* V0.3.5：原生框不可用时把焦点交给旁边的输入框（它一直存在，本就可手输）。
+     原先弹 `window.prompt` —— 等于让用户在输入框之外再打一遍同一件事，
+     多一道转场，且 prompt 里粘贴长路径无法回看。 */
+  const input = el('inTarget');
+  toast(t('gen.targetPastePrompt'), 'info', 6000);
+  input.focus();
+  input.select();
 }
 
 /** 把选中的目录写进「目标位置」输入框，并刷新折叠摘要行（否则收起态下看不到已选值）。 */

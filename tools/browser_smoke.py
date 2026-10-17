@@ -356,8 +356,13 @@ frame('./index.html', function (doc) {
     }
     /* 6E：模板目录绑定行 + 三个入口按钮必须在位（绑定 UI 的骨架） */
     m.tplDirRow = doc ? doc.querySelectorAll('#tplDirRow').length : -1;
-    m.tplDirPath = (doc && doc.getElementById('tplDirPath'))
-      ? doc.getElementById('tplDirPath').textContent : '';
+    /* V0.3.5：该控件由只读 <code> 改为可编辑 <input>，路径在 `value` 而非 `textContent`。
+       两个都读：断言判的是「框里有没有路径」，不该被控件类型的演进绑死。 */
+    m.tplDirPath = (function () {
+      var n = doc ? doc.getElementById('tplDirPath') : null;
+      if (!n) return '';
+      return n.value || n.textContent || '';
+    }());
     m.tplDirBtns = doc
       ? doc.querySelectorAll('#btnPickDir, #btnRefreshTpl, #btnImportTemplate').length : -1;
     /* 6E：模板行右键菜单项齐备 —— 在行上派发 contextmenu，读 #ctxMenu 的按钮数 / 文案。

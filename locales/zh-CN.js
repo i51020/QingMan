@@ -184,7 +184,7 @@ export const dict = {
   'template.dirHintInvalid': '当前绑定的目录不可用：{reason}',
   'template.dirPick': '选择…',
   'template.dirPickTip': '选择一个目录作为模板库（本机原生目录选择框）',
-  'template.dirPastePrompt': '本机无法打开目录选择框，请粘贴模板目录的绝对路径',
+  'template.dirPastePrompt': '系统选择框打不开：请在上方「模板目录」框里直接输入路径，按回车生效',
   'template.dirBound': '已绑定模板目录：{dir}',
   'template.dirEnvShadow': '环境变量已覆盖目录绑定，实际使用：{dir}',
   'template.dirBindFailed': '模板目录绑定失败：{message}',
@@ -301,7 +301,7 @@ export const dict = {
   'gen.targetPlaceholder': '例如：E:\\我的项目（或点右侧图标选择）',
   'gen.targetPick': '选择…',
   'gen.targetPickTip': '选择一个已存在的目录作为目标位置（本机原生目录选择框）',
-  'gen.targetPastePrompt': '本机无法打开目录选择框，请粘贴目标位置的绝对路径',
+  'gen.targetPastePrompt': '系统选择框打不开：请在「目标位置」框里直接输入路径',
   'gen.dryRun': '仅演练（不写盘）',
   'gen.button': '一键生成',
   'gen.buttonTip': '一键生成：按当前目录树在目标位置创建真实目录',
@@ -480,7 +480,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.3.4',
+  'help.versionFallback': 'V0.3.5',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',

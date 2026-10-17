@@ -153,10 +153,14 @@ export const api = {
    * 绑定模板目录（V0.0.38 · 6E）。服务端会拒自绑 / 拒系统区 / 实测可写后才落盘；
    * 被 `QM_TEMPLATES_DIR` 环境变量覆盖时返回 `applied=false`，调用方据此提示。
    */
-  setTemplatesDir(dir) {
+  /* V0.3.5：`create` 显式传 false —— 见 `templates.js` `bindTemplatesDir` 的说明：
+     手输路径时「打错一个字」会命中服务端的 `mkdir` 分支，凭空建目录并把列表清空。 */
+  setTemplatesDir(dir, opts) {
+    const body = { dir };
+    if (opts && opts.create === false) body.create = false;
     return request('/api/templates-dir', {
       method: 'PUT',
-      body: JSON.stringify({ dir }),
+      body: JSON.stringify(body),
     });
   },
 
