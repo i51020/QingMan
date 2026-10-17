@@ -45,6 +45,8 @@ WEB_DIR = ROOT / "src" / "web"
 LOCALES_DIR = ROOT / "locales"
 DEMO_BACKEND = _HERE.parent / "web-demo" / "demo-backend.js"
 MD_MODULE = _HERE.parent / "web-demo" / "md-template.js"
+STORE_MODULE = _HERE.parent / "web-demo" / "online-store.js"
+UI_MODULE = _HERE.parent / "web-demo" / "online-ui.js"
 ICON_MAKER = _HERE.parent / "web-demo" / "make_icons.py"
 DOWNLOAD_DIR = ROOT / "dist"
 DOWNLOAD_NAME = "QingMan-{version}-portable.zip"
@@ -65,7 +67,9 @@ INJECT_ANCHOR = '<script type="module" src="./js/main.js"></script>'
 INJECT_SCRIPTS = (
     '  <script src="./js/demo-data.js"></script>\n'
     '  <script src="./js/md-template.js"></script>\n'
+    '  <script src="./js/online-store.js"></script>\n'
     '  <script src="./js/demo-backend.js"></script>\n'
+    '  <script src="./js/online-ui.js"></script>\n'
     '  <script src="./js/pwa.js"></script>\n'
 )
 # PWA：manifest 与 theme-color 进 <head> —— 有它们浏览器才允许「安装到桌面/开始菜单」。
@@ -351,10 +355,11 @@ def install_demo(out: Path) -> bool:
 
     js = out / "js"
     js.mkdir(exist_ok=True)
-    if not MD_MODULE.is_file():
-        raise SystemExit(f"[FAIL] 缺 {MD_MODULE}（模板 .md 文法的 JS 移植）")
-    shutil.copy2(MD_MODULE, js / "md-template.js")
-    shutil.copy2(DEMO_BACKEND, js / "demo-backend.js")
+    for src, name in ((MD_MODULE, "md-template.js"), (STORE_MODULE, "online-store.js"),
+                      (DEMO_BACKEND, "demo-backend.js"), (UI_MODULE, "online-ui.js")):
+        if not src.is_file():
+            raise SystemExit(f"[FAIL] 缺 {src}")
+        shutil.copy2(src, js / name)
     (js / "demo-data.js").write_text(
         "window.__QM_DEMO__ = " + json.dumps(data, ensure_ascii=False) + ";\n",
         encoding="utf-8", newline="\n")

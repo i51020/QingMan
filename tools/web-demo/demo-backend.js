@@ -18,6 +18,7 @@
   var DEMO = window.__QM_DEMO__ || {};
   var VERSION = DEMO.version || 'V0.3.0';
   var MD = window.QMDemoMd || null;
+  var STORE = window.QMDemoStore || null;
   var P0 = DEMO.template || { file: 'P0_空白项目模板.json', name: '空白项目模板', description: '', tree: {} };
 
   var ZH = (navigator.language || 'zh').toLowerCase().indexOf('zh') === 0;
@@ -39,6 +40,7 @@
       tooMany: '节点太多（上限 500），请精简后再生成。',
       fsUnsupported: '当前浏览器不支持直接写入文件夹（请用 Edge / Chrome）。可以改用本机 start.bat。',
       usePwa: '在线版没有桌面快捷方式 —— 浏览器菜单里选「安装此应用 / 安装青蔓」，就会在桌面与开始菜单得到图标（还能离线使用）。',
+      needPermission: '模板目录的读取权限已失效（浏览器在重启后常要求重新确认）。请点「选择目录」再授权一次。',
     },
     en: {
       nameZh: 'QingMan',
@@ -57,6 +59,7 @@
       tooMany: 'Too many nodes (500 max). Trim the tree and retry.',
       fsUnsupported: 'This browser cannot write to folders directly (use Edge / Chrome), or run start.bat locally.',
       usePwa: 'The online version has no desktop shortcut — use your browser menu "Install app" to get an icon on the desktop and Start menu (it also works offline).',
+      needPermission: 'Read access to the template folder expired (browsers usually re-ask after a restart). Click "Choose folder" and grant it again.',
     },
   };
   function tr(key) { return (ZH ? TEXT.zh : TEXT.en)[key] || key; }
@@ -123,6 +126,23 @@
       status: status || 400, headers: { 'Content-Type': 'application/json' },
     });
   }
+  /* base64 ICO → 浏览器下载（在线版没有快捷方式可挂，只能把文件交给用户） */
+  function downloadIco(base64) {
+    try {
+      var bin = atob(base64);
+      var bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i += 1) { bytes[i] = bin.charCodeAt(i); }
+      var url = URL.createObjectURL(new Blob([bytes], { type: 'image/x-icon' }));
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'qingman-launch.ico';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 0);
+    } catch (err) { /* 下载失败不阻断请求 */ }
+  }
+
   function bodyOf(init) {
     try { return JSON.parse((init && init.body) || '{}'); }
     catch (err) { return null; }
@@ -262,6 +282,24 @@
 
   /* ---------- 各端点 ---------- */
 
+
+  /* 未绑定目录时的回落：内置空白模板 + 浏览器里在线新增的那几套 */
+  function templateFromLocal(rawName) {
+    if (rawName === P0.file) {
+      var tree = P0.tree || {};
+      return ok({
+        file: P0.file, name: P0.name, description: P0.description || '',
+        tree: tree, stats: countTree(tree), source: 'json', schemaVersion: 1,
+      });
+    }
+    var got = userTemplates()[rawName];
+    if (!got) { return fail('templateNotFound', tr('noExport'), 404); }
+    return ok({
+      file: rawName, name: got.name, description: got.description || '',
+      tree: got.tree || {}, stats: countTree(got.tree || {}), source: 'json',
+    });
+  }
+
   function handle(path, method, init, search) {
     /* 健康检查：让界面进入「已连接」，并把数据位置如实说成浏览器存储 */
     if (path === '/api/health' && method === 'GET') {
@@ -280,29 +318,70 @@
       if (!payload) return fail('badJson', tr('badJson'));
       if (!payload.doc || !payload.doc.root) return fail('editorRootMissing', tr('noDisk'));
       var savedAt = new Date().toISOString().slice(0, 19);
-      var persisted = writeJson(LS_DOC, {
-        schemaVersion: 1, savedAt: savedAt, root: payload.doc.root,
-      });
-      return ok({
-        path: 'localStorage://' + LS_DOC, savedAt: savedAt,
-        bytes: JSON.stringify(payload.doc).length,
-        stats: countTree(payload.doc.root.children ? {} : {}),
-        backup: { ok: persisted, skipped: true },
-        persisted: persisted,
-      });
+      var nextDoc = { schemaVersion: 1, savedAt: savedAt, root: payload.doc.root };
+      var prevDoc = readJson(LS_DOC, null);
+      /* 与本地版同序：**先留上一版，再替换当前版**。颠倒就备份成了新内容。 */
+      var commit = function (backupName) {
+        var persisted = writeJson(LS_DOC, nextDoc);
+        return ok({
+          path: 'localStorage://' + LS_DOC, savedAt: savedAt,
+          bytes: JSON.stringify(nextDoc).length,
+          stats: countTree(payload.doc.root.children ? {} : {}),
+          backup: { ok: !!backupName, file: backupName || '', skipped: !backupName },
+          persisted: persisted,
+        });
+      };
+      if (STORE && prevDoc) {
+        return STORE.snapshot(prevDoc).then(commit, function () { return commit(''); });
+      }
+      return commit('');
     }
 
-    /* 历史版本：演示版不保留，如实返回空列表（不是错误） */
+    /* 历史版本：存在 OPFS（浏览器私有文件系统）里，保留最近 5 份 */
     if (path === '/api/editor-backups' && method === 'GET') {
-      return ok({ dir: tr('dataDir'), keep: 0, backups: [] });
+      if (!STORE) return ok({ dir: tr('dataDir'), keep: 0, backups: [] });
+      return STORE.listBackups().then(function (backups) {
+        return ok({ dir: tr('dataDir'), keep: 5, backups: backups });
+      });
     }
-    if (path === '/api/editor-restore') return fail('demoReadonly', tr('noRestore'));
+    if (path === '/api/editor-restore' && method === 'POST') {
+      var restorePayload = bodyOf(init) || {};
+      if (!STORE) return fail('demoReadonly', tr('noRestore'));
+      return STORE.readBackup(restorePayload.id).then(function (doc) {
+        var now = new Date().toISOString().slice(0, 19);
+        writeJson(LS_DOC, { schemaVersion: 1, savedAt: now, root: doc.root });
+        return ok({
+          restored: {
+            id: restorePayload.id, name: restorePayload.id,
+            rootName: (doc.root && doc.root.name) || '',
+          },
+        });
+      }).catch(function (err) {
+        return fail((err && err.code) || 'editorBackupCorrupt', tr('noRestore'), 404);
+      });
+    }
 
     /* 模板库：内置空白模板 + 用户在线新增（都存在 localStorage） */
     if (path === '/api/templates' && method === 'GET') {
-      return ok({
-        available: true, items: templateList(),
-        path: 'localStorage://' + LS_TPL, reason: '',
+      if (!STORE) {
+        return ok({ available: true, items: templateList(), path: 'localStorage://' + LS_TPL, reason: '' });
+      }
+      return STORE.getDir().then(function (handle) {
+        if (!handle) { return { bound: false }; }
+        return STORE.dirPermission(handle).then(function (state) {
+          if (state !== 'granted') { return { bound: true, needPermission: true, name: handle.name }; }
+          return STORE.readDirTemplates(handle).then(function (items) {
+            return { bound: true, items: items, name: handle.name };
+          });
+        });
+      }).then(function (res) {
+        if (res.bound && res.needPermission) {
+          return fail('demoNeedPermission', tr('needPermission'), 403);
+        }
+        if (res.bound) {
+          return ok({ available: true, items: res.items, path: res.name, reason: '', source: 'bound' });
+        }
+        return ok({ available: true, items: templateList(), path: 'localStorage://' + LS_TPL, reason: '' });
       });
     }
     if (path === '/api/templates' && method === 'POST') {
@@ -325,18 +404,19 @@
     if (path.indexOf('/api/templates/') === 0 && path !== '/api/templates/import') {
       var rawName = decodeURIComponent(path.slice('/api/templates/'.length));
       if (method === 'GET') {
-        if (rawName === P0.file) {
-          var tree = P0.tree || {};
-          return ok({
-            file: P0.file, name: P0.name, description: P0.description || '',
-            tree: tree, stats: countTree(tree), source: 'json', schemaVersion: 1,
+        if (!STORE) { return templateFromLocal(rawName); }
+        return STORE.getDir().then(function (handle) {
+          if (!handle) { return null; }
+          return STORE.dirPermission(handle).then(function (state) {
+            if (state !== 'granted') { return null; }
+            return STORE.readDirTemplate(handle, rawName).catch(function () { return null; });
           });
-        }
-        var got = userTemplates()[rawName];
-        if (!got) return fail('templateNotFound', tr('noExport'), 404);
-        return ok({
-          file: rawName, name: got.name, description: got.description || '',
-          tree: got.tree || {}, stats: countTree(got.tree || {}), source: 'json',
+        }).then(function (fromDir) {
+          if (!fromDir) { return templateFromLocal(rawName); }
+          return ok({
+            file: fromDir.file, name: fromDir.name, description: fromDir.description,
+            tree: fromDir.tree, stats: countTree(fromDir.tree), source: fromDir.source,
+          });
         });
       }
       if (method === 'DELETE') {
@@ -360,17 +440,76 @@
       }
     }
 
-    /* 绑定目录 / 原生选择框 / 打开目录：演示版没有文件系统，静默降级 */
+    /* 绑定目录：点选得到**真实句柄**并记住；手动粘贴的路径无法解析，只能点选 */
     if (path === '/api/templates-dir' && method === 'GET') {
-      return ok({ dir: tr('tplPath'), source: 'demo', available: true, reason: '' });
+      if (!STORE) return ok({ dir: tr('tplPath'), source: 'demo', available: true, reason: '' });
+      return STORE.getDir().then(function (handle) {
+        if (!handle) return ok({ dir: tr('tplPath'), source: 'demo', available: true, reason: '' });
+        return STORE.dirPermission(handle).then(function (state) {
+          return ok({
+            dir: handle.name, source: 'bound',
+            available: state === 'granted',
+            reason: state === 'granted' ? '' : 'needPermission',
+          });
+        });
+      });
     }
     if (path === '/api/templates-dir' && method === 'PUT') {
-      return ok({ applied: false, dir: tr('tplPath'), reason: 'demo' });
+      var dirPayload = bodyOf(init) || {};
+      if (!STORE) return ok({ applied: false, dir: tr('tplPath'), reason: 'demo' });
+      return STORE.getDir().then(function (handle) {
+        if (handle && String(dirPayload.dir || '') === handle.name) {
+          return ok({ applied: true, dir: handle.name, source: 'bound' });
+        }
+        return ok({
+          applied: false,
+          dir: handle ? handle.name : tr('tplPath'),
+          reason: 'demoPickOnly',
+        });
+      });
     }
-    if (path === '/api/templates-dir/pick' || path === '/api/open-dir') {
-      return ok({ available: false, reason: 'demo' });
+    if (path === '/api/templates-dir/pick') {
+      if (!STORE) return ok({ available: false, reason: 'demo' });
+      return STORE.pickDir().then(function (handle) {
+        return ok({ available: true, cancelled: false, dir: handle.name });
+      }).catch(function (err) {
+        if (err && err.name === 'AbortError') return ok({ available: true, cancelled: true });
+        return ok({ available: false, reason: 'demo' });
+      });
     }
-    if (path === '/api/launch-icon') return ok({ skipped: true });
+    if (path === '/api/open-dir') return ok({ available: false, reason: 'demo' });
+
+    /* 图标：浏览器没有 .lnk 可挂，就把生成的 ICO 直接交给用户下载 */
+    if (path === '/api/launch-icon' && method === 'POST') {
+      var iconPayload = bodyOf(init) || {};
+      if (iconPayload.icon) {
+        downloadIco(iconPayload.icon);
+        return ok({ exported: true, skipped: true });
+      }
+      return ok({ skipped: true });
+    }
+
+    /* 全量备份 / 恢复 / 清空（换浏览器、换域名的唯一退路） */
+    if (path === '/api/demo-backup' && method === 'GET') {
+      if (!STORE) return fail('demoUnsupported', tr('noExport'));
+      return ok(STORE.exportAll());
+    }
+    if (path === '/api/demo-import' && method === 'POST') {
+      var importPayload = bodyOf(init);
+      if (!importPayload || typeof importPayload.content !== 'string') {
+        return fail('badJson', tr('badJson'));
+      }
+      if (!STORE) return fail('demoUnsupported', tr('noExport'));
+      try {
+        return ok({ stats: STORE.importAll(importPayload.content) });
+      } catch (err) {
+        return fail((err && err.code) || 'badJson', tr('noExport'));
+      }
+    }
+    if (path === '/api/demo-clear' && method === 'POST') {
+      if (!STORE) return fail('demoUnsupported', tr('noExport'));
+      return ok({ removed: STORE.clearAll() });
+    }
 
     /* 生成目录：走浏览器写盘通道（真写，不是模拟） */
     if (path === '/api/generate' && method === 'POST') return generate(init);
