@@ -31,6 +31,10 @@
  7am. 顶栏状态区契约（V0.0.53）：两个状态读数改**纯图标**后的接线 —— 文字形态（`btn-txt`）
      不得回流 / `#chipBackend` 仍须带状态点与下三角 / `setServiceState` 须写 `aria-label` /
      `#chipSave` 不得再挂 `data-i18n`（会覆盖图标）/ 旋转须留 reduced-motion 退出口
+ 7an. 帮助页文案无 Markdown 标记（V0.0.53@r2）：两个渲染器都不解析 Markdown ⇒ `help.*`
+     里出现的 `**` / 反引号 / `~~` / `[文字](链接)` 会原样上屏。**只查 `help.*`**
+     （`sample.readmeContent` 是生成的 README 正文，那里的 Markdown 是应当的）；
+     抽到的条数低于哨兵即报红，防「抽取式失配 → 循环空转 → 判据恒真」（§三.87 / §三.88）
  7d-9. 皮肤文件**顶层只许 `:root` + `--qm-*` 声明**（§P0-3 L5）：与 7d「组件 CSS 不感知皮肤」
      **方向相反**，两者合起来才是完整的**双向隔离**（`skins/README.md` 契约「皮肤 == 一组变量
      覆盖值，不是一整套组件样式」的机器化；§P2 第 45 项）
@@ -549,6 +553,54 @@ def status_chip_violations(index_html: str, main_js: str, layout_css: str) -> li
     elif ".ic.is-spinning" not in css.split("prefers-reduced-motion")[-1]:
         hits.append("旋转动画缺 prefers-reduced-motion 退出口")
 
+    return hits
+
+
+# 帮助页文案的「Markdown 标记」判据（V0.0.53@r2）。
+# 背景：帮助页的**两个**渲染器（`help.js` 的打分节 / `help-doc.js` 的应用内弹窗）
+# 都**不解析 Markdown** —— 文案里写的 `**常驻**` 会把两个星号**原样显示给用户**。
+# 该缺陷在待办里挂了三个版本，一直靠人眼看，故机器化。
+# ⚠ 只查 `help.*` 键 —— `sample.readmeContent` 是**生成出来的 README 正文**，那里的
+#   `#` 与 `\n` 是**应当存在的 Markdown**，一并禁掉会把正常功能判红。
+HELP_ITEM_RE = re.compile(r"^  '(help\.[^']+)':\s*'(.*)',$", re.M)
+HELP_MD_PATTERNS = (
+    (re.compile(r"\*\*"), "粗体标记 `**`"),
+    (re.compile(r"`"), "反引号"),
+    (re.compile(r"~~"), "删除线 `~~`"),
+    (re.compile(r"\[[^\]]+\]\([^)]+\)"), "Markdown 链接"),
+)
+# 抽取式失效的哨兵：`help.*` 实测 59 条（2026-10-17）。低于此即视为「没抽到东西」，
+# 不许当成「全都合规」放过 —— 见下方 docstring 的 ⚠ 段。
+HELP_ITEM_MIN = 50
+
+
+def help_markdown_violations(locale_text: str, label: str) -> list[str]:
+    """返回某个语言包里 `help.*` 文案**残留的 Markdown 标记**（V0.0.53@r2）。
+
+    为什么值得一条守卫：两个渲染器都不解析 Markdown，写进去的 `**`、反引号、`~~`、
+    `[文字](链接)` 会**原样上屏**。它不是崩溃，是「看起来像乱码」—— 页面照常工作，
+    所以只能靠机器盯。
+
+    口径：
+      ⚠ 入参**先剥注释**再抽。取词表里的 `/* V0.0.53：… `` `sidebar.title` `` … */`
+        这类说明注释本身带反引号，不剥就会把自己写的沿革当成违规。
+      ⚠ **只查 `help.*`**。`sample.readmeContent` 是生成出来的 README 正文，
+        那里的 `#` 与 `\n` 是应当存在的 Markdown。
+      ⚠ 抽到的条数低于 `HELP_ITEM_MIN` 时**直接报红**，不返回空列表。这是本仓
+        反复踩过的一族坑（《错误笔记》§三.87 / §三.88）：**收集式判据必须先证明
+        「收集到东西」**，否则缩进/引号一改，循环体空转、判据恒真、文件里再多星号也不响。
+    """
+    body = strip_comments(locale_text, "js")
+    pairs = HELP_ITEM_RE.findall(body)
+    if len(pairs) < HELP_ITEM_MIN:
+        return [f"{label} 只抽到 {len(pairs)} 条 help.*（< {HELP_ITEM_MIN}，抽取式可能已失配）"
+                "—— 此时判定不作数，先修抽取式"]
+    hits: list[str] = []
+    for key, val in pairs:
+        for pat, why in HELP_MD_PATTERNS:
+            found = pat.search(val)
+            if found:
+                hits.append(f"{label} 的 {key} 含{why}（渲染器不解析 Markdown，会原样上屏）")
     return hits
 
 
@@ -1758,6 +1810,24 @@ def main() -> int:
     check(not status_bad, "顶栏状态区契约 V0.0.53",
           "；".join(status_bad) if status_bad
           else "文字形态已退场 / 状态点与下三角齐备 / aria-label 有出口 / 图标不与 i18n 抢位 / 动效有退出")
+
+    # 7an. 帮助页文案无 Markdown 标记（V0.0.53@r2）。
+    #      两个渲染器（help.js / help-doc.js）都不解析 Markdown ⇒ 文案里的 `**` / 反引号 /
+    #      `~~` / `[文字](链接)` 会**原样上屏**。不崩、不报错，只是看着像乱码，故只能靠机器盯。
+    #      判据与三条口径（先剥注释 / 只查 help.* / 抽取式失效即报红）见模块级
+    #      `help_markdown_violations()` 的 docstring（提到模块级才能被单测锚住）。
+    #      ⚠ 同 7am：此处不可用后文 main() 内的 `_read()` 闭包，直接读盘。
+    _md_bad: list[str] = []
+    for _rel, _label in (("src/web/locales/zh-CN.js", "zh-CN"),
+                         ("src/web/locales/en-US.js", "en-US")):
+        _f = root / _rel
+        if not _f.is_file():
+            _md_bad.append(f"{_rel} 不存在")
+            continue
+        _md_bad += help_markdown_violations(_f.read_text(encoding="utf-8"), _label)
+    check(not _md_bad, "帮助页文案无 Markdown 标记 V0.0.53@r2",
+          "；".join(_md_bad) if _md_bad
+          else "两包 help.* 全为纯文本 —— 无粗体 / 反引号 / 删除线 / 链接残留")
 
     # 7n. note 契约与 .md 边界（V0.0.17：节点说明 + 三粒度复制）
     #     裁定：note 与 .md content 一律**纯文本** —— 工具不解析、不渲染、不校验 Markdown。

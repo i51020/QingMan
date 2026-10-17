@@ -323,6 +323,70 @@ class StatusChipTests(unittest.TestCase):
         self.assertTrue(any("未找到" in h for h in hits), hits)
 
 
+class HelpMarkdownTests(unittest.TestCase):
+    """V0.0.53@r2：帮助页文案的 Markdown 残留判据 `help_markdown_violations()`（守卫 7an）。
+
+    **判据为何存在**：帮助页的两个渲染器（`help.js` / `help-doc.js`）都**不解析
+    Markdown** —— 文案里写 `**常驻**` 会把星号**原样显示**给用户。它不崩、不报错，
+    只是看着像乱码，所以只能靠机器盯（该缺陷在待办里挂了三个版本，一直靠人眼看）。
+
+    ⚠ 三条口径各有一个**陷阱对照**：
+      `test_ignores_markers_in_comments` —— 取词表里的说明注释本身带反引号，
+      不先剥注释就会把自己写的沿革判成违规；
+      `test_ignores_readme_sample` —— `sample.readmeContent` 是**生成的 README 正文**，
+      那里的 `#` 是应当存在的 Markdown，一并禁掉会把正常功能判红；
+      `test_flags_broken_extraction` —— 缩进一改抽取式就失配，此时**空列表 = 恒真**，
+      故条数低于哨兵必须报红（《错误笔记》§三.87 / §三.88 同族）。
+    """
+
+    # 50 条「干净」条目 + 1 条被测条目 —— 正好压在 HELP_ITEM_MIN 之上
+    @staticmethod
+    def _dict(extra_key: str, extra_val: str, n: int = 52) -> str:
+        lines = ["export const dict = {"]
+        for i in range(n):
+            lines.append(f"  'help.filler.{i}': '纯文本说明第 {i} 条',")
+        lines.append(f"  '{extra_key}': '{extra_val}',")
+        lines.append("};")
+        return "\n".join(lines) + "\n"
+
+    def test_accepts_plain_text(self):
+        self.assertEqual(
+            verify.help_markdown_violations(self._dict("help.ops.genBar", "参数区常驻一行"), "zh-CN"),
+            [])
+
+    def test_flags_bold(self):
+        hits = verify.help_markdown_violations(self._dict("help.tree.5", "是一颗**切换按钮**"), "zh-CN")
+        self.assertTrue(any("help.tree.5" in h and "粗体" in h for h in hits), hits)
+
+    def test_flags_backtick(self):
+        hits = verify.help_markdown_violations(self._dict("help.tree.1", "见 `btn-txt`"), "zh-CN")
+        self.assertTrue(any("反引号" in h for h in hits), hits)
+
+    def test_flags_strike_and_link(self):
+        for val, why in (("已作废~~旧说法~~", "删除线"), ("见[手册](docs/a.md)", "链接")):
+            hits = verify.help_markdown_violations(self._dict("help.tree.2", val), "zh-CN")
+            self.assertTrue(any(why in h for h in hits), (val, hits))
+
+    def test_ignores_readme_sample(self):
+        """陷阱对照：`sample.readmeContent` 不是 `help.*`，其 Markdown 应当保留。"""
+        self.assertEqual(
+            verify.help_markdown_violations(
+                self._dict("sample.readmeContent", "# 说明\\n\\n正文"), "zh-CN"),
+            [])
+
+    def test_ignores_markers_in_comments(self):
+        """陷阱对照：注释里写 `**粗体**` 与反引号，不得被判红（须先剥注释）。"""
+        src = "/* V0.0.53：`sidebar.title` 已删，**不是**死码 */\n" + self._dict(
+            "help.ops.center", "中栏——顶部是工具栏")
+        self.assertEqual(verify.help_markdown_violations(src, "zh-CN"), [])
+
+    def test_flags_broken_extraction(self):
+        """抽取式失配（改成 3 空格缩进）⇒ 必须报红，**不得**返回空列表当作「全合规」。"""
+        broken = self._dict("help.tree.5", "x").replace("\n  'help.", "\n   'help.")
+        hits = verify.help_markdown_violations(broken, "zh-CN")
+        self.assertTrue(any("抽取式" in h for h in hits), hits)
+
+
 class LocaleDictKeysTests(unittest.TestCase):
     """V0.0.51@r12：取词表「键集合」的唯一口径 `locale_dict_keys()`（7b-2 / 7b-3 共用）。
 

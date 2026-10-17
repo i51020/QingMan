@@ -494,7 +494,8 @@ export const dict = {
   'help.quickStart.5': 'When satisfied, uncheck "Dry run" and click "Generate" to write to disk',
 
   'help.ops.title': 'Interface',
-  'help.ops.sidebar': 'Left column — "Templates" lists the templates in the current library; click to load. The two icons beside the heading are "New" and "Import". The "Template folder" row below shows the current library location; its icons rebind and refresh it (effective immediately). To store the current tree as a new template use "Save as template" in the center toolbar: an existing name is not overwritten unless you confirm, and the old template moves to the trash and can be recovered',
+  'help.ops.topbar': 'Top bar — the brand mark and the "More" menu sit on the left; the two widgets on the right are icon-only. The inner one shows the auto-save state: a check means saved, a spinning arrow means saving, an x means the save failed (hover for the exact state and time, and screen readers read it too). The outer one is the service status button: the dot colour tells whether the service is ready, and clicking it opens service settings; the same wording also appears in the "More" menu',
+  'help.ops.sidebar': 'Left column — "Templates" lists the templates in the current library; click to load. A ⋮ at the right end of each row opens exactly the same menu as right-clicking (Load / Rename / Duplicate / Export / Delete). The two icons beside the heading are "New" and "Import". The "Template folder" row below shows the current library location; its icons rebind and refresh it (effective immediately). To store the current tree as a new template use "Save as template" in the center toolbar: an existing name is not overwritten unless you confirm, and the old template moves to the trash and can be recovered',
   'help.ops.center': 'Center column — generation options and toolbar at the top, directory tree below',
   'help.ops.genBar': 'The parameter bar is always visible and cannot be collapsed: the summary line above (target · root · dry/write) is a pre-generation check; the target path and "dry run" below stay editable',
   'help.ops.inspector': 'Right column — switch between the "Properties / Source" views at the top; shows name, type, path, depth and stats for the selected node, plus the generation result',
@@ -560,7 +561,7 @@ export const helpSections = [
     'help.quickStart.4', 'help.quickStart.5',
   ] },
   { id: 'ops', title: 'help.ops.title', kind: 'ul', items: [
-    'help.ops.sidebar', 'help.ops.center', 'help.ops.genBar', 'help.ops.inspector',
+    'help.ops.topbar', 'help.ops.sidebar', 'help.ops.center', 'help.ops.genBar', 'help.ops.inspector',
   ] },
   { id: 'tree', title: 'help.tree.title', kind: 'ul', items: [
     'help.tree.1', 'help.tree.2', 'help.tree.3', 'help.tree.4', 'help.tree.5',
