@@ -17,6 +17,7 @@
   var LS_TPL = 'qm.demo.templates';
   var DEMO = window.__QM_DEMO__ || {};
   var VERSION = DEMO.version || 'V0.3.0';
+  var MD = window.QMDemoMd || null;
   var P0 = DEMO.template || { file: 'P0_空白项目模板.json', name: '空白项目模板', description: '', tree: {} };
 
   var ZH = (navigator.language || 'zh').toLowerCase().indexOf('zh') === 0;
@@ -225,9 +226,41 @@
     });
   }
 
+  function templateDoc(name) {
+    if (name === P0.file) {
+      return { name: P0.name, description: P0.description || '', tree: P0.tree || {} };
+    }
+    var tpl = userTemplates()[name];
+    return tpl ? { name: tpl.name, description: tpl.description || '', tree: tpl.tree || {} } : null;
+  }
+
+  function extOf(name) {
+    var m = /\.[^.\/]+$/.exec(name);
+    return m ? m[0].slice(1).toLowerCase() : '';
+  }
+  function stemOf(name) { return name.replace(/\.[^.]+$/, ''); }
+
+  /* 结构校验：根为空即拒绝；**空目录合法**（`{}` 是真空目录，不是空树） */
+  function validateTree(tree, isRoot) {
+    if (!tree || typeof tree !== 'object' || Array.isArray(tree)) return 'templateTreeMissing';
+    var keys = Object.keys(tree);
+    if (isRoot && !keys.length) return 'templateEmpty';
+    for (var i = 0; i < keys.length; i += 1) {
+      var key = keys[i];
+      if (!String(key).trim()) return 'segmentEmpty';
+      if (/[\\/:*?"<>|]/.test(key)) return 'segmentIllegalChar';
+      var value = tree[key];
+      if (value && typeof value === 'object') {
+        var bad = validateTree(value, false);
+        if (bad) return bad;
+      }
+    }
+    return '';
+  }
+
   /* ---------- 各端点 ---------- */
 
-  function handle(path, method, init) {
+  function handle(path, method, init, search) {
     /* 健康检查：让界面进入「已连接」，并把数据位置如实说成浏览器存储 */
     if (path === '/api/health' && method === 'GET') {
       return ok({
@@ -342,8 +375,59 @@
 
     /* 快捷方式 / 导入导出：浏览器做不到，明确说明而不是假装成功 */
     if (path === '/api/shortcut') return fail('demoNoDisk', tr('noDisk'));
-    if (path === '/api/templates/import' || path.indexOf('/api/templates-export/') === 0) {
-      return fail('demoReadonly', tr('noExport'));
+    /* 导出：把模板转成文本交回前端 —— 前端本来就拿 response.text 触发 Blob 下载，
+       故这里只要把文本生成对，浏览器侧无需任何改动 */
+    if (path.indexOf('/api/templates-export/') === 0 && method === 'GET') {
+      var expName = decodeURIComponent(path.slice('/api/templates-export/'.length));
+      var expDoc = templateDoc(expName);
+      if (!expDoc) return fail('templateNotFound', tr('noExport'), 404);
+      var want = String((search && search.get('format')) || '').trim().toLowerCase();
+      var expText = JSON.stringify({
+        schemaVersion: 1, name: expDoc.name, description: expDoc.description, tree: expDoc.tree,
+      }, null, 2) + '\n';
+      var outFile = expName;
+      if (want === 'md') {
+        if (!MD) return fail('demoReadonly', tr('noExport'));
+        try { expText = MD.render(expDoc); } catch (err) { return fail('templateBadJson', tr('noExport')); }
+        outFile = stemOf(expName) + '.md';
+      }
+      return ok({ file: outFile, name: stemOf(expName), source: want === 'md' ? 'md' : 'json', text: expText });
+    }
+
+    /* 导入：收原文 → 解析（.md 走移植的同一份文法）→ 校验 → 存为规范 .json */
+    if (path === '/api/templates/import' && method === 'POST') {
+      var imp = bodyOf(init);
+      if (!imp) return fail('badJson', tr('badJson'));
+      var impName = String(imp.filename || '').trim();
+      if (!impName) return fail('templateNameEmpty', tr('noExport'));
+      var impText = imp.content;
+      if (typeof impText !== 'string' || !impText.trim()) return fail('templateEmpty', tr('noExport'));
+      var impExt = extOf(impName);
+      var impDoc;
+      try {
+        if (impExt === 'md') {
+          if (!MD) return fail('demoReadonly', tr('noExport'));
+          impDoc = MD.parse(impText);
+        } else {
+          impDoc = JSON.parse(impText);
+        }
+      } catch (err) {
+        return fail((err && err.code) || 'templateBadMarkdown', tr('noExport'));
+      }
+      if (!impDoc || typeof impDoc !== 'object') return fail('templateBadJson', tr('noExport'));
+      var treeBad = validateTree(impDoc.tree, true);
+      if (treeBad) return fail(treeBad, tr('noExport'));
+      var storeName = stemOf(impName) + '.json';
+      var storeMap = userTemplates();
+      if (storeMap[storeName] && !imp.overwrite) return fail('templateExists', tr('tplExists'));
+      storeMap[storeName] = {
+        name: impDoc.name || stemOf(impName),
+        description: impDoc.description || '',
+        tree: impDoc.tree,
+        mtime: Date.now(),
+      };
+      writeJson(LS_TPL, storeMap);
+      return ok({ file: storeName, name: storeMap[storeName].name, source: 'json' });
     }
 
     /* 其余 /api/* 一律挡住：绝不因为漏配而真的打到静态托管的 404 页面上 */
@@ -363,17 +447,20 @@
     } catch (err) {
       url = '';
     }
+    var parsed = null;
     var path;
     try {
-      path = new URL(url, window.location.href).pathname;
+      parsed = new URL(url, window.location.href);
+      path = parsed.pathname;
     } catch (err) {
+      parsed = null;
       path = '';
     }
     if (path.indexOf('/api/') !== 0) return nativeFetch(input, init);
     var method = String(
       (init && init.method) || (input && input.method) || 'GET'
     ).toUpperCase();
-    var hit = handle(path, method, init);
+    var hit = handle(path, method, init, parsed ? parsed.searchParams : null);
     if (hit) return Promise.resolve(hit);
     return nativeFetch(input, init);
   };

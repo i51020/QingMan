@@ -44,6 +44,8 @@ ROOT = _HERE.parents[1]
 WEB_DIR = ROOT / "src" / "web"
 LOCALES_DIR = ROOT / "locales"
 DEMO_BACKEND = _HERE.parent / "web-demo" / "demo-backend.js"
+MD_MODULE = _HERE.parent / "web-demo" / "md-template.js"
+ICON_MAKER = _HERE.parent / "web-demo" / "make_icons.py"
 SEED_TEMPLATE = ROOT / "templates" / "P0_空白项目模板.json"
 VERSION_FILE = ROOT / "VERSION"
 DEFAULT_OUT = ROOT / "dist" / "static-site"
@@ -52,8 +54,14 @@ DEFAULT_OUT = ROOT / "dist" / "static-site"
 INJECT_ANCHOR = '<script type="module" src="./js/main.js"></script>'
 INJECT_SCRIPTS = (
     '  <script src="./js/demo-data.js"></script>\n'
+    '  <script src="./js/md-template.js"></script>\n'
     '  <script src="./js/demo-backend.js"></script>\n'
+    '  <script src="./js/pwa.js"></script>\n'
 )
+# PWA：manifest 与 theme-color 进 <head> —— 有它们浏览器才允许「安装到桌面/开始菜单」。
+INJECT_HEAD = ('  <link rel="manifest" href="./manifest.webmanifest">\n'
+               '  <meta name="theme-color" content="#2b2f36">\n')
+HEAD_ANCHOR = "</head>"
 
 # 与 `routes._LOCALE_NAME_RE` 同形：只取语言包的自描述名，不执行语言包代码。
 NAME_RE = re.compile(r"export\s+const\s+NAME\s*=\s*['\"]([^'\"]+)['\"]")
@@ -114,11 +122,111 @@ def build(out: Path, os_locale: str = "zh-CN") -> dict:
         encoding="utf-8", newline="\n")
 
     demo = install_demo(out)
+    pwa = install_pwa(out)
 
     total = sum(p.stat().st_size for p in out.rglob("*") if p.is_file())
     files = sum(1 for p in out.rglob("*") if p.is_file())
     return {"files": files, "bytes": total, "web": copied, "locales": locale_count,
-            "demo": demo}
+            "demo": demo, "pwa": pwa}
+
+
+PWA_REGISTER_JS = """/* 青蔓 QingMan · PWA 注册（由 build_static_site.py 生成）
+ *
+ * 在线版没有 .lnk 可写，但「安装到桌面 / 开始菜单」这件事浏览器自己做得到：
+ * 只要站点有 manifest + service worker，用户点地址栏的「安装」即可得到
+ * 独立窗口的图标，并且离线可用。这就是桌面快捷方式在 Web 上的等价物。
+ *
+ * service worker 取「网络优先、离线回落缓存」：宁可多一次请求，也不让用户
+ * 拿到过期页面 —— 静态站每次发布都会换内容，缓存优先会把人锁在旧版。
+ */
+(function () {
+  'use strict';
+  if (!('serviceWorker' in navigator)) return;
+  if (location.protocol !== 'https:' && ['localhost', '127.0.0.1'].indexOf(location.hostname) < 0) return;
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('./sw.js').catch(function (err) {
+      console.warn('[QingMan] service worker 注册失败：', err && err.message);
+    });
+  });
+})();
+"""
+
+SW_JS = """/* 青蔓 QingMan · service worker（构建期生成，缓存名随版本变化） */
+const CACHE = 'qm-static-__VERSION__';
+
+self.addEventListener('install', () => self.skipWaiting());
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(
+        keys.filter((key) => key !== CACHE && key.indexOf('qm-static-') === 0)
+          .map((key) => caches.delete(key))))
+      .then(() => self.clients.claim()));
+});
+
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+  if (request.method !== 'GET') return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.indexOf('/api/') === 0) return;   // 在线后端在页面内拦截，不走网络
+  event.respondWith(
+    fetch(request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+        return response;
+      })
+      .catch(() => caches.match(request).then((hit) => hit || caches.match('./index.html'))));
+});
+"""
+
+
+def install_pwa(out: Path) -> bool:
+    """生成 manifest / service worker / 图标，并在 <head> 挂上 manifest。
+
+    图标用 `tools/web-demo/make_icons.py` 现画（纯标准库 PNG）：本机没有 Pillow，
+    `msedge --screenshot` 也不产文件，与其依赖外部工具，不如自己确定性生成。
+    """
+    import json as _json
+    import sys as _sys
+    _sys.path.insert(0, str(_HERE.parent / "web-demo"))
+    import make_icons  # noqa: E402  （同目录工具，仅在构建期使用）
+
+    make_icons.write_icons(out / "icons")
+    version = VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.is_file() else "V0"
+
+    manifest = {
+        "name": "青蔓 QingMan",
+        "short_name": "青蔓",
+        "description": "目录结构设计工具：编辑目录树，生成真实目录（在线版写入你选择的文件夹）",
+        "start_url": "./index.html",
+        "scope": "./",
+        "display": "standalone",
+        "background_color": "#f3f5f8",
+        "theme_color": "#2b2f36",
+        "lang": "zh-CN",
+        "icons": [
+            {"src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+        ],
+    }
+    (out / "manifest.webmanifest").write_text(
+        _json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
+    (out / "sw.js").write_text(SW_JS.replace("__VERSION__", version), encoding="utf-8", newline="\n")
+    js = out / "js"
+    js.mkdir(exist_ok=True)
+    (js / "pwa.js").write_text(PWA_REGISTER_JS, encoding="utf-8", newline="\n")
+
+    page = out / "index.html"
+    html = page.read_text(encoding="utf-8")
+    if HEAD_ANCHOR not in html:
+        raise SystemExit(f"[FAIL] index.html 里找不到 {HEAD_ANCHOR}")
+    if "manifest.webmanifest" not in html:
+        html = html.replace(HEAD_ANCHOR, INJECT_HEAD + HEAD_ANCHOR, 1)
+        page.write_text(html, encoding="utf-8", newline="\n")
+    return True
 
 
 def install_demo(out: Path) -> bool:
@@ -144,6 +252,9 @@ def install_demo(out: Path) -> bool:
 
     js = out / "js"
     js.mkdir(exist_ok=True)
+    if not MD_MODULE.is_file():
+        raise SystemExit(f"[FAIL] 缺 {MD_MODULE}（模板 .md 文法的 JS 移植）")
+    shutil.copy2(MD_MODULE, js / "md-template.js")
     shutil.copy2(DEMO_BACKEND, js / "demo-backend.js")
     (js / "demo-data.js").write_text(
         "window.__QM_DEMO__ = " + json.dumps(data, ensure_ascii=False) + ";\n",
@@ -175,6 +286,8 @@ def main(argv: "list[str] | None" = None) -> int:
           f"{info['bytes'] / 1024:.0f} KB")
     print("  在线后端：" + ("已注入（草稿存 localStorage；生成走浏览器文件夹授权，真写磁盘）"
                           if info["demo"] else "未注入（缺 tools/web-demo/demo-backend.js）"))
+    print("  可安装（PWA）：" + ("manifest + service worker + 图标 已生成"
+                              if info["pwa"] else "未生成"))
     return 0
 
 
