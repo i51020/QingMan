@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>青蔓 · UI 待裁定预览（V0.0.54）</title>
+<link rel="stylesheet" href="../src/web/css/tokens.css">
+<link rel="stylesheet" href="../src/web/css/base.css">
+<link rel="stylesheet" href="../src/web/css/layout.css">
+<link rel="stylesheet" href="../src/web/css/soft.css">
+<style>
+/* ── 本页自用：16 款皮肤的真实变量，按 class 作用域注入（不改 :root，故可同页并列） ── */
+.sk-s01 {
+  --qm-bg: #f9f0f4;
+  --qm-surface: #fff5f8;
+  --qm-surface-2: #fff2f6;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4f5259;
+  --qm-accent: #e32d6a;
+  --qm-accent-ink: #9e3d5e;
+  --qm-accent-soft: #e9d5df;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #b6466c;
+  --qm-btn-bg-hi: #a74063;
+  --qm-danger: #b33737;
+  --qm-danger-soft: #f7dcdf;
+  --qm-warn: #906716;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(75, 72, 73, 0.12);
+  --qm-shadow-dark: rgba(100, 96, 98, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(100, 96, 98, 0.15);
+}
+.sk-s02 {
+  --qm-bg: #f4f0e1;
+  --qm-surface: #faf6e9;
+  --qm-surface-2: #f6f4e6;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4e5256;
+  --qm-accent: #3e7a4c;
+  --qm-accent-ink: #2a5334;
+  --qm-accent-soft: #d4e5d8;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #305f3b;
+  --qm-btn-bg-hi: #295133;
+  --qm-danger: #b13737;
+  --qm-danger-soft: #f3ddd2;
+  --qm-warn: #906716;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(73, 72, 68, 0.12);
+  --qm-shadow-dark: rgba(98, 96, 90, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(98, 96, 90, 0.15);
+}
+.sk-s03 {
+  --qm-bg: #1f2c42;
+  --qm-surface: #313d51;
+  --qm-surface-2: #334052;
+  --qm-line: rgba(255, 255, 255, 0.14);
+  --qm-line-soft: rgba(255, 255, 255, 0.08);
+  --qm-text: #fafaf8;
+  --qm-text-dim: #d4d5d3;
+  --qm-accent: #50b5e0;
+  --qm-accent-ink: #afcbd7;
+  --qm-accent-soft: #37556e;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #347691;
+  --qm-btn-bg-hi: #2f6a82;
+  --qm-danger: #f7b7b7;
+  --qm-danger-soft: #5b4e5e;
+  --qm-warn: #f5ce60;
+  --qm-edge-hi: rgba(255, 255, 255, 0.1);
+  --qm-edge-lo: rgba(0, 0, 0, 0.5);
+  --qm-shadow-dark: rgba(0, 0, 0, 0.62);
+  --qm-shadow-light: rgba(255, 255, 255, 0.06);
+  --qm-shadow: 0 1px 2px rgba(0, 0, 0, 0.62);
+}
+.sk-s04 {
+  --qm-bg: #fdf2e5;
+  --qm-surface: #fff7ee;
+  --qm-surface-2: #fff5ea;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4f5257;
+  --qm-accent: #d3670a;
+  --qm-accent-ink: #9d5920;
+  --qm-accent-soft: #feead7;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #a96023;
+  --qm-btn-bg-hi: #985620;
+  --qm-danger: #b43838;
+  --qm-danger-soft: #f7ded6;
+  --qm-warn: #906716;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(76, 73, 69, 0.12);
+  --qm-shadow-dark: rgba(101, 97, 92, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(101, 97, 92, 0.15);
+}
+.sk-s05 {
+  --qm-bg: #faf0d4;
+  --qm-surface: #fff8e5;
+  --qm-surface-2: #fff7e1;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4f5255;
+  --qm-accent: #b27e0d;
+  --qm-accent-ink: #87661c;
+  --qm-accent-soft: #fdf0d0;
+  --qm-on-accent: #232931;
+  --qm-btn-bg: #bb8c27;
+  --qm-btn-bg-hi: #cc992b;
+  --qm-danger: #b43838;
+  --qm-danger-soft: #f7dfce;
+  --qm-warn: #906716;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(75, 72, 64, 0.12);
+  --qm-shadow-dark: rgba(100, 96, 85, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(100, 96, 85, 0.15);
+}
+.sk-s06 {
+  --qm-bg: #f7f7f5;
+  --qm-surface: #ffffff;
+  --qm-surface-2: #fcfcfc;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4f545a;
+  --qm-accent: #65696f;
+  --qm-accent-ink: #4a4e52;
+  --qm-accent-soft: #bfc4c8;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #55595e;
+  --qm-btn-bg-hi: #4b4f53;
+  --qm-danger: #ba3a3a;
+  --qm-danger-soft: #f7e5e5;
+  --qm-warn: #996e17;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(74, 74, 74, 0.12);
+  --qm-shadow-dark: rgba(99, 99, 98, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(99, 99, 98, 0.15);
+}
+.sk-s07 {
+  --qm-bg: #162a46;
+  --qm-surface: #293b55;
+  --qm-surface-2: #2e3d53;
+  --qm-line: rgba(255, 255, 255, 0.14);
+  --qm-line-soft: rgba(255, 255, 255, 0.08);
+  --qm-text: #fafaf8;
+  --qm-text-dim: #d3d4d4;
+  --qm-accent: #d8d0c1;
+  --qm-accent-ink: #d1cecb;
+  --qm-accent-soft: #4c596b;
+  --qm-on-accent: #232931;
+  --qm-btn-bg: #a8a297;
+  --qm-btn-bg-hi: #b1aca2;
+  --qm-danger: #f6b2b2;
+  --qm-danger-soft: #554c61;
+  --qm-warn: #f5ce60;
+  --qm-edge-hi: rgba(255, 255, 255, 0.1);
+  --qm-edge-lo: rgba(0, 0, 0, 0.5);
+  --qm-shadow-dark: rgba(0, 0, 0, 0.62);
+  --qm-shadow-light: rgba(255, 255, 255, 0.06);
+  --qm-shadow: 0 1px 2px rgba(0, 0, 0, 0.62);
+}
+.sk-s08 {
+  --qm-bg: #cfdfef;
+  --qm-surface: #e4eef7;
+  --qm-surface-2: #dfebf6;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4a5059;
+  --qm-accent: #0068ba;
+  --qm-accent-ink: #00477e;
+  --qm-accent-soft: #91d5f1;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #005191;
+  --qm-btn-bg-hi: #00467d;
+  --qm-danger: #a33838;
+  --qm-danger-soft: #ded6dd;
+  --qm-warn: #876115;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(62, 67, 72, 0.12);
+  --qm-shadow-dark: rgba(83, 89, 96, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(83, 89, 96, 0.15);
+}
+.sk-s09 {
+  --qm-bg: #dfdff0;
+  --qm-surface: #eaecf8;
+  --qm-surface-2: #e5e9f7;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4b5059;
+  --qm-accent: #0068b8;
+  --qm-accent-ink: #00477d;
+  --qm-accent-soft: #b3cef0;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #005190;
+  --qm-btn-bg-hi: #00467c;
+  --qm-danger: #a33838;
+  --qm-danger-soft: #e3d4de;
+  --qm-warn: #876115;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(67, 67, 72, 0.12);
+  --qm-shadow-dark: rgba(89, 89, 96, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(89, 89, 96, 0.15);
+}
+.sk-s10 {
+  --qm-bg: #d4f0f6;
+  --qm-surface: #e5f6fa;
+  --qm-surface-2: #e1f4f8;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4a5259;
+  --qm-accent: #2c748e;
+  --qm-accent-ink: #1f5366;
+  --qm-accent-soft: #98d0de;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #245f75;
+  --qm-btn-bg-hi: #1f5265;
+  --qm-danger: #a93a3a;
+  --qm-danger-soft: #dfdde0;
+  --qm-warn: #906716;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(64, 72, 74, 0.12);
+  --qm-shadow-dark: rgba(85, 96, 98, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(85, 96, 98, 0.15);
+}
+.sk-s11 {
+  --qm-bg: #e8dcc8;
+  --qm-surface: #f0e6d5;
+  --qm-surface-2: #eee4d2;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4c4f52;
+  --qm-accent: #8b6e54;
+  --qm-accent-ink: #5f4b39;
+  --qm-accent-soft: #e4d8c6;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #6c5642;
+  --qm-btn-bg-hi: #5f4c3a;
+  --qm-danger: #9d3636;
+  --qm-danger-soft: #e7cec0;
+  --qm-warn: #876115;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(70, 66, 60, 0.12);
+  --qm-shadow-dark: rgba(93, 88, 80, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(93, 88, 80, 0.15);
+}
+.sk-s12 {
+  --qm-bg: #1a1a1a;
+  --qm-surface: #282828;
+  --qm-surface-2: #2a2a2a;
+  --qm-line: rgba(255, 255, 255, 0.14);
+  --qm-line-soft: rgba(255, 255, 255, 0.08);
+  --qm-text: #fafaf8;
+  --qm-text-dim: #d3d1cc;
+  --qm-accent: #a6a6a6;
+  --qm-accent-ink: #aeaeae;
+  --qm-accent-soft: #414141;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #727272;
+  --qm-btn-bg-hi: #686868;
+  --qm-danger: #f49999;
+  --qm-danger-soft: #543e3e;
+  --qm-warn: #f5ce60;
+  --qm-edge-hi: rgba(255, 255, 255, 0.1);
+  --qm-edge-lo: rgba(0, 0, 0, 0.5);
+  --qm-shadow-dark: rgba(0, 0, 0, 0.62);
+  --qm-shadow-light: rgba(255, 255, 255, 0.06);
+  --qm-shadow: 0 1px 2px rgba(0, 0, 0, 0.62);
+}
+.sk-s13 {
+  --qm-bg: #e3e4e6;
+  --qm-surface: #eff0f2;
+  --qm-surface-2: #ebedf2;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4c5158;
+  --qm-accent: #266cda;
+  --qm-accent-ink: #1d4b95;
+  --qm-accent-soft: #b7cff5;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #2157ab;
+  --qm-btn-bg-hi: #1e4e9a;
+  --qm-danger: #a63939;
+  --qm-danger-soft: #e7d7d9;
+  --qm-warn: #876115;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(68, 68, 69, 0.12);
+  --qm-shadow-dark: rgba(91, 91, 92, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(91, 91, 92, 0.15);
+}
+.sk-s14 {
+  --qm-bg: #202020;
+  --qm-surface: #2c2c2c;
+  --qm-surface-2: #2e2e2d;
+  --qm-line: rgba(255, 255, 255, 0.14);
+  --qm-line-soft: rgba(255, 255, 255, 0.08);
+  --qm-text: #fafaf8;
+  --qm-text-dim: #d3d2cd;
+  --qm-accent: #f0f0c0;
+  --qm-accent-ink: #c8c8b3;
+  --qm-accent-soft: #53534a;
+  --qm-on-accent: #232931;
+  --qm-btn-bg: #bbbb96;
+  --qm-btn-bg-hi: #c3c3a2;
+  --qm-danger: #f4a0a0;
+  --qm-danger-soft: #584141;
+  --qm-warn: #f5ce60;
+  --qm-edge-hi: rgba(255, 255, 255, 0.1);
+  --qm-edge-lo: rgba(0, 0, 0, 0.5);
+  --qm-shadow-dark: rgba(0, 0, 0, 0.62);
+  --qm-shadow-light: rgba(255, 255, 255, 0.06);
+  --qm-shadow: 0 1px 2px rgba(0, 0, 0, 0.62);
+}
+.sk-s15 {
+  --qm-bg: #f5edc8;
+  --qm-surface: #fff9e3;
+  --qm-surface-2: #fbf5e0;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4f5355;
+  --qm-accent: #483f36;
+  --qm-accent-ink: #312b25;
+  --qm-accent-soft: #e8d9b0;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #38312a;
+  --qm-btn-bg-hi: #2c2721;
+  --qm-danger: #b43838;
+  --qm-danger-soft: #f7e0cd;
+  --qm-warn: #906716;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(74, 71, 60, 0.12);
+  --qm-shadow-dark: rgba(98, 95, 80, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(98, 95, 80, 0.15);
+}
+.sk-s16 {
+  --qm-bg: #e8e7e5;
+  --qm-surface: #edece7;
+  --qm-surface-2: #eae9e3;
+  --qm-line: rgba(64, 58, 48, 0.16);
+  --qm-line-soft: rgba(64, 58, 48, 0.09);
+  --qm-text: #33302b;
+  --qm-text-dim: #5d584f;
+  --qm-accent: #a8730a;
+  --qm-accent-ink: #7a5a10;
+  --qm-accent-soft: #f4e6c6;
+  --qm-on-accent: #3a3428;
+  --qm-btn-bg: #fbd374;
+  --qm-btn-bg-hi: #f2c14e;
+  --qm-danger: #a8392f;
+  --qm-danger-soft: #f1ddd5;
+  --qm-warn: #7a5c0d;
+  --qm-edge-hi: rgba(255, 255, 255, 0.78);
+  --qm-edge-lo: rgba(120, 112, 96, 0.14);
+  --qm-shadow-dark: rgba(146, 137, 120, 0.26);
+  --qm-shadow-light: rgba(255, 255, 255, 0.96);
+  --qm-shadow: 0 1px 2px rgba(146, 137, 120, 0.26);
+}
+
+body { margin: 0; background: var(--qm-bg); color: var(--qm-text);
+  font-family: "Microsoft YaHei UI", "Segoe UI", system-ui, sans-serif; }
+.page { max-width: 1180px; margin: 0 auto; padding: 28px 24px 64px; }
+h1 { font-size: 22px; margin: 0 0 6px; }
+.sub { color: var(--qm-text-dim); font-size: 13px; line-height: 1.7; }
+.sec { margin-top: 34px; }
+.sec > h2 { font-size: 16px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+.sec > h2 .no { display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center;
+  border-radius: 999px; background: var(--qm-accent); color: var(--qm-on-accent); font-size: 12px; }
+.sec > p { color: var(--qm-text-dim); font-size: 13px; margin: 6px 0 14px; line-height: 1.75; }
+.mono { font-family: Consolas, "Cascadia Mono", monospace; font-size: 11px; }
+.verdict { border: 1px solid var(--qm-line-soft); background: var(--qm-surface);
+  border-radius: var(--qm-r-sm); padding: 12px 14px; font-size: 13px; line-height: 1.8; }
+.verdict b { color: var(--qm-accent-ink); }
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.skin-card { margin: 0; border: 1px solid var(--qm-line-soft); border-radius: var(--qm-r-sm);
+  background: var(--qm-bg); padding: 10px; }
+.skin-swatch { display: flex; height: 26px; border-radius: 6px; overflow: hidden;
+  border: 1px solid var(--qm-line-soft); }
+.skin-swatch i { flex: 1 1 50%; }
+.skin-card figcaption { display: flex; flex-direction: column; gap: 1px; margin: 8px 0 6px; font-size: 12px; }
+.skin-card figcaption b { font-weight: 600; }
+.skin-card figcaption .mono { color: var(--qm-text-dim); }
+.skin-demo { display: flex; flex-direction: column; gap: 6px; }
+.skin-demo .btn { font-size: 12px; padding: 3px 8px; }
+.skin-demo .tpl-item { padding: 4px 6px; }
+.skin-demo .tpl-name { font-size: 12px; }
+.variant-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.variant { border: 1px solid var(--qm-line-soft); border-radius: var(--qm-r-sm);
+  background: var(--qm-surface); padding: 12px 14px; }
+.variant-head { display: flex; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+.tag { display: inline-flex; min-width: 22px; height: 22px; padding: 0 8px; align-items: center;
+  justify-content: center; border-radius: 999px; background: var(--qm-surface-2);
+  border: 1px solid var(--qm-line); font-size: 12px; font-weight: 600; }
+.variant-note { font-size: 12px; color: var(--qm-text-dim); }
+.demo-genbar { max-width: 520px; font-size: 13px; }
+.field-inline { display: inline-flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
+.field-inline input { flex: 1 1 auto; min-width: 0; }
+/* 变体 B 的「图标 + 文字」迷你钮：仅本页演示用（产品里没有这个类） */
+.btn-mini-txt { display: inline-flex; align-items: center; justify-content: center;
+  width: auto; height: 27px; padding: 0 9px; gap: 5px; }
+.btn-mini-txt .ic { width: 15px; height: 15px; -webkit-mask-size: 15px 15px; mask-size: 15px 15px; }
+.btn-mini-txt .lbl { font-size: var(--qm-fs-xs); white-space: nowrap; }
+.tpl-demo { display: flex; flex-direction: column; gap: 6px; max-width: 380px; }
+.tpl-row.is-lit .tpl-more { opacity: 1; background: var(--qm-surface-2); box-shadow: var(--qm-tap); }
+.dim { color: var(--qm-text-dim); font-size: 11px; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+th, td { border: 1px solid var(--qm-line-soft); padding: 7px 9px; text-align: left; }
+th { background: var(--qm-surface-2); font-weight: 600; }
+.note { font-size: 12px; color: var(--qm-text-dim); line-height: 1.8; }
+</style>
+</head>
+<body class="sk-s16">
+<div class="page">
+
+  <h1>青蔓 · UI 待裁定预览</h1>
+  <p class="sub">版本 <b>V0.0.54</b> · 生成于 2026-10-17 · 本页<b>直接引用产品真实样式表</b>
+  （<span class="mono">tokens / base / layout / soft.css</span>），16 款皮肤的真实变量按 class 作用域注入，
+  故可同页并列 —— <b>不是手绘 mock</b>。<br>
+  页面底色＝<b>S16 暖灰·琥珀</b>（出厂默认）；每张皮肤卡内自带该款配色。
+  <b>产品代码未因生成此页改动一行。</b></p>
+
+  <section class="sec">
+    <h2><span class="no">1</span>表面三阶方向 —— 建议直接结案，不用你选</h2>
+    <div class="verdict">
+      <b>这条待裁定的前提已经过期。</b>待办里写的是「浅色 11 款的 <span class="mono">--qm-surface-2</span> 方向反了」，
+      但盘上实测：<b>12 款浅色全部 ΔL* &lt; 0</b>（次级偏暗，符合契约）、
+      <b>4 款深色全部 ΔL* &gt; 0</b>（次级偏亮，符合「方向随区制」），
+      全 16 款 |ΔL*| ≤ <b>1.37</b>（契约上限 1.5）。<br>
+      即 V0.0.46（收窄深色 4 款）与 V0.0.47（全域收口）之后，<b>浅色那 11 款已一并归位</b>。
+      手册 §十三 #6 里那句「浅色 11 款未动」是 <b>V0.0.46 前的取值快照</b>，不是现状 —— 属文档陈旧，不是设计缺陷。
+    </div>
+    <p>16 张卡：左半 <span class="mono">--qm-surface</span>、右半 <span class="mono">--qm-surface-2</span>；
+    下方一颗真实 <span class="mono">.btn</span> 与一条真实 <span class="mono">.tpl-item</span>，
+    看这点落差在真实组件上是否**看得出来**（看得出来＝分工成立；看不出来＝这参数在浪费）。</p>
+    <div class="grid">
+      <figure class="skin-card sk-s01">
+        <div class="skin-swatch"><i style="background:#fff5f8"></i><i style="background:#fff2f6"></i></div>
+        <figcaption><b>奶白·樱粉</b><span class="mono">S01 · ΔL* -0.78</span></figcaption>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+      </figure>
+      <figure class="skin-card sk-s02">
+        <div class="skin-swatch"><i style="background:#faf6e9"></i><i style="background:#f6f4e6"></i></div>
+        <figcaption><b>米白·松绿</b><span class="mono">S02 · ΔL* -0.87</span></figcaption>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+      </figure>
+      <figure class="skin-card sk-s03">
+        <div class="skin-swatch"><i style="background:#313d51"></i><i style="background:#334052"></i></div>
+        <figcaption><b>柔暗·冰蓝</b><span class="mono">S03 · ΔL* +1.16</span></figcaption>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+      </figure>
+      <figure class="skin-card sk-s04">
+        <div class="skin-swatch"><i style="background:#fff7ee"></i><i style="background:#fff5ea"></i></div>
+        <figcaption><b>暖白·暖橙</b><span class="mono">S04 · ΔL* -0.59</span></figcaption>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+      </figure>
+      <figure class="skin-card sk-s05">
+        <div class="skin-swatch"><i style="background:#fff8e5"></i><i style="background:#fff7e1"></i></div>
+        <figcaption><b>奶黄·暖白</b><span class="mono">S05 · ΔL* -0.34</span></figcaption>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+      </figure>
+      <figure class="skin-card sk-s06">
+        <div class="skin-swatch"><i style="background:#ffffff"></i><i style="background:#fcfcfc"></i></div>
+        <figcaption><b>月光序章·钢笔灰</b><span class="mono">S06 · ΔL* -1.04</span></figcaption>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+      </figure>
+      <figure class="skin-card sk-s07">
+        <div class="skin-swatch"><i style="background:#293b55"></i><i style="background:#2e3d53"></i></div>
+        <figcaption><b>夜空墨蓝</b><span class="mono">S07 · ΔL* +0.89</span></figcaption>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+      </figure>
+      <figure class="skin-card sk-s08">
+        <div class="skin-swatch"><i style="background:#e4eef7"></i><i style="background:#dfebf6"></i></div>
+        <figcaption><b>冬日暖阳</b><span class="mono">S08 · ΔL* -1.14</span></figcaption>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+      </figure>
+      <figure class="skin-card sk-s09">
+        <div class="skin-swatch"><i style="background:#eaecf8"></i><i style="background:#e5e9f7"></i></div>
+        <figcaption><b>初雪</b><span class="mono">S09 · ΔL* -1.14</span></figcaption>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+      </figure>
+      <figure class="skin-card sk-s10">
+        <div class="skin-swatch"><i style="background:#e5f6fa"></i><i style="background:#e1f4f8"></i></div>
+        <figcaption><b>白月光</b><span class="mono">S10 · ΔL* -0.83</span></figcaption>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+      </figure>
+      <figure class="skin-card sk-s11">
+        <div class="skin-swatch"><i style="background:#f0e6d5"></i><i style="background:#eee4d2"></i></div>
+        <figcaption><b>旧书纸棕</b><span class="mono">S11 · ΔL* -0.73</span></figcaption>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+      </figure>
+      <figure class="skin-card sk-s12">
+        <div class="skin-swatch"><i style="background:#282828"></i><i style="background:#2a2a2a"></i></div>
+        <figcaption><b>月岩写意</b><span class="mono">S12 · ΔL* +0.95</span></figcaption>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+      </figure>
+      <figure class="skin-card sk-s13">
+        <div class="skin-swatch"><i style="background:#eff0f2"></i><i style="background:#ebedf2"></i></div>
+        <figcaption><b>苹果银·蓝</b><span class="mono">S13 · ΔL* -1.04</span></figcaption>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+      </figure>
+      <figure class="skin-card sk-s14">
+        <div class="skin-swatch"><i style="background:#2c2c2c"></i><i style="background:#2e2e2d"></i></div>
+        <figcaption><b>黑金·寂海</b><span class="mono">S14 · ΔL* +0.90</span></figcaption>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+      </figure>
+      <figure class="skin-card sk-s15">
+        <div class="skin-swatch"><i style="background:#fff9e3"></i><i style="background:#fbf5e0"></i></div>
+        <figcaption><b>奶黄·晨曦</b><span class="mono">S15 · ΔL* -1.37</span></figcaption>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+      </figure>
+      <figure class="skin-card sk-s16">
+        <div class="skin-swatch"><i style="background:#edece7"></i><i style="background:#eae9e3"></i></div>
+        <figcaption><b>暖灰·琥珀</b><span class="mono">S16 · ΔL* -1.08</span></figcaption>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2><span class="no">2</span>「目标位置」那颗图标钮：是否恢复可见文字</h2>
+    <p>现状纯图标（<span class="mono">.btn.btn-ghost.btn-mini.btn-ic</span>，27×27 / 图标 15px），
+    语义只在 <span class="mono">aria-label</span> 与 <span class="mono">title</span> 里 —— 要悬停才知道它干什么。
+    取舍点：<b>可辨识度</b> ↔ <b>与工具栏同族的一致性</b>（V0.0.50「I 组」把工作区 20 颗按钮全改成了纯图标）。</p>
+    <div class="variant-grid">
+      <div class="variant">
+        <div class="variant-head"><span class="tag">A · 现状（纯图标）</span><span class="variant-note">27×27，与工具栏其余图标钮同族；不给提示时语义不可见</span></div>
+        <div class="demo-genbar"><div class="genbar-fields">
+          <label class="field field-wide"><span>目标位置</span>
+            <span class="field-inline"><input type="text" value="D:/生成结果" readonly><button type="button" class="btn btn-ghost btn-mini btn-ic"><span class="ic ic-folder-open" aria-hidden="true"></span></button></span>
+          </label>
+        </div></div>
+      </div>
+      <div class="variant">
+        <div class="variant-head"><span class="tag">B · 图标 + 文字</span><span class="variant-note">27px 高不变、宽度自适应约 64px；一眼可读，但不再是「纯图标」</span></div>
+        <div class="demo-genbar"><div class="genbar-fields">
+          <label class="field field-wide"><span>目标位置</span>
+            <span class="field-inline"><input type="text" value="D:/生成结果" readonly><button type="button" class="btn btn-ghost btn-mini btn-mini-txt"><span class="ic ic-folder-open" aria-hidden="true"></span><span class="lbl">选择</span></button></span>
+          </label>
+        </div></div>
+      </div>
+      <div class="variant">
+        <div class="variant-head"><span class="tag">C · 仅文字</span><span class="variant-note">常规迷你钮；最易读，代价是破坏「工作区按钮图标化」的整批一致性</span></div>
+        <div class="demo-genbar"><div class="genbar-fields">
+          <label class="field field-wide"><span>目标位置</span>
+            <span class="field-inline"><input type="text" value="D:/生成结果" readonly><button type="button" class="btn btn-ghost btn-mini">选择…</button></span>
+          </label>
+        </div></div>
+      </div>
+    <p class="note">★ 实测（无头 Edge 量<b>产品页面本体</b>的 <span class="mono">#btnPickTarget</span>）：
+    这颗按钮 CSS 声明 <b>27×27</b>，真实渲染是 <b>25.33×27</b> ——
+    <span class="mono">.field-inline</span> 里 input 的小数宽度（454.67px）把按钮挤掉 1.67px
+    （<span class="mono">flex-shrink: 1</span>）。本页变体 A 量得 25×27，与产品一致。<br>
+    若你要的是「严格 27」，需加 <span class="mono">flex: 0 0 auto</span> 或
+    <span class="mono">min-width: 27px</span> —— 这与「是否加文字」是两件事，可合并做。</p>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2><span class="no">3</span>模板行行尾 ⋮：27×27 方块 vs 设计稿 22×22 圆</h2>
+    <p>现状 <span class="mono">27×27</span>、圆角 <span class="mono">--qm-r-sm = 12px</span>（近乎方圆）、图标 15px；
+    设计稿 v7.1 是 <span class="mono">22×22</span> 正圆。每个变体给<b>两行</b>：第一行常驻态（opacity .45）、
+    第二行点亮态（hover，opacity 1）。</p>
+    <div class="variant-grid">
+      <div class="variant">
+        <div class="variant-head"><span class="tag">A · 现状 27×27 方圆</span><span class="variant-note">圆角 12 / 图标 15 —— 与侧栏其余 btn-mini 同高，点按目标最大</span></div>
+        <div class="tpl-demo">
+          <div class="tpl-row"><div class="tpl-item"><span class="tpl-name">品牌视觉规范</span><span class="tpl-meta"><span class="tpl-badge">MD</span><span class="dim">12 目录 · 34 文件</span></span></div><button type="button" class="btn btn-ghost btn-mini btn-ic tpl-more" aria-label="更多"><span class="ic ic-more" aria-hidden="true"></span></button></div>
+          <div class="tpl-row is-lit"><div class="tpl-item"><span class="tpl-name">周报归档结构</span><span class="tpl-meta"><span class="tpl-badge">JSON</span><span class="dim">6 目录 · 9 文件</span></span></div><button type="button" class="btn btn-ghost btn-mini btn-ic tpl-more" aria-label="更多"><span class="ic ic-more" aria-hidden="true"></span></button></div>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="variant-head"><span class="tag">B · 22×22 正圆</span><span class="variant-note">完全贴合设计稿 v7.1；比相邻 btn-mini 小 5px，低于触控 24px 下限</span></div>
+        <div class="tpl-demo">
+          <div class="tpl-row"><div class="tpl-item"><span class="tpl-name">品牌视觉规范</span><span class="tpl-meta"><span class="tpl-badge">MD</span><span class="dim">12 目录 · 34 文件</span></span></div><button type="button" class="btn btn-ghost btn-mini btn-ic tpl-more" style="width:22px;height:22px;border-radius:999px;" aria-label="更多"><span class="ic ic-more" style="width:13px;height:13px;-webkit-mask-size:13px 13px;mask-size:13px 13px;" aria-hidden="true"></span></button></div>
+          <div class="tpl-row is-lit"><div class="tpl-item"><span class="tpl-name">周报归档结构</span><span class="tpl-meta"><span class="tpl-badge">JSON</span><span class="dim">6 目录 · 9 文件</span></span></div><button type="button" class="btn btn-ghost btn-mini btn-ic tpl-more" style="width:22px;height:22px;border-radius:999px;" aria-label="更多"><span class="ic ic-more" style="width:13px;height:13px;-webkit-mask-size:13px 13px;mask-size:13px 13px;" aria-hidden="true"></span></button></div>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="variant-head"><span class="tag">C · 22×22 方圆</span><span class="variant-note">只缩尺寸、不改形状；保留方形族的一致语义</span></div>
+        <div class="tpl-demo">
+          <div class="tpl-row"><div class="tpl-item"><span class="tpl-name">品牌视觉规范</span><span class="tpl-meta"><span class="tpl-badge">MD</span><span class="dim">12 目录 · 34 文件</span></span></div><button type="button" class="btn btn-ghost btn-mini btn-ic tpl-more" style="width:22px;height:22px;" aria-label="更多"><span class="ic ic-more" style="width:13px;height:13px;-webkit-mask-size:13px 13px;mask-size:13px 13px;" aria-hidden="true"></span></button></div>
+          <div class="tpl-row is-lit"><div class="tpl-item"><span class="tpl-name">周报归档结构</span><span class="tpl-meta"><span class="tpl-badge">JSON</span><span class="dim">6 目录 · 9 文件</span></span></div><button type="button" class="btn btn-ghost btn-mini btn-ic tpl-more" style="width:22px;height:22px;" aria-label="更多"><span class="ic ic-more" style="width:13px;height:13px;-webkit-mask-size:13px 13px;mask-size:13px 13px;" aria-hidden="true"></span></button></div>
+        </div>
+      </div>
+    </div>
+    <p class="note">取舍提示：<b>22px 低于常见触控目标下限（约 24px）</b>。本项目环境明确为
+    「Windows 11 + 鼠标键盘」（§P0-2 环境约束，触屏不做），鼠标下 22px 可用；
+    但 ⋮ 是模板行**唯一**的操作入口（右键菜单的另一入口要用户先想到右键），点按目标别做得太小更稳。<br>
+    B / C 的尺寸是<b>内联样式</b>写在这页的两个按钮上，只影响本页展示，产品样式表未动。</p>
+  </section>
+
+  <section class="sec">
+    <h2><span class="no">4</span>影响面与成本</h2>
+    <table>
+      <tr><th>项</th><th>要改什么</th><th>改动文件</th><th>风险 / 连带</th><th>版本性质</th></tr>
+      <tr><td>① 表面三阶</td><td>不改代码；只订正手册 §十三 #6 的过期快照</td><td><span class="mono">docs/项目手册.md</span></td><td>无</td><td>文档（不升版）</td></tr>
+      <tr><td>② 目标位置钮</td><td>HTML 加一个 <span class="mono">span</span> 文字 + 一条 CSS + 复用已有取词键</td><td><span class="mono">index.html</span> / <span class="mono">layout.css</span></td><td>与「I 组图标化」冲突 ⇒ 需同步 7aj 口径</td><td>纯样式 ⇒ PATCH</td></tr>
+      <tr><td>③ 模板行 ⋮</td><td>1–2 条 CSS（尺寸 / 圆角）</td><td><span class="mono">layout.css</span></td><td>⋮ 是 7aj⑤b 锚点；只改尺寸、不改类名 ⇒ 守卫不受影响</td><td>纯样式 ⇒ PATCH</td></tr>
+    </table>
+    <p class="note">按 §P0-6 M9：②③ 都不改变兼容性（不碰 HTTP 契约 / <span class="mono">editorDocument</span> / 模板格式），
+    属「只改样式」⇒ 单独走 PATCH，或并入下一批一起升 <b>MINOR</b>。</p>
+  </section>
+
+  <section class="sec">
+    <h2><span class="no">5</span>怎么用</h2>
+    <p class="note">
+      1. 浏览器打开，<b>100% 缩放</b>，窗口别太窄（窄了布局会折行，尺寸判断失真）。<br>
+      2. 只回答两句：<b>② 选 A / B / C</b>、<b>③ 选 A / B / C</b>。<br>
+      3. 第 1 节不用选；除非你认为「次级比面板**略暗**」这个方向本身不对 —— 那属改契约（<span class="mono">skins/README.md</span> + 7d-8），另立项。<br>
+      4. 你选定后我执行：改样式 → 四件套 → 截图自查 → 按 M9 判定升版 → 同步守卫口径。
+    </p>
+  </section>
+
+</div>
+</body>
+</html>
