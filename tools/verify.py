@@ -52,7 +52,7 @@
      **方向相反**，两者合起来才是完整的**双向隔离**（`skins/README.md` 契约「皮肤 == 一组变量
      覆盖值，不是一整套组件样式」的机器化；§P2 第 45 项）
  7e. CSS 类名形态（§P2 第 1 项）：一律 kebab-case，不得含下划线或大写
- 7f. 体积上限（§P2 第 4 项）：src/** 合计 ≤ 640K，单文件 ≤ 64K
+ 7f. 体积上限（§P2 第 4 项）：src/** 合计 ≤ 800K（V0.3.0 起），单文件 ≤ 64K
  7g. 帮助页键位登记（§P2 第 8 项）：源码若有修饰键快捷键监听（ctrlKey/metaKey/altKey），
      帮助页键位小节必须登记至少一条**具体键位**，不得只留「待定 / 留空」占位
  8. 接续说明实况段与盘上一致（§P1-6 H4；文件未建立则跳过）
@@ -177,9 +177,9 @@ REQUIRED_FILES = (
     "src/web/js/help.js",
     "src/web/js/support.js",
     "src/web/js/i18n/index.js",
-    "src/web/locales/zh-CN.js",
-    "src/web/locales/en-US.js",
-    "src/web/locales/README.md",
+    "locales/zh-CN.js",
+    "locales/en-US.js",
+    "locales/README.md",
     "src/web/js/i18n/skins.js",
     "src/web/js/core/bus.js",
     "src/web/js/core/store.js",
@@ -1026,7 +1026,7 @@ def main() -> int:
     #   键集合取自模块级 `locale_dict_keys()`（V0.0.51@r12 统一口径：剥注释 + 按键位取，
     #   值不参与）。旧写法拿「任何带点的引号串」当键，会把值 `V0.0.51` 也算成键 ——
     #   判据偏宽，遇到「真的少了某个键」时可能被一个幻影键掩盖。
-    dict_file = root / "src/web/locales/zh-CN.js"
+    dict_file = root / "locales/zh-CN.js"
     known: set[str] = (locale_dict_keys(dict_file.read_text(encoding="utf-8"))
                        if dict_file.is_file() else set())
     used_keys: dict[str, str] = {}
@@ -1060,8 +1060,8 @@ def main() -> int:
     #       （《任务进度》282–287 行曾以「7b-3 要求中英键集一致」为由解释一次删键，
     #        该理由当时**引用了一条空守卫**，属 §三.85 家族「守卫自身失效」。）
     #   现改用与 7b-2 同一份 `locale_dict_keys()` 口径（剥注释 + 按键位取）。
-    zh_file = root / "src/web/locales/zh-CN.js"
-    en_file = root / "src/web/locales/en-US.js"
+    zh_file = root / "locales/zh-CN.js"
+    en_file = root / "locales/en-US.js"
     align_bad = ""
     if zh_file.is_file() and en_file.is_file():
         zh_keys = locale_dict_keys(zh_file.read_text(encoding="utf-8"))
@@ -1151,10 +1151,10 @@ def main() -> int:
     #        的名字对不上实际加载的文件）；
     #     ② 三个页面必须**同步**引入 /api/locales.js 且早于 module 脚本 —— 否则语言
     #        选择器会先只列内置语言、拿到清单后再补出扩展语言（菜单跳变）。
-    locales_dir = root / "src/web/locales"
+    locales_dir = root / "locales"
     pkg_bad: list[str] = []
     if not locales_dir.is_dir():
-        pkg_bad.append("缺少 src/web/locales/ 目录")
+        pkg_bad.append("缺少 locales/ 目录")
     else:
         packs = sorted(locales_dir.glob("*.js"))
         if not packs:
@@ -1189,7 +1189,7 @@ def main() -> int:
         pkg_bad.append("smoke.py 未做 /api/locales.js 端到端检查")
     check(not pkg_bad, "动态语言包 V0.0.44",
           f"缺失：{', '.join(pkg_bad)}" if pkg_bad
-          else f"{len(list((root / 'src/web/locales').glob('*.js')))} 个语言包契约齐备 + 三页同步注入")
+          else f"{len(list((root / 'locales').glob('*.js')))} 个语言包契约齐备 + 三页同步注入")
 
     # 7c. 组件 CSS 只允许 var(--qm-*)（§P0-3 L4）；判据见 raw_color_hits（覆盖 #hex 与 rgb()/rgba()/hsl()）
     raw_color = []
@@ -1550,7 +1550,7 @@ def main() -> int:
           f"违反 kebab-case：{', '.join(sorted(set(bad_names))[:4])}" if bad_names
           else "类名全部 kebab-case（无下划线、无大写）")
 
-    # 7f. 体积上限（§P2 第 4 项）：src/** 合计 ≤ 640K，单文件 ≤ 64K
+    # 7f. 体积上限（§P2 第 4 项）：src/** 合计 ≤ 800K（V0.3.0 起），单文件 ≤ 64K
     #     400K → 512K（V0.0.40，用户裁决）：设计提案层（顶栏图标化 / 弹窗内嵌 /
     #     模板批处理 / 检视器双模式）是一整块**新功能层**，不是零散修补。
     #     并入软皮肤层后 src 已达 411K，本来就压线；再叠 808 行提案 CSS 与配套
@@ -1566,7 +1566,10 @@ def main() -> int:
     #     `server/backups.py` + 弹窗模块 + 一条跨文件链守卫 + 测试。实测 +③ 前端前
     #     余量仅 2.8K，远不足容纳。抬额幅度与 V0.0.49 同幅（+64K），理由同型：新功能
     #     层、非零散修补。**单文件 64K 仍不动**。
-    SRC_TOTAL_LIMIT = 640 * 1024
+    # V0.3.0（2026-10-17，用户裁决）：640K → 800K。
+    # 理由：上一版余量仅 8,634 B（1.3%），任何改动都会撞线；本次 +160K 只解除阻塞，
+    # **不改变「越线即提醒」的本意**。单文件 64K 仍不变（拆模块才是那条线的正解）。
+    SRC_TOTAL_LIMIT = 800 * 1024
     SRC_FILE_LIMIT = 64 * 1024
     # 仅统计**源码**：排除运行/测试生成的编译产物（__pycache__/*.pyc）。
     # 这些产物已被 .gitignore 忽略、不进版本，计入体积上限会与「源码预算」本意相悖
@@ -1634,7 +1637,7 @@ def main() -> int:
         want = version_file.read_text(encoding="utf-8").strip()
         got: dict[str, str] = {}
         for name in ("zh-CN.js", "en-US.js"):
-            p = root / "src/web/locales" / name
+            p = root / "locales" / name
             if p.is_file():
                 if m := VFB.search(p.read_text(encoding="utf-8")):
                     got[name] = m.group(1)
@@ -1925,7 +1928,7 @@ def main() -> int:
         if token not in mtext:
             svc_bad.append(f"main.js:{token}")
     for name in ("zh-CN.js", "en-US.js"):
-        p = root / "src/web/locales" / name
+        p = root / "locales" / name
         t = p.read_text(encoding="utf-8") if p.is_file() else ""
         for k in ("topbar.backend.connecting", "topbar.backend.ready", "topbar.backend.offline"):
             if k not in t:
@@ -1957,8 +1960,8 @@ def main() -> int:
     #      `help_markdown_violations()` 的 docstring（提到模块级才能被单测锚住）。
     #      ⚠ 同 7am：此处不可用后文 main() 内的 `_read()` 闭包，直接读盘。
     _md_bad: list[str] = []
-    for _rel, _label in (("src/web/locales/zh-CN.js", "zh-CN"),
-                         ("src/web/locales/en-US.js", "en-US")):
+    for _rel, _label in (("locales/zh-CN.js", "zh-CN"),
+                         ("locales/en-US.js", "en-US")):
         _f = root / _rel
         if not _f.is_file():
             _md_bad.append(f"{_rel} 不存在")
@@ -2102,7 +2105,7 @@ def main() -> int:
     #     仍由 help.html 的 about 表可达（判据第三条不变）。取词键闭包由 7b-2 统一覆盖。
     split_bad: list[str] = []
     for name in ("zh-CN.js", "en-US.js"):
-        p = root / "src/web/locales" / name
+        p = root / "locales" / name
         text = p.read_text(encoding="utf-8") if p.is_file() else ""
         if re.search(r"\{\s*id:\s*'support'", text):
             split_bad.append(f"{name}:helpSections 仍含 support 分节")
@@ -2120,7 +2123,7 @@ def main() -> int:
     h18 = hj.read_text(encoding="utf-8") if hj.is_file() else ""
     if "./support.html" not in h18:
         split_bad.append("help.js 缺 about 表跳转链接")
-    zc18 = root / "src/web/locales/zh-CN.js"
+    zc18 = root / "locales/zh-CN.js"
     z18 = zc18.read_text(encoding="utf-8") if zc18.is_file() else ""
     if re.search(r"kind:\s*'support'", z18):
         split_bad.append("zh-CN.js 仍注册 support 渲染分支")
@@ -2172,7 +2175,7 @@ def main() -> int:
         if token not in m19:
             interact_bad.append(why)
     for name in ("zh-CN.js", "en-US.js"):
-        p = root / "src/web/locales" / name
+        p = root / "locales" / name
         text = p.read_text(encoding="utf-8") if p.is_file() else ""
         for k in ("help.kbd.delete", "help.kbd.rename", "tree.copyPath", "status.moved"):
             if k not in text:
@@ -2241,7 +2244,7 @@ def main() -> int:
         if k not in ct:
             crud_bad.append(f"error-codes.json:{k}")
     for name in ("zh-CN.js", "en-US.js"):
-        p = root / "src/web/locales" / name
+        p = root / "locales" / name
         text = p.read_text(encoding="utf-8") if p.is_file() else ""
         for k in ("template.rename", "template.delete", "template.renamed", "template.deleted",
                   "err.templateDeleteFailed", "err.templateRenameFailed"):
@@ -2286,7 +2289,7 @@ def main() -> int:
         if "confirm(" not in body21:
             overwrite_bad.append("saveAsTemplate 缺二次确认")
     for name in ("zh-CN.js", "en-US.js"):
-        p = root / "src/web/locales" / name
+        p = root / "locales" / name
         text = p.read_text(encoding="utf-8") if p.is_file() else ""
         for k in ("template.overwriteConfirm", "template.overwritten"):
             if k not in text:
@@ -2435,7 +2438,7 @@ def main() -> int:
     if not re.search(r"^async function applyTemplate\(", m3t, flags=re.M):
         p3_bad.append("templates.js:applyTemplate 行首空格未清（或函数缺失）")
     for name in ("zh-CN.js", "en-US.js"):
-        p = root / "src/web/locales" / name
+        p = root / "locales" / name
         text = p.read_text(encoding="utf-8") if p.is_file() else ""
         for k in ("toast.moveMissing", "err.pathConflictDir"):
             if k not in text:
@@ -2573,8 +2576,8 @@ def main() -> int:
     main_js = _read("src/web/js/main.js")
     insp_js = _read("src/web/js/ui/inspector.js")
     codes_json = _read("src/shared/error-codes.json")
-    zh_js = _read("src/web/locales/zh-CN.js")
-    en_js = _read("src/web/locales/en-US.js")
+    zh_js = _read("locales/zh-CN.js")
+    en_js = _read("locales/en-US.js")
     fe_bad: list[str] = []
     fe_anchors = (
         ("B-P3-1", api_js, "code = 'networkError'", "api 未归一网络失败"),
@@ -2723,8 +2726,8 @@ def main() -> int:
     #      ② 读取走**同一分派函数**（`_read_template_doc`），列表与单读同口径；
     #      ③ 导入**全量校验**（`validate_template`）且 `.md` 走 `render_md_template`
     #         **规范化重渲染**（否则手工书写的 md 落盘后与导出侧不同字节，往返不成环）。
-    zh_i18n = _read("src/web/locales/zh-CN.js")
-    en_i18n = _read("src/web/locales/en-US.js")
+    zh_i18n = _read("locales/zh-CN.js")
+    en_i18n = _read("locales/en-US.js")
     fmt_bad: list[str] = []
     fmt_anchors = (
         ("6C-1", ttext, "TEMPLATE_FILE = re.compile(", "templates 缺双格式白名单"),

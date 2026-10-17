@@ -1231,8 +1231,9 @@ class LocaleListTests(unittest.TestCase):
 
     def test_real_dir_lists_builtin_languages(self):
         """出厂目录须恰好枚举到 zh-CN / en-US，且名字是母语自描述名。"""
+        # V0.2.4：语言包已迁到项目根 locales/（不再是 src/web/locales）
         with mock.patch.object(config, "LOCALES_DIR",
-                               config.WEB_DIR / "locales"):
+                               config.PROJECT_DIR / "locales"):
             got = routes.list_locales()
         by_code = {e["code"]: e["name"] for e in got}
         self.assertEqual(by_code.get("zh-CN"), "简体中文")

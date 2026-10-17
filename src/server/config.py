@@ -65,7 +65,9 @@ SRC_DIR = PACKAGE_DIR.parent                    # src
 PROJECT_DIR = SRC_DIR.parent                    # 项目根
 WEB_DIR = SRC_DIR / "web"
 # 语言包目录（V0.0.44 · 动态语言包）：新增一门语言 = 往这里放一个 `<tag>.js`，后端自动枚举。
-LOCALES_DIR = WEB_DIR / "locales"
+# V0.3.0：语言包迁出 `src/` —— 它是**内容资产**，不是运行时代码。
+# 这样「文案增长」不再挤占代码预算；运行时由 `/locales/<tag>.js` 提供（见 app.py）。
+LOCALES_DIR = PROJECT_DIR / "locales"
 SHARED_DIR = SRC_DIR / "shared"
 VERSION_FILE = PROJECT_DIR / "VERSION"
 START_BAT = PROJECT_DIR / "start.bat"

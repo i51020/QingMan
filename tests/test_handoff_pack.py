@@ -29,7 +29,9 @@ class HandoffPackTests(unittest.TestCase):
     def test_包含交接必需品(self):
         rels = {rel for _src, rel in hp.iter_handoff_files()}
         for must in ("VERSION", "manifest.json", "docs/项目约定.md",
-                     "docs/任务进度.md", "docs/错误笔记.md", "src/server/app.py"):
+                     "docs/任务进度.md", "docs/错误笔记.md", "src/server/app.py",
+                     # V0.3.0：语言包已迁出 src/ —— 交接包漏了它，接手者拿到的是没有文案的程序
+                     "locales/zh-CN.js", "locales/en-US.js"):
             self.assertIn(must, rels, f"接续包缺 {must}")
 
     def test_不带版本库与用户数据(self):

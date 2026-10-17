@@ -1302,6 +1302,10 @@ def main() -> int:
         shutil.copy2(version_file, sandbox / "VERSION")
     if templates_dir.is_dir():
         shutil.copytree(templates_dir, sandbox / "templates")
+    # V0.3.0：语言包已迁到项目根 —— 沙盒根也必须有，否则页面加载不到文案。
+    locales_dir = PROJECT_ROOT / "locales"
+    if locales_dir.is_dir():
+        shutil.copytree(locales_dir, sandbox / "locales")
     probe_html, probe_js = split_probe(PROBE_HTML)
     (sandbox_src / "web" / PROBE_NAME).write_text(probe_html, encoding="utf-8", newline="\n")
     (sandbox_src / "web" / PROBE_JS_NAME).write_text(probe_js, encoding="utf-8", newline="\n")

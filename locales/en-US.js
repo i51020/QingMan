@@ -470,7 +470,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.2.3',
+  'help.versionFallback': 'V0.3.0',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',
@@ -504,6 +504,16 @@ export const dict = {
   'help.shortcut.4': 'The shortcut points at start.bat inside the program folder. If you move or rename that folder, the old icon stops working — just click the wordmark again.',
   'help.templates.5': 'When no external folder is bound, the app uses its built-in library, which contains only the blank template — that is normal, not an error. To use more templates, unzip the template pack into that folder, or click the folder icon on the template folder row to bind your own.',
   'help.templates.6': 'If the bound folder is reported invalid (missing, inside a system area, or pointing at the app itself), the list falls back to the built-in library. Bind a normal folder to fix it.',
+  'help.skin.title': 'Skins',
+  'help.skin.1': 'The palette button on the right of the top bar opens the skin picker (16 skins). A skin changes colours only — layout, type scale and button positions stay the same.',
+  'help.skin.2': 'Your choice is remembered. If you created a desktop shortcut, its icon follows the current skin (keep the app running while switching).',
+  'help.skin.3': 'Skin files live in src/web/css/skins/; each is a set of colour variables. Components never know which skin is active, so nothing shifts when you switch.',
+  'help.skin.4': 'To make your own: copy an existing s01 file, change the colours, and register one line in src/web/js/i18n/skins.js. That is a developer task.',
+  'help.i18n.title': 'Language',
+  'help.i18n.1': 'Switch language from the More menu. It follows the system by default and applies immediately — no reload needed.',
+  'help.i18n.2': 'Each language is one file under locales/ (zh-CN.js / en-US.js). Adding a language means dropping in a file — no code changes.',
+  'help.i18n.3': 'If a language pack is missing or malformed, the UI keeps the current language and stays usable — it never goes blank.',
+  'help.i18n.4': 'The help page and the main window share the same text source, so both change together — never half-translated.',
   'help.quickStart.title': 'Quick Start',
   'help.quickStart.1': 'Double-click start.bat in the project root to launch the local server',
   'help.quickStart.2': 'Browser opens automatically; a status dot in the ready colour at the top right means the service is up (click it for service status and settings)',
@@ -591,6 +601,12 @@ export const helpSections = [
   { id: 'templates', title: 'help.templates.title', kind: 'ul', items: [
     'help.templates.1', 'help.templates.2', 'help.templates.3', 'help.templates.4',
     'help.templates.5', 'help.templates.6',
+  ] },
+  { id: 'skin', title: 'help.skin.title', kind: 'ul', items: [
+    'help.skin.1', 'help.skin.2', 'help.skin.3', 'help.skin.4',
+  ] },
+  { id: 'i18n', title: 'help.i18n.title', kind: 'ul', items: [
+    'help.i18n.1', 'help.i18n.2', 'help.i18n.3', 'help.i18n.4',
   ] },
   { id: 'kbd', title: 'help.kbd.title', kind: 'kbd', note: 'help.kbd.pending', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.delete', 'help.kbd.rename'] },
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [

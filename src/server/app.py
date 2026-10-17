@@ -269,6 +269,10 @@ class Handler(BaseHTTPRequestHandler):
                 except OSError as exc:
                     self._fail(500, "ioError", message=str(exc))
                 return
+            if path.startswith("/locales/"):
+                # 语言包（V0.3.0 迁出 src/web/locales）：只认 `<tag>.js`，无目录穿越面。
+                self._serve_locale(path[len("/locales/"):])
+                return
             self._serve_static(path)
         except Exception as exc:  # noqa: BLE001 - 兜底，避免服务崩溃（对齐 do_POST）
             self._fail(500, "internalError", message=str(exc))
@@ -410,6 +414,33 @@ class Handler(BaseHTTPRequestHandler):
         self._fail(403, "methodNotAllowed", method="OPTIONS")
 
     # ---------- 静态文件 ----------
+
+    def _serve_locale(self, raw_name: str) -> None:
+        """发送语言包文件（`/locales/<tag>.js`）。
+
+        为什么单开一个路由而不是塞进 `_serve_static`：语言包已**不在 `src/web/` 里**，
+        而静态服务的根被钉死在 `WEB_DIR`（这是防穿越的基础，不能为了一个目录放宽）。
+        这里用**更窄的白名单**：只接受 `<字母数字_- >.js`，其余一律 404 —— 连"目录"这个概念都不暴露。
+        """
+        name = unquote(raw_name)
+        if (not name.endswith(".js") or "/" in name or "\\" in name
+                or name.startswith(".")):
+            self._fail(404, "notFound", path=raw_name)
+            return
+        root = config.LOCALES_DIR.resolve()
+        candidate = (root / name).resolve()
+        try:
+            candidate.relative_to(root)
+        except ValueError:
+            self._fail(403, "badPath")
+            return
+        if not candidate.is_file():
+            self._fail(404, "notFound", path=raw_name)
+            return
+        try:
+            self._send(200, candidate.read_bytes(), "text/javascript; charset=utf-8")
+        except OSError as exc:
+            self._fail(500, "ioError", message=str(exc))
 
     def _serve_static(self, url_path: str) -> None:
         rel = unquote(url_path).lstrip("/") or "index.html"

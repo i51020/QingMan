@@ -42,7 +42,9 @@ PREFIX = f"QingMan-接续包_{VERSION}_{DATE}"
 INCLUDE_FILES = ("VERSION", "start.bat", "manifest.json", "README_使用说明.md",
                  "CHANGELOG.md", "README.md", "docs/项目约定.md", "docs/项目手册.md",
                  "docs/任务进度.md", "docs/接续说明.md", "docs/错误笔记.md")
-INCLUDE_DIRS = ("src", "docs")
+# V0.3.0：语言包已迁出 src/ —— 交接包必须显式带上 `locales/`，
+# 否则接手者拿到的是「没有文案的程序」（本次实测：包内文件 102 → 99，正是少了这三个）。
+INCLUDE_DIRS = ("src", "docs", "locales")
 EXCLUDE_DIR_NAMES = {"__pycache__", ".git", "data", "store", "versions", "dist"}
 EXCLUDE_SUFFIXES = {".pyc", ".pyo", ".log"}
 
@@ -89,7 +91,8 @@ def verify(zip_path: Path) -> int:
     with zipfile.ZipFile(zip_path) as zf:
         names = zf.namelist()
     for must in ("VERSION", "manifest.json", "docs/项目约定.md", "docs/任务进度.md",
-                 "src/server/app.py", "发布包清单.json"):
+                 "src/server/app.py", "locales/zh-CN.js", "locales/en-US.js",
+                 "发布包清单.json"):
         if f"{PREFIX}/{must}" not in names:
             problems.append(f"缺 {must}")
     for banned in ("/store/", "/versions/", "/data/", "/runtime/", "/.git/"):

@@ -4,7 +4,7 @@
 
 - 中文名：**青蔓**
 - 英文名：**QingMan**
-- 当前版本：**V0.2.3**
+- 当前版本：**V0.3.0**
 - 运行环境：Windows 10/11 + Python 3.8+，完全离线，仅监听 `127.0.0.1`
 - 实测环境：**Windows 11**（鼠标 + 键盘）。触屏与其他操作系统**未验证**，故不做针对性适配
 
@@ -58,7 +58,7 @@ QingMan/
 │  │     ├─ help.js     帮助页渲染层：填充占位 → 渲染分节（幂等）→ 取后端版本
 │  │     ├─ support.js  支持页渲染层
 │  │     ├─ i18n/       取词层：index.js 运行时（t() / applyStatic() / setLocale() / applySkin() / initPrefs() / watchLocale()）
-│  │     │              + zh-CN.js / en-US.js 取词表（各 **395 键**，双语键集零差异）+ skins.js 皮肤注册表
+│  │     │              + skins.js 皮肤注册表（语言包已迁至项目根 `locales/`，V0.3.0）
 │  │     ├─ core/       bus.js 事件总线 · store.js 状态仓库 · api.js 后端调用唯一入口（其余模块禁用 fetch）· errors.js 错误码本地化
 │  │     ├─ modules/    tree-model.js 数据模型：增删改查 / 统计 / id 唯一性 / 文档序列化（纯数据，不碰 DOM 与网络）
 │  │     │              selection.js 选择集合语义（V0.0.43 拆出）· templates.js 模板库（V0.0.48 拆出）—— 均为解单文件 64K 上限
@@ -75,6 +75,10 @@ QingMan/
 │  └─ V0.0.1/           MANIFEST.json（基线 r1）+ MANIFEST-r<N>.json（同版本修订）
 ├─ preview/             试运行区（**只服务单次开发**：`promote` 后即清空，不跨版本保留 —— §P1-7）
 │  └─ README.md         用途与规则说明（占位，使目录保留在 git 跟踪内）
+├─ locales/             语言包（**内容资产**，V0.3.0 自 src/web/locales 迁出，**不计入代码预算**）
+│  ├─ zh-CN.js          中文取词表 + helpSections（LOCALE / NAME / dict / helpSections）
+│  ├─ en-US.js          英文取词表（与中文键集零差异）
+│  └─ README.md         新增一门语言的契约与步骤
 ├─ templates/           内置模板库：**仅 `P0_空白项目模板.json`**（+ 运行时 `.trash/` 软删除回收区）
 ├─ templates-pack/      独立可分发的**模板包**（16 套业务模板 `.md`(主) + `.json`(等价) +
 │                       来源说明 + `pack.manifest.json`；**不含** P0 —— 全项目只内置一套空模板）
@@ -140,6 +144,33 @@ QingMan/
 
 > 模板目录 **不在版本交付清单内**（同理 `templates-pack/`），故 `list_templates()` 在目录缺失时返回 `available=false` + 空列表（**不报错**）—— 否则预览副本一启动就满屏红。
 > `templates-pack/pack.manifest.json` 的 `digest` 与 zip `sha256` **均可独立复算**（规则写在清单的 `digestRule` 字段里，`verify` 按同一规则独立复算一遍）。
+
+## 皮肤与语言（V0.3.0）
+
+**两者都是「外部数据」，不是代码** —— 所以它们都不吃 `src/` 预算。
+
+### 皮肤
+
+| 项 | 现状 |
+|---|---|
+| 数量 | **16 款**（`src/web/css/skins/s01…s16`），出厂默认 **S16 暖灰·琥珀** |
+| 形式 | 每个皮肤文件**只做变量重新赋值**（`--qm-*`），组件 CSS **不感知皮肤**（§P0-3 L5；守卫 7d / 7d-1 双向隔离） |
+| 注册 | `src/web/js/i18n/skins.js` 的 `SKINS` 数组：`cid` / `file` / `label`（取词键）/ `swatch`（三色预览） |
+| 契约 | `src/web/css/skins/README.md`：变量白名单、`--qm-surface-2` 与 `--qm-surface` 的 CIE L* 落差 ≤1.5 且方向随区制、WCAG AA 配对 |
+| 新增一款（**开发操作**） | ① 复制现有皮肤文件改名 `s17-…css`；② 只改色值，**不引入新变量**；③ 在 `SKINS` 加一行 + 语言包加 `skin.17` 名称；④ 跑 `verify`（款数从目录派生，自动纳入对比度/落差判据） |
+
+### 语言
+
+| 项 | 现状 |
+|---|---|
+| 数量 | **2 个内置包**（zh-CN / en-US）+ 可任意增删的扩展包 |
+| 形式 | `locales/<tag>.js`：导出 `LOCALE`（须与文件名一致）/ `NAME`（母语自描述名）/ `dict` / `helpSections` |
+| 加载 | 内置两包**静态 import**（首屏同步取词）；扩展包由 `/api/locales.js` 枚举、前端 `import()` 按需加载 |
+| 新增一门（**放文件即可**） | 把 `locales/<tag>.js` 放进去 → 刷新即出现在语言选择器；**无需改任何代码** |
+| 校验 | 中英键集必须零差异（守卫 7b 家族）；帮助文案不得含 Markdown 标记（7an） |
+
+**为什么语言包要迁出 `src/`**：它们是内容资产，与 `.js/.py` 抢同一个代码预算会让「多写两句文案」变成「挤占代码空间」。
+迁出后 `src/` 重新只度量代码复杂度（V0.3.0：`src/` 从 646,726 B 降到 **约 572 K**）。
 
 ## 安全模型（V0.2.1 审计）
 
@@ -230,7 +261,7 @@ python tools/browser_smoke.py                 # 页面级冒烟（无头浏览�
 
 ## 界面文案与皮肤（§P0-3）
 
-**文案零直写**：界面上的每一句中文都来自语言包 `src/web/locales/zh-CN.js` 的取词表，代码里通过 `t(key)` 取；HTML 用 `data-i18n` / `data-i18n-title` / `data-i18n-placeholder` / `data-i18n-aria-label` / `data-i18n-alt` 属性声明键名，加载时由 `applyStatic()` 统一填充。**出厂语言（zh-CN / en-US）静态内置、键集零差异**；**其余语言包放 `src/web/locales/<tag>.js`，后端 `/api/locales.js` 枚举、前端按需 `import()` 动态加载 —— 新增一门语言只需放一个文件，无需改任何代码**（契约与步骤见 `src/web/locales/README.md`）。
+**文案零直写**：界面上的每一句中文都来自语言包 `locales/zh-CN.js` 的取词表，代码里通过 `t(key)` 取；HTML 用 `data-i18n` / `data-i18n-title` / `data-i18n-placeholder` / `data-i18n-aria-label` / `data-i18n-alt` 属性声明键名，加载时由 `applyStatic()` 统一填充。**出厂语言（zh-CN / en-US）静态内置、键集零差异**；**其余语言包放 `locales/<tag>.js`（V0.3.0 起在项目根，**不算代码预算**），后端 `/api/locales.js` 枚举、前端按需 `import()` 动态加载 —— 新增一门语言只需放一个文件，无需改任何代码**（契约与步骤见 `locales/README.md`）。
 
 | 约定 | 内容 |
 |---|---|

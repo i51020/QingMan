@@ -5,7 +5,7 @@
 1. **`handoff` 与提交顺序耦合**（《项目手册》§十三 #5）：改了文件忘记刷 `handoff.py`，
    `verify` 第 8 项就红 —— 但人往往在跑完四件套之后才发现，又得重跑一遍。
    本工具**先刷实况段，再跑门禁**，顺序不再靠记忆。
-2. **体积两条线**（`src/` ≤ 640K、单文件 ≤ 64K）只在越线时才被想起：
+2. **体积两条线**（`src/` ≤ 800K、单文件 ≤ 64K）只在越线时才被想起：
    `verify` 会判红，但没人知道"还剩多少"。本工具**每次都把两条线的余量打出来**，
    让预算在写代码时就在视野里（《错误笔记》§三.70）。
 
@@ -35,7 +35,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-SRC_LIMIT = 640 * 1024        # 与 verify 的体积守卫同值；判红以 verify 为准
+SRC_LIMIT = 800 * 1024        # 与 verify 的体积守卫同值（V0.3.0：640K → 800K）；判红以 verify 为准
 FILE_LIMIT = 64 * 1024
 # 历史快照：里面的旧版本号是**记录**，不是断言，扫描时跳过
 FROZEN_DOCS = {"任务进度.md", "接续说明.md"}
@@ -114,18 +114,24 @@ def budget_detail(root: Path = ROOT) -> "list[str]":
         by_ext[p.suffix.lower()] = by_ext.get(p.suffix.lower(), 0) + p.stat().st_size
     rows.append("按类型：" + "  ".join(f"{k or '(无扩展名)'} {v:,}" for k, v in
                                      sorted(by_ext.items(), key=lambda kv: -kv[1])[:6]))
-    comment = blank = 0
+    comment = blank = history = 0
+    import re as _re
     for p in files:
         if p.suffix.lower() not in (".js", ".css", ".py"):
             continue
         for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
             st = line.strip()
+            size = len(line.encode("utf-8")) + 1
             if not st:
-                blank += len(line.encode("utf-8")) + 1
+                blank += size
             elif st.startswith(("//", "/*", "*", "#")):
-                comment += len(line.encode("utf-8")) + 1
-    rows.append(f"注释行 {comment:,} B（{comment/max(total,1):.1%}）/ 空行 {blank:,} B —— "
-                f"**注释是资产，不是垃圾**：要省先省「历史沿革」类长注释（搬 docs），别省不变式说明")
+                comment += size
+                # 「沿革型注释」：讲的是哪个版本修了什么（契约 §P2 #3 V0.3.0：这类应搬 docs）
+                if _re.search(r"V\d+\.\d+\.\d+", st):
+                    history += size
+    rows.append(f"注释行 {comment:,} B（{comment/max(total,1):.1%}）/ 空行 {blank:,} B；"
+                f"其中**沿革型**（提到版本号）{history:,} B（{history/max(total,1):.1%}）")
+    rows.append("  注释是资产：沿革型可搬 docs（契约 §P2 #3），不变式说明别动")
     return rows
 
 

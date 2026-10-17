@@ -477,7 +477,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.2.3',
+  'help.versionFallback': 'V0.3.0',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',
@@ -509,6 +509,16 @@ export const dict = {
   'help.shortcut.4': '快捷方式指向程序目录里的 start.bat。把程序目录移动、改名或换盘之后，旧图标会失效 —— 重新点一次标志生成即可。',
   'help.templates.5': '没绑定外部目录时，用的是程序内置的模板库，里面只有一张空白模板 —— 这是正常的，不是出错。想用更多模板，可把模板包解压进该目录，或点模板目录那一行的文件夹图标改绑到自己的目录。',
   'help.templates.6': '如果绑定行提示目录无效（不存在、在系统区、或指向程序自身），模板列表会退回内置库；按提示改绑一个普通文件夹即可。',
+  'help.skin.title': '皮肤',
+  'help.skin.1': '顶栏右侧的调色板按钮是皮肤选择器，共 16 款；皮肤只改配色，不改布局、字号与按钮位置，换肤不会改变操作方式。',
+  'help.skin.2': '选过的皮肤会被记住，下次打开仍用它。若已生成桌面快捷方式，换肤后图标会随之更新（程序需保持运行）。',
+  'help.skin.3': '皮肤文件放在 src/web/css/skins/ 下，每个文件是一组颜色变量；组件样式不感知皮肤，因此不会出现某款皮肤下按钮错位。',
+  'help.skin.4': '想自己做一款皮肤：复制一份 s01 改颜色，再到 src/web/js/i18n/skins.js 注册一行即可（属于开发操作，普通使用不需要）。',
+  'help.i18n.title': '语言',
+  'help.i18n.1': '语言在「更多」菜单里切换，默认跟随系统；切换后立即生效，不需要刷新。',
+  'help.i18n.2': '每门语言是 locales/ 下的一个语言包文件（如 zh-CN.js / en-US.js）；新增一门语言只需放入一个文件，无需改动程序。',
+  'help.i18n.3': '语言包缺失或格式不合规时，界面会保持当前语言并继续可用，不会白屏。',
+  'help.i18n.4': '帮助页与主界面使用同一套文案来源，切语言后两处同时变化，不会出现一处中文一处英文。',
   'help.quickStart.title': '快速开始',
   'help.quickStart.1': '双击项目根目录的 start.bat 启动本地服务',
   'help.quickStart.2': '浏览器自动打开；顶栏右侧那颗状态点呈就绪色即表示服务正常（点它可查看服务状态与设置）',
@@ -603,6 +613,12 @@ export const helpSections = [
   { id: 'templates', title: 'help.templates.title', kind: 'ul', items: [
     'help.templates.1', 'help.templates.2', 'help.templates.3', 'help.templates.4',
     'help.templates.5', 'help.templates.6',
+  ] },
+  { id: 'skin', title: 'help.skin.title', kind: 'ul', items: [
+    'help.skin.1', 'help.skin.2', 'help.skin.3', 'help.skin.4',
+  ] },
+  { id: 'i18n', title: 'help.i18n.title', kind: 'ul', items: [
+    'help.i18n.1', 'help.i18n.2', 'help.i18n.3', 'help.i18n.4',
   ] },
   { id: 'kbd', title: 'help.kbd.title', kind: 'kbd', note: 'help.kbd.pending', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.delete', 'help.kbd.rename'] },
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [

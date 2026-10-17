@@ -55,7 +55,7 @@ ZIP_NAME = f"{PKG_DIRNAME}-portable.zip"
 # V0.1.0 · 模板包**单独分发**（用户裁定）：内置只带 `templates/`（仅空模板），
 # 业务模板由 `templates-pack` 另外打 zip，用户按需下载后自行解压进 `templates/`。
 # 因此 `templates-pack` 不进发布包 —— 否则"与项目分离"就只剩口头。
-INCLUDE_DIRS = ("src", "templates")
+INCLUDE_DIRS = ("src", "locales", "templates")
 INCLUDE_FILES = ("VERSION", "start.bat", "README_使用说明.md")
 
 # 排除（**黑名单**：白名单内的脏东西）

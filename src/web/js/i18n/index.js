@@ -5,7 +5,7 @@
  * UI 模块一律不得直写文案（由 `tools/verify.py` 的静态检查把关）。
  *
  * 语言包机制（V0.0.44）：出厂语言（zh-CN / en-US）**静态内置**以保证首屏同步取词；
- * 其余语言包放 `src/web/locales/<tag>.js`，由后端 `/api/locales.js` 枚举、
+ * 其余语言包放 `locales/<tag>.js`（V0.3.0 起在项目根，服务端经 `/locales/` 提供），由 `/api/locales.js` 枚举、
  * 前端经 `loadLocale()` 按需动态加载 —— **新增一门语言无需改动任何代码**。
  *
  * 五个偏好键持久化在 localStorage（**§P0-3 L6 为权威清单**，`tools/verify.py` 的 7ai 守卫
@@ -19,8 +19,11 @@
  * 复用同一条带降级的读写路径，**不要在别处直访 `window.localStorage`**。
  */
 
-import { dict as zhCN, helpSections as hsZh, NAME as nameZh } from '../../locales/zh-CN.js';
-import { dict as enUS, helpSections as hsEn, NAME as nameEn } from '../../locales/en-US.js';
+/* V0.3.0：语言包已迁到项目根 `locales/`。此处用**相对路径**而非 `/locales/...`：
+   绝对路径只有浏览器（同源服务）能解析，Node 侧单测会直接 ERR_MODULE_NOT_FOUND。
+   四层上跳：i18n → js → web → src → 项目根。 */
+import { dict as zhCN, helpSections as hsZh, NAME as nameZh } from '../../../../locales/zh-CN.js';
+import { dict as enUS, helpSections as hsEn, NAME as nameEn } from '../../../../locales/en-US.js';
 import { SKINS, DEFAULT_SKIN_CID } from './skins.js';
 
 /**
@@ -28,7 +31,7 @@ import { SKINS, DEFAULT_SKIN_CID } from './skins.js';
  *
  * 为什么内置而非全部动态：① 首屏**同步**可用 —— 模块脚本一执行完即能取词，无需
  * await，否则界面会先按空字典画一遍再跳变；② 后端不可用时（直接以 `file://` 打开
- * 页面）仍有一套完整语言可降级。其余语言按需从 `src/web/locales/` **动态加载**。
+ * 页面）仍有一套完整语言可降级。其余语言按需从 `/locales/` **动态加载**。
  */
 const BUILTIN_LOCALES = {
   'zh-CN': { name: nameZh, dict: zhCN, help: hsZh },
@@ -84,7 +87,7 @@ export function localeName(code) {
 const LOADING = new Map();
 
 /**
- * 按需加载扩展语言包（`src/web/locales/<code>.js`，动态 import）。**已加载则立即返回**。
+ * 按需加载扩展语言包（`/locales/<code>.js`，动态 import）。**已加载则立即返回**。
  *
  * 失败（文件不存在 / 契约不符 / 代码形态非法）返回 `false`，调用方据此保持当前语言 ——
  * 语言包是**可增删的外部数据**，不能假定清单里的每一项都真能加载成功。
@@ -93,7 +96,8 @@ export function loadLocale(code) {
   if (LOCALES.has(code)) return Promise.resolve(true);
   if (!LOCALE_SHAPE.test(String(code || ''))) return Promise.resolve(false);
   if (LOADING.has(code)) return LOADING.get(code);
-  const pending = import('../../locales/' + code + '.js')
+  const url = new URL('../../../../locales/' + code + '.js', import.meta.url).href;
+  const pending = import(url)
     .then((mod) => {
       if (!mod || typeof mod.dict !== 'object' || mod.dict === null) {
         console.warn('[i18n] locale pack has no dict:', code);

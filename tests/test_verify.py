@@ -503,7 +503,7 @@ class LocaleDictKeysTests(unittest.TestCase):
 
     def test_matches_real_locale_file(self):
         """与**盘上真实取词表**对齐：条目数、真键在、幻影键不在。"""
-        zh = (Path(verify.PROJECT_ROOT) / "src/web/locales/zh-CN.js").read_text(encoding="utf-8")
+        zh = (Path(verify.PROJECT_ROOT) / "locales/zh-CN.js").read_text(encoding="utf-8")
         keys = verify.locale_dict_keys(zh)
         self.assertIn("template.listTitle", keys)
         self.assertIn("help.quickStart.3", keys)
@@ -515,7 +515,7 @@ class LocaleDictKeysTests(unittest.TestCase):
         self.assertNotIn("tree.title", keys)
         self.assertNotIn("inspector.title", keys)
         # 条目数按盘上派生，不写死：两侧同源时才谈得上「中英键集一致」
-        en = (Path(verify.PROJECT_ROOT) / "src/web/locales/en-US.js").read_text(encoding="utf-8")
+        en = (Path(verify.PROJECT_ROOT) / "locales/en-US.js").read_text(encoding="utf-8")
         self.assertEqual(keys, verify.locale_dict_keys(en))
 
 
