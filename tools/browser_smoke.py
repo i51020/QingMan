@@ -79,6 +79,23 @@ BROWSER_CANDIDATES = (
 )
 
 PROBE_NAME = "_probe_ui.html"
+PROBE_JS_NAME = "_probe_ui.js"
+
+
+def split_probe(html: str) -> "tuple[str, str]":
+    """把探针页里的**唯一**内联 `<script>` 拆成同源外链文件。
+
+    为什么必须拆（V0.2.1）：服务端上了 CSP `script-src 'self'`，内联脚本会被浏览器
+    直接拦掉 —— 探针页当场只剩 3 项、整轮冒烟判红。**正确的修法是让探针遵守 CSP**，
+    而不是给生产响应开 `'unsafe-inline'`（那等于为了测试把安全策略废掉）。
+    """
+    start = html.index("<script>")
+    end = html.index("</script>", start)
+    body = html[start + len("<script>"):end]
+    out = (html[:start] + f'<script src="./{PROBE_JS_NAME}"></script>'
+           + html[end + len("</script>"):])
+    assert "<script>" not in out, "探针页仍有内联脚本"
+    return out, body
 
 # 探针页：同源 iframe 驱动**真实页面**（不复制页面骨架，测的就是线上那份）。
 # 全程事件驱动（iframe onload + setTimeout 轮询），不用 Promise 链 ——
@@ -1254,7 +1271,9 @@ def main() -> int:
         shutil.copy2(version_file, sandbox / "VERSION")
     if templates_dir.is_dir():
         shutil.copytree(templates_dir, sandbox / "templates")
-    (sandbox_src / "web" / PROBE_NAME).write_text(PROBE_HTML, encoding="utf-8", newline="\n")
+    probe_html, probe_js = split_probe(PROBE_HTML)
+    (sandbox_src / "web" / PROBE_NAME).write_text(probe_html, encoding="utf-8", newline="\n")
+    (sandbox_src / "web" / PROBE_JS_NAME).write_text(probe_js, encoding="utf-8", newline="\n")
 
     port = args.port or free_port()
     env = dict(os.environ, QM_PORT=str(port), QM_OPEN_BROWSER="0", PYTHONDONTWRITEBYTECODE="1")

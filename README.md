@@ -4,7 +4,7 @@
 
 - 中文名：**青蔓**
 - 英文名：**QingMan**
-- 当前版本：**V0.2.0**
+- 当前版本：**V0.2.1**
 - 运行环境：Windows 10/11 + Python 3.8+，完全离线，仅监听 `127.0.0.1`
 - 实测环境：**Windows 11**（鼠标 + 键盘）。触屏与其他操作系统**未验证**，故不做针对性适配
 
@@ -140,6 +140,32 @@ QingMan/
 
 > 模板目录 **不在版本交付清单内**（同理 `templates-pack/`），故 `list_templates()` 在目录缺失时返回 `available=false` + 空列表（**不报错**）—— 否则预览副本一启动就满屏红。
 > `templates-pack/pack.manifest.json` 的 `digest` 与 zip `sha256` **均可独立复算**（规则写在清单的 `digestRule` 字段里，`verify` 按同一规则独立复算一遍）。
+
+## 安全模型（V0.2.1 审计）
+
+**边界**：服务只 `bind 127.0.0.1`，不监听任何外网接口；无第三方依赖（无供应链面）。
+
+| 威胁 | 处置 | 证据 |
+|---|---|---|
+| 跨站页面调 API（CSRF） | 写操作须带自定义头 `X-QingMan`；跨站要带它必先过 CORS 预检，而 `do_OPTIONS` 一律 403 | 黑盒：无头 403 / 跨站 Origin 403 / OPTIONS 403 |
+| DNS rebinding | `Host` 必须是 `127.0.0.1` / `localhost` / `[::1]`；带 `Origin` 时还须 scheme=http 且端口等于绑定端口 | 黑盒：`Host: evil.com` → 403 |
+| 路径穿越（静态 / 模板 / 生成） | 静态：`resolve()` 后必须 `relative_to(web_root)`；模板：文件名白名单 + `is_within` 复核（防符号链接）；生成：`check_target` 黑名单 | 黑盒：`/../VERSION`、`%2e%2e%2f`、`..%5c` 全 403；`templates-export/../../VERSION` 404 |
+| 点击劫持 | `X-Frame-Options: SAMEORIGIN` + CSP `frame-ancestors 'self'`（**跨源**全挡；保留同源是给自动化探针用） | 响应头实测 |
+| XSS | 前端零 `innerHTML` / `eval`；文案全走 i18n 文本节点；CSP `script-src 'self'`（无 `unsafe-inline`） | 静态扫描 0 命中 + CSP 实测 |
+| MIME 嗅探 / Referer 泄露 | `X-Content-Type-Options: nosniff` · `Referrer-Policy: no-referrer` · `Cross-Origin-Resource-Policy: same-origin` | 响应头实测 |
+| 信息泄露（指纹） | `Server` 头只报 `QingMan/<版本>`，**不报 Python 版本** | 实测 `Server: QingMan/V0.2.0` |
+| 任意文件写入 | `generate` 只写用户指定且通过四类黑名单的目标；模板/图标/编辑态路径全部服务端固定 | 既有判据 + 单测 |
+| 任意文件读取 | 无「按路径读文件」的端点：`templates-export` 走白名单，`open-dir` 只认三个枚举标识 | 黑盒：`open-dir` 任意路径 400 |
+
+**明确不防（据实）**：
+
+1. **本机其他进程 / 其他系统用户**可以直接调这套 API —— loopback HTTP **没有身份认证**。同一台电脑上，
+   另一个用户的程序能读到 `data/editor.json`、能触发「生成」（目标仍受黑名单限制）。
+   这是「本地单机工具」的固有取舍：真正的隔离要靠操作系统账户，而不是应用层口令。
+   缓解手段（若确有多人共用一台机器的场景）：各自用独立 Windows 账户，或把程序放进仅自己可读的目录。
+2. **本机 DoS**：`ThreadingHTTPServer` 无连接数上限，本地进程可刷请求占用线程。属本地信任边界内。
+3. **不防恶意模板内容**：模板只是目录树文本，落盘时按文件名/结构校验，不做「内容是否含恶意路径」的道德审查
+   —— 生成目标的黑名单才是唯一的安全边界（`..` 段名会被 `validate_segment` 拒绝）。
 
 ## 任务进度
 

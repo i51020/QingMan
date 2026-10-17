@@ -49,8 +49,43 @@ def host_of(value: str) -> str:
     return (name or "").lower()
 
 
+# 安全响应头（V0.2.1 · 安全审计）。
+#
+# 为什么本地工具也要有：本服务被**任意本机页面**访问得到（127.0.0.1 无同源限制之外的
+# 屏障），一旦哪个浏览器标签页里嵌了 iframe，点击劫持就能让用户在"看不见的界面"上
+# 点到「生成」。`X-Frame-Options` / CSP `frame-ancestors` 直接断掉这条路。
+#
+# · CSP 不需要 `'unsafe-inline'`：全部三个页面都是**外链脚本 + 外链样式**，
+#   实测 `index.html` / `help.html` / `support.html` 内联 `<script>` 与 `style=` 均为 0
+#   （若将来引入内联，必须重新评估 —— 这条写在这里就是提醒）。
+# · `img-src data:` 是必需的：图标册用 `mask-image: url("data:image/svg+xml,…")`。
+# · `form-action 'none'`：本应用从不提交表单，断掉以防被当作跨站表单跳板。
+# · 嵌套策略取 **`frame-ancestors 'self'` / `X-Frame-Options: SAMEORIGIN`**，不是 `'none'`：
+#   威胁模型是**跨源**页面（别的网站 / 别的端口）把本页塞进 iframe 做点击劫持 —— `'self'`
+#   已完全阻断。取 `'none'` 会连**它自己的自动化探针页**一起挡掉（`browser_smoke` 正是用
+#   同源 iframe 读真实 DOM），而「为了测试把安全策略关掉」是本末倒置。
+SECURITY_HEADERS = (
+    ("X-Content-Type-Options", "nosniff"),
+    ("X-Frame-Options", "SAMEORIGIN"),
+    ("Referrer-Policy", "no-referrer"),
+    ("Cross-Origin-Resource-Policy", "same-origin"),
+    ("Content-Security-Policy",
+     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+     "connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; "
+     "frame-ancestors 'self'"),
+)
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "QingMan/" + config.read_version()
+
+    def version_string(self) -> str:
+        """只报产品名与版本，**不带 Python 版本**。
+
+        默认实现会拼上 `sys_version`（形如 `Python/3.14.8`），等于免费告诉扫描器
+        「用哪个解释器打的补丁」。本地工具虽不暴露公网，但没有理由白送这条信息。
+        """
+        return self.server_version
 
     # ---------- 基础工具 ----------
 
@@ -62,6 +97,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        for name, value in SECURITY_HEADERS:
+            self.send_header(name, value)
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(body)

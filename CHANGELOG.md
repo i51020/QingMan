@@ -7,6 +7,57 @@
 
 ---
 
+## V0.2.1 — 2026-10-17
+
+**主题**：**安全审计与加固** —— 一次完整的静态 + 黑盒检查，修掉两处真实缺陷，并把「不防什么」写清楚。
+**升 patch**（§P0-6 M9「只改实现、契约不动」）。**无 API 变更**：端点、字段、错误码一字未动。
+
+### 一 · 查出并修掉的两处缺陷
+
+| 级别 | 缺陷 | 处置 |
+|---|---|---|
+| **P2** | **无任何安全响应头**：本地服务可被**跨源页面**塞进 iframe 做点击劫持（用户在看不见的界面点到「生成」）；也没有 `nosniff`，MIME 嗅探面敞开 | 新增 `SECURITY_HEADERS`：CSP（`default/script/style/connect 'self'`、`img-src 'self' data:`、`object-src/base-uri/form-action 'none'`、`frame-ancestors 'self'`）+ `X-Frame-Options: SAMEORIGIN` + `nosniff` + `no-referrer` + `CORP: same-origin`，随每个响应发出 |
+| **P3** | **`Server` 头泄露解释器版本**（`QingMan/V0.2.0 Python/3.14.8`） | 覆写 `version_string()`，只报产品名与版本 |
+
+**为什么嵌套策略是 `SAMEORIGIN` / `'self'` 而不是 `'none'`**：威胁是**跨源**嵌套，`'self'` 已完全阻断；
+取 `'none'` 会连自家 `browser_smoke` 的同源探针页一起挡死。**不为了测试把策略关掉** —— 改为让探针守规矩（见下）。
+
+### 二 · 探针遵守 CSP（工具侧）
+
+CSP 一生效，`browser_smoke` 探针页的**内联脚本**被浏览器拦掉（33 项掉到 3 项）。处置：把探针脚本拆成
+**同源外链** `_probe_ui.js`（`script-src 'self'` 允许），页面内不再有 `<script>` 内联块。
+**没有**给生产响应加 `'unsafe-inline'`。
+
+### 三 · 黑盒探测结果（真起服务，逐条）
+
+| 探针 | 结果 |
+|---|---|
+| `Host: evil.com`（DNS rebinding） | 403 |
+| `/../VERSION`、`/%2e%2e%2fVERSION`、`/..%5cVERSION`、`/../../Windows/win.ini` | 全 403 |
+| POST 不带 `X-QingMan` / 带防护头但 `Origin` 跨站 | 403 / 403 |
+| `OPTIONS` 预检 / `TRACE` | 403 / 501 |
+| `templates-export/../../VERSION` / `x.txt` | 404 |
+| `open-dir` 传任意路径 | 400（只认枚举标识） |
+
+### 四 · 静态面（据实）
+
+前端 `innerHTML / outerHTML / insertAdjacentHTML / document.write` **零命中**；服务端两处 `subprocess`
+均为**数组传参**、无 `shell=True`，`_ps_quote()` 对单引号翻倍、反斜杠取正斜杠；路径类端点全部「白名单或
+`resolve()` 后 `is_within`」。
+
+### 五 · 明确不防（写进 README，不含糊）
+
+1. **loopback HTTP 无身份认证**：同一台电脑上的其他进程/用户可直接调 API 读写编辑态、触发生成
+   （目标仍受四类黑名单约束）。缓解靠操作系统账户隔离，不是应用层口令。
+2. **本机 DoS**：`ThreadingHTTPServer` 无连接上限。
+3. **不审模板内容**：安全边界是「生成目标黑名单 + 段名校验」，不是内容道德审查。
+
+### 六 · 护栏
+
+- 新增守卫 **7as「安全响应头」**（5 个头声明 + CSP 4 条关键指令 + 版本隐藏）⇒ `verify` **119 → 120**。
+- 新增 `tests/test_security.py`（4 条）：头齐全且不重复 / 值严格 / CSP 无 `unsafe-inline` 且保留 `img data:` /
+  `version_string()` 不含解释器名。
+
 ## V0.2.0 — 2026-10-17
 
 **主题**：**面向普通用户的 14 项整改** —— 模板分发拆开、根节点可管、导出可选格式、界面去技术味。

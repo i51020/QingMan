@@ -2022,6 +2022,26 @@ def main() -> int:
           "；".join(_ver_bad[:4]) if _ver_bad
           else f"{len(_vdirs)} 个版本目录：三段式无前导零 / 目录名与清单一致 / 父链连续")
 
+    # 7as. 安全响应头（V0.2.1 · 安全审计）。
+    #      判据只钉「声明在」+「关键指令在」：运行时是否真发出由 `tests/test_security.py`
+    #      与黑盒探针各验一次（静态判据证不了 header 被 send，反过来也证不了它没被删）。
+    _app_file = root / "src/server/app.py"
+    _app_txt = _app_file.read_text(encoding="utf-8") if _app_file.is_file() else ""
+    _sec_bad: list[str] = []
+    for _h in ("X-Content-Type-Options", "X-Frame-Options", "Referrer-Policy",
+               "Cross-Origin-Resource-Policy", "Content-Security-Policy"):
+        if _h not in _app_txt:
+            _sec_bad.append(f"缺 {_h}")
+    for _tok in ("frame-ancestors 'self'", "object-src 'none'", "base-uri 'none'",
+                 "form-action 'none'"):
+        if _tok not in _app_txt:
+            _sec_bad.append(f"CSP 缺 {_tok}")
+    if "def version_string" not in _app_txt:
+        _sec_bad.append("Server 头未隐藏解释器版本（def version_string 缺失）")
+    check(not _sec_bad, "安全响应头",
+          "；".join(_sec_bad[:4]) if _sec_bad
+          else "CSP（frame-ancestors/object-src/base-uri/form-action）+ XFO + nosniff + 版本隐藏")
+
     # 7n. note 契约与 .md 边界（V0.0.17：节点说明 + 三粒度复制）
     #     裁定：note 与 .md content 一律**纯文本** —— 工具不解析、不渲染、不校验 Markdown。
     #     判据：① note 序列化两端（toDocumentNode / fromDocumentNode）都在函数体里带 note
