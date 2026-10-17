@@ -192,6 +192,10 @@ REQUIRED_FILES = (
     "src/web/js/ui/tree-view.js",
     "src/web/js/ui/inspector.js",
     "src/web/js/ui/toast.js",
+    # V0.1.0：分发给其他用户的两件 —— 使用说明（用户入口）与发布包构建工具。
+    # 缺任一件，「装给别人用」这条链路就断了，且不会有人报错。
+    "README_使用说明.md",
+    "tools/package_release.py",
 )
 
 # 服务端模块分布（V0.0.54 起 `templates.py` / `common.py` 自 `routes.py` 拆出）。
@@ -2963,6 +2967,9 @@ def main() -> int:
             ("docs/任务进度.md", "| 回退点 |", "任务进度「回退点」行"),
             ("README.md", "- 当前版本：", "README「当前版本」行"),
             ("docs/项目手册.md", "更新日期：", "手册头部行"),
+            # V0.1.0：使用说明是**给外部用户**的第一份文档，版本行必须与 VERSION 同步 ——
+            # 它是「带版本的历史快照」以外的**当前断言**，抄错就是发给别人的错信息。
+            ("README_使用说明.md", "> 版本：", "使用说明版本行"),
         ):
             rel_txt = _read(rel)
             if not rel_txt:
@@ -2986,7 +2993,7 @@ def main() -> int:
         prog_bad.append("verify.py 缺图标系统守卫（2026-10-15 · §P0-3 L8）")
     check(not prog_bad, "进度状态表与 VERSION 一致 V0.0.48",
           "；".join(prog_bad) if prog_bad
-          else f"任务进度 3 行 + README + 手册头部，首版本均为 {ver_txt}")
+          else f"任务进度 3 行 + README + 手册头部 + 使用说明，首版本均为 {ver_txt}")
 
     # 7ai. 偏好键名「三方一致」（2026-10-15 · UI 设计约定检查 · §P0-3 L6）。
     #      背景：§P0-3 L6 的偏好键清单有**三处载体** —— 实现（`i18n/index.js` 的

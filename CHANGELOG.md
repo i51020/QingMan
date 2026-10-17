@@ -7,6 +7,51 @@
 
 ---
 
+## V0.1.0 — 2026-10-17
+
+**主题**：**可交付给其他用户** —— 解决「换台机器、换个不会装 Python 的人」这个真实前提。
+按 **§P0-6 M9「兼容新增 ⇒ MINOR」** 升 `V0.0.55` → **`V0.1.0`**（**这是本仓第一次真正使用 MINOR**，
+此前 55 个版本全是 `0.0.x` 流水号）。**契约零变更**：HTTP 端点 / `editorDocument` / 模板格式一字未动。
+
+> **为什么不是「加个 zip 就完事」**：原来两处硬前提只对作者本机成立 ——
+> ① `data/` 写在**程序目录**里，装到 `Program Files`、网络盘、受管终端就写不了盘；
+> ② `start.bat` 要求机器上**已装 Python**。两处任一不成立，接收者拿到的就是「双击闪一下就没了」。
+
+### 一 · 改了什么
+
+| # | 文件 | 处置 |
+|---|---|---|
+| 1 | `src/server/config.py` | **数据目录四级解析** `resolve_data_dir()`：`QM_DATA_DIR` > 旧布局 `data/editor.json` 已存在则沿用 > 项目根可写则随目录 > `%APPDATA%/QingMan/data`。**纯函数、无副作用**（不 mkdir、不探写），import 时计算安全 |
+| 2 | `src/server/config.py` | **模板目录同级解析** + **首次播种** `seed_templates()`：只读安装时把内置模板**复制**进每用户目录（只补缺失、只复制不删除），否则模板列表是空的 |
+| 3 | `start.bat` | 解释器优先级 **随包 `runtime\python.exe` > `py -3` > `python`**；一律 `-B`（不写 `__pycache__`，程序目录可能只读）；错误分支给出「解压不完整」的准确指引 |
+| 4 | `tools/package_release.py`（新） | 确定性发布包构建：白名单取件、裁剪运行时、清单逐文件 sha256、`--verify` 解压后用**随包运行时真启动并打 `/api/health`** |
+| 5 | `README_使用说明.md`（新） | 给外部用户的第一份文档：三分钟上手 / 数据在哪 / 模板 / 常见问题 / 安全边界 / 升级卸载 |
+| 6 | `tools/verify.py` | 新增守卫「**使用说明版本行**」（与 `VERSION` 同源，抄错即红）；`REQUIRED_FILES` 补 `README_使用说明.md` / `tools/package_release.py` ⇒ **项数 117 → 119** |
+| 7 | `tests/test_config.py` | 新增 8 条：解析四级优先、旧布局不搬、只读回落、无 APPDATA 退化；播种三态（空目录播种 / 有用户内容跳过 / 幂等） |
+| 8 | `tests/test_package_release.py`（新） | 8 条：白名单/黑名单、运行时裁剪（`Lib/test` 不带、`Lib/os.py` 必带）、清单 sha256 与磁盘一致、**同输入两次打包字节相同** |
+
+### 二 · 产物与实测
+
+| 项 | 实测 |
+|---|---|
+| 发布包 | `dist/QingMan-V0.1.0-portable.zip` · **17.5 MB** |
+| 内含 | **848 个文件 / 41.8 MB**（未压缩），**随包 CPython 3.14.8**（含 tkinter ⇒ 目录选择框可用） |
+| 自检 | 解压到临时目录 → 用**随包运行时**起服务 → `/api/health` 返回 `ok` ⇒ **通过**（全程不依赖本机 Python） |
+| 不带的 | `data/` `store/` `versions/` `tests/` `tools/` `docs/` `legacy/` `preview/` `.git` —— 白名单 + 黑名单双保险，单测逐条钉住 |
+
+### 三 · 版本口径
+
+M9 表里「兼容新增 → MINOR」：本次新增的是**运行形态**能力（数据落点解析、随包运行时、发布包构建），
+对既有用户**零破坏**（`data/editor.json` 存在则路径不变，实测本机 `DATA_DIR` 未变）。
+**单文件 64K / `src/` 总量 640K 两条线未动**；`config.py` 20,015 B、`src/` 合计 **628,155 B**（余 **27,205**）。
+
+### 四 · 已知限制（据实，不粉饰）
+
+1. **未做代码签名**：Windows 首次运行会弹 SmartScreen，需「更多信息 → 仍要运行」。签名要证书年费 + 实名审核，本轮未做。
+2. **无自动更新**：升级＝解压新版本 + 复制 `data/`、`templates/`。
+3. **仅 Windows**：`start.bat` + `%APPDATA%` 是 Windows 口径；Linux/macOS 未适配（也无实测环境）。
+4. **运行时 41.8 MB**：为了 tkinter（原生目录选择框）保留了完整标准库，只裁掉 `Doc/include/libs/Scripts/Lib/test/site-packages` 等。
+
 ## V0.0.55 — 2026-10-17
 
 **主题**：**拖拽落点预判改为委托模型层 `canMove`** —— 修掉「高亮着却放不下」的剩余一类（**同名冲突**）。

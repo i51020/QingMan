@@ -149,5 +149,80 @@ class TemplatesDirResolutionTests(unittest.TestCase):
             self.assertTrue(self._same(dir_, target))
 
 
+class RuntimeDirResolutionTests(unittest.TestCase):
+    """V0.1.0：数据 / 模板目录的「只读安装 · 多用户」解析（纯函数，无副作用）。
+
+    分发前提：程序目录可能不可写（`Program Files`、网络盘、受管终端），
+    此时必须退到每用户目录；而**旧布局已有数据**时绝不能改指别处（用户的稿子不能"消失"）。
+    判据全部用纯函数 + 临时目录验证，不碰真机 `%APPDATA%`。
+    """
+
+    def test_env_override_wins(self):
+        with tempfile.TemporaryDirectory(prefix="qm_data_") as d:
+            project = Path(d) / "proj"
+            project.mkdir()
+            target = Path(d) / "custom"
+            self.assertEqual(config.resolve_data_dir(project, str(target), Path(d) / "user"), target)
+
+    def test_legacy_data_wins_over_per_user(self):
+        # 旧布局有 editor.json ⇒ 即使目录"不可写"的判断不成立，也必须继续用它
+        with tempfile.TemporaryDirectory(prefix="qm_data_") as d:
+            project = Path(d) / "proj"
+            (project / "data").mkdir(parents=True)
+            (project / "data" / "editor.json").write_text("{}", encoding="utf-8")
+            got = config.resolve_data_dir(project, "", Path(d) / "user")
+            self.assertEqual(got, project / "data")
+
+    def test_writable_project_uses_local(self):
+        with tempfile.TemporaryDirectory(prefix="qm_data_") as d:
+            project = Path(d) / "proj"
+            project.mkdir()
+            got = config.resolve_data_dir(project, "", Path(d) / "user")
+            self.assertEqual(got, project / "data")
+
+    def test_readonly_project_falls_back_to_per_user(self):
+        # 不依赖真实只读：把「项目根」指成一个**不存在**的路径 ⇒ os.access 判不可写
+        with tempfile.TemporaryDirectory(prefix="qm_data_") as d:
+            ghost = Path(d) / "nope" / "proj"
+            got = config.resolve_data_dir(ghost, "", Path(d) / "user")
+            self.assertEqual(got, Path(d) / "user" / "data")
+
+    def test_no_per_user_root_keeps_legacy(self):
+        with tempfile.TemporaryDirectory(prefix="qm_data_") as d:
+            ghost = Path(d) / "nope"
+            self.assertEqual(config.resolve_data_dir(ghost, "", None), ghost / "data")
+
+
+class TemplateSeedTests(unittest.TestCase):
+    """只读安装下，每用户模板库必须**被播种**（否则模板列表是空的）。"""
+
+    def test_seed_copies_bundled_into_empty(self):
+        with tempfile.TemporaryDirectory(prefix="qm_seed_") as d:
+            dest = Path(d) / "templates"
+            copied = config.seed_templates(dest)
+            self.assertEqual(sorted(copied), sorted(p.name for p in
+                                                    config.DEFAULT_TEMPLATES_DIR.glob("*.json")))
+            self.assertTrue(any(dest.glob("*.json")))
+
+    def test_seed_skips_when_user_content_exists(self):
+        with tempfile.TemporaryDirectory(prefix="qm_seed_") as d:
+            dest = Path(d) / "templates"
+            dest.mkdir()
+            mine = dest / "S9_我自己的模板.json"
+            mine.write_text("{}", encoding="utf-8")
+            self.assertEqual(config.seed_templates(dest), [])
+            self.assertEqual([p.name for p in dest.glob("*.json")], [mine.name])
+
+    def test_seed_is_idempotent(self):
+        with tempfile.TemporaryDirectory(prefix="qm_seed_") as d:
+            dest = Path(d) / "templates"
+            first = config.seed_templates(dest)
+            before = {p.name for p in dest.glob("*.json")}
+            second = config.seed_templates(dest)
+            self.assertTrue(first)
+            self.assertEqual(second, [])
+            self.assertEqual({p.name for p in dest.glob("*.json")}, before)
+
+
 if __name__ == "__main__":
     unittest.main()

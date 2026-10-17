@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 from pathlib import Path
 
 APP_NAME_ZH = "青蔓"
@@ -79,6 +80,9 @@ START_BAT = PROJECT_DIR / "start.bat"
 # V0.0.35 起它只是「默认值」—— 运行态目录由 `templates_dir()` 解析（env > settings > 此处），
 # 保留了 `TEMPLATES_DIR` 这个旧名会误导（它已**不是**当前生效目录），故据此改名。
 DEFAULT_TEMPLATES_DIR = PROJECT_DIR / "templates"
+# 内置层**基线**：`templates/` 里只有这一个文件是随包交付的。出现别的 `.json`
+# 即视为「用户自己放过模板」—— 那是旧布局的真实数据，运行态目录必须继续指向它。
+BUNDLED_TEMPLATE_NAMES = frozenset({"P0_空白项目模板.json"})
 # 分发层：仓库内独立可分发的模板包（`.md` 主 + `.json` 等价），同样不在交付清单内。
 TEMPLATES_PACK_DIR = PROJECT_DIR / "templates-pack"
 # 用户层绑定目录的环境变量名（解析优先级最高，见 `templates_dir()`）。
@@ -101,10 +105,53 @@ TEMPLATE_TRASH_DIRNAME = ".trash"
 
 # ---------- 编辑态持久化（N2） ----------
 
-# 编辑态文档落盘位置：项目根 data/editor.json。
+# 编辑态文档落盘位置：`data/editor.json`（默认随项目，见下方解析链）。
 # 选后端文件而非 localStorage：端口自 PORT_START 起扫描、并不固定，
 # 而 localStorage 按 origin（含端口）隔离 —— 端口一变，草稿即静默丢失。
-DATA_DIR = PROJECT_DIR / "data"
+#
+# ⚠ **V0.1.0 起此路径由解析链决定**，不再写死 `项目根/data`：
+#   ① `QM_DATA_DIR` 环境变量（显式指定，最高优先）
+#   ② 项目内 `data/editor.json` **已存在** → 沿用（旧布局，绝不搬动用户已有数据）
+#   ③ 项目根**可写** → 项目内（便携用法：数据随目录走）
+#   ④ `%APPDATA%/QingMan/data` → 只读安装 / 共享安装的兜底
+# 为什么必须这么做：分发给其他用户后，程序目录可能落在只读位置
+# （`Program Files`、网络盘、受管终端），写 `data/` 直接失败；同一台机器的多个
+# Windows 用户也可能共用一份安装目录。**解析全部无副作用**（不 mkdir、不探测写文件，
+# 只用 `os.access`），因此 import 时计算是安全的，测试也不会被拉着写盘。
+DATA_DIR_ENV = "QM_DATA_DIR"
+
+
+def _writable(path: Path) -> bool:
+    """`path` 是否可写（只读判定，不产生任何文件）。"""
+    try:
+        return os.access(path, os.W_OK)
+    except OSError:                     # 极端路径（非法字符 / 无权限查询）一律视为不可写
+        return False
+
+
+def resolve_data_dir(project_dir: Path, override: str = "",
+                     per_user_root: "Path | None" = None) -> Path:
+    """按四级优先解析运行态数据目录（**纯函数**，便于单测，无副作用）。"""
+    raw = (override or "").strip()
+    if raw:
+        return Path(raw).expanduser()
+    legacy = project_dir / "data"
+    if (legacy / "editor.json").is_file():      # 旧布局有真实数据 → 不搬
+        return legacy
+    if _writable(project_dir):
+        return legacy
+    if per_user_root is not None:
+        return per_user_root / "data"
+    return legacy                                # 连 APPDATA 都没有：退回旧行为
+
+
+def per_user_root() -> "Path | None":
+    """每用户根目录 `%APPDATA%/QingMan`；无 APPDATA（非 Windows / 精简环境）返回 None。"""
+    appdata = os.environ.get("APPDATA", "").strip()
+    return Path(appdata).expanduser() / APP_NAME_EN if appdata else None
+
+
+DATA_DIR = resolve_data_dir(PROJECT_DIR, os.environ.get(DATA_DIR_ENV, ""), per_user_root())
 EDITOR_FILE = DATA_DIR / "editor.json"
 
 # 编辑态文档体积与节点数上限（防异常大文档落盘）
@@ -308,6 +355,55 @@ def load_settings() -> dict:
     return {}
 
 
+def _has_user_templates(path: Path) -> bool:
+    """该目录里是否有**用户自建**模板（`BUNDLED_TEMPLATE_NAMES` 之外的 `.json`）。"""
+    try:
+        names = {p.name for p in path.glob("*.json")}
+    except OSError:
+        return False
+    return bool(names - BUNDLED_TEMPLATE_NAMES)
+
+
+def seed_templates(dest: Path) -> list[str]:
+    """把内置模板**复制**到 `dest`（只补缺失，`dest` 已有用户模板则整体跳过）。
+
+    仅用于「只读安装 → 每用户模板库为空」这一种情形：用户打开模板列表至少要看到
+    那张空白模板。**只复制、不删除**（项目硬不变量）；失败静默（模板不是启动前提）。
+    返回实际复制出的文件名（便于测试与日志）。
+    """
+    if _has_user_templates(dest):
+        return []
+    copied: "list[str]" = []
+    try:
+        dest.mkdir(parents=True, exist_ok=True)
+        for src in sorted(DEFAULT_TEMPLATES_DIR.glob("*.json")):
+            target = dest / src.name
+            if target.exists():
+                continue
+            shutil.copy2(src, target)
+            copied.append(src.name)
+    except OSError:
+        return copied
+    return copied
+
+
+def default_runtime_templates_dir() -> Path:
+    """默认运行态模板目录（`templates_dir()` 在 env / settings 都没有时的答案）。
+
+    与数据目录同一取舍：**旧布局优先、可写则随项目、只读则每用户**。
+    区别是这里会**播种**内置模板 —— 否则只读安装的用户打开模板列表是空的。
+    """
+    legacy = DEFAULT_TEMPLATES_DIR
+    if _has_user_templates(legacy) or _writable(PROJECT_DIR):
+        return legacy
+    root = per_user_root()
+    if root is None:
+        return legacy
+    dest = root / "templates"
+    seed_templates(dest)
+    return dest
+
+
 def templates_dir_source() -> str:
     """当前运行态模板目录的来源：`env` / `settings` / `default`。"""
     if os.environ.get(TEMPLATES_DIR_ENV, "").strip():
@@ -330,7 +426,7 @@ def templates_dir() -> Path:
     saved = load_settings().get("templatesDir")
     if isinstance(saved, str) and saved.strip():
         return resolve_path(saved.strip())
-    return DEFAULT_TEMPLATES_DIR
+    return default_runtime_templates_dir()
 
 
 DEFAULT_VERSION = "V0.00"
