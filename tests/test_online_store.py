@@ -14,6 +14,11 @@
 本模块用 Node + 假 IndexedDB 锁住这条契约：若有人把 `pickDir` 改回"选完即落库"，
 本测试立刻红。另覆盖**目标位置的独立存储**：`targetDir` 与 `templatesDir` 分键，
 两个方向都不得互相影响（选目标不动模板库、改绑模板库不动目标）。
+
+第三条契约（2026-10-17 追加）：**列表顺序必须由代码规定，不得沿用文件系统枚举序**。
+`FileSystemDirectoryHandle.values()` 不承诺稳定（Windows 目录索引 / 同步盘 / 增删改名都会变），
+前端轮询的签名又是 `file|mtime|size` 按序拼接 —— 顺序一抖，签名就"变了"，列表每 2.5s 重建。
+故 `readDirTemplates` 结果统一过 `byFile`（按文件名小写、再比原名，与本机版同口径）。
 """
 
 from __future__ import annotations
@@ -155,6 +160,57 @@ const STORE = win.QMDemoStore;
   const tplKeep = await STORE.getDir();
   ok('清空保留模板库', !!tplKeep && tplKeep.name === '新模板库', tplKeep && tplKeep.name);
 
+  /* ⑩ 模板列表顺序：枚举顺序不得泄漏到结果（用户报告「模板排序总是变化」） */
+  function fakeDir(files) {
+    return {
+      name: '乱序库',
+      values: function () {
+        const arr = files.map(function (f) {
+          return {
+            kind: 'file',
+            name: f.name,
+            getFile: function () {
+              return Promise.resolve({
+                size: f.text.length,
+                lastModified: 1700000000000,
+                text: function () { return Promise.resolve(f.text); },
+              });
+            },
+          };
+        });
+        let i = 0;
+        return {
+          next: function () {
+            return Promise.resolve(i < arr.length ? { done: false, value: arr[i++] } : { done: true });
+          },
+        };
+      },
+    };
+  }
+  const files = (names) => names.map((n) => ({
+    name: n,
+    text: /\.json$/.test(n) ? '{"name":"' + n + '","tree":{"X":{}}}' : '# 标题\n',
+  }));
+
+  const orderA = (await STORE.readDirTemplates(fakeDir(files(['b.json', 'A.md', 'c.json', 'a.json']))))
+    .map((x) => x.file);
+  /* `'a.json' < 'A.md'`：小写化后 j(106) < m(109)；仅大小写不同时再比原名 */
+  const want = ['a.json', 'A.md', 'b.json', 'c.json'];
+  ok('乱序枚举也按文件名排', JSON.stringify(orderA) === JSON.stringify(want), orderA.join(','));
+
+  const orderB = (await STORE.readDirTemplates(fakeDir(files(['c.json', 'a.json', 'b.json', 'A.md']))))
+    .map((x) => x.file);
+  ok('枚举顺序变了结果不变', JSON.stringify(orderA) === JSON.stringify(orderB), orderB.join(','));
+
+  const caseOrder = (await STORE.readDirTemplates(fakeDir(files(['a.json', 'A.json']))))
+    .map((x) => x.file);
+  ok('仅大小写不同按原名定序', JSON.stringify(caseOrder) === JSON.stringify(['A.json', 'a.json']),
+     caseOrder.join(','));
+
+  const once = STORE.sortByFile(orderA.map((f) => ({ file: f }))).map((x) => x.file);
+  ok('排序幂等', JSON.stringify(STORE.sortByFile(once.map((f) => ({ file: f }))).map((x) => x.file))
+     === JSON.stringify(once), once.join(','));
+
   process.stdout.write('RESULT ' + JSON.stringify(results) + '\n');
 })().catch((err) => {
   ok('异常', false, err && (err.message || err.name));
@@ -231,6 +287,13 @@ class OnlineStoreTests(unittest.TestCase):
         self._ok("preload 后仍可见目标")
         self._ok("清空忘记目标位置")
         self._ok("清空保留模板库")
+
+    def test_template_order_is_explicit(self):
+        """用户报告「模板排序总是变化」：顺序必须由代码规定，不跟文件系统走。"""
+        self._ok("乱序枚举也按文件名排")
+        self._ok("枚举顺序变了结果不变")
+        self._ok("仅大小写不同按原名定序")
+        self._ok("排序幂等")
 
     def test_rebind_still_works(self):
         self._ok("另一个目录也可按名绑定")

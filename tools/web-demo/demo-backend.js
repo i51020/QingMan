@@ -101,6 +101,12 @@
         size: JSON.stringify(tpl.tree || {}).length, mtime: tpl.mtime || 0, source: 'json',
       });
     });
+    /* 内置示例恒居首（它不是用户文件）；其余与**目录分支同口径**排序。
+       排序规则只写在 `online-store.byFile` 一处，此处调用、不复制 —— 两条分支顺序
+       若各写一套，迟早又会不一致。 */
+    if (items.length > 1 && STORE && typeof STORE.sortByFile === 'function') {
+      return [items[0]].concat(STORE.sortByFile(items.slice(1)));
+    }
     return items;
   }
 

@@ -202,6 +202,34 @@
     return JSON.parse(text);
   }
 
+  /**
+   * 模板列表的**唯一**排序口径：按文件名（小写优先比较，再比原名）。
+   *
+   * 为什么必须显式排：`FileSystemDirectoryHandle.values()` 的枚举顺序**由文件系统决定、
+   * 没有任何稳定性承诺** —— Windows 目录索引、OneDrive/同步盘、以及新建/删除/改名之后
+   * 都可能改序；`Object.keys()` 同理（插入序，删一条再建就变）。不排就等于把
+   * 「底层怎么摆」直接暴露成「用户看到的顺序」，于是每次载入/每次轮询都可能重排。
+   *
+   * 为什么用文件名而不是模板里的 `name`：**与本机版同口径**
+   * （`src/server/templates.py` 的 `sorted(..., key=lambda q: (q.name.lower(), q.name))`）。
+   * 两版顺序一致，用户换形态打开时看到的列表才是同一个。
+   *
+   * 附带好处：前端轮询的签名是 `file|mtime|size` **按序拼接**，顺序一乱签名就变，
+   * 会每 2.5s 重建一次 DOM（列表跳动、hover/滚动丢失）。排序稳定后签名也稳定。
+   */
+  function byFile(a, b) {
+    var x = String(a.file || '').toLowerCase();
+    var y = String(b.file || '').toLowerCase();
+    if (x !== y) { return x < y ? -1 : 1; }
+    var ax = String(a.file || '');
+    var bx = String(b.file || '');
+    return ax < bx ? -1 : (ax > bx ? 1 : 0);
+  }
+
+  function sortByFile(items) {
+    return items.slice().sort(byFile);
+  }
+
   function readDirTemplates(dirHandle) {
     return entriesOf(dirHandle).then(function (entries) {
       var picked = entries.filter(function (h) {
@@ -225,7 +253,7 @@
             };
           });
         });
-      }));
+      })).then(sortByFile);   /* 顺序由 byFile 显式规定，不交给文件系统 */
     });
   }
 
@@ -416,6 +444,7 @@
     targetPermission: targetPermission,
     readDirTemplates: readDirTemplates,
     readDirTemplate: readDirTemplate,
+    sortByFile: sortByFile,
     snapshot: snapshot,
     listBackups: listBackups,
     readBackup: readBackup,
