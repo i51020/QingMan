@@ -140,8 +140,13 @@ def runtime_version(runtime_dir: Path) -> str:
 
 
 def build_staging(staging: Path, files: "list[tuple[Path, str]]",
-                  runtime: "tuple[Path, list[tuple[Path, str]]] | None") -> dict:
-    """把文件逐个复制进 `staging`，返回清单字典。"""
+                  runtime: "tuple[Path, list[tuple[Path, str]]] | None",
+                  built_at: "str | None" = None) -> dict:
+    """把文件逐个复制进 `staging`，返回清单字典。
+
+    `built_at` 是「构建时间」注入点：默认取当前时间，**但它会让同输入的两次构建不同**。
+    要复算一致性（CI / 审计 / 单测）就显式传固定值 —— 这也是 `--built-at` 的用途。
+    """
     entries: dict[str, dict] = {}
     for src, rel in files:
         dest = staging / rel
@@ -158,7 +163,7 @@ def build_staging(staging: Path, files: "list[tuple[Path, str]]",
     return {
         "schema": "qm-release/1",
         "version": VERSION,
-        "builtAt": time.strftime("%Y-%m-%dT%H:%M:%S%z") or "",
+        "builtAt": built_at or (time.strftime("%Y-%m-%dT%H:%M:%S%z") or ""),
         "runtime": ({"bundled": True, "python": runtime_version(runtime[0]),
                      "source": str(runtime[0])} if runtime else {"bundled": False}),
         "fileCount": len(entries),
@@ -173,8 +178,12 @@ def write_manifest(staging: Path, manifest: dict) -> None:
         encoding="utf-8", newline="\n")
 
 
-def build_zip(staging: Path, zip_path: Path) -> int:
-    """确定性打包：条目排序 + 固定时间戳 + 固定压缩级别。"""
+def build_zip(staging: Path, zip_path: Path, prefix: str = PKG_DIRNAME) -> int:
+    """确定性打包：条目排序 + 固定时间戳 + 固定压缩级别。
+
+    `prefix` 是 zip 内的一级目录名（默认发布包的 `QingMan-<版本>`）；
+    接续包（`tools/handoff_pack.py`）复用本函数，换自己的前缀。
+    """
     zip_path.parent.mkdir(parents=True, exist_ok=True)
     if zip_path.exists():
         zip_path.unlink()
@@ -182,7 +191,7 @@ def build_zip(staging: Path, zip_path: Path) -> int:
         for path in sorted(staging.rglob("*")):
             if not path.is_file():
                 continue
-            rel = f"{PKG_DIRNAME}/{path.relative_to(staging).as_posix()}"
+            rel = f"{prefix}/{path.relative_to(staging).as_posix()}"
             info = zipfile.ZipInfo(rel, date_time=(1980, 1, 1, 0, 0, 0))
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o644 << 16
@@ -272,6 +281,7 @@ def main(argv: "list[str] | None" = None) -> int:
     ap.add_argument("--no-runtime", action="store_true", help="不随包携带运行时")
     ap.add_argument("--out-dir", default=str(ROOT / "dist"), help="产物目录（默认 dist/）")
     ap.add_argument("--verify", metavar="ZIP", help="只自检已构建的发布包，不重新构建")
+    ap.add_argument("--built-at", help="固定构建时间（复算用，如 2026-10-17T16:00:00+08:00）")
     args = ap.parse_args(argv)
 
     if args.verify:
@@ -285,7 +295,7 @@ def main(argv: "list[str] | None" = None) -> int:
     runtime = (runtime_dir, iter_runtime_files(runtime_dir)) if runtime_dir else None
     staging = Path(tempfile.mkdtemp(prefix="qm_pkg_"))
     try:
-        manifest = build_staging(staging, files, runtime)
+        manifest = build_staging(staging, files, runtime, args.built_at)
         write_manifest(staging, manifest)
         out = Path(args.out_dir) / ZIP_NAME
         size = build_zip(staging, out)
