@@ -295,6 +295,11 @@
    复用模板目录行（.tpl-dir-actions）的「输入 + 选择…」形态，不另造一套按钮样式。 */
 .field-inline { display: flex; align-items: center; gap: 6px; }
 .field-inline > input { flex: 1 1 auto; min-width: 0; }
+/* V0.0.54@r2：按钮**不参与收缩**。原先只给 input 设了 flex，按钮吃默认 `flex-shrink: 1` ——
+   input 的宽度是小数（实测 454.67px），剩余空间被按比例分摊后按钮被挤掉 1.67px，
+   声明 27×27 实渲染 25.33×27（无头 Edge 量 `#btnPickTarget` 得证）。
+   补 0 0 auto 后按钮严格等于声明值；input 仍是唯一伸缩项，视觉上只多回这 1.67px。 */
+.field-inline > .btn { flex: 0 0 auto; }
 
 .switch { display: flex; align-items: center; gap: 6px; font-size: var(--qm-fs-md); color: var(--qm-text-dim); padding-bottom: 4px; }
 

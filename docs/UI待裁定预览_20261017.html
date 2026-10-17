@@ -1989,10 +1989,10 @@ th { background: var(--qm-surface-2); font-weight: 600; }
     ① 表面三阶：<b>结案</b>（实测已符合契约，无需选择）；
     ② 目标位置按钮：<b>选 A</b>（维持纯图标，不改）；
     ③ 模板行 ⋮：<b>选 A</b>（维持 27×27 / 圆角 12，不改）。
-    <br>三项均<b>未改动产品代码</b>（`src/` 一字未改，无升版）；本页保留为<b>决策留痕 + 候选样张存档</b>，
+    <br>三项均<b>未改动产品代码</b>（<span class="mono">src/</span> 一字未改，无升版）；本页保留为<b>决策留痕 + 候选样张存档</b>，
     若日后要重提，直接看下面的 A/B/C 即可。<br>
-    <span class="note-inline">遗留小账（已量未修）：`#btnPickTarget` 声明 27×27、实渲染 25.33×27 ——
-    补 `flex: 0 0 auto` 即可，与本页三项裁定无关。</span>
+    <span class="note-inline">遗留小账（已量未修）：<span class="mono">#btnPickTarget</span> 声明 27×27、实渲染 25.33×27 ——
+    补 <span class="mono">flex: 0 0 auto</span> 即可，与本页三项裁定无关。</span>
   </div>
 
   <section class="sec">
@@ -2172,11 +2172,11 @@ th { background: var(--qm-surface-2); font-weight: 600; }
     <table>
       <tr><th>项</th><th>要改什么</th><th>改动文件</th><th>风险 / 连带</th><th>版本性质</th></tr>
       <tr><td>① 表面三阶</td><td>不改代码；只订正手册 §十三 #6 的过期快照</td><td><span class="mono">docs/项目手册.md</span></td><td>无</td><td>文档（不升版）</td></tr>
-      <tr><td>② 目标位置钮</td><td>HTML 加一个 <span class="mono">span</span> 文字 + 一条 CSS + 复用已有取词键</td><td><span class="mono">index.html</span> / <span class="mono">layout.css</span></td><td>与「I 组图标化」冲突 ⇒ 需同步 7aj 口径</td><td>纯样式 ⇒ PATCH</td></tr>
-      <tr><td>③ 模板行 ⋮</td><td>1–2 条 CSS（尺寸 / 圆角）</td><td><span class="mono">layout.css</span></td><td>⋮ 是 7aj⑤b 锚点；只改尺寸、不改类名 ⇒ 守卫不受影响</td><td>纯样式 ⇒ PATCH</td></tr>
+      <tr><td>② 目标位置钮</td><td>HTML 加一个 <span class="mono">span</span> 文字 + 一条 CSS + 复用已有取词键</td><td><span class="mono">index.html</span> / <span class="mono">layout.css</span></td><td>与「I 组图标化」冲突 ⇒ 需同步 7aj 口径</td><td>纯样式 ⇒ <b>不升版</b>（<span class="mono">@rN</span>）</td></tr>
+      <tr><td>③ 模板行 ⋮</td><td>1–2 条 CSS（尺寸 / 圆角）</td><td><span class="mono">layout.css</span></td><td>⋮ 是 7aj⑤b 锚点；只改尺寸、不改类名 ⇒ 守卫不受影响</td><td>纯样式 ⇒ <b>不升版</b>（<span class="mono">@rN</span>）</td></tr>
     </table>
     <p class="note">按 §P0-6 M9：②③ 都不改变兼容性（不碰 HTTP 契约 / <span class="mono">editorDocument</span> / 模板格式），
-    属「只改样式」⇒ 单独走 PATCH，或并入下一批一起升 <b>MINOR</b>。</p>
+    属「只改样式」⇒ 按 <b>M9</b> 是<b>不升版</b>：改 <span class="mono">src/</span> 但只动样式，走同版本修订 <b><span class="mono">@rN</span></b> + 记时间线（<b>不烧版本号</b>）。只有碰到 HTTP 契约 / <span class="mono">editorDocument</span> / 模板格式才算契约变更。</p>
   </section>
 
   <section class="sec">
