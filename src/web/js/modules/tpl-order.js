@@ -1,22 +1,50 @@
 /**
- * 青蔓 QingMan · 模板排序口径（V0.3.2 · **纯数据模块**：无 DOM、无 window、零依赖）
+ * 青蔓 QingMan · 模板排序口径（V0.3.3 · **纯数据模块**：无 DOM、无 window、零依赖）
  *
- * 排序四级，逐级只有上一级相等才往下走：
+ * **六条规则，按段优先**（逐段取尽才往下走）：
  *
- *   ① **显示名**（`name`，先小写再原名）—— 主键。用户唯一能感知的标识；
- *   ② **最近使用**（`last` 降序）—— 同名的两套模板里，刚用过的在前；
- *   ③ **使用次数**（`count` 降序）—— 同名的两套模板里，用得多的在前；
- *   ④ **文件名**（`file`，先小写再原名）—— 兜底，保证顺序确定、跨平台可复现。
+ *   ① **本次新建**（`created`）—— 本会话内新建的模板（且未使用过），最高优先；
+ *   ② **本次单个导入**（`single`）—— 本会话内用导入按钮逐个导入的（且未使用过）；
+ *   ③ **本次批量导入 / 外部新增**（`batch`）—— 一次出现多个，或轮询发现的外部新增；
+ *   ④ **最近使用**（`last` 降序）—— 用过的模板里，最近用过的在前；
+ *   ⑤ **使用次数**（`count` 降序）—— 最近使用打平时，用得多的在前；
+ *   ⑥ **名称**（先小写再原文，升序）→ **文件名**（兜底）—— 纯名称序也是
+ *      「首次进入 / 点刷新」的唯一口径（`SORT_NAME` 模式）。
  *
- * **为什么主键是显示名，而不是「使用记录」**：文件名序（V0.0.38~V0.3.1）会让
- * 「文件名 ≠ 显示名」的模板排在名字对不上的位置；而纯使用记录序会让列表随每次
- * 载入重新洗牌（上一版刚修过“排序总是变化”）。显示名是唯一**既稳定又与用户认知
- * 一致**的键；使用记录只在前两级打平时起作用，因此不会把列表搅乱。
+ * **段 ①②③ 内一律按名称排**：同批的模板在用户眼里没有先后之别，只有名字可依。
+ *
+ * ---
+ *
+ * **为什么用「本次操作」而不是文件时间戳**：批量复制 10 个文件时，`st_birthtime`
+ * 逐个相差 5~9 毫秒（实测），按秒分桶在**文件多 / 慢盘 / 网络盘**时会跨秒，
+ * 同一批被拆成两组，「同批按名称」就只在一组内成立。而「本次操作」由调用方
+ * 直接告知是哪一批 —— 整批一起进、永远不会拆。代价是状态只活在**当前标签页**
+ * （`sessionStorage`）：F5 保留、关标签页清空 —— 恰与「首次进入按名称」一致。
+ *
+ * **为什么段 ①②③ 只收「未使用过」的**：模板一旦被载入使用（次数 ≥ 1），就退出
+ * 新段、按 ④⑤ 重排。于是「新导入」是一个**待用队列**：用过即出队，不会永远压顶。
  *
  * **为什么单独成文件**：`modules/templates.js` 顶层 import `core/api.js`，而它读
  * `window.location.origin` —— 在 Node 里导不进来。排序是**用户可见行为**，必须能被
  * 单测直接钉住（`tests/test_frontend_js.py`），故纯函数独立成文件。
  */
+
+/** 纯名称序：首次进入、点刷新后的基线（忽略新建段与使用记录）。 */
+export const SORT_NAME = 'name';
+/** 六段规则：本会话内发生过新建 / 导入 / 外部新增。 */
+export const SORT_EVENT = 'event';
+
+/**
+ * 新段编号（**数字小的先**）。
+ *
+ * `RANK_NONE = 3` 必须**大于**三个新段 —— 它表示「不属于任何新段」（已使用过，或没有
+ * 文件名），要排在最後。写成 `-1` 会让「其余」段抢到最前面（首次实现即犯，被
+ * `tests/test_frontend_js.py` 的 `TPL/new-first` 当场抓住）。
+ */
+const RANK_CREATED = 0;
+const RANK_SINGLE = 1;
+const RANK_BATCH = 2;
+const RANK_NONE = 3;
 
 /** 显示名比较键：小写 → 原文（仅在大小写不同时才靠第二段分出次序）。 */
 function nameKey(item) {
@@ -36,11 +64,26 @@ function cmp(a, b) {
   return a < b ? -1 : (a > b ? 1 : 0);
 }
 
+/** 名称 → 文件名，两级兜底。段内与 `SORT_NAME` 模式共用。 */
+function cmpNameThenFile(a, b) {
+  const an = nameKey(a);
+  const bn = nameKey(b);
+  let r = cmp(an[0], bn[0]);
+  if (r) return r;
+  r = cmp(an[1], bn[1]);
+  if (r) return r;
+  const af = fileKey(a);
+  const bf = fileKey(b);
+  r = cmp(af[0], bf[0]);
+  if (r) return r;
+  return cmp(af[1], bf[1]);
+}
+
 /**
  * 使用记录里的一项 → `[最近使用毫秒戳, 使用次数]`。
  *
- * localStorage 可被手改、也可能残留旧结构 —— 脏值一律按 0 处理，**绝不抛错**：
- * 排序是展示层的事，读坏一条记录不该让模板列表变成一片空白。
+ * sessionStorage / localStorage 都可能被手改或残留旧结构 —— 脏值一律按 0 处理，
+ * **绝不抛错**：排序是展示层的事，读坏一条记录不该让模板列表变成一片空白。
  */
 function usageOf(usage, file) {
   const record = usage && typeof usage === 'object' ? usage[file] : null;
@@ -50,47 +93,63 @@ function usageOf(usage, file) {
   return [Number.isFinite(last) ? last : 0, Number.isFinite(count) ? count : 0];
 }
 
+function inList(list, file) {
+  return Array.isArray(list) && list.indexOf(file) >= 0;
+}
+
+/**
+ * 模板属于哪个新段。
+ *
+ * **`count > 0` 一律返回 `RANK_NONE`** —— 这条是「用过即出队」的唯一实现点。
+ * 若漏掉它，新建的模板会永远压在最上面，用户再也看不到 ④⑤ 的效果。
+ */
+function freshRank(file, count, fresh) {
+  if (!file || count > 0) return RANK_NONE;
+  const f = fresh || {};
+  if (inList(f.created, file)) return RANK_CREATED;
+  if (inList(f.single, file)) return RANK_SINGLE;
+  if (inList(f.batch, file)) return RANK_BATCH;
+  return RANK_NONE;
+}
+
 /**
  * 两条模板的比较器（供 `Array.prototype.sort` 直接使用）。
  * @param {object} a 模板项 `{file, name, ...}`
  * @param {object} b 模板项
- * @param {object} [usage] 使用记录 `{ [file]: {last, count} }`
+ * @param {object} [ctx] `{mode, usage, fresh:{created,single,batch}}`
  * @returns {number} 负数 → a 在前
  */
-export function compareTemplates(a, b, usage) {
-  const an = nameKey(a);
-  const bn = nameKey(b);
-  let r = cmp(an[0], bn[0]);
-  if (r) return r;
-  r = cmp(an[1], bn[1]);
-  if (r) return r;
+export function compareTemplates(a, b, ctx) {
+  const c = ctx || {};
+  if (c.mode === SORT_NAME) return cmpNameThenFile(a, b);
 
-  const au = usageOf(usage, a && a.file);
-  const bu = usageOf(usage, b && b.file);
-  if (au[0] !== bu[0]) return bu[0] - au[0];   // ② 最近使用在前
-  if (au[1] !== bu[1]) return bu[1] - au[1];   // ③ 用得多的在前
+  const au = usageOf(c.usage, a && a.file);
+  const bu = usageOf(c.usage, b && b.file);
+  const ra = freshRank(a && a.file, au[1], c.fresh);
+  const rb = freshRank(b && b.file, bu[1], c.fresh);
 
-  const af = fileKey(a);
-  const bf = fileKey(b);
-  r = cmp(af[0], bf[0]);
-  if (r) return r;
-  return cmp(af[1], bf[1]);
+  if (ra !== rb) return ra - rb;          // 段号小的在前（RANK_NONE 最大 ⇒ 排最后）
+  if (ra !== RANK_NONE) return cmpNameThenFile(a, b);   // 同一新段内：按名称
+
+  if (au[0] !== bu[0]) return bu[0] - au[0];   // ④ 最近使用在前
+  if (au[1] !== bu[1]) return bu[1] - au[1];   // ⑤ 用得多的在前
+  return cmpNameThenFile(a, b);                // ⑥ 名称 → 文件名
 }
 
 /**
  * 排序模板列表。**不改入参**（返回新数组）。
  *
- * 末尾用「原始下标」兜底：即使两条模板四项键全等，也保持后端给的相对次序 ——
+ * 末尾用「原始下标」兜底：即使两条模板所有键全等，也保持后端给的相对次序 ——
  * 不依赖引擎的排序稳定性（V8 稳定，但这是实现细节，不是契约）。
  *
  * @param {object[]} items 后端 `GET /api/templates` 的 `items`
- * @param {object} [usage] 使用记录
+ * @param {object} [ctx] 见 `compareTemplates`
  * @returns {object[]} 新数组
  */
-export function sortTemplates(items, usage) {
+export function sortTemplates(items, ctx) {
   if (!Array.isArray(items)) return [];
   return items
     .map((item, index) => ({ item, index }))
-    .sort((x, y) => compareTemplates(x.item, y.item, usage) || (x.index - y.index))
+    .sort((x, y) => compareTemplates(x.item, y.item, ctx) || (x.index - y.index))
     .map((row) => row.item);
 }

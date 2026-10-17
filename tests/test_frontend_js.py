@@ -301,76 +301,106 @@ const tm = await import(SRC + '/modules/tree-model.js');
      i18n.getHelpSections().length);
 }
 
-/* ---------- V0.3.2 模板排序口径（modules/tpl-order.js） ---------- */
+/* ---------- V0.3.3 模板排序口径（modules/tpl-order.js） ---------- */
 {
   const order = await import(SRC + '/modules/tpl-order.js');
   const mk = (file, name) => ({ file, name });
   const seq = (rows) => rows.map((r) => r.file).join(',');
+  const NAME = order.SORT_NAME;
+  const EVENT = order.SORT_EVENT;
+  const ev = (fresh, usage) => ({ mode: EVENT, usage: usage || {}, fresh: fresh || {} });
 
-  /* ① **显示名是主键**：使用记录再热，也压不过名字 —— 这条一改，
-        列表就会随每次载入重新洗牌（正是上一版刚修掉的“排序总是变化”）。 */
-  const hot = { 'b.json': { last: 9e12, count: 99 } };
-  ok('TPL/name-first',
-     seq(order.sortTemplates([mk('b.json', 'B'), mk('a.json', 'A')], hot)) === 'a.json,b.json',
-     seq(order.sortTemplates([mk('b.json', 'B'), mk('a.json', 'A')], hot)));
+  /* ① `SORT_NAME`：纯名称序 —— 新建段与使用记录**一起让位**。
+        这是「首次进入 / 点刷新」的唯一口径，少让任何一个都会破坏基线。 */
+  ok('TPL/name-mode',
+     seq(order.sortTemplates([mk('b.json', 'B'), mk('a.json', 'A')],
+       { mode: NAME, usage: { 'b.json': { last: 9e12, count: 99 } },
+         fresh: { created: ['b.json'] } })) === 'a.json,b.json',
+     seq(order.sortTemplates([mk('b.json', 'B'), mk('a.json', 'A')],
+       { mode: NAME, usage: { 'b.json': { last: 9e12, count: 99 } },
+         fresh: { created: ['b.json'] } })));
 
-  /* ② 名字按小写比较（与文件名同口径）；仅大小写不同时靠原文分次序 */
-  ok('TPL/name-case',
-     seq(order.sortTemplates([mk('3.json', 'b'), mk('1.json', 'A'), mk('2.json', 'a')], {}))
-       === '1.json,2.json,3.json',
-     seq(order.sortTemplates([mk('3.json', 'b'), mk('1.json', 'A'), mk('2.json', 'a')], {})));
+  /* ② ① 新建压过一切：名字排在最后也照样置顶 */
+  ok('TPL/new-first',
+     seq(order.sortTemplates([mk('z.json', 'Z'), mk('a.json', 'A')],
+       ev({ created: ['z.json'] }))) === 'z.json,a.json',
+     seq(order.sortTemplates([mk('z.json', 'Z'), mk('a.json', 'A')],
+       ev({ created: ['z.json'] }))));
 
-  /* ③ 名字打平 → 最近使用在前 */
-  ok('TPL/tie-last',
+  /* ③ 段序 新建 > 单个导入 > 批量导入 > 其余（名字的字母序不得干扰段序） */
+  ok('TPL/seg-order',
+     seq(order.sortTemplates(
+       [mk('a.json', 'A'), mk('b.json', 'B'), mk('c.json', 'C'), mk('d.json', 'D')],
+       ev({ created: ['c.json'], single: ['b.json'], batch: ['a.json'] })))
+       === 'c.json,b.json,a.json,d.json',
+     seq(order.sortTemplates(
+       [mk('a.json', 'A'), mk('b.json', 'B'), mk('c.json', 'C'), mk('d.json', 'D')],
+       ev({ created: ['c.json'], single: ['b.json'], batch: ['a.json'] }))));
+
+  /* ④ 同一段内按名称 —— 这就是「同时载入的多个模板按名称」 */
+  ok('TPL/batch-by-name',
+     seq(order.sortTemplates([mk('3.json', 'c'), mk('1.json', 'a'), mk('2.json', 'b')],
+       ev({ batch: ['3.json', '1.json', '2.json'] }))) === '1.json,2.json,3.json',
+     seq(order.sortTemplates([mk('3.json', 'c'), mk('1.json', 'a'), mk('2.json', 'b')],
+       ev({ batch: ['3.json', '1.json', '2.json'] }))));
+
+  /* ⑤ **用过即出队**：仍在新建段里的模板，只要次数 ≥ 1 就退出，改按最近使用排。
+        漏掉这条，新建的模板会永远压顶，④⑤ 再也轮不到。 */
+  ok('TPL/used-leaves',
+     seq(order.sortTemplates([mk('fresh.json', '新建的'), mk('a.json', 'A')],
+       ev({ created: ['fresh.json'] },
+          { 'fresh.json': { last: 1, count: 1 }, 'a.json': { last: 2, count: 1 } })))
+       === 'a.json,fresh.json',
+     seq(order.sortTemplates([mk('fresh.json', '新建的'), mk('a.json', 'A')],
+       ev({ created: ['fresh.json'] },
+          { 'fresh.json': { last: 1, count: 1 }, 'a.json': { last: 2, count: 1 } }))));
+
+  /* ⑥ 其余段：最近使用在前 */
+  ok('TPL/rest-recent',
      seq(order.sortTemplates([mk('old.json', '同名'), mk('new.json', '同名')],
-       { 'old.json': { last: 100, count: 5 }, 'new.json': { last: 200, count: 1 } }))
+       ev({}, { 'old.json': { last: 100, count: 5 }, 'new.json': { last: 200, count: 1 } })))
        === 'new.json,old.json',
      seq(order.sortTemplates([mk('old.json', '同名'), mk('new.json', '同名')],
-       { 'old.json': { last: 100, count: 5 }, 'new.json': { last: 200, count: 1 } })));
+       ev({}, { 'old.json': { last: 100, count: 5 }, 'new.json': { last: 200, count: 1 } }))));
 
-  /* ④ 最近使用也打平 → 次数多的在前 */
-  ok('TPL/tie-count',
+  /* ⑦ 其余段：最近使用打平 → 次数多的在前 */
+  ok('TPL/rest-count',
      seq(order.sortTemplates([mk('rare.json', '同名'), mk('often.json', '同名')],
-       { 'rare.json': { last: 100, count: 1 }, 'often.json': { last: 100, count: 9 } }))
+       ev({}, { 'rare.json': { last: 100, count: 1 }, 'often.json': { last: 100, count: 9 } })))
        === 'often.json,rare.json',
      seq(order.sortTemplates([mk('rare.json', '同名'), mk('often.json', '同名')],
-       { 'rare.json': { last: 100, count: 1 }, 'often.json': { last: 100, count: 9 } })));
+       ev({}, { 'rare.json': { last: 100, count: 1 }, 'often.json': { last: 100, count: 9 } }))));
 
-  /* ⑤ 完全没有记录 → 文件名兜底（大小写不敏感） */
-  ok('TPL/tie-file',
-     seq(order.sortTemplates([mk('B.json', '同名'), mk('a.json', '同名')], {})) === 'a.json,B.json',
-     seq(order.sortTemplates([mk('B.json', '同名'), mk('a.json', '同名')], {})));
+  /* ⑧ 全打平 → 名称 → 文件名（大小写不敏感） */
+  ok('TPL/tie-name-file',
+     seq(order.sortTemplates([mk('B.json', '同名'), mk('a.json', '同名')], ev({})))
+       === 'a.json,B.json',
+     seq(order.sortTemplates([mk('B.json', '同名'), mk('a.json', '同名')], ev({}))));
 
-  /* ⑥ 记录是脏的（null / 字符串 / 对象）不抛错，按「无记录」处理 */
+  /* ⑨ 记录是脏的（null / 字符串 / 对象）不抛错，按「无记录」处理 */
   let dirtyOk = true;
   try {
     dirtyOk = seq(order.sortTemplates([mk('b.json', '一样'), mk('a.json', '一样')],
-      { 'a.json': null, 'b.json': { last: 'oops', count: {} } })) === 'a.json,b.json';
+      ev({}, { 'a.json': null, 'b.json': { last: 'oops', count: {} } }))) === 'a.json,b.json';
   } catch (err) {
     dirtyOk = false;
   }
   ok('TPL/dirty-usage', dirtyOk, String(dirtyOk));
 
-  /* ⑦ 不改入参、返回新数组 */
+  /* ⑩ `fresh` 整个缺失 / 非数组 → 退化为全名称序，不抛 */
+  ok('TPL/no-fresh',
+     seq(order.sortTemplates([mk('b.json', 'B'), mk('a.json', 'A')], { mode: EVENT }))
+       === 'a.json,b.json',
+     seq(order.sortTemplates([mk('b.json', 'B'), mk('a.json', 'A')], { mode: EVENT })));
+
+  /* ⑪ 不改入参、返回新数组 */
   const srcRows = [mk('b.json', 'B'), mk('a.json', 'A')];
-  const sortedRows = order.sortTemplates(srcRows, {});
+  const sortedRows = order.sortTemplates(srcRows, ev({}));
   ok('TPL/no-mutate',
      seq(srcRows) === 'b.json,a.json' && sortedRows !== srcRows,
      seq(srcRows));
 
-  /* ⑧ 四项键全等 → 保持入参相对次序（不依赖引擎排序稳定性） */
-  ok('TPL/stable',
-     seq(order.sortTemplates([mk('x.json', '同名'), mk('x.json', '同名')], {})) === 'x.json,x.json',
-     seq(order.sortTemplates([mk('x.json', '同名'), mk('x.json', '同名')], {})));
-
-  /* ⑨ 名字前后空格不参与比较（"  同名  " 与 "同名" 视为同名） */
-  ok('TPL/trim',
-     seq(order.sortTemplates([mk('b.json', ' 同名 '), mk('a.json', '同名')],
-       { 'b.json': { last: 10, count: 0 } })) === 'b.json,a.json',
-     seq(order.sortTemplates([mk('b.json', ' 同名 '), mk('a.json', '同名')],
-       { 'b.json': { last: 10, count: 0 } })));
-
-  /* ⑩ 非数组入参退化为空数组，不抛 */
+  /* ⑫ 非数组入参退化为空数组，不抛 */
   ok('TPL/empty', Array.isArray(order.sortTemplates(null)) && order.sortTemplates(null).length === 0);
 }
 
@@ -465,16 +495,19 @@ class FrontendJsTests(unittest.TestCase):
                   "F/canBatchMove-ok"):
             self._ok(n)
 
-    def test_v032_template_order(self):
-        """V0.3.2 · 模板排序口径：显示名 → 最近使用 → 使用次数 → 文件名兜底。
+    def test_v033_template_order(self):
+        """V0.3.3 · 模板排序六段：新建 → 单个导入 → 批量导入 → 最近使用 → 次数 → 名称。
 
-        为什么值得固化：这是**用户可见行为**，而「显示名压过使用记录」这条最容易被
-        后人按“常用应该置顶”改掉 —— 那条路径会让列表随每次载入重新洗牌，正是上一版
-        刚修掉的缺陷（`docs/任务进度.md` 2026-10-17 22:20 那条）。
+        这是**用户可见行为**，两条最容易被后人「顺手改掉」，故逐条钉住：
+        ① `SORT_NAME` 模式必须**同时**忽略新建段与使用记录 —— 少让任何一个，
+           「点刷新回到名称序」就不干净；
+        ② 段 ①②③ 只收「未使用过」的模板（`count > 0` 即出队）—— 少了这条，
+           新建的会永远压顶，④⑤ 再也轮不到，等于把六段退化成一节。
         """
-        for n in ("TPL/name-first", "TPL/name-case", "TPL/tie-last", "TPL/tie-count",
-                  "TPL/tie-file", "TPL/dirty-usage", "TPL/no-mutate", "TPL/stable",
-                  "TPL/trim", "TPL/empty"):
+        for n in ("TPL/name-mode", "TPL/new-first", "TPL/seg-order", "TPL/batch-by-name",
+                  "TPL/used-leaves", "TPL/rest-recent", "TPL/rest-count",
+                  "TPL/tie-name-file", "TPL/dirty-usage", "TPL/no-fresh",
+                  "TPL/no-mutate", "TPL/empty"):
             self._ok(n)
 
     def test_v044_dynamic_locales(self):

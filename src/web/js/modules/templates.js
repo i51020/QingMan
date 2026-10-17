@@ -11,7 +11,7 @@ import { localizeError } from '../core/errors.js';
 import { readPref, writePref, t, TPL_USAGE_KEY } from '../i18n/index.js';
 import { toast } from '../ui/toast.js';
 import { fromNestedTree, adoptTemplateNote, treePayload } from './tree-model.js';
-import { sortTemplates } from './tpl-order.js';
+import { sortTemplates, SORT_NAME, SORT_EVENT } from './tpl-order.js';
 
 /** 与 main.js 同款取元素助手（各自持有 1 行，不为一个 1 行函数再拆模块）。 */
 const el = (id) => document.getElementById(id);
@@ -80,6 +80,137 @@ function bumpUsage(file) {
     for (const key of files.slice(TPL_USAGE_MAX)) delete map[key];
   }
   writeUsage(map);
+}
+
+/* ---------- 排序会话（V0.3.3 · 六段规则的事件源） ---------- */
+
+/**
+ * 六个排序段的会话状态。**存 `sessionStorage`，不是 `localStorage`** —— 两个理由：
+ *
+ *   ① **F5 不动排序**：按 F5 只是想刷新载入状态，不该把刚导入的那批打散。
+ *      `sessionStorage` 与标签页同生命周期，重载后仍在；
+ *   ② **关掉标签页即归零**：下次打开回到「首次进入」—— 现有模板全部收进 ③ 段、
+ *      段内按名称，正是「首次载入按名称排序」。若存 `localStorage`，这份状态会跨天
+ *      残留，用户半年后打开还看到上次的分段结果，反而更怪。
+ *
+ * 键名**故意不带 `qm.` 前缀，也不进 `i18n` 的偏好键清单**：
+ *   ① 偏好键是**跨会话**的用户选择（语言 / 皮肤 / 使用记录），这份是**一次会话内**的临时
+ *      排序上下文，语义不同；`verify` 7ai 只收 `localStorage` 的 `qm.*` 声明，故不涉及「三方一致」；
+ *   ② 带点的名字会被 `verify` 的**取词键闭包**当成 i18n 键（`qm.tplSortSession` 实测报
+ *      「取词表缺少 1 个键」）—— 无点形态从一开始就避开这条判据。
+ */
+const SORT_SESSION_KEY = 'qmTplSortSession';
+
+/** 当前会话的排序上下文；`null` = 还没读过。 */
+let sortSession = null;
+
+function blankSession() {
+  // 初始即**名称基线**：首次进入（sessionStorage 空）与点刷新走同一条路径，
+  // 都是「整批模板按名称」。`SORT_EVENT` 只由真实操作（新建 / 导入 / 载入）打开。
+  return { mode: SORT_NAME, created: [], single: [], batch: [], known: [] };
+}
+
+/** 读会话状态（脏值兜底：手改 / 旧结构一律退化为初始态，**绝不抛**）。 */
+function loadSortSession() {
+  if (sortSession) return sortSession;
+  try {
+    const raw = window.sessionStorage.getItem(SORT_SESSION_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (parsed && typeof parsed === 'object') {
+      sortSession = {
+        mode: parsed.mode === SORT_NAME ? SORT_NAME : SORT_EVENT,
+        created: Array.isArray(parsed.created) ? parsed.created : [],
+        single: Array.isArray(parsed.single) ? parsed.single : [],
+        batch: Array.isArray(parsed.batch) ? parsed.batch : [],
+        known: Array.isArray(parsed.known) ? parsed.known : [],
+      };
+      return sortSession;
+    }
+  } catch (err) {
+    /* 隐私模式 / 配额满 / JSON 坏：落到下面的初始态，排序退化为名称序 */
+  }
+  sortSession = blankSession();
+  return sortSession;
+}
+
+function saveSortSession() {
+  try {
+    window.sessionStorage.setItem(SORT_SESSION_KEY, JSON.stringify(sortSession));
+  } catch (err) {
+    /* 存不下就只在本次页面内存里生效：F5 后回到名称序，不影响任何功能 */
+  }
+}
+
+/**
+ * 把文件记进某个新段，并同步推入 `known`。
+ *
+ * **必须同步 `known`**：否则紧接着的 `loadTemplateList` 做 diff 时，这个刚由前端
+ * 造出来的文件会被当成「外部新增」—— 于是「新建」被降级成「③ 批量导入」，
+ * 优先级悄悄掉一档（这类错误在界面上完全看不出来，只能靠单测钉住）。
+ */
+function markFresh(bucket, files) {
+  const s = loadSortSession();
+  let touched = false;
+  for (const f of files || []) {
+    if (!f) continue;
+    if (s[bucket].indexOf(f) < 0) { s[bucket].push(f); touched = true; }
+    if (s.known.indexOf(f) < 0) { s.known.push(f); touched = true; }
+  }
+  if (!touched) return;
+  // 真的产出了新模板才离开「纯名称」基线 —— 空调用不该打破刷新后的基线
+  s.mode = SORT_EVENT;
+  saveSortSession();
+}
+
+/** ① 本次新建（新建 / 另存为 / 复制，都算「应用内产生的新模板」）。 */
+function markCreated(file) { markFresh('created', [file]); }
+
+/** ② 本次单个导入：连续导入都并入同一批（段内按名称，「连续等同同批」自动成立）。 */
+function markImported(files) { markFresh('single', files); }
+
+/** ③ 本次批量导入 / 外部新增（轮询发现的名字）。 */
+function markExternal(files) {
+  const s = loadSortSession();
+  // 「整批都是新出现」= 首次进入 / 刚点过刷新，此时 `known` 还是空的。这不是一次
+  // 用户操作，**不能打破名称基线** —— 否则首次打开就会按 ④⑤ 把用过的模板捞到前面，
+  // 与「首次载入按名称排序」直接冲突（`markFresh` 内部会把 mode 切成 EVENT）。
+  const firstSight = s.known.length === 0;
+  markFresh('batch', files);
+  if (firstSight) {
+    s.mode = SORT_NAME;
+    saveSortSession();
+  }
+}
+
+/**
+ * 载入一套模板 ⇒ 它「被使用过」了，退出 ①②③ 新段（`freshRank` 见 count > 0 即出队），
+ * 改按 ④⑤ 排。故模式必须切到 EVENT —— 点刷新后的名称基线到此为止。
+ */
+function markUsed() {
+  const s = loadSortSession();
+  if (s.mode === SORT_EVENT) return;
+  s.mode = SORT_EVENT;
+  saveSortSession();
+}
+
+/**
+ * 点「刷新」：回到纯名称基线。
+ *
+ * 三个新段与 `known` **全部清空** —— 于是下一次列表加载会把现有模板整批收进 ③ 段；
+ * 而 `mode` 停在 `SORT_NAME` 时排序根本不看这些段，直接按名称。
+ * 这个基线**保持到下一次真正产出新模板**（新建 / 导入），载入模板不会打破它：
+ * 否则「点刷新回到名称序」就只维持到用户点第一个模板为止，等于没生效。
+ */
+function resetSortSession() {
+  sortSession = blankSession();
+  sortSession.mode = SORT_NAME;
+  saveSortSession();
+}
+
+/** 排序上下文 —— 三处调用点（左侧列表 / 起点下拉 / 载入后重排）共用一份口径。 */
+function sortCtx() {
+  const s = loadSortSession();
+  return { mode: s.mode, usage: readUsage(), fresh: s };
 }
 
 /* ---------- 模板目录绑定（V0.0.38 · 6E） ---------- */
@@ -215,6 +346,19 @@ async function loadTemplateList({ force = true } = {}) {
   if (!force && sig === tplSignature) return;
   tplSignature = sig;
 
+  // 外部新增（V0.3.3）：本次列表里出现、上一轮没见过的文件 ⇒ 归入 ③ 段。
+  // 基准是 sessionStorage 里的 `known` —— 于是 F5 后不会把已有模板误判成新增，
+  // 而点刷新时 `known` 被清空 ⇒ 现有模板整批收进 ③ 段（段内按名称）。
+  const sess = loadSortSession();
+  const freshFiles = items
+    .filter((it) => it && it.file && sess.known.indexOf(it.file) < 0)
+    .map((it) => it.file);
+  if (freshFiles.length) markExternal(freshFiles);
+  // 基准始终推到最新：删掉 / 改名的旧名字不能永远占着 `known`，否则同名文件下次
+  // 出现时会被当成「已见过」而悄悄漏掉一次置顶
+  sess.known = items.map((it) => it.file);
+  saveSortSession();
+
   // available=false：templates/ 不在版本清单内，预览副本中本就没有它 —— 不可用而非报错
   if (!res || res.available === false) {
     renderTemplateState(t('template.unavailable'), 'warn');
@@ -231,8 +375,8 @@ async function loadTemplateList({ force = true } = {}) {
   // 绑了外部目录 → 用户。列表整体同层，故徽标文案只需算一次。
   const layerKey = (!lastDirRes || lastDirRes.source === 'default')
     ? 'template.layerBuiltin' : 'template.layerUser';
-  // 顺序：显示名优先，同名才看使用记录（V0.3.2，口径见 ./tpl-order.js）
-  for (const item of sortTemplates(items, readUsage())) {
+  // 顺序：六段规则（V0.3.3，口径见 ./tpl-order.js）
+  for (const item of sortTemplates(items, sortCtx())) {
     const li = document.createElement('li');
     li.className = 'tpl-row';
     const btn = document.createElement('button');
@@ -320,7 +464,8 @@ async function duplicateTemplateItem(item) {
   if (!next || next === item.name) return;
   try {
     const res = await api.loadTemplate(item.file);
-    await api.saveTemplate({ name: next, tree: res.tree });
+    const made = await api.saveTemplate({ name: next, tree: res.tree });
+    markCreated(made && made.file);   // 复制也是「应用内产生的新模板」，与新建同段置顶
     toast(t('template.duplicated', { name: next }), 'ok');
     await loadTemplateList();
   } catch (err) {
@@ -383,8 +528,10 @@ function importTemplateFlow() {
 
 /** 提交导入；同名时询问是否覆盖（覆盖后旧模板由后端移入 `.trash/`，可找回）。 */
 async function submitImport(filename, text) {
+  let saved = filename;
   try {
-    await api.importTemplate({ filename, content: text });
+    const res = await api.importTemplate({ filename, content: text });
+    saved = (res && res.file) || filename;
   } catch (err) {
     if (!err || err.code !== 'templateExists') {
       toast(t('template.importFailed', { message: localizeError(err) }), 'warn', 6000);
@@ -392,12 +539,16 @@ async function submitImport(filename, text) {
     }
     if (!window.confirm(t('template.importOverwriteConfirm', { name: filename }))) return;
     try {
-      await api.importTemplate({ filename, content: text, overwrite: true });
+      const res2 = await api.importTemplate({ filename, content: text, overwrite: true });
+      saved = (res2 && res2.file) || filename;
     } catch (err2) {
       toast(t('template.importFailed', { message: localizeError(err2) }), 'warn', 6000);
       return;
     }
   }
+  // ② 本次单个导入。**连续多次导入自动并入同一批** —— 段内一律按名称排，
+  // 所以「连续操作等同同批」不需要额外判「上一步是不是导入」，结果本就一致。
+  markImported([saved]);
   toast(t('template.imported', { name: filename }), 'ok');
   await loadTemplateList();
 }
@@ -468,7 +619,16 @@ async function applyTemplate(item) {
     setStatus(t('template.loaded', { name: res.name || item.name })
       + (noteFrom ? t('template.noteAdopted', { file: noteFrom }) : ''));
     markDirty();
-    bumpUsage(item.file);   // 载入成功才算「用过一次」（V0.3.2 排序次级键）
+    bumpUsage(item.file);   // 载入成功才算「用过一次」
+    // 用过即退出 ①②③ 新段（`tpl-order` 的 `freshRank` 见 count > 0 就出队），改按
+    // ④ 最近使用 / ⑤ 频率 排。**必须主动重排**：轮询签名只看 `file|mtime|size`，
+    // 载入不改这三者 ⇒ 不会自己触发重渲染；少了这一句，用户点完模板就看不到顺序变化。
+    // 重排会重建 DOM，故前后暂存父容器的滚动位置，免得列表跳回顶部。
+    const scroller = el('templateList') ? el('templateList').parentElement : null;
+    const keepScroll = scroller ? scroller.scrollTop : 0;
+    markUsed();
+    await loadTemplateList();
+    if (scroller) scroller.scrollTop = keepScroll;
   } catch (err) {
     toast(t('template.loadFailed', { message: localizeError(err) }), 'error', 6000);
   }
@@ -502,6 +662,7 @@ async function saveAsTemplate() {
       res = await api.saveTemplate({ name: trimmed, tree: treePayload(root), overwrite: true });
     }
     const saved = res.name || trimmed;
+    markCreated(res.file);   // 另存为同样产出新模板 ⇒ 与「新建」同段
     const key = res.overwritten ? 'template.overwritten' : 'template.saved';
     setStatus(t(key, { name: saved }));
     toast(t(key, { name: saved }), 'info');
@@ -547,8 +708,8 @@ async function fillTemplateBaseOptions() {
   sel.appendChild(blank);
   try {
     const res = await api.listTemplates();
-    // 与左侧列表同一口径（V0.3.2）：下拉里看到的次序不该和列表里不一样
-    for (const item of sortTemplates((res && res.items) || [], readUsage())) {
+    // 与左侧列表同一口径（V0.3.3）：下拉里看到的次序不该和列表里不一样
+    for (const item of sortTemplates((res && res.items) || [], sortCtx())) {
       const opt = document.createElement('option');
       opt.value = item.file;
       opt.textContent = item.name;
@@ -586,6 +747,7 @@ async function submitNewTemplate() {
       res = await api.saveTemplate({ name: trimmed, description, tree, overwrite: true });
     }
     const saved = res.name || trimmed;
+    markCreated(res.file);   // ① 本次新建：置于列表最前（须早于 loadTemplateList，见 markFresh）
     const key = res.overwritten ? 'template.overwritten' : 'template.saved';
     setStatus(t(key, { name: saved }));
     toast(t(key, { name: saved }), 'info');
@@ -603,7 +765,11 @@ async function submitNewTemplate() {
   el('btnSaveTemplate').addEventListener('click', saveAsTemplate);
   el('btnImportTemplate').addEventListener('click', importTemplateFlow);
   el('btnPickDir').addEventListener('click', chooseTemplatesDir);
-  el('btnRefreshTpl').addEventListener('click', () => { loadTemplatesDir(); loadTemplateList(); });
+  el('btnRefreshTpl').addEventListener('click', () => {
+    resetSortSession();   // 刷新 = 回到纯名称基线（V0.3.3，六段规则全部让位）
+    loadTemplatesDir();
+    loadTemplateList();
+  });
 
   /* 语言切换后刷新本模块的动态文案（静态文案由 applyStatic 在 setLocale 内处理） */
   document.addEventListener('qmlocalechange', () => {
