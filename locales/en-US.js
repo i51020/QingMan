@@ -514,6 +514,11 @@ export const dict = {
   'help.i18n.2': 'Each language is one file under locales/ (zh-CN.js / en-US.js). Adding a language means dropping in a file — no code changes.',
   'help.i18n.3': 'If a language pack is missing or malformed, the UI keeps the current language and stays usable — it never goes blank.',
   'help.i18n.4': 'The help page and the main window share the same text source, so both change together — never half-translated.',
+  'help.online.title': 'Online vs Desktop',
+  'help.online.1': 'QingMan runs in two forms. Desktop: double-click start.bat; a local Python backend writes to your disk directly. Online: open it in a browser, click Generate, then pick a folder — it also writes to your own disk.',
+  'help.online.2': 'Online drafts live in browser local storage, so switching browsers or clearing site data loses them. Desktop keeps data in the data/ folder with the last 5 rotating backups.',
+  'help.online.3': 'Writing folders online requires Edge or Chrome (the browser file-system permission); other browsers are told to use the desktop build.',
+  'help.online.4': 'Online can be installed from the browser menu ("Install app") to the desktop or Start menu and then opens offline. The desktop build needs no install — just double-click.',
   'help.quickStart.title': 'Quick Start',
   'help.quickStart.1': 'Double-click start.bat in the project root to launch the local server',
   'help.quickStart.2': 'Browser opens automatically; a status dot in the ready colour at the top right means the service is up (click it for service status and settings)',
@@ -607,6 +612,9 @@ export const helpSections = [
   ] },
   { id: 'i18n', title: 'help.i18n.title', kind: 'ul', items: [
     'help.i18n.1', 'help.i18n.2', 'help.i18n.3', 'help.i18n.4',
+  ] },
+  { id: 'online', title: 'help.online.title', kind: 'ul', items: [
+    'help.online.1', 'help.online.2', 'help.online.3', 'help.online.4',
   ] },
   { id: 'kbd', title: 'help.kbd.title', kind: 'kbd', note: 'help.kbd.pending', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.delete', 'help.kbd.rename'] },
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [

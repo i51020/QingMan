@@ -520,6 +520,11 @@ export const dict = {
   'help.i18n.2': '每门语言是 locales/ 下的一个语言包文件（如 zh-CN.js / en-US.js）；新增一门语言只需放入一个文件，无需改动程序。',
   'help.i18n.3': '语言包缺失或格式不合规时，界面会保持当前语言并继续可用，不会白屏。',
   'help.i18n.4': '帮助页与主界面使用同一套文案来源，切语言后两处同时变化，不会出现一处中文一处英文。',
+  'help.online.title': '在线版与本地版',
+  'help.online.1': '青蔓有两种形态。本机版：双击 start.bat 运行，Python 后端直接写你本机磁盘。在线版：在浏览器里打开，点「生成」后由你点选一个文件夹，同样写到你本机磁盘。',
+  'help.online.2': '在线版的草稿存在浏览器本地存储，换浏览器、换设备或清理站点数据会丢失；本机版存在 data/ 目录，并自动保留最近 5 份备份。',
+  'help.online.3': '在线版写文件夹需要 Edge 或 Chrome（浏览器的文件系统权限）；其他浏览器会提示改用本机版。',
+  'help.online.4': '在线版可用浏览器菜单里的「安装应用」装到桌面或开始菜单，装好后可离线打开；本机版不需要安装，双击即用。',
   'help.quickStart.title': '快速开始',
   'help.quickStart.1': '双击项目根目录的 start.bat 启动本地服务',
   'help.quickStart.2': '浏览器自动打开；顶栏右侧那颗状态点呈就绪色即表示服务正常（点它可查看服务状态与设置）',
@@ -620,6 +625,9 @@ export const helpSections = [
   ] },
   { id: 'i18n', title: 'help.i18n.title', kind: 'ul', items: [
     'help.i18n.1', 'help.i18n.2', 'help.i18n.3', 'help.i18n.4',
+  ] },
+  { id: 'online', title: 'help.online.title', kind: 'ul', items: [
+    'help.online.1', 'help.online.2', 'help.online.3', 'help.online.4',
   ] },
   { id: 'kbd', title: 'help.kbd.title', kind: 'kbd', note: 'help.kbd.pending', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.delete', 'help.kbd.rename'] },
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [

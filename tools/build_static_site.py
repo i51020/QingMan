@@ -46,6 +46,16 @@ LOCALES_DIR = ROOT / "locales"
 DEMO_BACKEND = _HERE.parent / "web-demo" / "demo-backend.js"
 MD_MODULE = _HERE.parent / "web-demo" / "md-template.js"
 ICON_MAKER = _HERE.parent / "web-demo" / "make_icons.py"
+DOWNLOAD_DIR = ROOT / "dist"
+DOWNLOAD_NAME = "QingMan-{version}-portable.zip"
+
+# 在线版提示 + 本机版下载：注入到**帮助页**（弹窗与独立页两处）。
+# 放在 lead 段落之后、正文容器之前 —— 该位置在两处布局里都是安全的全宽块，
+# 且不会被 help-doc.js / help.js 的「渲染前清空」抹掉。
+NOTICE_ANCHORS = (
+    '<p class="dlg-lead" data-i18n="help.lead"></p>',
+    '<p class="help-lead" data-i18n="help.lead"></p>',
+)
 SEED_TEMPLATE = ROOT / "templates" / "P0_空白项目模板.json"
 VERSION_FILE = ROOT / "VERSION"
 DEFAULT_OUT = ROOT / "dist" / "static-site"
@@ -79,7 +89,7 @@ def list_locales() -> "list[dict[str, str]]":
     return out
 
 
-def build(out: Path, os_locale: str = "zh-CN") -> dict:
+def build(out: Path, os_locale: str = "zh-CN", with_download: bool = True) -> dict:
     """把 `src/web/` + `locales/` 装配成可直接托管的静态目录。
 
     ⚠ 产物目录已存在时**改名让路，不做删除**（与项目「只复制不删除」同一原则）：
@@ -123,11 +133,12 @@ def build(out: Path, os_locale: str = "zh-CN") -> dict:
 
     demo = install_demo(out)
     pwa = install_pwa(out)
+    download = install_notice(out, with_download)
 
     total = sum(p.stat().st_size for p in out.rglob("*") if p.is_file())
     files = sum(1 for p in out.rglob("*") if p.is_file())
     return {"files": files, "bytes": total, "web": copied, "locales": locale_count,
-            "demo": demo, "pwa": pwa}
+            "demo": demo, "pwa": pwa, "download": download}
 
 
 PWA_REGISTER_JS = """/* 青蔓 QingMan · PWA 注册（由 build_static_site.py 生成）
@@ -181,6 +192,94 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(request).then((hit) => hit || caches.match('./index.html'))));
 });
 """
+
+
+NOTICE_ACTION = """    <p class="qm-online-act"><a class="qm-online-dl" href="./downloads/__PKG__" download><span class="qm-online-zh">下载本机版</span><span class="qm-online-en">Download desktop build</span></a><span class="qm-online-meta">__VERSION__ · __SIZE__ MB · Windows</span></p>"""
+
+NOTICE_HTML = """  <div class="qm-online" id="qmOnlineNotice">
+    <div class="qm-online-hd"><span class="qm-online-tag">ONLINE</span><span class="qm-online-zh">你正在使用在线版</span><span class="qm-online-en">You are using the online version</span></div>
+    <p class="qm-online-zh">草稿存在浏览器本地存储；点「生成」后由你点选文件夹，才会写到你本机磁盘。需要完全离线、双击即用的版本，请下载本机版。</p>
+    <p class="qm-online-en">Drafts live in browser storage. Clicking Generate asks you to pick a folder before anything is written. For a fully offline build, download the desktop app.</p>
+__ACTION__
+  </div>
+  <style>
+    .qm-online{margin:0 0 14px;padding:12px 14px;border:1px solid var(--qm-line,#d8dbe0);border-left:4px solid var(--qm-accent,#c7852f);border-radius:10px;background:var(--qm-surface,#fff)}
+    .qm-online-hd{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-weight:600}
+    .qm-online-tag{font-size:11px;letter-spacing:.08em;padding:1px 6px;border-radius:999px;background:var(--qm-accent,#c7852f);color:#fff}
+    .qm-online p{margin:4px 0;font-size:13px;line-height:1.6;color:var(--qm-ink-2,#4a5058)}
+    .qm-online-act{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .qm-online-dl{display:inline-block;padding:6px 12px;border-radius:8px;background:var(--qm-accent,#c7852f);color:#fff;text-decoration:none;font-size:13px}
+    .qm-online-dl:hover{filter:brightness(1.08)}
+    .qm-online-meta{font-size:12px;color:var(--qm-ink-3,#7b838d)}
+    .qm-online [hidden],.qm-hide{display:none!important}
+  </style>
+  <script>
+  (function () {
+    function isZh() {
+      var lang = document.documentElement.lang || navigator.language || 'zh';
+      return String(lang).toLowerCase().indexOf('zh') === 0;
+    }
+    function syncLang() {
+      var zh = isZh();
+      document.querySelectorAll('.qm-online-zh').forEach(function (el) { el.hidden = !zh; });
+      document.querySelectorAll('.qm-online-en').forEach(function (el) { el.hidden = zh; });
+    }
+    /* 在线版没有桌面快捷方式：把那一节连同目录项一起收起，避免与上面说明打架 */
+    function hideShortcut() {
+      var nodes = document.querySelectorAll('#dlg-h-shortcut, #sec-shortcut, a[href$="#dlg-h-shortcut"], a[href$="#sec-shortcut"]');
+      for (var i = 0; i < nodes.length; i += 1) { nodes[i].classList.add('qm-hide'); }
+    }
+    function sync() { syncLang(); hideShortcut(); }
+    sync();
+    document.addEventListener('DOMContentLoaded', sync);
+    document.addEventListener('qmlocalechange', sync);
+    /* 帮助正文是打开弹窗时现渲染的 —— 观察一次，把后出现的分节也收起来 */
+    var host = document.getElementById('dlgHelpDoc');
+    if (host && window.MutationObserver) {
+      new MutationObserver(hideShortcut).observe(host, { childList: true });
+    }
+  })();
+  </script>
+"""
+
+
+def install_notice(out: Path, with_download: bool = True) -> dict:
+    """在两处帮助页注入「在线版提示」，并按需内置本机版下载包。
+
+    提示块**总是**注入（它解释的是"你在用在线版、写盘要授权"，与有没有下载包无关）；
+    下载按钮只在真找到便携包时才出现 —— 绝不挂一个指向 404 的链接。
+
+    返回 `{"included": bool, "name": str, "bytes": int}`。
+    """
+    version = VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.is_file() else ""
+    name = DOWNLOAD_NAME.format(version=version)
+    package = DOWNLOAD_DIR / name
+
+    included = bool(with_download and package.is_file())
+    if included:
+        dest_dir = out / "downloads"
+        dest_dir.mkdir(exist_ok=True)
+        shutil.copy2(package, dest_dir / name)
+        size_mb = f"{package.stat().st_size / (1024 * 1024):.1f}"
+        action = (NOTICE_ACTION.replace("__PKG__", name)
+                  .replace("__VERSION__", version).replace("__SIZE__", size_mb))
+    else:
+        action = ""
+    block = NOTICE_HTML.replace("__ACTION__", action)
+    for page_name in ("index.html", "help.html"):
+        page = out / page_name
+        html = page.read_text(encoding="utf-8")
+        if "qmOnlineNotice" in html:
+            continue
+        for anchor in NOTICE_ANCHORS:
+            if anchor in html:
+                html = html.replace(anchor, anchor + "\n" + block, 1)
+                break
+        else:
+            raise SystemExit(f"[FAIL] {page_name} 里找不到提示注入锚点")
+        page.write_text(html, encoding="utf-8", newline="\n")
+    return {"included": included, "name": name,
+            "bytes": package.stat().st_size if included else 0}
 
 
 def install_pwa(out: Path) -> bool:
@@ -274,13 +373,15 @@ def main(argv: "list[str] | None" = None) -> int:
     ap = argparse.ArgumentParser(description="构建青蔓静态预览（线上演示用）")
     ap.add_argument("--out", default=str(DEFAULT_OUT))
     ap.add_argument("--os-locale", default="zh-CN", help="首屏语言（静态版无法探测 OS 语言）")
+    ap.add_argument("--no-download", action="store_true",
+                    help="不内置本机版便携包（打「完整项目包」时用，避免套娃 18 MB）")
     args = ap.parse_args(argv)
 
     out = Path(args.out).resolve()
     if not (WEB_DIR / "index.html").is_file():
         print(f"[FAIL] 找不到 {WEB_DIR / 'index.html'}")
         return 1
-    info = build(out, args.os_locale)
+    info = build(out, args.os_locale, with_download=not args.no_download)
     print(f"[静态] {out}")
     print(f"  web {info['web']} 个 + locales {info['locales']} 个 → 共 {info['files']} 文件，"
           f"{info['bytes'] / 1024:.0f} KB")
@@ -288,6 +389,13 @@ def main(argv: "list[str] | None" = None) -> int:
                           if info["demo"] else "未注入（缺 tools/web-demo/demo-backend.js）"))
     print("  可安装（PWA）：" + ("manifest + service worker + 图标 已生成"
                               if info["pwa"] else "未生成"))
+    dl = info["download"]
+    if dl["included"]:
+        print(f"  本机版下载：已内置 {dl['name']}（{dl['bytes'] / 1048576:.1f} MB）")
+    elif args.no_download:
+        print("  本机版下载：按要求跳过（--no-download）")
+    else:
+        print("  本机版下载：未内置（dist/ 下没有当前版本的便携包）")
     return 0
 
 

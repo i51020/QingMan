@@ -38,6 +38,7 @@
       treeMissing: '目录树为空，没有可生成的内容。',
       tooMany: '节点太多（上限 500），请精简后再生成。',
       fsUnsupported: '当前浏览器不支持直接写入文件夹（请用 Edge / Chrome）。可以改用本机 start.bat。',
+      usePwa: '在线版没有桌面快捷方式 —— 浏览器菜单里选「安装此应用 / 安装青蔓」，就会在桌面与开始菜单得到图标（还能离线使用）。',
     },
     en: {
       nameZh: 'QingMan',
@@ -55,6 +56,7 @@
       treeMissing: 'The tree is empty; nothing to generate.',
       tooMany: 'Too many nodes (500 max). Trim the tree and retry.',
       fsUnsupported: 'This browser cannot write to folders directly (use Edge / Chrome), or run start.bat locally.',
+      usePwa: 'The online version has no desktop shortcut — use your browser menu "Install app" to get an icon on the desktop and Start menu (it also works offline).',
     },
   };
   function tr(key) { return (ZH ? TEXT.zh : TEXT.en)[key] || key; }
@@ -374,7 +376,7 @@
     if (path === '/api/generate' && method === 'POST') return generate(init);
 
     /* 快捷方式 / 导入导出：浏览器做不到，明确说明而不是假装成功 */
-    if (path === '/api/shortcut') return fail('demoNoDisk', tr('noDisk'));
+    if (path === '/api/shortcut') return fail('demoUsePwa', tr('usePwa'));
     /* 导出：把模板转成文本交回前端 —— 前端本来就拿 response.text 触发 Blob 下载，
        故这里只要把文本生成对，浏览器侧无需任何改动 */
     if (path.indexOf('/api/templates-export/') === 0 && method === 'GET') {
@@ -456,6 +458,11 @@
       parsed = null;
       path = '';
     }
+    /* `/api/env.js` 与 `/api/locales.js` 看着像接口，其实是**静态文件**
+       （页面用 <script src> 同步取语言，脚本标签本就不经过 fetch）。
+       但程序里若用 fetch 取它们，也必须落到真实文件上 —— 否则会被下面的兜底判成
+       demoUnsupported，把「语言清单」这条链打断。 */
+    if (path === '/api/env.js' || path === '/api/locales.js') return nativeFetch(input, init);
     if (path.indexOf('/api/') !== 0) return nativeFetch(input, init);
     var method = String(
       (init && init.method) || (input && input.method) || 'GET'
