@@ -13,6 +13,13 @@
  * 故补齐 `contextmenu` / `pointerdown`（均捕获）与 `scroll`（**必须捕获**：`scroll` 不冒泡，
  * 只有捕获阶段能收到内部滚动容器的滚动）。三类共用**同一判据**「目标不在菜单内则关」，
  * 与既有的点击判据合并为 `closeIfOutside` —— **关闭语义只有一个出口**。
+ *
+ * V0.2.2 修复「右键菜单关不掉」：JS 一直在设 `hidden = true`，但 CSS 的
+ * `.ctx-menu { display: flex }` 压过了 UA 的 `[hidden]`，**视觉上从未消失**。
+ * 根因在样式（已补 `.ctx-menu[hidden]`），本文件同时补三种符合直觉的关闭方式：
+ *   ① **在菜单上再右键一次** —— 与 Windows 资源管理器一致（用户最常试的那一下）；
+ *   ② **滚轮** —— 菜单是 `position: fixed`，滚动不会让它跟手，留着只会错位；
+ *   ③ **焦点移出** —— 键盘 Tab 走开时菜单不该赖着（无障碍）。
  */
 
 const el = (id) => document.getElementById(id);
@@ -29,6 +36,8 @@ export function createContextMenu() {
     document.removeEventListener('contextmenu', closeIfOutside, true);
     document.removeEventListener('pointerdown', closeIfOutside, true);
     document.removeEventListener('scroll', close, true);
+    document.removeEventListener('wheel', closeIfOutside, true);
+    document.removeEventListener('focusin', closeIfOutside, true);
     document.removeEventListener('keydown', onKey, true);
     window.removeEventListener('resize', close);
     window.removeEventListener('blur', close);
@@ -90,12 +99,24 @@ export function createContextMenu() {
     document.addEventListener('contextmenu', closeIfOutside, true);
     document.addEventListener('pointerdown', closeIfOutside, true);
     document.addEventListener('scroll', close, true);
+    /* V0.2.2：滚轮只关「在菜单外」的；焦点移到菜单外（Tab）也关。均捕获，
+       因为两种事件都不保证冒泡到 document。 */
+    document.addEventListener('wheel', closeIfOutside, true);
+    document.addEventListener('focusin', closeIfOutside, true);
     document.addEventListener('keydown', onKey, true);
     window.addEventListener('resize', close);
     window.addEventListener('blur', close);
     const first = menu.querySelector('button:not(:disabled)');
     if (first) first.focus();
   }
+
+  /* 常驻监听（只注册一次）：在菜单上再右键一次 = 关掉它。
+     不放在 showAt 里，否则每开一次就叠一个监听。
+     `preventDefault()` 是必须的 —— 否则浏览器原生菜单会同时弹出，看起来像「没反应」。 */
+  menu.addEventListener('contextmenu', (event) => {
+    event.preventDefault();
+    close();
+  });
 
   return { showAt, close, get isOpen() { return open; } };
 }

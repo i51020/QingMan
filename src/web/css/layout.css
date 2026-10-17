@@ -373,6 +373,14 @@
 /* 右键菜单（V0.0.19）—— 面板质感复用 base.css 变量。
    z-index 1000 → 1100（V0.0.40）：浮层基元（.layer）落位 1000，右键菜单须压在其上，
    否则菜单会被同层的弹窗盖住（两者都是 fixed）。 */
+/* [hidden] 的兜底（V0.2.2 修复）。**这是真 bug，不是样式偏好**：
+   JS 里 `menu.hidden = true` 一直在执行，但本规则上面给了 `display: flex`，
+   作者样式压过 UA 的 `[hidden] { display: none }` ⇒ 菜单**视觉上永不消失**，
+   用户看到的现象就是「右键菜单关不掉」。
+   本文件已为 `#batchBar` / `#inspPropPane` / `.layer` 写过同样的兜底，唯独漏了这里 ——
+   所以把它写在同一处，提醒：**凡是给浮层写 display 的，必须同时写 [hidden] 兜底**。 */
+.ctx-menu[hidden] { display: none; }
+
 .ctx-menu {
   position: fixed;
   z-index: 1100;

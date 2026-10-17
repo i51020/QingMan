@@ -2022,6 +2022,23 @@ def main() -> int:
           "；".join(_ver_bad[:4]) if _ver_bad
           else f"{len(_vdirs)} 个版本目录：三段式无前导零 / 目录名与清单一致 / 父链连续")
 
+    # 7at. 浮层 `[hidden]` 兜底（V0.2.2 · 修「右键菜单关不掉」后立的回归判据）。
+    #      坑：只要给浮层写了 `display: flex`，作者样式就压过 UA 的 `[hidden] { display: none }`，
+    #      于是 `el.hidden = true` 在 JS 里「成功」、界面上却纹丝不动。
+    #      本仓已为 `#batchBar` / `#inspPropPane` / `.layer` 各踩过一次，第四次踩在 `.ctx-menu`。
+    #      判据：**凡本仓给浮层设过 display 的选择器，必须存在对应的 `[hidden]` 兜底规则**。
+    _css_txt = ""
+    for _rel in ("src/web/css/layout.css", "src/web/css/base.css"):
+        _f = root / _rel
+        if _f.is_file():
+            _css_txt += _f.read_text(encoding="utf-8")
+    _hidden_bad = [sel for sel in (".ctx-menu", "#batchBar", "#inspPropPane",
+                                  "#inspSrcPane", "#scrim", ".layer")
+                   if f"{sel}[hidden]" not in _css_txt]
+    check(not _hidden_bad, "浮层 hidden 兜底",
+          ("缺 [hidden] 兜底：" + "、".join(_hidden_bad)) if _hidden_bad
+          else "ctx-menu / batchBar / insp 双面板 / scrim / layer 均有显式 [hidden]")
+
     # 7as. 安全响应头（V0.2.1 · 安全审计）。
     #      判据只钉「声明在」+「关键指令在」：运行时是否真发出由 `tests/test_security.py`
     #      与黑盒探针各验一次（静态判据证不了 header 被 send，反过来也证不了它没被删）。

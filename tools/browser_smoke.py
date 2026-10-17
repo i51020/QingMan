@@ -389,6 +389,12 @@ frame('./index.html', function (doc) {
       var labels2 = [];
       for (var bj = 0; bj < mbtns2.length; bj += 1) { labels2.push(mbtns2[bj].textContent); }
       m.tplMoreMenu = labels2.join('/');
+      /* V0.2.2：**关得掉**才算数。只读 hidden 不够 —— 曾经就是 hidden=true 而 CSS 的
+         `.ctx-menu{display:flex}` 把它盖住，菜单视觉上永不消失（真 bug）。
+         故这里同时读 `hidden` 与**计算样式**，两个都要对。 */
+      doc.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
+      m.ctxClosed = (menu2 && menu2.hidden) ? 1 : 0;
+      m.ctxDisplay = menu2 ? win.getComputedStyle(menu2).display : 'missing';
       doc.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));   /* 关掉菜单 */
     }
     /* V0.0.52：树行图标归一 —— 取首行的**类名**与**文字长度**。两个量要一起看：
@@ -1142,6 +1148,16 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
         more_text = metrics.get("tplMoreMenu", "")
         more_ok = (more_there == 1 and more_n == 6 and "Export as .json" in more_text
                    and "Export as .md" in more_text)
+        # V0.2.2：右键菜单必须**真的**消失 —— `hidden` 与 `display` 双判据。
+        # 背景：`hidden=true` 一直是对的，但 `.ctx-menu{display:flex}` 压过 UA 的
+        # `[hidden]{display:none}`，用户看到的是「菜单关不掉」。只断 hidden 会漏掉这种 bug。
+        ctx_closed = as_int(metrics.get("ctxClosed"), -1)
+        ctx_display = metrics.get("ctxDisplay", "")
+        ctx_ok = ctx_closed == 1 and ctx_display == "none"
+        check(ctx_ok, "主界面·右键菜单可关闭（V0.2.2）",
+              f"hidden={ctx_closed} display={ctx_display or '(空)'}"
+              + ("" if ctx_ok else "（点外部后仍可见：检查 .ctx-menu[hidden] 兜底与关闭监听）" + gate_hint))
+
         check(more_ok, "主界面·模板行 ⋮ 常驻入口（V0.0.51@r11）",
               f"入口 {more_there} 个 / 点击后菜单 {more_n} 项：{more_text or '(空)'}"
               + ("" if more_ok else "（⋮ 缺失、未接通，或绕开了同一菜单）" + gate_hint))

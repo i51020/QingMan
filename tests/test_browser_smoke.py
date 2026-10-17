@@ -69,6 +69,8 @@ NORMAL = {
     #   证不了「点了它**真的**开同一个 #ctxMenu」—— 只有本探针走真实监听器能证。
     "tplMoreThere": "1", "tplMoreN": "6",
     "tplMoreMenu": "Load/Rename/Duplicate/Export as .json/Export as .md/Delete",
+    # V0.2.2：关得掉（hidden 与计算样式双判据）
+    "ctxClosed": "1", "ctxDisplay": "none",
     "pollBefore": "1", "pollAfter": "2",
     # V0.0.39 新增：皮肤 swatch 绑定（网格按 swatch[0] 背景明度亮 → 暗排序）
     #   期望序列由 tools/browser_smoke.py 的 expected_skin_order() 独立复算，
@@ -268,9 +270,10 @@ class VerifyMetricsTests(unittest.TestCase):
     def test_normal_all_pass(self):
         results = run_metrics(NORMAL)
         self.assertEqual(failed_names(results), [], "正常指标不应有任何失败项")
-        self.assertEqual(len(results), 30,
-                         "verify_metrics 应产生 30 项判定"
-                         "（24 + V0.0.43 的 G/H/F 四条 + V0.0.51@r11 的 ⋮ 一条）")
+        self.assertEqual(len(results), 31,
+                         "verify_metrics 应产生 31 项判定"
+                         "（24 + V0.0.43 的 G/H/F 四条 + V0.0.51@r11 的 ⋮ 一条"
+                         " + V0.2.2 的「右键菜单可关闭」一条）")
 
     def test_p1_1_regression_fails_exactly_section_idempotence(self):
         """P1-1 回归：帮助页切语言累积分节（7 → 14 → 21）→ 恰好那项 FAIL。"""
