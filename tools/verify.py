@@ -2897,6 +2897,12 @@ def main() -> int:
         # 文件格式、确认框若不带文件名，用户面对两条一模一样的条目只能瞎猜删/载哪条。
         ("className = 'tpl-fmt'", "模板行缺文件格式徽标（同名 json/md 无法分辨）"),
         ("file: item.file", "删除/载入/改名确认框未带文件名（同名两份仍分不清）"),
+        # V0.3.7：降级不许压成一句话 —— 「服务没连上」「被 env 关断」「对话框不可用」
+        # 处置方式完全不同，压成一句用户无从判断该修什么。
+        ("template.dirPickerOffline", "目录选择降级未区分「没连上本机服务」"),
+        ("dirBindChain", "绑定未串行化（连改两次时旧请求可能后落盘，settings 与界面不一致）"),
+        ("document.activeElement === pathEl",
+         "路径回填未避让正在编辑的输入（异步刷新会冲掉敲了一半的路径）"),
         ("function importTemplateFlow", "6E 导入未接线"),
         ("function exportTemplateItem", "6E 导出未接线"),
     ):
@@ -2924,6 +2930,13 @@ def main() -> int:
         ("TEMPLATES_EXPORT_PATH", "routes 缺导出端点常量"),
         ('NO_GUI_PICK_ENV = "QM_NO_GUI_PICK"', "routes 缺原生框关断 env（自动化会弹窗挂起）"),
         ("def pick_templates_dir(", "routes 缺选择实现"),
+        # V0.3.7：Windows 上不再把 tkinter 当唯一通道 —— 缺 tkinter 的发行版
+        # （精简/嵌入式/部分 conda）上「选择…」会恒不可用，而用户看不出原因。
+        ("def _ask_directory_win32(",
+         "Windows 原生框仅剩 tkinter 一条通道（无 tkinter 的解释器上恒不可用）"),
+        ("BIF_NEWDIALOGSTYLE", "原生框未启用新式样式（无地址栏/新建文件夹，等于退化成老框）"),
+        ("def _has_interactive_desktop(",
+         "弹框前未判交互桌面（session 0 下模态框永不出现，请求线程被永久阻塞）"),
     ):
         if token not in rt_tpl:
             fe_bad.append(why)

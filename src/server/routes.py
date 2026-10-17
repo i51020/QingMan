@@ -405,11 +405,128 @@ def _env_truthy(name: str) -> bool:
     return (os.environ.get(name) or "").strip().lower() in ("1", "true", "yes", "on")
 
 
-def _ask_directory() -> "str | None":
-    """弹原生目录选择框，返回所选**绝对路径**；用户取消 → `None`。
+def _ask_directory_win32() -> "str | None":
+    """Windows 原生目录框：`ctypes` 直连 `shell32.SHBrowseForFolderW`（V0.3.7）。
 
-    不能用（`import tkinter` 失败 / 无显示 / `Tk()` 抛错）一律抛 `_PickUnavailable`，
-    由 `pick_templates_dir` 转成 `available=false` 的**降级响应**（前端改用手动粘贴路径）。
+    **为什么不再首选 tkinter**（实测，非推断）：本机 managed CPython 3.13.12 上
+    `import tkinter` 直接 `ModuleNotFoundError` —— 官方 Windows 安装包默认带 Tcl/Tk，
+    但**精简 / 嵌入式 / 部分 conda 发行版不带**。此前实现把「缺 tkinter」当成
+    「本机没有 GUI」，于是「选择…」在这些环境下 100% 降级，用户只得到一句
+    「系统选择框打不开」，既不能自愈也无从判断原因。
+
+    `ctypes` 是标准库，`SHBrowseForFolderW` 是系统 DLL，**两者都不需要额外组件**，
+    但同样能拿到**绝对路径** —— 这正是浏览器侧 `showDirectoryPicker()` 给不了的
+    （它只返回 opaque 句柄，无法交给后端绑定目录，故不能作为替代方案）。
+
+    `-new dialog style` 带来地址栏、「新建文件夹」与路径输入框（`BIF_EDITBOX`），
+    体验与 tkinter 版基本对齐。返回 `None` 表示用户取消；不可用抛 `_PickUnavailable`。
+    """
+    if not _has_interactive_desktop():
+        # 无交互桌面（服务被跑在 session 0 / 计划任务里）：模态框永远不会出现，
+        # 调用会一直阻塞到线程被杀。此处**先判后退**，绝不把它当"能弹"来试。
+        raise _PickUnavailable("no interactive desktop")
+
+    import ctypes
+    from ctypes import wintypes as wt
+
+    BIF_RETURNONLYFSDIRS = 0x0001   # 只收文件系统目录（排除「网上邻居」等虚拟节点）
+    BIF_EDITBOX = 0x0010            # 允许直接输入/粘贴路径
+    BIF_NEWDIALOGSTYLE = 0x0040     # 新式对话框：地址栏 + 新建文件夹 + 可调整大小
+    COINIT_APARTMENTTHREADED = 0x2
+    DESKTOP_READOBJECTS = 0x0001
+    MAX_PATH_BUF = 260
+
+    class BROWSEINFOW(ctypes.Structure):
+        # `pszDisplayName` / `lpszTitle` 声明成 `c_void_p`：ctypes 对 `LPWSTR` 字段做
+        # 类型校验，传 `c_wchar_Array` 会 `TypeError`（实测踩过），而 cast 成 void* 等价。
+        _fields_ = [
+            ("hwndOwner", wt.HWND),
+            ("pidlRoot", ctypes.c_void_p),
+            ("pszDisplayName", ctypes.c_void_p),
+            ("lpszTitle", ctypes.c_void_p),
+            ("ulFlags", wt.UINT),
+            ("lpfn", ctypes.c_void_p),
+            ("lParam", wt.LPARAM),
+            ("iImage", ctypes.c_int),
+        ]
+
+    try:
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        ole32 = ctypes.WinDLL("ole32", use_last_error=True)
+        shell32 = ctypes.WinDLL("shell32", use_last_error=True)
+        # 64 位下句柄若走默认 `c_int` 会被截断 —— 显式声明 restype 是在 Windows 上
+        # 「偶发把窗口放到别的 owner 上」这类玄学问题的根因，必须写死。
+        user32.GetForegroundWindow.restype = wt.HWND
+        shell32.SHBrowseForFolderW.restype = ctypes.c_void_p
+        shell32.SHBrowseForFolderW.argtypes = [ctypes.POINTER(BROWSEINFOW)]
+        shell32.SHGetPathFromIDListW.restype = wt.BOOL
+        shell32.SHGetPathFromIDListW.argtypes = [ctypes.c_void_p,
+                                                 ctypes.POINTER(ctypes.c_wchar)]
+    except Exception as exc:  # noqa: BLE001 - 非 Windows / DLL 缺失
+        raise _PickUnavailable(str(exc) or "shell32 unavailable") from exc
+
+    hr = ole32.CoInitializeEx(None, COINIT_APARTMENTTHREADED)
+    # S_OK(0) / S_FALSE(1) 都算成功，且都需配对 CoUninitialize（MSDN 约定）
+    com_ok = (hr & 0xFFFFFFFF) in (0, 1)
+
+    buf = ctypes.create_unicode_buffer(MAX_PATH_BUF)
+    info = BROWSEINFOW()
+    # 以当前前台窗口为 owner：对话框会随该窗口一同置顶，不会被浏览器窗口压到后面
+    # （`tkinter` 版用 `-topmost` 达到同一目的；这里没有自己的窗口可用，故借前台窗口）。
+    try:
+        info.hwndOwner = user32.GetForegroundWindow()
+    except Exception:  # noqa: BLE001
+        info.hwndOwner = None
+    info.pszDisplayName = ctypes.cast(buf, ctypes.c_void_p)
+    info.lpszTitle = ctypes.cast(ctypes.c_wchar_p("选择模板目录"), ctypes.c_void_p)
+    info.ulFlags = BIF_RETURNONLYFSDIRS | BIF_EDITBOX | BIF_NEWDIALOGSTYLE
+
+    pidl = None
+    try:
+        pidl = shell32.SHBrowseForFolderW(ctypes.byref(info))
+        if not pidl:
+            return None      # 用户取消 / 关窗：不是错误
+        path_buf = ctypes.create_unicode_buffer(MAX_PATH_BUF)
+        ok = shell32.SHGetPathFromIDListW(pidl, path_buf)
+        return path_buf.value if ok else None
+    except Exception as exc:  # noqa: BLE001 - 访问冲突 / 调用失败
+        raise _PickUnavailable(str(exc) or "cannot open directory dialog") from exc
+    finally:
+        if pidl:
+            try:
+                ole32.CoTaskMemFree(ctypes.c_void_p(pidl))
+            except Exception:  # noqa: BLE001
+                pass
+        if com_ok:
+            try:
+                ole32.CoUninitialize()
+            except Exception:  # noqa: BLE001
+                pass
+
+
+def _has_interactive_desktop() -> bool:
+    """当前进程能否拿到**交互式桌面**（Windows）。
+
+    用途只有一个：在弹模态框**之前**判断「弹出来有没有意义」。服务若跑在 session 0
+    （Windows 服务 / 计划任务 / 部分 CI），`SHBrowseForFolderW` 不会返回、也不会报错，
+    而是静默阻塞 —— 请求线程连同前端那次点击一起卡死，比直接降级糟得多。
+    """
+    try:
+        import ctypes
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        user32.OpenInputDesktop.restype = ctypes.c_void_p
+        user32.CloseDesktop.argtypes = [ctypes.c_void_p]
+        desk = user32.OpenInputDesktop(0, False, 0x0001)   # DESKTOP_READOBJECTS
+        if not desk:
+            return False
+        user32.CloseDesktop(desk)
+        return True
+    except Exception:  # noqa: BLE001 - 非 Windows / 调用失败一律按「无桌面」
+        return False
+
+
+def _ask_directory_tk() -> "str | None":
+    """原生目录框的 tkinter 实现（非 Windows 平台的主通道，Windows 的后备）。
 
     在请求线程内调用是安全的：`ThreadingHTTPServer` 每请求一线程，模态框只阻塞**本线程**，
     服务照常响应其他请求。`withdraw()` + `-topmost` 让对话框置顶、且不闪出一个空主窗。
@@ -418,7 +535,7 @@ def _ask_directory() -> "str | None":
         import tkinter
         from tkinter import filedialog
     except Exception as exc:  # noqa: BLE001 - ImportError / 无 Tcl 运行时
-        raise _PickUnavailable(str(exc) or "tkinter unavailable") from exc
+        raise _PickUnavailable("tkinter 不可用：%s" % (str(exc) or "import failed")) from exc
 
     root = None
     try:
@@ -440,6 +557,28 @@ def _ask_directory() -> "str | None":
     return chosen or None
 
 
+def _ask_directory() -> "str | None":
+    """弹原生目录选择框，返回所选**绝对路径**；用户取消 → `None`。
+
+    通道优先级（V0.3.7）：Windows 先走 `SHBrowseForFolderW`（零依赖），失败再退
+    `tkinter`；其他平台直接用 `tkinter`。两条都不可用才抛 `_PickUnavailable`，
+    由 `pick_templates_dir` 转成 `available=false` 的**降级响应**。
+    """
+    if os.name == "nt":
+        try:
+            return _ask_directory_win32()
+        except _PickUnavailable as first:
+            if "no interactive desktop" in str(first):
+                raise            # 无桌面时 tkinter 同样弹不出来，再试只会白阻塞
+            try:
+                return _ask_directory_tk()
+            except _PickUnavailable as second:
+                raise _PickUnavailable(
+                    "Win32: %s；tkinter: %s" % (first, second)) from second
+    return _ask_directory_tk()
+
+
+
 def pick_templates_dir() -> Dict[str, Any]:
     """`POST /api/templates-dir/pick`：弹原生目录选择框，**只回报用户所选路径**。
 
@@ -448,17 +587,25 @@ def pick_templates_dir() -> Dict[str, Any]:
     响应恒为 `ok=true`（「原生框用不了」是**能力缺失**，不是请求失败）：
 
       * `available=false, reason="disabled"`    —— env `QM_NO_GUI_PICK` 关断；
-      * `available=false, reason="unavailable"` —— `tkinter` / GUI 会话缺失（带 `message`）；
+      * `available=false, reason="unavailable"` —— 两条通道都不可用（带 `message`，
+        例如 `no interactive desktop` / `tkinter 不可用：...`）；
       * `available=true, cancelled=true`        —— 用户取消（`dir` 为空）；
       * `available=true, cancelled=false`       —— 选中路径（`dir` 为绝对路径）。
+
+    `message` 会被前端原样展示（截断后）—— V0.3.7 起不再吞掉原因：此前「缺 tkinter」
+    与「无桌面」「被 env 关断」在界面上长得一模一样，用户无从判断该修什么。
     """
     if _env_truthy(NO_GUI_PICK_ENV):
         return {"ok": True, "available": False, "reason": "disabled", "dir": ""}
     try:
         chosen = _ask_directory()
     except _PickUnavailable as exc:
+        # 原因截断：这是要给用户看的一句话，不是堆栈。
+        detail = str(exc).strip().replace("\n", " ")
+        if len(detail) > 160:
+            detail = detail[:157] + "..."
         return {"ok": True, "available": False, "reason": "unavailable",
-                "message": str(exc), "dir": ""}
+                "message": detail, "dir": ""}
     return {"ok": True, "available": True, "reason": "",
             "cancelled": chosen is None, "dir": chosen or ""}
 

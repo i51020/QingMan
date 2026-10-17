@@ -1032,6 +1032,62 @@ class TemplatesDirPickTests(unittest.TestCase):
             self.assertGreaterEqual(item["size"], 0)
 
 
+class PickChannelOrderTests(unittest.TestCase):
+    """V0.3.7：Windows 通道优先级与「无桌面不重试」的硬约束。
+
+    背景（实测）：本机 managed CPython 3.13.12 **没有 tkinter**，旧实现「Windows 上
+    `import tkinter` 失败即降级」⇒ 「选择…」在该环境下 100% 不可用。新实现先走
+    `SHBrowseForFolderW`（ctypes，零依赖），tkinter 退为后备。
+
+    这里钉住三件事：
+      ① Windows 上**先**走 win32，成功就不碰 tkinter；
+      ② win32 失败（非无桌面）→ 退 tkinter 兜底；
+      ③ **无桌面**时不退 tkinter —— 它同样弹不出来，再试只会白阻塞请求线程。
+    """
+
+    def test_windows_prefers_win32(self):
+        with mock.patch.object(routes.os, "name", "nt"), \
+                mock.patch.object(routes, "_ask_directory_win32",
+                                  return_value=r"C:\模板库") as win, \
+                mock.patch.object(routes, "_ask_directory_tk") as tk:
+            self.assertEqual(routes._ask_directory(), r"C:\模板库")
+        win.assert_called_once()
+        tk.assert_not_called()
+
+    def test_win32_failure_falls_back_to_tk(self):
+        with mock.patch.object(routes.os, "name", "nt"), \
+                mock.patch.object(routes, "_ask_directory_win32",
+                                  side_effect=routes._PickUnavailable("shell32 调不动")), \
+                mock.patch.object(routes, "_ask_directory_tk",
+                                  return_value=r"C:\备用") as tk:
+            self.assertEqual(routes._ask_directory(), r"C:\备用")
+        tk.assert_called_once()
+
+    def test_no_desktop_does_not_retry_tk(self):
+        """无交互桌面：tkinter 同样弹不出来，重试只会把请求线程一起拖住。"""
+        with mock.patch.object(routes.os, "name", "nt"), \
+                mock.patch.object(routes, "_ask_directory_win32",
+                                  side_effect=routes._PickUnavailable(
+                                      "no interactive desktop")), \
+                mock.patch.object(routes, "_ask_directory_tk") as tk:
+            with self.assertRaises(routes._PickUnavailable) as ctx:
+                routes._ask_directory()
+        self.assertIn("no interactive desktop", str(ctx.exception))
+        tk.assert_not_called()
+
+    def test_both_channels_fail_message_keeps_both_reasons(self):
+        """两条都挂：`message` 必须带上两边的原始原因，否则用户/排查者只能看到半句。"""
+        with mock.patch.object(routes.os, "name", "nt"), \
+                mock.patch.object(routes, "_ask_directory_win32",
+                                  side_effect=routes._PickUnavailable("A 失败")), \
+                mock.patch.object(routes, "_ask_directory_tk",
+                                  side_effect=routes._PickUnavailable("B 失败")):
+            with self.assertRaises(routes._PickUnavailable) as ctx:
+                routes._ask_directory()
+        self.assertIn("A 失败", str(ctx.exception))
+        self.assertIn("B 失败", str(ctx.exception))
+
+
 class OpenDirTests(unittest.TestCase):
     """V0.0.51@r7 · 服务设置：请求系统打开青蔓自己的目录（`POST /api/open-dir`）。
 

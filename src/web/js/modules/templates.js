@@ -241,6 +241,16 @@ let dirBase = '';
 let dirBindSeq = 0;
 
 /**
+ * 绑定请求的串行队列（V0.3.7）。
+ *
+ * 序号只能作废**界面**上的旧响应，管不了**服务端落盘顺序**：连改两次时若两个 PUT
+ * 并发到达，谁先落盘由网络/线程调度决定 —— 最终 settings 里可能是**先点的那次**，
+ * 而界面显示的是后点的那次，两边不一致且无法自愈。排队后「最后一次提交」必定最后
+ * 落盘，序号再负责让中间那次的提示不打扰用户。
+ */
+let dirBindChain = Promise.resolve();
+
+/**
  * 渲染绑定行：路径 + 状态提示。
  *
  * `source === 'default'` 表示**没绑外部目录**（用内置层）—— 这不是错误，
@@ -254,10 +264,17 @@ function renderTemplatesDir(res) {
   const dir = (res && res.dir) || '';
   /* V0.3.5：控件是 <input>，路径走 `value`（原 <code> 用 textContent）。
      占位符沿用 `dirUnknown`（「（未读取）」）—— 读不到目录时框内是空值，
-     正好由它说明状态，不必新增取词键。 */
-  pathEl.value = dir;
+     正好由它说明状态，不必新增取词键。
+     V0.3.7：**用户正在编辑时不回填**。`loadTemplatesDir()` 会在绑定成功、语言切换等
+     时机被调，若无条件写 `value`，正好把敲了一半的路径冲掉（V0.3.5 引入可编辑输入框
+     后新出现的覆盖源）。基线 `dirBase` 照常推进，Esc / 失焦的语义不受影响。 */
+  const editing = document.activeElement === pathEl
+    && (pathEl.value || '').trim() !== dirBase;
+  if (!editing) {
+    pathEl.value = dir;
+    pathEl.title = dir;
+  }
   pathEl.placeholder = t('template.dirUnknown');
-  pathEl.title = dir;
   dirBase = dir;
 
   let hint = '';
@@ -290,8 +307,15 @@ async function loadTemplatesDir() {
 async function bindTemplatesDir(dir) {
   /* V0.3.5：失焦提交让「连着改两次」变得容易（A 失焦 → 输入 B → 再失焦），而两次
      PUT 的返回顺序没有保证。用序号作废旧响应 —— 只作废**提示与回退**，刷新照旧，
-     否则旧请求的 toast / 回退会盖掉新请求的结果。 */
+     否则旧请求的 toast / 回退会盖掉新请求的结果。
+     V0.3.7 追加**串行队列**：序号管界面，队列管落盘顺序（见 `dirBindChain` 注释）。 */
   const seq = ++dirBindSeq;
+  const run = () => bindTemplatesDirNow(dir, seq);
+  dirBindChain = dirBindChain.then(run, run);
+  return dirBindChain;
+}
+
+async function bindTemplatesDirNow(dir, seq) {
   try {
     const res = await api.setTemplatesDir(dir, { create: false });
     if (seq === dirBindSeq) {
@@ -307,8 +331,11 @@ async function bindTemplatesDir(dir) {
     if (seq !== dirBindSeq) return;   // 已有更新的绑定在途：本次错误不再打扰用户
     toast(t('template.dirBindFailed', { message: localizeError(err) }), 'warn', 6000);
     /* V0.3.5：绑定失败时把输入框退回「当前生效值」。否则框里留着一条非法路径，
-       看上去像已经切过去了 —— 而列表显示的其实还是旧目录。 */
-    el('tplDirPath').value = dirBase;
+       看上去像已经切过去了 —— 而列表显示的其实还是旧目录。
+       V0.3.7：**焦点还在框里就不回退**（Enter 提交这条路上，用户正要接着改错字；
+       强行回填等于把刚敲的内容抹掉，比保留一条非法路径更难用）。 */
+    const input = el('tplDirPath');
+    if (document.activeElement !== input) input.value = dirBase;
   }
 }
 
@@ -345,26 +372,47 @@ function initDirInput() {
 }
 
 /**
- * 「选择…」：优先原生目录框；本机用不了（缺 tkinter / 无 GUI / env 关断）则把焦点交回
- * **输入框**（V0.3.5 之前的降级是 `window.prompt`，现由常驻输入框承担同一条通道）。
- * 选中后只把路径交给 `bindTemplatesDir` —— 「选择」与「绑定」两步分离。
+ * 「选择…」：优先原生目录框；用不了则把焦点交回**输入框**（V0.3.5 之前的降级是
+ * `window.prompt`，现由常驻输入框承担同一条通道）。选中后只把路径交给
+ * `bindTemplatesDir` —— 「选择」与「绑定」两步分离。
+ *
+ * V0.3.7：降级**分四路**，不再一律「打不开」。此前「服务没连上」「被 env 关断」
+ * 「本机没有可用对话框」在界面上是同一句话，用户既不知道该启动服务、也不知道
+ * 缺什么组件 —— 而这三种情况的处置方式完全不同。
  */
 async function chooseTemplatesDir() {
   let res;
   try {
     res = await api.pickTemplatesDir();
   } catch (err) {
-    res = { available: false };   // 端点异常按能力缺失处理，走同一降级路径
+    // 网络层失败：根本没连上本机服务（线上版 / 服务未启动）。原生框无从谈起。
+    toast(t('template.dirPickerOffline'), 'warn', 8000);
+    focusDirInput();
+    return;
   }
   if (res.available && !res.cancelled && res.dir) {
     await bindTemplatesDir(res.dir);
     return;
   }
   if (res.available && res.cancelled) return;   // 用户主动取消：静默
-  /* V0.3.5：原生框不可用 → 说明一句并把焦点送到输入框，用户当场就能手输 + 回车。
+  if (res.reason === 'disabled') {
+    toast(t('template.dirPickerDisabled'), 'info', 8000);
+    focusDirInput();
+    return;
+  }
+  /* 能力缺失 → 说明**具体原因**，并把焦点送到输入框，用户当场就能手输 + 回车。
      比弹 prompt 少一次转场，也不会出现「prompt 文本无法换行/无法粘贴多段」的问题。 */
+  const why = String(res.message || '').trim();
+  toast(t('template.dirPastePrompt', {
+    reason: why || t('template.dirReasonUnknown'),
+  }), 'info', 8000);
+  focusDirInput();
+}
+
+/** 把焦点与选择范围交给路径输入框（降级通道的唯一入口）。 */
+function focusDirInput() {
   const input = el('tplDirPath');
-  toast(t('template.dirPastePrompt'), 'info', 6000);
+  if (!input) return;
   input.focus();
   input.select();
 }

@@ -171,7 +171,11 @@ export const dict = {
   'template.dirHintInvalid': 'The bound folder is unusable: {reason}',
   'template.dirPick': 'Choose...',
   'template.dirPickTip': 'Choose a folder as the template library (system folder picker)',
-  'template.dirPastePrompt': 'The system folder picker could not open. Type the path into the "Template folder" field above and press Enter.',
+  'template.dirPastePrompt': 'The system folder picker could not open ({reason}). Type the path into the "Template folder" field and press Enter.',
+  /* V0.3.7: four distinct downgrade paths (offline / disabled by env / genuinely unavailable) */
+  'template.dirPickerOffline': 'Cannot reach the local service, so the system folder picker cannot open. Start QingMan locally first, or type the path into the "Template folder" field.',
+  'template.dirPickerDisabled': 'The system folder picker is disabled by the QM_NO_GUI_PICK environment variable. Type the path into the "Template folder" field and press Enter.',
+  'template.dirReasonUnknown': 'reason unknown',
   'template.dirBound': 'Template folder bound: {dir}',
   'template.dirEnvShadow': 'An environment variable overrides the binding; using: {dir}',
   'template.dirBindFailed': 'Failed to bind template folder: {message}',
@@ -472,7 +476,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.3.6',
+  'help.versionFallback': 'V0.3.7',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

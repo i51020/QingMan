@@ -42,26 +42,42 @@ FROZEN_DOCS = {"任务进度.md", "接续说明.md"}
 CLAIM_RE = re.compile(r"V\d+\.\d+\.\d+\s*实测")
 
 
-def run(name: str, args: "list[str]", expect: "str | None" = None) -> "tuple[str, bool, float]":
-    """跑一条命令，返回（摘要行, 是否成功, 耗时）。
+def run(name: str, args: "list[str]", expect: "str | None" = None
+        ) -> "tuple[str, bool, float, list[str]]":
+    """跑一条命令，返回（摘要行, 是否成功, 耗时, 失败诊断行）。
 
     `expect` 是摘要行的正则：`unittest` 会往 stderr 写结论，而**被测代码自身的 stdout**
     （如单测里调 `store.py` 的提交日志）会夹在中间 —— 取"最后一行"会取到无关内容。
     实测过一次：摘要显示成 `[提交] 同版本第 2 次修订`，而不是 `Ran 559 tests / OK`。
+
+    **失败诊断行（V0.3.7）**：此前失败只留 `RC=1 Ran 595 tests`，失败用例名被丢掉 ——
+    连着两次出现「门禁红、单独重跑绿」，两次都因为"看不到是哪一条"而无从定位。
+    只截摘要等于把唯一的线索扔掉；这里在失败时额外收集 `FAIL:` / `ERROR:` 行，
+    取不到就回退到 stderr 尾部。
     """
     started = time.perf_counter()
     proc = subprocess.run([sys.executable, "-B", *args], cwd=str(ROOT),
                           capture_output=True, text=True, encoding="utf-8", errors="replace")
     cost = time.perf_counter() - started
-    lines = ([ln.strip() for ln in (proc.stderr or "").splitlines()]
-             + [ln.strip() for ln in (proc.stdout or "").splitlines()])
+    err_lines = [ln.rstrip() for ln in (proc.stderr or "").splitlines()]
+    out_lines = [ln.rstrip() for ln in (proc.stdout or "").splitlines()]
+    lines = ([ln.strip() for ln in err_lines] + [ln.strip() for ln in out_lines])
     tail = ""
     if expect:
         tail = next((ln for ln in reversed(lines) if re.match(expect, ln)), "")
     if not tail:
         tail = next((ln for ln in reversed(lines) if ln), "")
     ok = proc.returncode == 0
-    return (f"{tail[:96]}", ok, cost) if ok else (f"RC={proc.returncode} {(tail or '')[:80]}", ok, cost)
+    diag: "list[str]" = []
+    if not ok:
+        diag = [ln.strip() for ln in err_lines if re.match(r"^(FAIL|ERROR):", ln.strip())]
+        if not diag:
+            # 没有用例名（崩溃 / 语法错 / 断言外异常）：给 stderr 尾部，仍比只报 RC 强
+            diag = [ln.strip() for ln in err_lines if ln.strip()][-12:]
+        diag = diag[:12]
+    return ((f"{tail[:96]}", ok, cost, diag) if ok
+            else (f"RC={proc.returncode} {(tail or '')[:80]}", ok, cost, diag))
+
 
 
 def budget(root: Path = ROOT, src_limit: int = SRC_LIMIT,
@@ -174,9 +190,11 @@ def main(argv: "list[str] | None" = None) -> int:
     failures = 0
     print(f"[门禁] 版本 {VERSION}")
     for name, cmd, expect in steps:
-        detail, ok, cost = run(name, cmd, expect)
+        detail, ok, cost, diag = run(name, cmd, expect)
         failures += 0 if ok else 1
         print(f"  {'OK  ' if ok else 'FAIL'} {name:8s} {cost:5.1f}s  {detail}")
+        for line in diag:
+            print(f"       {line[:150]}")
 
     print("  ── 预算（两条线）──")
     rows = budget()

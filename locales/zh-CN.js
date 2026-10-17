@@ -184,7 +184,12 @@ export const dict = {
   'template.dirHintInvalid': '当前绑定的目录不可用：{reason}',
   'template.dirPick': '选择…',
   'template.dirPickTip': '选择一个目录作为模板库（本机原生目录选择框）',
-  'template.dirPastePrompt': '系统选择框打不开：请在上方「模板目录」框里直接输入路径，按回车生效',
+  'template.dirPastePrompt': '系统选择框打不开（{reason}）：请在「模板目录」框里直接输入路径，按回车生效',
+  /* V0.3.7：降级分四路 —— 服务没连上 / 被 env 关断 / 真·能力缺失，处置方式完全不同，
+     此前压成同一句话让用户无从判断该修什么。 */
+  'template.dirPickerOffline': '没连上本机服务，无法打开系统选择框。请先启动青蔓本机服务，或在「模板目录」框里直接输入路径。',
+  'template.dirPickerDisabled': '系统选择框已被环境变量 QM_NO_GUI_PICK 关断：请在「模板目录」框里直接输入路径，按回车生效。',
+  'template.dirReasonUnknown': '原因未知',
   'template.dirBound': '已绑定模板目录：{dir}',
   'template.dirEnvShadow': '环境变量已覆盖目录绑定，实际使用：{dir}',
   'template.dirBindFailed': '模板目录绑定失败：{message}',
@@ -480,7 +485,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.3.6',
+  'help.versionFallback': 'V0.3.7',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',
