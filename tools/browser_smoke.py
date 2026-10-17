@@ -639,12 +639,51 @@ function pollProbe(doc) {
   }).then(function () {
     setTimeout(function () {
       m.pollAfter = list.querySelectorAll('li.tpl-row').length;
+      emptyProbe(doc);
       phase2();
     }, 2600);
   }).catch(function (e) {
     m.pollErr = String(e && e.message ? e.message : e);
+    emptyProbe(doc);
     phase2();
   });
+}
+
+/* V0.3.9：空树幽灵行 —— 走**真实用户路径**，不直接调内部函数：
+   选中根行（无修饰键 ⇒ 顺带清掉多选集合）→ 工具栏「删除」→ window.confirm 被换成受控 true。
+   根节点的「删除」在模型层就是 clearNode：清空内容、保留根名（落盘必须有根文件夹名）。
+
+   四个量必须一起看，只有一条都判不严：
+   ① ghostBefore = 0 —— 树里还有子节点时不能出现提示（否则每棵正常树都挂着一行假空态）；
+   ② ghostN = 1 且 ghostTextLen > 0 —— 真的渲染了、且有话要说（不是空 div）；
+   ③ rowsAfter = 1 —— 它**没有**被算成普通行（用 `.tree-row` 计数，正是 keyboard 多选 /
+      页面冒烟行数统计的口径）；若为 2 就说明它挂错类名，会污染 visibleIds()；
+   ④ ghostPE = 'none' 且 ghostHasId = 0 —— 结构上不可点、不可拖、不进模型。
+   探针跑在临时沙箱（mkdtemp），清空不污染下一次运行。 */
+function emptyProbe(doc) {
+  var win = doc ? doc.defaultView : null;
+  if (!win) { return; }
+  var realConfirm = win.confirm;
+  try {
+    var rows = doc.querySelectorAll('.tree-row');
+    m.ghostBefore = doc.querySelectorAll('.tree-ghost').length;
+    m.emptyRowsBefore = rows.length;
+    win.confirm = function () { return true; };
+    if (rows.length) { rows[0].dispatchEvent(new win.MouseEvent('click', { bubbles: true })); }
+    var del = doc.getElementById('btnDelete');
+    if (del) { del.click(); }
+    m.emptyRowsAfter = doc.querySelectorAll('.tree-row').length;
+    var g = doc.querySelector('.tree-ghost');
+    m.ghostN = doc.querySelectorAll('.tree-ghost').length;
+    m.ghostTextLen = g ? (g.textContent || '').replace(/^\\s+|\\s+$/g, '').length : -1;
+    m.ghostPE = (g && win.getComputedStyle) ? win.getComputedStyle(g).pointerEvents : '';
+    m.ghostHasId = (g && g.dataset && g.dataset.id) ? 1 : 0;
+    m.ghostAria = g ? (g.getAttribute('aria-disabled') || '') : '';
+  } catch (e) {
+    m.errEmpty = String(e && e.message ? e.message : e);
+  } finally {
+    win.confirm = realConfirm;
+  }
 }
 
 /* 阶段 2：帮助页分节幂等（P1-1 回归位）+ 语言切换 + 版本徽标。
@@ -1217,6 +1256,26 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
               f"导入后 {poll_before} → {poll_after} 行（应 1 → 2）"
               + (f"；异常 {metrics.get('pollErr')}" if metrics.get("pollErr") else "")
               + ("" if poll_ok else "（6E 回归：轮询未生效或未刷新列表）" + gate_hint))
+
+    # V0.3.9：空树幽灵行（删完最后一个子节点 / 新建模板的初始态）。
+    # 这一条必须**在真实页面上走真实点击路径**才有意义：D 组前面十几次断言都在证明
+    # 「树里还有东西时一切正常」，没有一条覆盖「树被清空后界面长什么样」——
+    # 而那正是用户报障的那一屏（只剩一行根节点 + 一片空白，像坏掉了）。
+    ghost_before = as_int(metrics.get("ghostBefore"), -1)
+    ghost_n = as_int(metrics.get("ghostN"), -1)
+    ghost_len = as_int(metrics.get("ghostTextLen"), -1)
+    rows_after = as_int(metrics.get("emptyRowsAfter"), -1)
+    ghost_pe = metrics.get("ghostPE", "")
+    ghost_id = as_int(metrics.get("ghostHasId"), -1)
+    ghost_aria = metrics.get("ghostAria", "")
+    empty_ok = (ghost_before == 0 and ghost_n == 1 and ghost_len > 0
+                and rows_after == 1 and ghost_pe == "none" and ghost_id == 0
+                and ghost_aria == "true")
+    check(empty_ok, "主界面·清空后显示空态幽灵行（V0.3.9）",
+          f"清空前 ghost={ghost_before}（应 0）/ 清空后 ghost={ghost_n} 文字 {ghost_len} 字 "
+          f"行数={rows_after}（应 1）pointer-events={ghost_pe or '(空)'} "
+          f"data-id={ghost_id}（应 0）aria-disabled={ghost_aria or '(空)'}"
+          + ("" if empty_ok else "（空态未出提示 / 提示混进了 .tree-row 统计 / 可被点选）"))
 
     sec_before = as_int(metrics.get("secBefore"), 0)
     sec_en = as_int(metrics.get("secEn"), 0)

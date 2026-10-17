@@ -423,6 +423,26 @@
 .tree-children { margin-left: 16px; border-left: 1px dashed var(--qm-line); padding-left: 4px; }
 .tree-children.is-collapsed { display: none; }
 
+/* V0.3.9：空树幽灵行（渲染见 js/ui/tree-view.js 的 `else if (dir && isRootRow)`）。
+   **左缩进与 `.tree-name` 对齐**，用 calc 把推导写进代码，而不是塞一个 46px 的魔数：
+   行内左内边距 6 + 折叠箭头位 14 + 间距 6 + 图标位 14 + 间距 6 = 46px。
+   根行无子节点时箭头是 `visibility: hidden`（仍占位），故四个占位项都真实存在；
+   哪天箭头或图标改了宽度，改的是这里的一行，而不是去调一个看不出出处的数字。
+
+   **刻意不加虚线框**：本项目里 dashed 是「可拖放落点」的语言
+   （`.tree-row.is-drop-target` 用 `outline: 1px dashed`），而本行不可点、不可放，
+   套上它就是误导。视觉语言沿用既有的「弱化 = 变暗」——同 `.tree-name.is-placeholder`
+   （dim + italic），不新造一套灰色调。 */
+.tree-ghost {
+  padding: 3px 6px 3px calc(6px + 14px + 6px + 14px + 6px);
+  color: var(--qm-text-dim);
+  font-size: var(--qm-fs-2xs);
+  font-style: italic;
+  user-select: none;
+  /* 结构性地保证「不可交互」：不靠 JS 拦事件，也不依赖别处不绑监听 */
+  pointer-events: none;
+}
+
 /* 拖拽落点高亮（V0.0.19）—— 只用既有变量，不新造视觉语言 */
 .tree-row.is-drop-target {
   background: var(--qm-accent-soft);

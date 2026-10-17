@@ -3,6 +3,7 @@
  * 只负责把数据模型渲染成 DOM 并回传交互事件，不改数据。
  * V0.0.19：节点拖拽移动（HTML5 DnD）+ 右键菜单（回调由 main.js 提供，逻辑同工具栏）。
  * V0.0.32：拖拽落点**预判**（C-P3-2）+ `dragleave` 不因划过子元素而摘高亮（C-P3-3）。
+ * V0.3.9：空树幽灵行 —— 根下无子节点时渲染一行「状态 + 出口」提示（纯视图，不进模型）。
  */
 
 import { canMove, isDir } from '../modules/tree-model.js';
@@ -65,6 +66,9 @@ export function createTreeView(container, { onSelect, onMove, onContext, onFold 
     const dir = isDir(node);
     const hasChildren = dir && node.children.length > 0;
     const isCollapsed = collapsed.has(node.id);
+    /* V0.3.9：根行判定提前到这里 —— 空树幽灵行（见函数尾部）与空名占位（下面）共用，
+       一处算两处用，避免同一条件写两份、日后改一处漏一处。 */
+    const isRootRow = !!currentRoot && node.id === currentRoot.id;
 
     const row = document.createElement('div');
     const isSelected = node.id === selectedId;
@@ -109,7 +113,6 @@ export function createTreeView(container, { onSelect, onMove, onContext, onFold 
     const name = document.createElement('span');
     name.className = 'tree-name';
     /* V0.0.42：根节点名即「根文件夹名」，可为空 —— 空名渲染为「（不建根）」占位 */
-    const isRootRow = !!currentRoot && node.id === currentRoot.id;
     if (isRootRow && !node.name) {
       name.textContent = t('tree.rootNoName');
       name.classList.add('is-placeholder');
@@ -179,6 +182,32 @@ export function createTreeView(container, { onSelect, onMove, onContext, onFold 
         box.appendChild(buildRow(child, selectedId, selectedIds));
       }
       wrap.appendChild(box);
+    } else if (dir && isRootRow) {
+      /* ---------- 空树幽灵行（V0.3.9）：一行「状态说明 + 动作出口」 ----------
+
+         改前：根下一个子节点都没有时（**清空之后**，以及**新建模板的初始态**），
+         界面只剩一行根节点 + 一大片空白，没有任何文字。用户的两种解读——
+         「我删干净了」与「是不是删坏了」——在画面上完全等价，且没有任何操作入口。
+
+         **为什么只在根节点下显示**：深层空目录若各显一行，一棵有几十个空目录的树
+         会被提示淹没，反而更难读；而「根为空」是「整棵树没了」的确定终态，
+         也正是首屏状态 —— 首屏状态必须有设计好的样子，不能当边缘情况处理。
+
+         **为什么它是纯视图**（四点，缺一条就会污染数据或交互）：
+         ① 不挂 `.tree-row`、不设 `data-id` ⇒ `visibleIds()`（只收 `.tree-row`）
+            与多选 / 键盘范围选择 / 行数统计（含页面冒烟）都看不见它；
+         ② `pointer-events: none`（见 css/layout.css）⇒ 点不到、拖不动、框选不进；
+         ③ 不参与 `treePayload` / 撤销栈 / 落盘 —— 它从未进过模型，只活在渲染结果里；
+         ④ `aria-disabled="true"` ⇒ 读屏软件读出「不可用的第 2 级节点」，而不是
+            假装这里真有一个子目录。
+         文案同时给出**出口**（新建子节点），不是纯抱怨式的空状态。 */
+      const ghost = document.createElement('div');
+      ghost.className = 'tree-ghost';
+      ghost.setAttribute('role', 'treeitem');
+      ghost.setAttribute('aria-level', '2');
+      ghost.setAttribute('aria-disabled', 'true');
+      ghost.textContent = t('tree.emptyHint');
+      wrap.appendChild(ghost);
     }
     return wrap;
   }

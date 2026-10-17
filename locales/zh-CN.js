@@ -345,6 +345,7 @@ export const dict = {
   'tree.newDirDefault': '新建目录',
   'tree.renamePrompt': '重命名',
   'tree.rootNoName': '（不建根）',
+  'tree.emptyHint': '尚未添加子目录 · 点上方「新建子节点」添加第一个',
   'tree.deleteConfirm': '确认删除「{name}」及其全部子节点？',
   'tree.copyPath': '复制路径',
   /* V0.0.43 · G 组：工具栏三个语义组（读屏用，视觉上靠组间距 + 软竖线区分） */
@@ -485,7 +486,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.3.8',
+  'help.versionFallback': 'V0.3.9',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',

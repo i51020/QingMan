@@ -2630,10 +2630,38 @@ def main() -> int:
         ("C-P3-3", tv_js, "if (leftRow(row, event))", "dragleave 未走离开判定（会再次闪烁）"),
         ("C-P3-4", toast_js, "const MAX_TOASTS = 4;", "缺提示条数上限常量"),
         ("C-P3-4", toast_js, "items.length - MAX_TOASTS", "缺超限淘汰逻辑"),
+        # V0.3.9：空树幽灵行。三枚锚点分别钉「触发条件」「独立类名」「不进模型」：
+        # ① 触发条件必须是 `dir && isRootRow` —— 只写 `!hasChildren` 会让**每个**空目录
+        #    都长出一行提示，几十个空目录的树被提示淹没（这是设计口径，不是实现细节）；
+        # ② 类名必须是独立的 `.tree-ghost` —— 若复用 `.tree-row`，`visibleIds()` 与
+        #    页面冒烟的行数统计会把它当真实节点（键盘范围选择、多选计数一起污染）；
+        # ③ 不得写 `data-id` —— 写了就等于给它一个可被 `findNode` 命中的身份。
+        ("V0.3.9", tv_js, "else if (dir && isRootRow)",
+         "空树幽灵行触发条件缺失或被放宽（须限定「根节点且无子节点」）"),
+        ("V0.3.9", tv_js, "ghost.className = 'tree-ghost'",
+         "幽灵行未使用独立类名（会被 .tree-row 的行数统计误收）"),
+        ("V0.3.9", tv_js, "ghost.setAttribute('aria-disabled', 'true')",
+         "幽灵行未标注 aria-disabled（读屏会当成真实子目录）"),
     )
     for code, text, token, why in ui_anchors:
         if token not in text:
             ui_bad.append(f"{code} {why}")
+    if "ghost.dataset.id" in tv_js:
+        ui_bad.append("V0.3.9 幽灵行被写入了 data-id（会混进 visibleIds / 多选 / 落盘）")
+    # V0.3.9：幽灵行的样式约束。逐条查**块内**，避免「文件里别处有同名字面量」蒙混：
+    # 缩进口径（与 .tree-name 的 46px 推导）、弱化色（不新造灰）、禁指针（结构性地不可交互）。
+    _ghost_css = re.search(r"\.tree-ghost\s*\{([^}]*)\}", _read("src/web/css/layout.css"))
+    if not _ghost_css:
+        ui_bad.append("V0.3.9 缺 .tree-ghost 样式")
+    else:
+        _gbody = _ghost_css.group(1)
+        for token, why in (
+            ("calc(6px + 14px + 6px + 14px + 6px)", "幽灵行缩进与 .tree-name 未对齐"),
+            ("var(--qm-text-dim)", "幽灵行未用既有弱化色（会与真实节点名混淆）"),
+            ("pointer-events: none", "幽灵行未禁指针（可被点选 / 拖拽）"),
+        ):
+            if token not in _gbody:
+                ui_bad.append("V0.3.9 " + why)
     # C-P3-2：旧的「只挡自身」写法必须已清除（防两套判据并存）
     if "draggingId !== node.id" in tv_js:
         ui_bad.append("C-P3-2 仍残留「只挡自身」的旧判据")
@@ -2641,7 +2669,7 @@ def main() -> int:
         ui_bad.append("C-P3-2 仍残留视图层自写的防环判据（应与 canMove 单一来源，防两套漂移）")
     check(not ui_bad, "UI 防御批 V0.0.32",
           f"缺失：{', '.join(ui_bad)}" if ui_bad
-          else "拖拽落点预判 / 含子元素语义的 dragleave / 提示条上限 齐备")
+          else "拖拽落点预判 / 含子元素语义的 dragleave / 提示条上限 / 空树幽灵行（V0.3.9） 齐备")
 
     # 7aa. 序列化族迭代化（V0.0.33，第四档同族残留收口）
     #      背景：B-P3-5 只迭代化了「查询族」，同族的 toDocumentNode / fromDocumentNode

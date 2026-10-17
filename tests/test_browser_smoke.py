@@ -78,6 +78,13 @@ NORMAL = {
     # V0.2.3：程序化聚焦不得弹出提示
     "tipOnFocus": "0",
     "pollBefore": "1", "pollAfter": "2",
+    # V0.3.9 新增：空树幽灵行（清空最后一个子节点后 = 根行 + 一行纯视图提示）。
+    #   值取真机实测（清理阶段语言已复位 en-US，故 ghostTextLen 是英文提示的长度 64）：
+    #   清空前 0（正常树不长假空态）/ 清空后 1 / `.tree-row` 仍为 1（提示不冒充普通行）
+    #   / pointer-events=none（点不到）/ 无 data-id（不进模型）/ aria-disabled=true。
+    "ghostBefore": "0", "ghostN": "1", "ghostTextLen": "64",
+    "emptyRowsAfter": "1",
+    "ghostPE": "none", "ghostHasId": "0", "ghostAria": "true",
     # V0.0.39 新增：皮肤 swatch 绑定（网格按 swatch[0] 背景明度亮 → 暗排序）
     #   期望序列由 tools/browser_smoke.py 的 expected_skin_order() 独立复算，
     #   与 src/web/js/ui/skin-picker.js 的 luma() 同公式（改皮肤背景色须同步此处基线）。
@@ -152,6 +159,8 @@ FAIL_TPLDLG = "主界面·「新建模板」弹窗可开、起点已填充、可
 # V0.0.42（手册 10.2 节 #12）：根名方案 C 的两条判定名
 FAIL_ROOTRENAME = "主界面·根名即树根：改名后摘要与树区同步（V0.0.42）"
 FAIL_ROOTBLANK = "主界面·根名即树根：清空即不建根（V0.0.42）"
+# V0.3.9：空树幽灵行（清空最后一个子节点后的空态提示）
+FAIL_EMPTY = "主界面·清空后显示空态幽灵行（V0.3.9）"
 # V0.0.43（UI 定版差集 G / H / F）：四条判定名
 FAIL_GROUP3 = "主界面·工具栏语义分组：按钮各归其组（V0.0.43 · G）"
 FAIL_INSPMODE = "主界面·检视器属性⇄源码：可切换且源码为同源 JSON（V0.0.43 · H）"
@@ -278,8 +287,9 @@ class VerifyMetricsTests(unittest.TestCase):
         self.assertEqual(failed_names(results), [], "正常指标不应有任何失败项")
         # 项数随版本增长。原注释用「24 + 若干」累加，算术早已对不上实际值 ——
         # 改为只钉数值 + 维护指引，免得下次改判据时又要在注释里重新凑账。
-        self.assertEqual(len(results), 33,
-                         "verify_metrics 应产生 33 项判定"
+        # V0.3.9：33 → 34（+空树幽灵行）。
+        self.assertEqual(len(results), 34,
+                         "verify_metrics 应产生 34 项判定"
                          "（新增判定须同步本断言与 NORMAL 夹具，否则基线整体失真）")
 
     def test_p1_1_regression_fails_exactly_section_idempotence(self):
@@ -314,8 +324,25 @@ class VerifyMetricsTests(unittest.TestCase):
 
     def test_templates_check_skipped_when_not_expected(self):
         results = run_metrics(NORMAL, expect_templates=False)
-        self.assertEqual(len(results), 24, "不期望模板时不应产生模板判定项（V0.0.41 / V0.0.42 / V0.0.43 的项与模板库无关，仍在）")
+        # V0.3.9：24 → 25（空树幽灵行与模板库无关，故 not expected 时仍在）
+        self.assertEqual(len(results), 25, "不期望模板时不应产生模板判定项（V0.0.41 / V0.0.42 / V0.0.43 / V0.3.9 的项与模板库无关，仍在）")
         self.assertNotIn(TPL_CHECK, [n for _o, n, _x in results])
+
+    def test_empty_tree_ghost_regression_fails_exactly_once(self):
+        """V0.3.9 反向验证：空态提示退化的**每一种**方式都须被这一项抓到，且只抓这一项。
+
+        五个退化方向各自独立，缺一条判据就漏一种：
+        - `ghostN=0`      压根没提示（回到用户报障的那一屏：一片空白）；
+        - `ghostBefore=1` 树里还有子节点时就挂提示（每棵正常树都长一行假空态）；
+        - `emptyRowsAfter=2` 提示挂成了 `.tree-row`（会混进可见行 / 多选 / 键盘范围选择）；
+        - `ghostPE=auto`  可点可拖（`pointer-events` 没兜住）；
+        - `ghostHasId=1`  被写进模型身份（`findNode` 能命中一个不存在的节点）。
+        """
+        for bad in (dict(NORMAL, ghostN="0"), dict(NORMAL, ghostBefore="1"),
+                    dict(NORMAL, emptyRowsAfter="2"), dict(NORMAL, ghostPE="auto"),
+                    dict(NORMAL, ghostHasId="1")):
+            with self.subTest(metrics=bad):
+                self.assertEqual(failed_names(run_metrics(bad)), [FAIL_EMPTY])
 
     def test_v042_root_rename_not_propagated_fails_exactly(self):
         """V0.0.42 回归：改名未贯通到摘要（摘要保持原样）→ 恰好那项 FAIL。"""

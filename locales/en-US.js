@@ -334,6 +334,7 @@ export const dict = {
   'tree.newDirDefault': 'New directory',
   'tree.renamePrompt': 'Rename',
   'tree.rootNoName': '(no root folder)',
+  'tree.emptyHint': 'No subfolders yet - click "New child" above to add the first one',
   'tree.deleteConfirm': 'Delete "{name}" and all its children?',
   'tree.copyPath': 'Copy path',
   /* V0.0.43 · G group: three semantic toolbar groups (screen-reader label only) */
@@ -476,7 +477,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.3.8',
+  'help.versionFallback': 'V0.3.9',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',
