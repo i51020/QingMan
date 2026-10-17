@@ -39,6 +39,15 @@
      build metadata 不参与优先级比较，当不了回退点；同版多次构建由 `@rN` 承担）。
      全部存量清单逐份查：`version` 纯三段式 / `createdAt` 在已登记写法内 /
      `createdAtIso` 带时区 / `build` 块字段白名单
+ 7ap. 版本—清单双层契约（§P0-6 M10）：版本号**只答兼容性**，时间/模型/工具链全在根
+     `manifest.json`。判据＝顶层 `version` 与 `VERSION` 逐字相等 / 当前 `(版本, 最新修订)`
+     必有记录 / 记录带时区且不早于 store 清单日期 / `model`·`tools` 字段白名单非空 /
+     记录里的版本必须真实存在于 `versions/`（判定本体是 `tools/manifest.py::validate`，
+     本项与 CLI `manifest.py check` 同源 —— 两处不得各写一份）
+ 7aq. 版本号形态与单调性（SemVer 2.0.0 §2）：`versions/` 的**目录名**是版本号的另一半
+     身份证（7ao 只查清单内部字段，查不到目录被改名/错位）。判据＝目录名纯三段式且
+     无前导零 / 目录名与该目录**每份**清单的 `version` 一致 / 每目录至少一份清单 /
+     **父链连续**（数值排序后第 i 个版本的 r1 清单 `parent` 必须是第 i-1 个版本）
  7d-9. 皮肤文件**顶层只许 `:root` + `--qm-*` 声明**（§P0-3 L5）：与 7d「组件 CSS 不感知皮肤」
      **方向相反**，两者合起来才是完整的**双向隔离**（`skins/README.md` 契约「皮肤 == 一组变量
      覆盖值，不是一整套组件样式」的机器化；§P2 第 45 项）
@@ -88,6 +97,8 @@ sys.path.insert(0, str(TOOLS_DIR))
 sys.dont_write_bytecode = True  # 校验工具不得在项目内留下 __pycache__
 from store import (STAMP_PATTERNS, fingerprint_diff, latest_revision,  # noqa: E402
                    load_manifest, manifest_filename)
+# 7ap 的判定本体在 manifest.py（CLI `manifest.py check` 与本守卫同源，不各写一份）
+import manifest  # noqa: E402
 
 PAIRED_TAGS = (
     "html", "head", "body", "div", "section", "aside", "header", "footer",
@@ -652,6 +663,60 @@ def manifest_meta_violations(meta: dict, label: str) -> list[str]:
                 hits.append(f"{label} 的 build 有未登记字段 {extra}（新增须同步本守卫的白名单）")
         if iso is None:
             hits.append(f"{label} 有 build 却缺 createdAtIso（两者同批引入，缺一说明被手改）")
+    return hits
+
+
+def version_dir_violations(root: Path) -> list[str]:
+    """返回 `versions/` 目录树的违规项（守卫 7aq 的**判定本体**，纯只读、可单测）。
+
+    7ao 只查清单**内部**的 `version` 字段；目录名是版本号的另一半身份证，此前无人守。
+    四条判据：
+
+      ① 目录名纯三段式、**无前导零**（`V0.01.0` 会被 `versioning.parse` 读成 `0.1.0`，
+         形态判据必须比解析器更严）
+      ② 目录名与该目录**每份**清单的 `version` 一致（防「清单被错位复制进隔壁目录」）
+      ③ 每个版本目录至少一份 `MANIFEST*.json`（无清单的目录不是版本，是垃圾）
+      ④ **父链连续**：按数值排序后第 i 个版本的 r1 `parent` 必须是第 i-1 个版本
+         （手工塞一个目录进来，链条立刻断 —— 这条把「版本序列」本身变成可验证对象）
+
+    取不到 `versions/` 时只报一条，不逐项爆炸。
+    """
+    hits: list[str] = []
+    vdir = root / "versions"
+    dirs = [p for p in vdir.iterdir() if p.is_dir()] if vdir.is_dir() else []
+    if not dirs:
+        return ["versions/ 下无版本目录"]
+    keyed: list[tuple[tuple[int, ...], Path]] = []
+    for path in dirs:
+        problem = manifest.semver_problem(path.name)
+        if problem:
+            hits.append(f"目录名 {problem}")
+            continue
+        keyed.append((tuple(int(x) for x in manifest.SEMVER_RE.match(path.name).groups()), path))
+    keyed.sort(key=lambda kv: kv[0])
+    for idx, (_num, path) in enumerate(keyed):
+        manifests = sorted(path.glob("MANIFEST*.json"))
+        if not manifests:
+            hits.append(f"{path.name} 目录下无清单")
+            continue
+        for man in manifests:
+            try:
+                meta = json.loads(man.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                hits.append(f"{path.name}/{man.name} 读不成 JSON")
+                continue
+            if meta.get("version") != path.name:
+                hits.append(f"{path.name}/{man.name} 的 version={meta.get('version')!r} 与目录名错位")
+        base = path / "MANIFEST.json"
+        if base.is_file():
+            try:
+                bm = json.loads(base.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                bm = {}
+            want = keyed[idx - 1][1].name if idx else None
+            if bm.get("parent") != want:
+                hits.append(f"{path.name} 的父指针为 {bm.get('parent')!r}，"
+                            f"按数值排序应为 {want!r}（版本链断裂）")
     return hits
 
 
@@ -1899,6 +1964,40 @@ def main() -> int:
     check(not _meta_bad, "清单元数据契约 V0.0.53",
           "；".join(_meta_bad[:4]) if _meta_bad
           else f"{len(_manifests)} 份清单：版本号纯 SemVer / 时间写法已登记 / build 字段白名单")
+
+    # 7ap. 版本—清单双层契约（§P0-6 M10）：版本号只答兼容性，构建事实全在根 manifest.json。
+    #      判定本体走 `manifest.validate()` —— 与 CLI `manifest.py check` **同源**。
+    #      两处各写一份判定是本仓反复踩过的病（§P2 第 19 项：判定逻辑必须单一来源）。
+    _mf_bad: list[str] = []
+    _mf_doc = None
+    if not (root / manifest.FILENAME).is_file():
+        _mf_bad.append(f"缺 {manifest.FILENAME}（第二层未建立；"
+                       f"用 `python tools/manifest.py stamp` 建档）")
+    else:
+        try:
+            _mf_doc = manifest.load(root)
+        except (OSError, ValueError) as exc:
+            _mf_bad.append(f"{manifest.FILENAME} 读不成 JSON：{exc}")
+    if _mf_doc is not None:
+        _mf_latest = latest_revision(root, version_text) if version_text else None
+        _mf_known = {p.name for p in (root / "versions").iterdir() if p.is_dir()} \
+            if (root / "versions").is_dir() else set()
+        _mf_day = manifest.store_day(root, version_text, _mf_latest) if _mf_latest else ""
+        _mf_bad += manifest.validate(_mf_doc, version_text, _mf_latest, _mf_known, _mf_day)
+    check(not _mf_bad, "版本—清单双层契约 §P0-6 M10",
+          "；".join(_mf_bad[:4]) if _mf_bad
+          else f"version={version_text} 与清单一致 · 当前修订有构建记录 · 模型/工具链已登记")
+
+    # 7aq. 版本号形态与单调性（SemVer 2.0.0 §2）：`versions/` 的**目录名**是版本号的
+    #      另一半身份证 —— 7ao 只查清单内部字段，查不到「目录被改名 / 清单被错位复制」。
+    #      父链判据：数值排序后第 i 个版本的 r1 清单 `parent` 必须是第 i-1 个版本。
+    #      这条把「版本号序列」本身变成可验证对象：手工塞一个目录进来，链条立刻断。
+    _vdirs = [p for p in (root / "versions").iterdir() if p.is_dir()] \
+        if (root / "versions").is_dir() else []
+    _ver_bad = version_dir_violations(root)
+    check(not _ver_bad, "版本号形态与单调性",
+          "；".join(_ver_bad[:4]) if _ver_bad
+          else f"{len(_vdirs)} 个版本目录：三段式无前导零 / 目录名与清单一致 / 父链连续")
 
     # 7n. note 契约与 .md 边界（V0.0.17：节点说明 + 三粒度复制）
     #     裁定：note 与 .md content 一律**纯文本** —— 工具不解析、不渲染、不校验 Markdown。

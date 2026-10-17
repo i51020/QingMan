@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import sys
@@ -578,6 +579,89 @@ class ArgParsingTests(unittest.TestCase):
         # 只传一个根目录（不存在）→ 应走「目录不存在」，绝非「多余的参数」
         proc = self._run(str(_TOOLS / "nonexistent_root_xyz"))
         self.assertNotIn("多余的参数", proc.stdout)
+
+
+class VersionDirViolationsTests(unittest.TestCase):
+    """守卫 7aq 的判定本体 `version_dir_violations()`（2026-10-17 两层结构批次）。
+
+    这组用例**同时充当常态反向验证**：每条都喂一个已知缺陷，断言**恰好**被点名。
+    内联块无法单测是上一版的真实缺陷 —— 抽出函数就是为了让「能不能抓住」可回归。
+    """
+
+    def _root(self) -> Path:
+        root = Path(tempfile.mkdtemp(prefix="qm_verdir_"))
+        self.addCleanup(rmtree, root)
+        (root / "versions").mkdir()
+        return root
+
+    def _version(self, root: Path, name: str, parent, version_field=None,
+                 revision: int = 1, write_manifest: bool = True) -> Path:
+        vdir = root / "versions" / name
+        vdir.mkdir(parents=True, exist_ok=True)
+        if write_manifest:
+            fname = "MANIFEST.json" if revision == 1 else f"MANIFEST-r{revision}.json"
+            meta = {"version": version_field or name, "revision": revision,
+                    "createdAt": "2026-10-17_10-00-00", "parent": parent, "files": {}}
+            (vdir / fname).write_text(json.dumps(meta), encoding="utf-8", newline="\n")
+        return vdir
+
+    def test_empty_versions_dir(self):
+        root = self._root()
+        self.assertEqual(verify.version_dir_violations(root), ["versions/ 下无版本目录"])
+
+    def test_sound_chain_is_clean(self):
+        root = self._root()
+        self._version(root, "V0.0.1", None)
+        self._version(root, "V0.0.2", "V0.0.1")
+        self.assertEqual(verify.version_dir_violations(root), [])
+
+    def test_numeric_order_not_lexicographic(self):
+        # 字典序会把 V0.0.10 排到 V0.0.9 之前 —— 父链必须按数值判
+        root = self._root()
+        self._version(root, "V0.0.9", None)
+        self._version(root, "V0.0.10", "V0.0.9")
+        self.assertEqual(verify.version_dir_violations(root), [])
+
+    def test_leading_zero_dir_name(self):
+        root = self._root()
+        self._version(root, "V0.01.0", None)
+        hits = verify.version_dir_violations(root)
+        self.assertTrue(any("前导零" in h for h in hits), hits)
+
+    def test_date_in_dir_name(self):
+        root = self._root()
+        (root / "versions" / "V0.0.53-20261017").mkdir()
+        hits = verify.version_dir_violations(root)
+        self.assertTrue(any("三段式" in h for h in hits), hits)
+
+    def test_version_field_mismatch(self):
+        root = self._root()
+        self._version(root, "V0.0.1", None)
+        self._version(root, "V0.0.2", "V0.0.1", version_field="V0.0.3")
+        hits = verify.version_dir_violations(root)
+        self.assertTrue(any("与目录名错位" in h for h in hits), hits)
+
+    def test_dir_without_manifest(self):
+        root = self._root()
+        self._version(root, "V0.0.1", None)
+        self._version(root, "V0.0.2", "V0.0.1", write_manifest=False)
+        hits = verify.version_dir_violations(root)
+        self.assertTrue(any("无清单" in h for h in hits), hits)
+
+    def test_broken_parent_chain(self):
+        root = self._root()
+        self._version(root, "V0.0.1", None)
+        self._version(root, "V0.0.2", "V0.0.0")   # 指向不存在的父
+        hits = verify.version_dir_violations(root)
+        self.assertTrue(any("版本链断裂" in h for h in hits), hits)
+
+    def test_revision_manifest_version_also_checked(self):
+        # 同版本多修订：r2 清单的 version 也要与目录名一致
+        root = self._root()
+        self._version(root, "V0.0.1", None)
+        self._version(root, "V0.0.1", None, version_field="V0.0.2", revision=2)
+        hits = verify.version_dir_violations(root)
+        self.assertTrue(any("MANIFEST-r2.json" in h for h in hits), hits)
 
 
 if __name__ == "__main__":
