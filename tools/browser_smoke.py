@@ -11,7 +11,8 @@
 三项门禁（verify / unittest / smoke）全绿** —— 它们只在页面真正跑起来时才现形。
 本脚本把它们变成常态守卫，而不是靠一次性的临时探针。
 
-校验项：
+校验项（下列 11 条是**初建清单**；2026-10-18 实况为 **37 项** —— 逐项断言以
+`run()` 内的 `check(...)` 调用为准，本节不再逐条复述，避免与代码漂移）：
   1. 探针完成（浏览器确实跑到最后一步并写出结果行）
   2. 页面载入无未捕获异常 / 无漏翻 / 无请求失败（扫浏览器控制台日志）
   3. 主界面·默认示例随语言（英文偏好下节点名必须为英文，无中文）
@@ -126,6 +127,18 @@ function names(doc) {
   return arr;
 }
 
+/* 门禁还须等「绑定路径回填」——同一类假红的第二处（2026-10-18 实测 10 跑 1 红：
+   「主界面·模板目录绑定 UI」读到 `路径 ''`，而同批「内置模板仅 P0」为 PASS）。
+   根因：模板行与绑定路径是**两条独立的异步链**（`/api/templates` 与
+   `/api/templates-dir`），列表先到就开门，路径晚一拍即读到空框。
+   沙盒恒设 `QM_TEMPLATES_DIR`，故「路径非空」是稳定终态，等它与等行同样安全。
+   控件缺失时返回 true：那是 `tplDirRow` 断言该报的根因，不在门禁重复判一次。 */
+function dirPathReady(doc) {
+  var n = doc ? doc.getElementById('tplDirPath') : null;
+  if (!n) { return true; }
+  return Boolean(n.value || n.textContent);
+}
+
 function frame(url, probe, done) {
   var f = document.createElement('iframe');
   f.style.cssText = 'position:fixed;left:-9999px;top:0;width:1100px;height:820px;border:0';
@@ -156,7 +169,8 @@ try { localStorage.setItem('qm.skin', 'not-a-real-skin'); } catch (e) {}
 
 frame('./index.html', function (doc) {
   return doc.querySelectorAll('.tree-row').length > 0
-    && doc.querySelectorAll(TPL_ROW_SEL).length > 0;
+    && doc.querySelectorAll(TPL_ROW_SEL).length > 0
+    && dirPathReady(doc);
 }, function (doc, gateReady) {
   try {
     m.htmlLang = doc ? doc.documentElement.lang : '';
@@ -1174,7 +1188,8 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
         # 免得下次把它当成「模板列表真的空了」查错方向（§三.80）。
         gate_ready = as_int(metrics.get("gateReady"), -1)
         gate_hint = ("" if gate_ready != 0
-                     else "（门禁超时：6s 内未出现 li.tpl-row —— 探针未就绪，非功能缺陷）")
+                     else "（门禁超时：6s 内未就绪 —— 模板行未出现，或绑定路径仍为空；"
+                          "属探针未就绪，非功能缺陷）")
         # V0.0.37（6D）：交付形态改为「内置仅 P0 + 独立模板包」，故断言由「≥1」收紧为
         # **恰好 1** —— 否则业务模板被放回 templates/ 也照样通过，「工具不带业务模板」失守。
         check(tpl == 1, "主界面·内置模板仅 P0（V0.0.37）",
