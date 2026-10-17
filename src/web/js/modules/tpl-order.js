@@ -113,6 +113,76 @@ function freshRank(file, count, fresh) {
 }
 
 /**
+ * 一次导入操作该进哪个新段（V0.3.4）。
+ *
+ * 用户口径：**「单个导入的模板」与「新载入的批量模板」是两个不同优先段**。
+ * 判据只能是**这一次选了几个文件**，不能看「最后成功几个」——
+ * 选 5 个、4 个同名跳过，那仍然是「一次批量导入」这一动作，不该降级成②段。
+ *
+ * @param {number} count 本次选中的文件数
+ * @returns {'batch'|'single'}
+ */
+export function importBucket(count) {
+  return Number(count) > 1 ? 'batch' : 'single';
+}
+
+/**
+ * 外部新增（轮询发现的名字）→ 新的会话状态（V0.3.4 修正）。
+ *
+ * **首次进入 / 刚点刷新必须「只登记、不建段」**：此时 `known` 为空，列表里**全部**
+ * 模板都会被判成「没见过」—— 但那批是盘上**已有**的存量，不是「本次批量导入」。
+ * 旧实现把它们整批写进 `batch` 段，只是靠 `mode=SORT_NAME` 暂时不参与比较；
+ * 一旦 `mode` 切到 `SORT_EVENT`（载入 / 新建 / 导入都会切），这批存量立刻冒充
+ * ③ 段（rank 2），把**真正用过的**模板（rank 3）全部压到后面 —— 实测在 6 套模板
+ * 上表现为「刚载入的 C 排到最后」：`A,B,D,E,F,C`（正确应为 `C,A,B,D,E,F`）。
+ *
+ * @param {object} sess `{mode, created, single, batch, known}`
+ * @param {string[]} files 本轮列表里「上轮没见过」的文件名
+ * @returns {{firstSight: boolean, session: object}} 新对象，不改入参
+ */
+export function planExternal(sess, files) {
+  const s = sess || {};
+  const known = Array.isArray(s.known) ? s.known.slice() : [];
+  const firstSight = known.length === 0;
+  // 只有**确实不在 known 里**的才算新增 —— 调用方通常已做差集，但纯函数不该指望它：
+  // 传入全量清单时，多算一项就会让一个老模板凭空变成「本次批量导入」。
+  const added = [];
+  for (const f of (files || []).filter(Boolean)) {
+    if (known.indexOf(f) < 0) {
+      known.push(f);
+      added.push(f);
+    }
+  }
+
+  // 首次进入：段一律清空 —— 存量既不进 ③，也不该继承上一会话（刷新后）的残留段
+  if (firstSight) {
+    return {
+      firstSight: true,
+      session: {
+        mode: SORT_NAME,
+        created: Array.isArray(s.created) ? s.created.slice() : [],
+        single: Array.isArray(s.single) ? s.single.slice() : [],
+        batch: [],
+        known,
+      },
+    };
+  }
+
+  const batch = Array.isArray(s.batch) ? s.batch.slice() : [];
+  for (const f of added) if (batch.indexOf(f) < 0) batch.push(f);
+  return {
+    firstSight: false,
+    session: {
+      mode: SORT_EVENT,
+      created: Array.isArray(s.created) ? s.created.slice() : [],
+      single: Array.isArray(s.single) ? s.single.slice() : [],
+      batch,
+      known,
+    },
+  };
+}
+
+/**
  * 两条模板的比较器（供 `Array.prototype.sort` 直接使用）。
  * @param {object} a 模板项 `{file, name, ...}`
  * @param {object} b 模板项

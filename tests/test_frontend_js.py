@@ -402,6 +402,45 @@ const tm = await import(SRC + '/modules/tree-model.js');
 
   /* ⑫ 非数组入参退化为空数组，不抛 */
   ok('TPL/empty', Array.isArray(order.sortTemplates(null)) && order.sortTemplates(null).length === 0);
+
+  /* ⑬ V0.3.4 首次进入 / 刚点刷新：**只登记 known、不建 ③ 段**。
+        旧实现把整库存量写进 batch，靠 mode 暂时掩盖；一旦 mode 切 EVENT，
+        存量就冒充「本次批量导入」，把用过的模板压到后面（回归位见 ⑯）。 */
+  const fs1 = order.planExternal(
+    { mode: NAME, created: [], single: [], batch: [], known: [] },
+    ['a.json', 'b.json']);
+  ok('TPL/ext-first-sight',
+     fs1.firstSight === true && fs1.session.mode === NAME
+       && fs1.session.batch.length === 0
+       && fs1.session.known.join(',') === 'a.json,b.json',
+     JSON.stringify(fs1.session));
+
+  /* ⑭ 之后才出现的外部新增：进 ③ 段，并把 mode 切到 EVENT */
+  const fs2 = order.planExternal(
+    { mode: NAME, created: [], single: [], batch: [], known: ['a.json'] },
+    ['a.json', 'c.json']);
+  ok('TPL/ext-later',
+     fs2.firstSight === false && fs2.session.mode === EVENT
+       && fs2.session.batch.join(',') === 'c.json',
+     JSON.stringify(fs2.session));
+
+  /* ⑮ 导入分段：一次 1 个 → ②（single）；一次多个 → ③（batch）。
+        判据是**选了几个**，不是「成功几个」—— 选 5 个、4 个同名跳过仍是批量导入。 */
+  ok('IMP/bucket',
+     order.importBucket(1) === 'single' && order.importBucket(3) === 'batch'
+       && order.importBucket(0) === 'single',
+     `${order.importBucket(1)}/${order.importBucket(3)}`);
+
+  /* ⑯ 用户实测现象的回归位：首次进入（6 套）→ 载入 C → **C 必须排第一**。
+        旧行为实测为 a,b,d,e,f,c（用过的垫底）。 */
+  const boot = order.planExternal(
+    { mode: NAME, created: [], single: [], batch: [], known: [] },
+    ['A.json', 'B.json', 'C.json', 'D.json', 'E.json', 'F.json']).session;
+  const six = ['A', 'B', 'C', 'D', 'E', 'F'].map((ch) => mk(ch + '.json', ch));
+  const afterUse = { mode: EVENT, usage: { 'C.json': { last: 1, count: 1 } }, fresh: boot };
+  ok('TPL/used-first-after-boot',
+     seq(order.sortTemplates(six, afterUse)) === 'C.json,A.json,B.json,D.json,E.json,F.json',
+     seq(order.sortTemplates(six, afterUse)));
 }
 
 process.stdout.write('RESULT ' + JSON.stringify(results) + '\n');
@@ -507,7 +546,8 @@ class FrontendJsTests(unittest.TestCase):
         for n in ("TPL/name-mode", "TPL/new-first", "TPL/seg-order", "TPL/batch-by-name",
                   "TPL/used-leaves", "TPL/rest-recent", "TPL/rest-count",
                   "TPL/tie-name-file", "TPL/dirty-usage", "TPL/no-fresh",
-                  "TPL/no-mutate", "TPL/empty"):
+                  "TPL/no-mutate", "TPL/empty", "TPL/ext-first-sight", "TPL/ext-later",
+                  "IMP/bucket", "TPL/used-first-after-boot"):
             self._ok(n)
 
     def test_v044_dynamic_locales(self):

@@ -11,7 +11,7 @@ import { localizeError } from '../core/errors.js';
 import { readPref, writePref, t, TPL_USAGE_KEY } from '../i18n/index.js';
 import { toast } from '../ui/toast.js';
 import { fromNestedTree, adoptTemplateNote, treePayload } from './tree-model.js';
-import { sortTemplates, SORT_NAME, SORT_EVENT } from './tpl-order.js';
+import { sortTemplates, SORT_NAME, SORT_EVENT, importBucket, planExternal } from './tpl-order.js';
 
 /** 与 main.js 同款取元素助手（各自持有 1 行，不为一个 1 行函数再拆模块）。 */
 const el = (id) => document.getElementById(id);
@@ -165,21 +165,36 @@ function markFresh(bucket, files) {
 /** ① 本次新建（新建 / 另存为 / 复制，都算「应用内产生的新模板」）。 */
 function markCreated(file) { markFresh('created', [file]); }
 
-/** ② 本次单个导入：连续导入都并入同一批（段内按名称，「连续等同同批」自动成立）。 */
-function markImported(files) { markFresh('single', files); }
+/**
+ * ② 单个导入 / ③ 批量导入（V0.3.4 起按「本次选了几个文件」分段）。
+ *
+ * 判据来自 `importBucket`（纯函数、可单测）：**一次选 1 个 → ②**，**一次选多个 → ③**。
+ * 连续多次单选都落进 ② 段，段内一律按名称 —— 用户要的「连续操作等同同批」自动成立，
+ * 不需要额外记「上一步是不是导入」。
+ */
+function markImported(files, count) {
+  const n = count === undefined ? (files || []).length : count;
+  markFresh(importBucket(n), files);
+}
 
-/** ③ 本次批量导入 / 外部新增（轮询发现的名字）。 */
+/**
+ * ③ 本次批量导入 / 外部新增（轮询发现的名字）。
+ *
+ * 全部状态转移交给 `planExternal`（`./tpl-order.js` 的纯函数）——**首次进入只登记
+ * `known`、不建段**。旧实现（V0.3.3）把整库存量写进 ③ 段，只靠 `mode=SORT_NAME`
+ * 暂时掩盖；`mode` 一旦切到 `SORT_EVENT`（载入 / 新建 / 导入），存量立刻冒充
+ * 「本次批量导入」，把真正用过的模板全部压到后面。回归位见 `test_v033` 的
+ * `TPL/ext-first-sight`。
+ */
 function markExternal(files) {
   const s = loadSortSession();
-  // 「整批都是新出现」= 首次进入 / 刚点过刷新，此时 `known` 还是空的。这不是一次
-  // 用户操作，**不能打破名称基线** —— 否则首次打开就会按 ④⑤ 把用过的模板捞到前面，
-  // 与「首次载入按名称排序」直接冲突（`markFresh` 内部会把 mode 切成 EVENT）。
-  const firstSight = s.known.length === 0;
-  markFresh('batch', files);
-  if (firstSight) {
-    s.mode = SORT_NAME;
-    saveSortSession();
-  }
+  const plan = planExternal(s, files);
+  s.mode = plan.session.mode;
+  s.created = plan.session.created;
+  s.single = plan.session.single;
+  s.batch = plan.session.batch;
+  s.known = plan.session.known;
+  saveSortSession();
 }
 
 /**
@@ -510,20 +525,85 @@ function downloadText(filename, text) {
 function importTemplateFlow() {
   const input = document.createElement('input');
   input.type = 'file';
+  /* V0.3.4：一次可选多套。此前仅 `files[0]`（连 `multiple` 都没有），17 套模板
+     要开 17 次选择框 —— 这是「批量」诉求里最便宜、收益最高的一处。 */
+  input.multiple = true;
   input.accept = '.json,.md,application/json,text/markdown';
   input.addEventListener('change', async () => {
-    const file = input.files && input.files[0];
-    if (!file) return;
+    const files = Array.prototype.slice.call(input.files || []);
+    if (!files.length) return;
+    if (files.length === 1) {
+      const file = files[0];
+      let text;
+      try {
+        text = await file.text();
+      } catch (err) {
+        toast(t('template.importFailed', { message: localizeError(err) }), 'warn', 6000);
+        return;
+      }
+      await submitImport(file.name, text);
+      return;
+    }
+    await importFiles(files);
+  });
+  input.click();
+}
+
+/**
+ * 批量导入（V0.3.4）：串行落盘，**同名默认不覆盖**，全部跑完后一次性询问。
+ *
+ * 为什么不逐个弹确认：选 10 套里有 6 套同名，逐个 `confirm` 就是 6 次打断；而且
+ * 「要不要覆盖」是一个**批量决定**，一次问清才符合直觉。跳过的那些不算失败 ——
+ * 汇总里单独报，用户才知道「没导入」是因为同名，不是坏了。
+ *
+ * 串行而非并发：后端每个请求都要落盘 + 可能进回收站，并发只会让错误顺序不可读，
+ * 也拿不到「第几个失败」的确定结果；模板只有几 KB，串行的等待可以忽略。
+ */
+async function importFiles(files) {
+  const ok = [];
+  const conflict = [];
+  const failed = [];
+  for (const file of files) {
     let text;
     try {
       text = await file.text();
     } catch (err) {
-      toast(t('template.importFailed', { message: localizeError(err) }), 'warn', 6000);
-      return;
+      failed.push(file.name);
+      continue;
     }
-    await submitImport(file.name, text);
-  });
-  input.click();
+    try {
+      const res = await api.importTemplate({ filename: file.name, content: text });
+      ok.push((res && res.file) || file.name);
+    } catch (err) {
+      if (err && err.code === 'templateExists') conflict.push({ file, text });
+      else failed.push(file.name);
+    }
+  }
+
+  let skipped = 0;
+  if (conflict.length) {
+    if (window.confirm(t('template.importBatchOverwriteConfirm', { n: conflict.length }))) {
+      for (const row of conflict) {
+        try {
+          const res = await api.importTemplate({
+            filename: row.file.name, content: row.text, overwrite: true,
+          });
+          ok.push((res && res.file) || row.file.name);
+        } catch (err) {
+          failed.push(row.file.name);
+        }
+      }
+    } else {
+      skipped = conflict.length;
+    }
+  }
+
+  // 段归属按**本次选中数**判（选 5 个、4 个跳过，仍是「一次批量导入」）
+  if (ok.length) markImported(ok, files.length);
+  toast(t('template.importBatchResult', {
+    ok: ok.length, skip: skipped, fail: failed.length,
+  }), failed.length ? 'warn' : 'ok', 6000);
+  if (ok.length) await loadTemplateList();
 }
 
 /** 提交导入；同名时询问是否覆盖（覆盖后旧模板由后端移入 `.trash/`，可找回）。 */

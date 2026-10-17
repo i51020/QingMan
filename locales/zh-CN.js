@@ -208,10 +208,12 @@ export const dict = {
   'template.layerBuiltin': '内置',
   'template.layerUser': '用户',
   'template.import': '导入',
-  'template.importTip': '从 .json / .md 文件导入一套模板',
+  'template.importTip': '从 .json / .md 文件导入模板（可一次选多个）',
   'template.imported': '已导入模板「{name}」',
   'template.importFailed': '导入失败：{message}',
   'template.importOverwriteConfirm': '同名模板「{name}」已存在。覆盖后原模板将移入回收站（可找回）。确认覆盖？',
+  'template.importBatchOverwriteConfirm': '有 {n} 套模板与现有同名。覆盖后原模板将移入回收站（可找回）。确认全部覆盖？',
+  'template.importBatchResult': '批量导入完成：成功 {ok} 套 · 跳过同名 {skip} 套 · 失败 {fail} 套',
 
   /* ---------- 后端错误码 → 本地化文案 ----------
    * 键名固定为 `err.<code>`，占位符必须与 src/shared/error-codes.json 逐条一致，
@@ -478,7 +480,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.3.3',
+  'help.versionFallback': 'V0.3.4',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',
