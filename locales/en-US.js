@@ -520,6 +520,8 @@ export const dict = {
   'help.online.3': 'Writing folders and binding a template folder both need Edge or Chrome plus an on-the-spot permission click (browsers never expose absolute paths, so typing one is impossible). A browser restart may ask again.',
   'help.online.4': 'You can bind a real local folder as the template library (picked once and remembered). Edit those files in Explorer and the list refreshes by itself.',
   'help.online.5': 'Install from the browser menu ("Install app") to get a desktop or Start menu entry that also works offline. On a shared computer use a private window, or "Service settings -> Clear local data".',
+  'help.online.6': 'Online, clicking Choose for the target folder remembers it: Generate writes straight into it without asking again. Browsers never reveal absolute paths, so only the folder name is shown; click Choose again to switch.',
+  'help.online.7': 'For a desktop shortcut: open Service settings -> Online data and click "Install to desktop". The browser installs it as an app, giving you an icon on the desktop and Start menu that also works offline. A web page cannot write a .lnk itself.',
   'help.quickStart.title': 'Quick Start',
   'help.quickStart.1': 'Double-click start.bat in the project root to launch the local server',
   'help.quickStart.2': 'Browser opens automatically; a status dot in the ready colour at the top right means the service is up (click it for service status and settings)',
@@ -616,6 +618,7 @@ export const helpSections = [
   ] },
   { id: 'online', title: 'help.online.title', kind: 'ul', items: [
     'help.online.1', 'help.online.2', 'help.online.3', 'help.online.4', 'help.online.5',
+    'help.online.6', 'help.online.7',
   ] },
   { id: 'kbd', title: 'help.kbd.title', kind: 'kbd', note: 'help.kbd.pending', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.delete', 'help.kbd.rename'] },
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [

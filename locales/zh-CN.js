@@ -526,6 +526,8 @@ export const dict = {
   'help.online.3': '在线版写文件夹、绑定模板目录都需要 Edge 或 Chrome，并且由你当场点选授权（浏览器不给网页绝对路径，所以不能手填）。浏览器重启后可能要再确认一次。',
   'help.online.4': '模板目录可以直接绑定本机某个真实文件夹（点选一次即记住）；之后你在资源管理器里改了模板文件，列表会自动刷新。',
   'help.online.5': '在线版可用浏览器菜单的「安装应用」装到桌面或开始菜单，装好后能离线打开。共用电脑时请用隐私窗口，或走「服务设置 → 清空本机数据」。',
+  'help.online.6': '在线版「目标位置」点「选择…」选一次就记住：生成时直接写进那个文件夹，不再重复弹框。浏览器不披露绝对路径，所以框里只显示文件夹名。要换位置再点一次「选择…」。',
+  'help.online.7': '要桌面快捷方式：在「服务设置 → 在线版数据」点「安装到桌面」，浏览器会把它装成应用 —— 桌面与开始菜单各得一个图标，还能离线打开。网页本身写不了 .lnk。',
   'help.quickStart.title': '快速开始',
   'help.quickStart.1': '双击项目根目录的 start.bat 启动本地服务',
   'help.quickStart.2': '浏览器自动打开；顶栏右侧那颗状态点呈就绪色即表示服务正常（点它可查看服务状态与设置）',
@@ -629,6 +631,7 @@ export const helpSections = [
   ] },
   { id: 'online', title: 'help.online.title', kind: 'ul', items: [
     'help.online.1', 'help.online.2', 'help.online.3', 'help.online.4', 'help.online.5',
+    'help.online.6', 'help.online.7',
   ] },
   { id: 'kbd', title: 'help.kbd.title', kind: 'kbd', note: 'help.kbd.pending', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.delete', 'help.kbd.rename'] },
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [

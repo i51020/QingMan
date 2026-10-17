@@ -12,7 +12,8 @@
   * `commitDir(name)` 在前端发 `PUT` 确认、且**名字对得上**时才写 IndexedDB。
 
 本模块用 Node + 假 IndexedDB 锁住这条契约：若有人把 `pickDir` 改回"选完即落库"，
-本测试立刻红。
+本测试立刻红。另覆盖**目标位置的独立存储**：`targetDir` 与 `templatesDir` 分键，
+两个方向都不得互相影响（选目标不动模板库、改绑模板库不动目标）。
 """
 
 from __future__ import annotations
@@ -54,6 +55,12 @@ function fakeIdb() {
         },
         get: (key) => {
           const req = { result: data[key] };
+          setTimeout(() => { if (tx.oncomplete) tx.oncomplete(); }, 0);
+          return req;
+        },
+        delete: (key) => {
+          delete data[key];
+          const req = {};
           setTimeout(() => { if (tx.oncomplete) tx.oncomplete(); }, 0);
           return req;
         },
@@ -123,6 +130,31 @@ const STORE = win.QMDemoStore;
   const rebound = await STORE.getDir();
   ok('改绑后为新的目录', !!rebound && rebound.name === '目标文件夹', rebound && rebound.name);
 
+  /* ⑥ 目标位置与模板库**分键**：选目标不动模板库 */
+  /* 目标句柄要带 queryPermission：真实 FileSystemDirectoryHandle 一定有，
+     预热时靠它判断"写权限是否还在手"（权限为 prompt 就该重弹，别硬写）。 */
+  nextHandle = { name: '生成目标', queryPermission: () => Promise.resolve('granted') };
+  const tg = await STORE.pickTarget();
+  ok('pickTarget 返回目标目录', tg && tg.name === '生成目标', tg && tg.name);
+  ok('peekTarget 同步可见', !!STORE.peekTarget() && STORE.peekTarget().name === '生成目标');
+  const tplAfter = await STORE.getDir();
+  ok('选目标位置不动模板库', !!tplAfter && tplAfter.name === '目标文件夹', tplAfter && tplAfter.name);
+
+  /* ⑦ 反向：改绑模板库不动目标 */
+  nextHandle = { name: '新模板库' };
+  await STORE.pickDir();
+  await STORE.commitDir('新模板库');
+  ok('绑模板目录不动目标', !!STORE.peekTarget() && STORE.peekTarget().name === '生成目标');
+
+  /* ⑧ 预热：重开页面后仍能认出目标（权限 granted 的前提） */
+  ok('preload 后仍可见目标', (await STORE.preloadTarget()) && !!STORE.peekTarget());
+
+  /* ⑨ 清空本机数据：忘记目标，但保留模板库句柄 */
+  STORE.clearAll();
+  ok('清空忘记目标位置', STORE.peekTarget() == null);
+  const tplKeep = await STORE.getDir();
+  ok('清空保留模板库', !!tplKeep && tplKeep.name === '新模板库', tplKeep && tplKeep.name);
+
   process.stdout.write('RESULT ' + JSON.stringify(results) + '\n');
 })().catch((err) => {
   ok('异常', false, err && (err.message || err.name));
@@ -188,6 +220,17 @@ class OnlineStoreTests(unittest.TestCase):
         """用户报告的那个 bug：选目标位置后模板目录不得变化。"""
         self._ok("目标位置也能拿到目录名")
         self._ok("选目标位置不改模板库")
+
+    def test_target_key_is_independent(self):
+        self._ok("pickTarget 返回目标目录")
+        self._ok("peekTarget 同步可见")
+        self._ok("选目标位置不动模板库")
+        self._ok("绑模板目录不动目标")
+
+    def test_target_survives_reload_but_not_clear(self):
+        self._ok("preload 后仍可见目标")
+        self._ok("清空忘记目标位置")
+        self._ok("清空保留模板库")
 
     def test_rebind_still_works(self):
         self._ok("另一个目录也可按名绑定")

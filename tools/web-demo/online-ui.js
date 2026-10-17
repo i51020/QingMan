@@ -27,6 +27,10 @@
       exportFail: '导出失败：{msg}',
       iconDone: '已导出启动图标（qingman-launch.ico）',
       iconFail: '图标导出失败：{msg}',
+      install: '安装到桌面',
+      installOk: '已在浏览器里弹出安装确认。装好后桌面与开始菜单会出现「青蔓」图标，可离线打开。',
+      installUsed: '已经装过了（当前就在应用窗口里），桌面图标无需重复创建。',
+      installManual: '这个浏览器没给出安装入口。可用地址栏右侧的安装图标，或菜单 → 应用 → 安装此站点。',
     },
     en: {
       title: 'Online data',
@@ -43,6 +47,10 @@
       exportFail: 'Export failed: {msg}',
       iconDone: 'App icon exported (qingman-launch.ico)',
       iconFail: 'Icon export failed: {msg}',
+      install: 'Install to desktop',
+      installOk: 'The browser asked you to confirm. Once installed you get a QingMan icon on the desktop and Start menu, and it works offline.',
+      installUsed: 'Already installed (you are in the app window), no extra desktop icon needed.',
+      installManual: 'This browser exposed no install prompt. Use the install icon in the address bar, or menu > Apps > Install this site.',
     },
   };
 
@@ -120,6 +128,7 @@
       '  <button type="button" class="btn btn-ghost btn-mini" data-act="import"><span class="qm-zh">' + TEXT.zh.importBackup + '</span><span class="qm-en">' + TEXT.en.importBackup + '</span></button>',
       '  <button type="button" class="btn btn-ghost btn-mini" data-act="clear"><span class="qm-zh">' + TEXT.zh.clear + '</span><span class="qm-en">' + TEXT.en.clear + '</span></button>',
       '  <button type="button" class="btn btn-ghost btn-mini" data-act="icon"><span class="qm-zh">' + TEXT.zh.exportIcon + '</span><span class="qm-en">' + TEXT.en.exportIcon + '</span></button>',
+      '  <button type="button" class="btn btn-ghost btn-mini" data-act="install"><span class="qm-zh">' + TEXT.zh.install + '</span><span class="qm-en">' + TEXT.en.install + '</span></button>',
       '</div>',
       '<p class="qm-data-note"></p>',
     ].join('\n');
@@ -136,6 +145,7 @@
       if (act === 'import') { return doImport(wrap); }
       if (act === 'clear') { return doClear(wrap); }
       if (act === 'icon') { return doIcon(wrap); }
+      if (act === 'install') { return doInstall(wrap); }
     });
     return wrap;
   }
@@ -189,6 +199,39 @@
       downloadBytes('qingman-launch.ico', ico, 'image/x-icon');
       note(host, tr('iconDone'));
     }).catch(function (err) { note(host, tr('iconFail', { msg: err.message || err })); });
+  }
+
+  /* ---------- 安装到桌面（在线版唯一能得到的"真快捷方式"） ----------
+   *
+   * 网页写不了 .lnk（不知道路径、也没有本机程序可指向），但浏览器**自己**可以：
+   * 站点有 manifest + service worker 时，`beforeinstallprompt` 会被触发，调用
+   * `prompt()` 就由浏览器在桌面 / 开始菜单建一个真正的快捷方式 —— 指向已安装的应用，
+   * 还能离线打开。这是"生成快捷方式"在浏览器里的等价物。
+   *
+   * ⚠ 事件可能在挂载前就触发，所以在**模块初始化**时就开始捕获，而不是等面板建好。 */
+
+  var deferredPrompt = null;
+
+  root.addEventListener('beforeinstallprompt', function (event) {
+    event.preventDefault();   /* 不接管的话 Chrome 会自己弹迷你条，位置不可控 */
+    deferredPrompt = event;
+  });
+
+  function standalone() {
+    try {
+      return !!(root.matchMedia && root.matchMedia('(display-mode: standalone)').matches);
+    } catch (err) { return false; }
+  }
+
+  function doInstall(host) {
+    if (deferredPrompt) {
+      var event = deferredPrompt;
+      deferredPrompt = null;   /* 同一个 event 只能 prompt 一次 */
+      event.prompt();
+      note(host, tr('installOk'));
+      return;
+    }
+    note(host, standalone() ? tr('installUsed') : tr('installManual'));
   }
 
   /* ---------- 挂载 ---------- */

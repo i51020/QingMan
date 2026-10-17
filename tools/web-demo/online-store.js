@@ -22,6 +22,7 @@
   var DB_NAME = 'qm-demo';
   var DB_STORE = 'kv';
   var DIR_KEY = 'templatesDir';
+  var TARGET_KEY = 'targetDir';   /* 生成目标目录 —— 与模板库**分键存放**，互不影响 */
   var KEEP = 5;                 // 历史版本保留份数（与本地版 EDITOR_BACKUP_KEEP 同值）
   var TPL_EXT = /\.(json|md)$/i;
 
@@ -116,6 +117,69 @@
   function dirPermission(handle) {
     if (!handle || typeof handle.queryPermission !== 'function') { return Promise.resolve('denied'); }
     return handle.queryPermission({ mode: 'read' }).catch(function () { return 'denied'; });
+  }
+
+  /* ---------- 生成目标位置（与模板库**分键**，互不影响） ----------
+   *
+   * 本机版的目标位置是一个**绝对路径字符串**：可手输、可点选，生成时服务端按它写盘。
+   * 浏览器两件都做不到（不披露路径、不能按路径写），能还原的是**语义**：
+   * 「点一次选个文件夹 → 记下来 → 生成时直接写进去」，不必每次重新弹框。
+   *
+   * ⚠ 判据必须**同步**：`showDirectoryPicker()` 要在用户激活窗口内发起，先 await 再弹
+   *   会被 NotAllowedError 拒绝。所以 peekTarget() 读的是**页面载入时预热的内存缓存**。
+   */
+
+  var targetCache = null;
+  var targetState = '';        /* '' | granted | prompt | denied */
+
+  /** 页面载入时预热：读回上次记住的目标目录，并查询它的**读写**权限。 */
+  function preloadTarget() {
+    return idbRun('readonly', function (store) { return store.get(TARGET_KEY); })
+      .then(function (handle) {
+        targetCache = handle || null;
+        if (!handle) { targetState = ''; return null; }
+        return targetPermission(handle).then(function (state) {
+          targetState = state || '';
+          return handle;
+        });
+      })
+      .catch(function () { targetCache = null; targetState = ''; return null; });
+  }
+
+  /** 同步判据：已记住、且写权限已在手 —— 有值就直接写，不弹框。 */
+  function peekTarget() {
+    return targetState === 'granted' ? targetCache : null;
+  }
+
+  /** 记住目标目录（点选或首次生成后调用）。存不下也不影响本次会话。 */
+  function rememberTarget(handle) {
+    targetCache = handle || null;
+    targetState = handle ? 'granted' : '';
+    if (!handle) { return Promise.resolve(false); }
+    return idbRun('readwrite', function (store) { return store.put(handle, TARGET_KEY); })
+      .then(function () { return true; })
+      .catch(function () { return true; });
+  }
+
+  /** 「目标位置 · 选择…」：弹一次读写授权框，并记成下次的默认目标。 */
+  function pickTarget() {
+    if (typeof root.showDirectoryPicker !== 'function') {
+      return Promise.reject({ code: 'demoFsUnsupported' });
+    }
+    var picking;
+    try {
+      picking = root.showDirectoryPicker({ mode: 'readwrite', id: 'qm-target' });
+    } catch (err) {
+      return Promise.reject({ code: 'demoFsUnsupported' });
+    }
+    return picking.then(function (handle) {
+      return rememberTarget(handle).then(function () { return handle; });
+    });
+  }
+
+  function targetPermission(handle) {
+    if (!handle || typeof handle.queryPermission !== 'function') { return Promise.resolve('denied'); }
+    return handle.queryPermission({ mode: 'readwrite' }).catch(function () { return 'denied'; });
   }
 
   /* ---------- 从目录读模板 ---------- */
@@ -328,6 +392,12 @@
     [KEYS.doc, KEYS.templates].forEach(function (key) {
       try { root.localStorage.removeItem(key); removed.push(key); } catch (err) { /* 忽略 */ }
     });
+    /* 目标位置**一并忘记**：共用电脑时，上一个人选过的文件夹不该被下一个人无声写入。
+       （模板目录句柄刻意保留 —— 那个只读，不构成写入风险。） */
+    targetCache = null;
+    targetState = '';
+    idbRun('readwrite', function (store) { return store.delete(TARGET_KEY); })
+      .catch(function () { /* 删不掉不影响清空结果 */ });
     return removed;
   }
 
@@ -339,6 +409,11 @@
     pickDir: pickDir,
     commitDir: commitDir,
     dirPermission: dirPermission,
+    preloadTarget: preloadTarget,
+    peekTarget: peekTarget,
+    rememberTarget: rememberTarget,
+    pickTarget: pickTarget,
+    targetPermission: targetPermission,
     readDirTemplates: readDirTemplates,
     readDirTemplate: readDirTemplate,
     snapshot: snapshot,

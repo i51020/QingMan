@@ -34,8 +34,9 @@
       noRestore: '在线版没有历史版本记录。',
       badJson: '请求内容不是合法 JSON。',
       tplExists: '模板库里已有同名模板。',
-      pickHint: '（点「生成」后选择保存位置）',
-      pickHintTitle: '在线版不读这个输入框：点「生成」时会由浏览器询问你要保存到哪个文件夹。',
+      pickHint: '（未选：点「选择…」，或生成时再选）',
+      pickHintTitle: '浏览器不披露绝对路径，所以这里只显示文件夹名。点「选择…」选中的文件夹会被记住，生成时直接写进去；没选就在生成时再问一次。',
+      targetTitle: '已记住这个文件夹：下次生成直接写到这里。要换位置再点「选择…」。',
       treeMissing: '目录树为空，没有可生成的内容。',
       tooMany: '节点太多（上限 500），请精简后再生成。',
       fsUnsupported: '当前浏览器不支持直接写入文件夹（请用 Edge / Chrome）。可以改用本机 start.bat。',
@@ -53,8 +54,9 @@
       noRestore: 'The online version keeps no version history.',
       badJson: 'Request body is not valid JSON.',
       tplExists: 'A template with that name already exists.',
-      pickHint: '(choose the save folder when you click Generate)',
-      pickHintTitle: 'The online version ignores this field: clicking Generate asks your browser which folder to save into.',
+      pickHint: '(none yet — click Choose, or pick at generate time)',
+      pickHintTitle: 'Browsers never reveal absolute paths, so only the folder name is shown. A folder picked with "Choose" is remembered and used directly on generate; otherwise you are asked at generate time.',
+      targetTitle: 'This folder is remembered: the next generate writes here directly. Click "Choose" to change it.',
       treeMissing: 'The tree is empty; nothing to generate.',
       tooMany: 'Too many nodes (500 max). Trim the tree and retry.',
       fsUnsupported: 'This browser cannot write to folders directly (use Edge / Chrome), or run start.bat locally.',
@@ -217,14 +219,29 @@
     if (typeof window.showDirectoryPicker !== 'function') {
       return Promise.resolve(fail('demoFsUnsupported', tr('fsUnsupported')));
     }
+
+    /* 目标位置已「选过并记住」就直接写，不再弹框 —— 这是与本机版对齐的那一半语义
+       （输入框里的值 = 生成落点）。判据必须**同步**：showDirectoryPicker 要在用户激活
+       窗口内发起，中间不能夹 await（见 writeTree 上方的注释）。 */
+    var remembered = (STORE && STORE.peekTarget) ? STORE.peekTarget() : null;
     var picker;
-    try {
-      picker = window.showDirectoryPicker({ mode: 'readwrite', id: 'qingman' });
-    } catch (err) {
-      return Promise.resolve(fail('demoFsUnsupported', tr('fsUnsupported')));
+    if (remembered) {
+      picker = Promise.resolve(remembered);
+    } else {
+      try {
+        picker = window.showDirectoryPicker({ mode: 'readwrite', id: 'qingman' });
+      } catch (err) {
+        return Promise.resolve(fail('demoFsUnsupported', tr('fsUnsupported')));
+      }
     }
 
     return picker.then(function (parent) {
+      /* 这次是「现选」的：记成默认目标，并把文件夹名回填到输入框 —— 与本机版
+         「生成后输入框仍留着那个路径」的观感一致（浏览器只给名字，给不了路径）。 */
+      if (!remembered) {
+        if (STORE && STORE.rememberTarget) { STORE.rememberTarget(parent); }
+        syncTargetInput(parent.name);
+      }
       var base = rootName
         ? parent.getDirectoryHandle(rootName, { create: true })
         : Promise.resolve(parent);
@@ -477,6 +494,23 @@
     }
     if (path === '/api/templates-dir/pick') {
       if (!STORE) return ok({ available: false, reason: 'demo' });
+      /* 同一个端点被两个按钮共用（「模板目录 · 选择…」与「目标位置 · 选择…」），
+         而这两个动作的落点完全不同：前者是只读素材库（要 PUT 确认才绑定），
+         后者是写入目标（记住后生成时直接用）。用途由注入层在点击时打标识别 ——
+         src/web 不改，也就不会因为多一个入参而影响本机版。 */
+      var wantTarget = pickingTarget;
+      pickingTarget = false;
+      if (wantTarget) {
+        return STORE.pickTarget().then(function (handle) {
+          /* 主界面会用回执里的 dir 填输入框；title 只能我们自己补（它不认识这个语义）。
+             放到下一轮任务里改，避免和主界面写 value 抢同一帧。 */
+          setTimeout(function () { syncTargetInput(handle.name); }, 0);
+          return ok({ available: true, cancelled: false, dir: handle.name, target: true });
+        }).catch(function (err) {
+          if (err && err.name === 'AbortError') return ok({ available: true, cancelled: true });
+          return ok({ available: false, reason: 'demo' });
+        });
+      }
       return STORE.pickDir().then(function (handle) {
         return ok({ available: true, cancelled: false, dir: handle.name });
       }).catch(function (err) {
@@ -621,18 +655,57 @@
   /* 在线版不读「目标位置」输入框：真正的保存位置由生成时的目录选择器决定。
      但主界面会因 target 为空而拦下生成（本地版的合理校验），故这里预置一句说明文字，
      并置为只读 —— 让校验通过，同时不伪装成一个真实路径。 */
+  function targetInput() { return document.querySelector('#inTarget'); }
+
   function markTargetInput() {
-    var input = document.querySelector('#inTarget');
-    if (!input || input.dataset.qmDemo === '1') return;
+    var input = targetInput();
+    if (!input || input.dataset.qmDemo === '1') { return; }
     input.dataset.qmDemo = '1';
-    input.value = tr('pickHint');
     input.readOnly = true;
+    if (!input.value) { input.value = tr('pickHint'); }
     input.title = tr('pickHintTitle');
   }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', markTargetInput);
-  } else {
+
+  /** 目标目录确定后回填**文件夹名**（浏览器只给名字，给不了绝对路径）。 */
+  function syncTargetInput(name) {
+    var input = targetInput();
+    if (!input || !name) { return; }
+    input.value = name;
+    input.title = tr('targetTitle');
+  }
+
+  /* 「目标位置 · 选择…」与「模板目录 · 选择目录」共用同一个端点，靠**点击意图**区分。
+     捕获阶段先于按钮自身的 click 处理器执行，而 chooseTargetDir() 会在同一个任务里
+     立刻发出 POST /api/templates-dir/pick —— 请求到达时标记必然已置位。 */
+  var pickingTarget = false;
+
+  function bindTargetIntent() {
+    document.addEventListener('click', function (event) {
+      var node = event.target;
+      var btn = (node && node.closest) ? node.closest('#btnPickTarget') : null;
+      if (!btn) { return; }
+      pickingTarget = true;
+      /* 兜底复位：万一这次点击没走到 pick（被别的监听器拦掉），标记不该永久粘住 */
+      setTimeout(function () { pickingTarget = false; }, 2000);
+    }, true);
+  }
+
+  function bootTarget() {
     markTargetInput();
+    bindTargetIntent();
+    /* 预热：把上次记住的目标目录连同它的**读写**权限读进内存，
+       好让 generate 能**同步**判断「要不要弹框」（弹框必须在用户激活窗口内发起）。 */
+    if (!STORE || typeof STORE.preloadTarget !== 'function') { return; }
+    STORE.preloadTarget().then(function () {
+      var handle = STORE.peekTarget();
+      if (handle) { syncTargetInput(handle.name); }
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootTarget);
+  } else {
+    bootTarget();
   }
 
   window.__QM_DEMO_ACTIVE__ = true;
