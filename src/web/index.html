@@ -305,6 +305,16 @@
         <div class="kv"><b data-i18n="svc.addr"></b><code id="svcAddr"></code></div>
         <div class="kv"><b data-i18n="svc.version"></b><code id="svcVersion"></code></div>
         <div class="kv"><b data-i18n="svc.dataDir"></b><code id="svcDataDir"></code></div>
+        <div class="svc-adv-actions">
+          <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnOpenData"
+                  data-i18n-aria-label="svc.openData" data-i18n-title="svc.openData">
+            <span class="ic ic-folder" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnSvcTest"
+                  data-i18n-aria-label="svc.test" data-i18n-title="svc.test">
+            <span class="ic ic-refresh" aria-hidden="true"></span>
+          </button>
+        </div>
       </details>
       <p id="svcResult" hidden></p>
       <p data-i18n="svc.note"></p>
@@ -312,6 +322,9 @@
     <!-- Footer buttons: icon + hover label (V0.2.0). Four long text buttons used to
          wrap onto two lines in a narrow dialog; labels now live in title/aria-label,
          matching the toolbar icon buttons and still readable by screen readers. -->
+    <!-- V0.2.3: keep only the two actions an ordinary user needs (restore an accidental edit,
+         put templates in place). "Open data folder" and "Test connection" are troubleshooting
+         actions moved into the "technical details" block below - ids kept for support + guards. -->
     <div class="lay-foot lay-foot-ic">
       <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnBackups"
               data-i18n-aria-label="svc.backups" data-i18n-title="svc.backups">
@@ -320,14 +333,6 @@
       <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnOpenTpl"
               data-i18n-aria-label="svc.openTpl" data-i18n-title="svc.openTpl">
         <span class="ic ic-folder-open" aria-hidden="true"></span>
-      </button>
-      <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnOpenData"
-              data-i18n-aria-label="svc.openData" data-i18n-title="svc.openData">
-        <span class="ic ic-folder" aria-hidden="true"></span>
-      </button>
-      <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnSvcTest"
-              data-i18n-aria-label="svc.test" data-i18n-title="svc.test">
-        <span class="ic ic-refresh" aria-hidden="true"></span>
       </button>
     </div>
   </div>

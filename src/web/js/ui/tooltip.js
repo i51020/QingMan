@@ -124,7 +124,18 @@ function onPointerOut(event) {
 
 function onFocusIn(event) {
   const node = pick(event.target);
-  if (node && node !== host) { dismiss(); reveal(node); }   // 键盘聚焦：立即显示，不延迟
+  if (!node || node === host) return;
+  /* V0.2.3：**只有键盘可见焦点才提示**。
+     旧实现对所有 focusin 立即 reveal —— 而弹层打开时会把焦点放到关闭按钮上（程序化 focus），
+     于是"打开窗口就自己冒出一个『关闭』提示"，用户看到的是「提示提前显示」。
+     `:focus-visible` 正好区分两者：Tab 到按钮为真（无障碍要保留），
+     程序化 focus / 鼠标点击产生的 focus 为假（不该弹提示）。
+     取不到该伪类（极老引擎）时按「不显示」处理 —— 宁可少提示，也不要乱提示。 */
+  let visible = false;
+  try { visible = node.matches(':focus-visible'); } catch (err) { visible = false; }
+  if (!visible) return;
+  dismiss();
+  reveal(node);
 }
 
 function onKeyDown(event) {

@@ -82,9 +82,9 @@ export const dict = {
 
   /* --- 历史版本（备份取回 · V0.0.51@r9）--- */
   'backups.title': '历史版本',
-  'backups.intro': '青蔓每次保存前都会把上一版留档。若误改、误清，可从下面挑一版恢复 —— 恢复前的当前版也会先留档，所以恢复本身也能再撤回。',
+  'backups.intro': '每次保存前都会留一版。挑一版恢复即可，恢复前的当前版也会留档，可再撤回。',
   'backups.loading': '正在读取…',
-  'backups.empty': '暂无历史版本。改动一次并保存后，这里就会出现上一版。',
+  'backups.empty': '还没有历史版本 —— 改动并保存一次后，这里就会出现上一版。',
   'backups.colTime': '留档时间',
   'backups.colSize': '大小',
   'backups.colRoot': '根文件夹',
@@ -179,7 +179,7 @@ export const dict = {
   /* 模板目录绑定（V0.0.38 · 6E） */
   'template.dirLabel': '模板目录',
   'template.dirUnknown': '（未读取）',
-  'template.dirHintDefault': '未绑定外部目录，当前使用内置模板库（仅空白模板）',
+  'template.dirHintDefault': '内置模板库 · 仅空白模板',
   'template.dirHintInvalid': '当前绑定的目录不可用：{reason}',
   'template.dirPick': '选择…',
   'template.dirPickTip': '选择一个目录作为模板库（本机原生目录选择框）',
@@ -477,7 +477,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.2.2',
+  'help.versionFallback': 'V0.2.3',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',
@@ -507,6 +507,8 @@ export const dict = {
   'help.shortcut.2': '生成前会先问一次「是否在桌面创建」。快捷方式的图标会跟着当前皮肤配色走，换肤后重新点一次即可更新。',
   'help.shortcut.3': '如果桌面不可写（公司受管电脑、只读桌面等），会改为下载一个 .lnk 文件，把它拖到桌面同样能用。',
   'help.shortcut.4': '快捷方式指向程序目录里的 start.bat。把程序目录移动、改名或换盘之后，旧图标会失效 —— 重新点一次标志生成即可。',
+  'help.templates.5': '没绑定外部目录时，用的是程序内置的模板库，里面只有一张空白模板 —— 这是正常的，不是出错。想用更多模板，可把模板包解压进该目录，或点模板目录那一行的文件夹图标改绑到自己的目录。',
+  'help.templates.6': '如果绑定行提示目录无效（不存在、在系统区、或指向程序自身），模板列表会退回内置库；按提示改绑一个普通文件夹即可。',
   'help.quickStart.title': '快速开始',
   'help.quickStart.1': '双击项目根目录的 start.bat 启动本地服务',
   'help.quickStart.2': '浏览器自动打开；顶栏右侧那颗状态点呈就绪色即表示服务正常（点它可查看服务状态与设置）',
@@ -600,6 +602,7 @@ export const helpSections = [
   ] },
   { id: 'templates', title: 'help.templates.title', kind: 'ul', items: [
     'help.templates.1', 'help.templates.2', 'help.templates.3', 'help.templates.4',
+    'help.templates.5', 'help.templates.6',
   ] },
   { id: 'kbd', title: 'help.kbd.title', kind: 'kbd', note: 'help.kbd.pending', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.delete', 'help.kbd.rename'] },
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [

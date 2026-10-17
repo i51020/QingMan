@@ -167,7 +167,7 @@ export const dict = {
   /* Template folder binding (V0.0.38 / 6E) */
   'template.dirLabel': 'Template folder',
   'template.dirUnknown': '(not loaded)',
-  'template.dirHintDefault': 'No external folder bound; using the built-in library (blank template only)',
+  'template.dirHintDefault': 'Built-in library · blank template only',
   'template.dirHintInvalid': 'The bound folder is unusable: {reason}',
   'template.dirPick': 'Choose...',
   'template.dirPickTip': 'Choose a folder as the template library (system folder picker)',
@@ -470,7 +470,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.2.2',
+  'help.versionFallback': 'V0.2.3',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',
@@ -502,6 +502,8 @@ export const dict = {
   'help.shortcut.2': 'You are asked to confirm first. The shortcut icon follows the current skin; click again after switching skins to refresh it.',
   'help.shortcut.3': 'If the desktop is not writable (managed machine, read-only desktop), the app downloads a .lnk file instead — drag it to the desktop and it works the same.',
   'help.shortcut.4': 'The shortcut points at start.bat inside the program folder. If you move or rename that folder, the old icon stops working — just click the wordmark again.',
+  'help.templates.5': 'When no external folder is bound, the app uses its built-in library, which contains only the blank template — that is normal, not an error. To use more templates, unzip the template pack into that folder, or click the folder icon on the template folder row to bind your own.',
+  'help.templates.6': 'If the bound folder is reported invalid (missing, inside a system area, or pointing at the app itself), the list falls back to the built-in library. Bind a normal folder to fix it.',
   'help.quickStart.title': 'Quick Start',
   'help.quickStart.1': 'Double-click start.bat in the project root to launch the local server',
   'help.quickStart.2': 'Browser opens automatically; a status dot in the ready colour at the top right means the service is up (click it for service status and settings)',
@@ -588,6 +590,7 @@ export const helpSections = [
   ] },
   { id: 'templates', title: 'help.templates.title', kind: 'ul', items: [
     'help.templates.1', 'help.templates.2', 'help.templates.3', 'help.templates.4',
+    'help.templates.5', 'help.templates.6',
   ] },
   { id: 'kbd', title: 'help.kbd.title', kind: 'kbd', note: 'help.kbd.pending', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.delete', 'help.kbd.rename'] },
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [

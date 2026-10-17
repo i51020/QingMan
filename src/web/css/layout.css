@@ -121,7 +121,36 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .tpl-dir-actions { flex: 0 0 auto; display: flex; gap: 4px; }
-.tpl-dir-hint { margin: 0 0 6px; font-size: var(--qm-fs-xs); color: var(--qm-text-dim); line-height: 1.4; }
+/* 绑定状态提示（V0.2.3 重排）
+ * 旧样式是一段普通小字，长句在窄栏里折成两行、和上面的路径行挤在一起。
+ * 改为**紧凑胶囊**：自带底色、只占一行、宽度随文字；完整解释移入帮助页，
+ * 这里只留「是什么」，不再塞「为什么 + 怎么办」。 */
+.tpl-dir-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--qm-surface-2);
+  border: 1px solid var(--qm-line-soft);
+  font-size: var(--qm-fs-xs);
+  color: var(--qm-text-dim);
+  line-height: 1.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tpl-dir-hint::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--qm-text-dim);
+}
 
 .tpl-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 
@@ -488,6 +517,8 @@
 .svc-adv .kv { margin-top: 6px; }
 /* 图标化底栏：按钮靠右、间距均匀（与工具栏同族视觉） */
 .lay-foot-ic { justify-content: flex-end; gap: 6px; }
+/* 技术信息折叠区里的排障动作：与正文左对齐，不抢视线 */
+.svc-adv-actions { display: flex; gap: 6px; margin-top: 8px; }
 
 .insp-head { align-items: center; justify-content: flex-end; }
 #inspPropPane, #inspSrcPane { margin-top: 8px; }

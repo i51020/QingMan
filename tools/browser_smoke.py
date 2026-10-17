@@ -395,6 +395,15 @@ frame('./index.html', function (doc) {
       doc.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
       m.ctxClosed = (menu2 && menu2.hidden) ? 1 : 0;
       m.ctxDisplay = menu2 ? win.getComputedStyle(menu2).display : 'missing';
+
+      /* V0.2.3：提示浮层**不许抢焦点显示**。
+         旧实现对所有 focusin 立即 reveal，而弹层打开会把焦点放到关闭按钮上 ——
+         结果"窗口一开，『关闭』提示就自己冒出来"。这里用**程序化 focus** 复现那个场景，
+         断言 .qm-tip 不处于 is-on 状态。 */
+      var tipEl = doc.querySelector('.qm-tip');
+      var closeBtn = doc.querySelector('#dlgService [data-close]');
+      if (closeBtn) { closeBtn.focus(); }
+      m.tipOnFocus = (tipEl && tipEl.classList.contains('is-on')) ? 1 : 0;
       doc.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));   /* 关掉菜单 */
     }
     /* V0.0.52：树行图标归一 —— 取首行的**类名**与**文字长度**。两个量要一起看：
@@ -1154,6 +1163,12 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
         ctx_closed = as_int(metrics.get("ctxClosed"), -1)
         ctx_display = metrics.get("ctxDisplay", "")
         ctx_ok = ctx_closed == 1 and ctx_display == "none"
+        # V0.2.3：提示浮层不得因「程序化聚焦」自动弹出（弹窗一开就冒出「关闭」的 bug）。
+        tip_focus = as_int(metrics.get("tipOnFocus"), -1)
+        check(tip_focus == 0, "工具栏提示不抢焦点显示（V0.2.3）",
+              f"程序化聚焦后提示是否可见={tip_focus}"
+              + ("" if tip_focus == 0 else "（应仅 :focus-visible 或悬停才显示）" + gate_hint))
+
         check(ctx_ok, "主界面·右键菜单可关闭（V0.2.2）",
               f"hidden={ctx_closed} display={ctx_display or '(空)'}"
               + ("" if ctx_ok else "（点外部后仍可见：检查 .ctx-menu[hidden] 兜底与关闭监听）" + gate_hint))
