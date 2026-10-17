@@ -72,6 +72,17 @@
       .catch(function () { return null; });
   }
 
+  /* 「选择」与「绑定」必须是两步 —— 与本机版语义一致（routes.pick_templates_dir 的
+     docstring 明确写着"不落盘、不绑定"，绑定由前端另发 PUT 完成）。
+
+     教训（2026-10-17 用户报告"选完目标位置后模板目录变了"）：这里原先在 pick 成功时
+     就 `store.put(handle, DIR_KEY)`，把两步合成了一步。而「目标位置 · 选择…」复用的
+     正是同一个端点（main.js chooseTargetDir → POST /api/templates-dir/pick），它拿到
+     路径只填进输入框、**从不发 PUT** —— 于是用户的模板库被悄悄改绑到目标文件夹。
+     现在 pick 只把句柄放进 pendingDir，等 PUT 确认时由 commitDir 才落库。 */
+
+  var pendingDir = null;
+
   function pickDir() {
     /* ⚠ 必须**同步**发起：picker 依赖用户激活窗口，先 await 别的东西再弹会被拒绝 */
     if (typeof root.showDirectoryPicker !== 'function') {
@@ -84,11 +95,22 @@
       return Promise.reject({ code: 'demoFsUnsupported' });
     }
     return picking.then(function (handle) {
-      dirCache = handle;
-      return idbRun('readwrite', function (store) { return store.put(handle, DIR_KEY); })
-        .catch(function () { /* 存不下也不影响本次使用 */ })
-        .then(function () { return handle; });
+      pendingDir = handle;   /* 只暂存，不落库 */
+      return handle;
     });
+  }
+
+  /** 前端发送 `PUT /api/templates-dir` 确认绑定后，才把待定句柄写进 IndexedDB。
+   *  `name` 必须与刚选中的目录同名（手填的任意路径认不出来，也没法换成句柄）。 */
+  function commitDir(name) {
+    if (!pendingDir || !name || pendingDir.name !== name) return Promise.resolve(false);
+    var handle = pendingDir;
+    pendingDir = null;
+    dirCache = handle;
+    return idbRun('readwrite', function (store) { return store.put(handle, DIR_KEY); })
+      .then(function () { return true; })
+      /* 存不下（隐私模式配额 / 旧内核）不影响本次会话：dirCache 已生效，刷新后才丢 */
+      .catch(function () { return true; });
   }
 
   function dirPermission(handle) {
@@ -315,6 +337,7 @@
     writeLs: writeLs,
     getDir: getDir,
     pickDir: pickDir,
+    commitDir: commitDir,
     dirPermission: dirPermission,
     readDirTemplates: readDirTemplates,
     readDirTemplate: readDirTemplate,

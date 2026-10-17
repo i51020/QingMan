@@ -457,14 +457,21 @@
     if (path === '/api/templates-dir' && method === 'PUT') {
       var dirPayload = bodyOf(init) || {};
       if (!STORE) return ok({ applied: false, dir: tr('tplPath'), reason: 'demo' });
+      var wantDir = String(dirPayload.dir || '');
       return STORE.getDir().then(function (handle) {
-        if (handle && String(dirPayload.dir || '') === handle.name) {
+        if (handle && wantDir === handle.name) {
           return ok({ applied: true, dir: handle.name, source: 'bound' });
         }
-        return ok({
-          applied: false,
-          dir: handle ? handle.name : tr('tplPath'),
-          reason: 'demoPickOnly',
+        /* 只有「刚点选过、且名字对得上」的待定句柄才允许落库 —— 手填任意路径一律不认，
+           因为浏览器解析不了路径、也换不出句柄。这是 pick 与 bind 两步分离的另一半：
+           pick 不写库，PUT 才写（否则「选择目标位置」会改掉模板库，见 online-store.pickDir）。 */
+        return STORE.commitDir(wantDir).then(function (committed) {
+          if (committed) return ok({ applied: true, dir: wantDir, source: 'bound' });
+          return ok({
+            applied: false,
+            dir: handle ? handle.name : tr('tplPath'),
+            reason: 'demoPickOnly',
+          });
         });
       });
     }

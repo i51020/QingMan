@@ -49,6 +49,8 @@ DEPLOY_README = """青蔓 QingMan · 在线版完整项目包
   build/build_static_site.py  构建脚本（从 src/ 重新生成 site/ 用；本包不含 src/）
   build/web-demo/           在线版全部的注入资源：
                               demo-backend.js   浏览器内后端
+                              online-store.js   浏览器存储层（IndexedDB 目录句柄 / OPFS 历史版本 / 备份）
+                              online-ui.js      「服务设置 → 在线版数据」四个按钮
                               md-template.js    模板 .md 文法的 JS 移植
                               make_icons.py     PWA 图标生成（纯标准库）
   VERSION                   版本号（唯一来源）
@@ -92,6 +94,8 @@ def collect(site_dir: Path) -> "list[tuple[Path, str]]":
     for rel in ("tools/build_static_site.py",
                 "tools/web-demo/demo-backend.js",
                 "tools/web-demo/md-template.js",
+                "tools/web-demo/online-store.js",
+                "tools/web-demo/online-ui.js",
                 "tools/web-demo/make_icons.py"):
         src = ROOT / rel
         if not src.is_file():
@@ -135,9 +139,11 @@ def verify(zip_path: Path) -> int:
     for must in ("在线版手册.md", "VERSION", "README_部署说明.txt", "发布包清单.json",
                  "site/index.html", "site/help.html", "site/sw.js", "site/manifest.webmanifest",
                  "site/js/demo-backend.js", "site/js/md-template.js", "site/js/pwa.js",
+                 "site/js/online-store.js", "site/js/online-ui.js",
                  "site/api/env.js", "site/api/locales.js",
                  "build/build_static_site.py", "build/web-demo/demo-backend.js",
-                 "build/web-demo/md-template.js", "build/web-demo/make_icons.py"):
+                 "build/web-demo/md-template.js", "build/web-demo/online-store.js",
+                 "build/web-demo/online-ui.js", "build/web-demo/make_icons.py"):
         if f"{prefix}/{must}" not in names:
             problems.append(f"缺 {must}")
     # 产物自洽：页面注入痕迹必须在
