@@ -8,8 +8,8 @@
  *   ③ **本次批量导入 / 外部新增**（`batch`）—— 一次出现多个，或轮询发现的外部新增；
  *   ④ **最近使用**（`last` 降序）—— 用过的模板里，最近用过的在前；
  *   ⑤ **使用次数**（`count` 降序）—— 最近使用打平时，用得多的在前；
- *   ⑥ **名称**（先小写再原文，升序）→ **文件名**（兜底）—— 纯名称序也是
- *      「首次进入 / 点刷新」的唯一口径（`SORT_NAME` 模式）。
+ *   ⑥ **名称**（**按拼音**、数字按大小，先忽略大小写再按原文）→ **文件名**（兜底）
+ *      —— 纯名称序也是「首次进入 / 点刷新」的唯一口径（`SORT_NAME` 模式）。
  *
  * **段 ③ 内按名称排**：一次批量导入的模板在用户眼里没有先后之别，只有名字可依。
  * **段 ①② 内按「本次会话的操作先后」（后建的在前）** —— V0.3.8 修正，见 `freshSeq`。
@@ -61,23 +61,54 @@ function fileKey(item) {
   return [file.toLowerCase(), file];
 }
 
+/**
+ * 语言感知比较器 —— **中文按拼音、数字按大小**（V0.3.10）。
+ *
+ * 旧实现直接比字符串（`a < b`），那就是 **UTF-16 码位序**：
+ * `乙(U+4E59) < 甲(U+7532) < 辛(U+8F9B)`，跟用户读到的读音毫无关系，
+ * 中文名一多就看着像乱序（用户报障「排序为什么没排出个顺序」）。
+ * 实测同一组 `甲 乙 丙 丁 戊 辛`：码位序 `丁丙乙戊甲辛`，拼音序 `丙丁甲戊辛乙`。
+ *
+ * `numeric: true` 是同一类问题的另一半：码位序下 `模板10` 排在 `模板2` **前面**
+ * （`'1' < '2'`），用户读到的是「10 比 2 小」。加上后得到 `模板1, 模板2, 模板10`。
+ *
+ * 退化路径：拿不到 `Intl.Collator`（极旧内核 / 被裁剪的 ICU）时回到码位序 ——
+ * 排序看起来「还是旧样子」，但**不抛错、也不会变成随机序**。
+ * 宁可维持旧观感，也不让列表在某台机器上炸掉。该路径有单测 `TPL/collate-fallback`。
+ */
+const collator = createCollator();
+
+function createCollator() {
+  try {
+    if (typeof Intl === 'undefined' || typeof Intl.Collator !== 'function') return null;
+    return new Intl.Collator('zh-Hans-CN', { numeric: true });
+  } catch (err) {
+    return null;   // 非法 locale / ICU 裁剪：一律退回码位序，绝不把异常抛给排序调用方
+  }
+}
+
 function cmp(a, b) {
   return a < b ? -1 : (a > b ? 1 : 0);
+}
+
+/** 名称/文件名统一走这里：有 Collator 用 Collator，没有则退回码位序。 */
+function collate(a, b) {
+  return collator ? collator.compare(a, b) : cmp(a, b);
 }
 
 /** 名称 → 文件名，两级兜底。段内与 `SORT_NAME` 模式共用。 */
 function cmpNameThenFile(a, b) {
   const an = nameKey(a);
   const bn = nameKey(b);
-  let r = cmp(an[0], bn[0]);
+  let r = collate(an[0], bn[0]);
   if (r) return r;
-  r = cmp(an[1], bn[1]);
+  r = collate(an[1], bn[1]);
   if (r) return r;
   const af = fileKey(a);
   const bf = fileKey(b);
-  r = cmp(af[0], bf[0]);
+  r = collate(af[0], bf[0]);
   if (r) return r;
-  return cmp(af[1], bf[1]);
+  return collate(af[1], bf[1]);
 }
 
 /**

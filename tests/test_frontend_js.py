@@ -406,6 +406,42 @@ const tm = await import(SRC + '/modules/tree-model.js');
        === 'a.json,B.json',
      seq(order.sortTemplates([mk('B.json', '同名'), mk('a.json', '同名')], ev({}))));
 
+  /* ⑧b 中文按拼音（V0.3.10）。这六个字是**故意挑的**：码位序与拼音序完全无交集。
+        码位：丁 U+4E01 → 丙 U+4E19 → 乙 U+4E59 → 戊 U+620A → 甲 U+7532 → 辛 U+8F9B
+        拼音：丙 bing → 丁 ding → 甲 jia → 戊 wu → 辛 xin → 乙 yi
+        两条序没有任何一对相邻关系相同，所以「退回码位排」绝不可能碰巧通过。 */
+  const zh = [mk('甲.json', '甲'), mk('乙.json', '乙'), mk('丙.json', '丙'),
+              mk('丁.json', '丁'), mk('戊.json', '戊'), mk('辛.json', '辛')];
+  const zhOrder = seq(order.sortTemplates(zh, { mode: NAME }));
+  ok('TPL/pinyin-order', zhOrder === '丙.json,丁.json,甲.json,戊.json,辛.json,乙.json', zhOrder);
+
+  /* ⑧c 数字按大小（`numeric`）：码位序下 `模板10` 排在 `模板2` **前面**（'1' < '2'），
+        用户读到的是「10 比 2 小」。这条同时锁住 numeric 开关没被顺手关掉。 */
+  const numOrder = seq(order.sortTemplates(
+    [mk('n10.json', '模板10'), mk('n2.json', '模板2'), mk('n1.json', '模板1')], { mode: NAME }));
+  ok('TPL/numeric-order', numOrder === 'n1.json,n2.json,n10.json', numOrder);
+
+  /* ⑧d 退化路径：拿不到 `Intl.Collator` 时**退回码位序且不抛错**。
+        collator 是模块级常量，所以必须在「首次 import 之前」摘掉 —— 靠 query string
+        拿到一个全新的模块实例。宁可维持旧观感，也不能让列表在裁剪过 ICU 的机器上炸掉。 */
+  let noIcu = 'SKIP';
+  {
+    const savedCollator = Intl.Collator;
+    let removed = false;
+    try {
+      Intl.Collator = undefined;
+      removed = typeof Intl.Collator !== 'function';
+      const ord2 = await import(SRC + '/modules/tpl-order.js?nocollator=1');
+      noIcu = seq(ord2.sortTemplates(zh, { mode: ord2.SORT_NAME }));
+    } catch (e) {
+      noIcu = 'THROW:' + (e && e.message);
+    } finally {
+      Intl.Collator = savedCollator;
+    }
+    if (!removed) noIcu = 'SKIP';
+  }
+  ok('TPL/collate-fallback', noIcu === '丁.json,丙.json,乙.json,戊.json,甲.json,辛.json', noIcu);
+
   /* ⑨ 记录是脏的（null / 字符串 / 对象）不抛错，按「无记录」处理 */
   let dirtyOk = true;
   try {
@@ -579,6 +615,19 @@ class FrontendJsTests(unittest.TestCase):
                   "TPL/tie-name-file", "TPL/dirty-usage", "TPL/no-fresh",
                   "TPL/no-mutate", "TPL/empty", "TPL/ext-first-sight", "TPL/ext-later",
                   "IMP/bucket", "TPL/used-first-after-boot"):
+            self._ok(n)
+
+    def test_v0310_name_collation(self):
+        """V0.3.10 · 名称比较器：中文按拼音 / 数字按大小 / 缺 ICU 时退回码位序。
+
+        这三条是**同一个决定**的三面，缺任一面就会在某个方向上悄悄退化：
+        ① 去掉 Collator 的 `zh-Hans-CN` → 中文又变成码位序（`丁丙乙戊甲辛`），
+           用户看到的就是「乱序」，而这正是本次要修的东西；
+        ② 去掉 `numeric: true` → `模板10` 排到 `模板2` 前面（`'1' < '2'`）；
+        ③ 去掉退化分支 → 裁剪过 ICU 的环境里 `new Intl.Collator` 会抛，
+           整个列表渲染失败（比排序难看严重得多）。
+        """
+        for n in ("TPL/pinyin-order", "TPL/numeric-order", "TPL/collate-fallback"):
             self._ok(n)
 
     def test_v044_dynamic_locales(self):

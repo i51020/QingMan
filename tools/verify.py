@@ -2957,6 +2957,15 @@ def main() -> int:
         ("if (ra === RANK_CREATED || ra === RANK_SINGLE)",
          "①/② 段未与 ③ 段分流（回退成段内按名称）"),
         ("return sb - sa", "①/② 段未按「后发生的在前」排序"),
+        # V0.3.10：名称比较器的三面。少任一面都会在某个方向上悄悄退化 ——
+        # 缺 locale ⇒ 中文回到码位序（用户读到的就是「乱序」）；
+        # 缺 numeric ⇒ 模板10 排到 模板2 前面；
+        # 缺退化分支 ⇒ 裁剪过 ICU 的环境里 new Intl.Collator 抛错，整个列表渲染失败。
+        ("function createCollator", "缺 Collator 创建入口（裁剪 ICU 的环境会直接抛错）"),
+        ("Intl.Collator('zh-Hans-CN', { numeric: true })", "名称比较器未按拼音 / 未按数字大小"),
+        ("return collator ? collator.compare(a, b) : cmp(a, b);",
+         "collate 未做「无 Collator 退回码位序」兜底"),
+        ("let r = collate(an[0], bn[0]);", "名称比较没走 collate（仍是码位序）"),
     ):
         if token not in tpl_order_js:
             fe_bad.append(why)
