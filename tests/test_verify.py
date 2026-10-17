@@ -387,6 +387,59 @@ class HelpMarkdownTests(unittest.TestCase):
         self.assertTrue(any("抽取式" in h for h in hits), hits)
 
 
+class ManifestMetaTests(unittest.TestCase):
+    """V0.0.53：清单元数据契约 `manifest_meta_violations()`（守卫 7ao）。
+
+    **判据为何存在**：清单是**手能改**的文件。日期一旦塞进版本号，`store.py checkout`
+    照样跑得通，但会与 `rN` 语义重复、并污染 `schema.json` 契约与用户可见的版本串；
+    时间写法一改，下游按格式取值的代码会静默错位。这些错都**不会自己报错**，故上机器。
+
+    ⚠ 其中两条是**陷阱对照**：历史空格式必须继续被接受（76 份旧清单不能因此转红）；
+    `createdAtIso` 缺时区必须红（`2026-10-17T14:44:40` 看着像 ISO，其实换个时区就歧义）。
+    """
+
+    GOOD = {
+        "version": "V0.0.53",
+        "createdAt": "2026-10-17_14-44-40",
+        "createdAtIso": "2026-10-17T14:44:40+08:00",
+        "build": {"author": "甲", "task": "乙", "evidence": None},
+    }
+
+    def _run(self, label="t", **over):
+        meta = dict(self.GOOD)
+        meta.update(over)
+        return verify.manifest_meta_violations(meta, label)
+
+    def test_accepts_canonical(self):
+        self.assertEqual(self._run(), [])
+
+    def test_accepts_legacy_stamp_without_iso_or_build(self):
+        """陷阱对照：历史清单只有 `createdAt`（空格式），不得判红。"""
+        self.assertEqual(self._run(createdAt="2026-10-09 13:38:44",
+                                   createdAtIso=None, build=None), [])
+
+    def test_flags_date_in_version(self):
+        hits = self._run(version="V0.0.53+2026-10-17_14-44-40")
+        self.assertTrue(any("version" in h and "日期不得进版本号" in h for h in hits), hits)
+
+    def test_flags_unknown_stamp_format(self):
+        hits = self._run(createdAt="2026/10/17 14:44")
+        self.assertTrue(any("createdAt" in h for h in hits), hits)
+
+    def test_flags_iso_without_timezone(self):
+        """陷阱对照：无时区的 ISO 看着合法，换机器即歧义 ⇒ 必须红。"""
+        hits = self._run(createdAtIso="2026-10-17T14:44:40")
+        self.assertTrue(any("createdAtIso" in h for h in hits), hits)
+
+    def test_flags_extra_build_key(self):
+        hits = self._run(build={"author": "甲", "model": "某个模型"})
+        self.assertTrue(any("未登记字段" in h for h in hits), hits)
+
+    def test_flags_build_without_iso(self):
+        hits = self._run(createdAtIso=None)
+        self.assertTrue(any("缺 createdAtIso" in h for h in hits), hits)
+
+
 class LocaleDictKeysTests(unittest.TestCase):
     """V0.0.51@r12：取词表「键集合」的唯一口径 `locale_dict_keys()`（7b-2 / 7b-3 共用）。
 

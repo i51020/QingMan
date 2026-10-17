@@ -87,6 +87,44 @@
 
 **性质**：改 `src/web/locales/` 两包 + `tools/verify.py` + `tests/` ⇒ 同版本修订 **`V0.0.53@r2`**；**VERSION 不变**，故 7ah 五处不动。
 
+### r2 后续 · 2026-10-17 —— 版本元数据规范化（**无 store 修订 · 无新 tag**）
+
+**触发**：用户提出三条规则（模型/提示词进构建元数据或独立 manifest · 版本用通用规范 · **日期不进版本号**，日期记 `YYYY-MM-DD_HH-mm-ss`），并采纳「方案 B」。
+
+**先核实的四件事（决定了这个改动有多小）**
+
+| 检查 | 实测 |
+|---|---|
+| 有没有独立 manifest？ | **有** —— `versions/<版本>/MANIFEST.json` 就是这个角色，已含 `version/revision/createdAt/note/digest/files` |
+| 版本号里有日期吗？ | **没有**。`V0.0.53` 是纯 SemVer 三段式 |
+| 谁在**解析** `createdAt`？ | **没有人**。只有 `handoff.py:159`（原样打印进修订链）与 `store.py log`（打印 + 对齐） |
+| 改元数据会影响内容指纹吗？ | **不会**。`digest` 只对 `files` 那个映射求哈希，顶层字段完全不参与 |
+
+⇒ **真要做的只有两件**：换时间写法、补构建溯源字段。
+
+**改动**
+
+| # | 文件 | 内容 |
+|---|---|---|
+| 1 | `tools/store.py` | `createdAt` 改 `%Y-%m-%d_%H-%M-%S`（**无冒号**：Windows 文件名禁 `:`）；新增 `createdAtIso`（`datetime.now().astimezone().isoformat(timespec="seconds")`，**带时区偏移**）；新增 `build{author, task, evidence}`；CLI 增 `--author / --task / --evidence`；立模块级常量 `STAMP_HUMAN` / `STAMP_PATTERNS` 供守卫与单测共用 |
+| 2 | `tools/handoff.py` | 新增 `manifest_time()`：修订链时间列优先取 `createdAtIso`，**用字符串切片**（`iso[11]=="T"` 时换成空格、截到秒）统一成 `YYYY-MM-DD HH:mm:ss`，切不动就退回 `createdAt` —— **刻意不解析日期**，否则要处理无时区历史串 / 非法串 / 时区缺失一堆边界 |
+| 3 | `tools/verify.py` | 新增守卫 **7ao「清单元数据契约」**（**113 项**）：逐份检查**全部存量清单** —— `version` 纯三段式 / `createdAt` 在已登记写法内 / `createdAtIso` 带时区 / `build` 字段白名单；`build` 与 `createdAtIso` 同批引入，缺一即红（说明被手改） |
+| 4 | `tests/` | `BuildMetaTests` **6 条** + `ManifestMetaTests` **7 条** + `ManifestTimeTests` **4 条** ⇒ **482 → 499 OK** |
+| 5 | `docs/项目约定.md` | §P0-6 增 **M7 / M8** 两条规则 |
+
+**为什么日期**不**进版本号（三条硬理由，不是口味问题）**
+
+1. **SemVer 2.0.0 §10 明文规定 build metadata 不参与优先级比较** —— `1.0.0+a` 与 `1.0.0+b` 优先级**相同**。回退点标识必须唯一且可排序，它天生不合格；而 `rN` 单调递增，正好补这个位。
+2. **与既有 `rN` 机制功能重复** —— 「同一版本的多次构建」本项目已由 `revision` / `@rN` 表达，再叠一层 `+时间戳` 等于一件事两套编号。
+3. **会污染两处「不该天天变」的字段** —— `src/shared/schema.json` 的 `version` 是**契约字段**（须等于 `VERSION`，守卫 9a），`help.versionFallback` 是**用户可见**串。塞时间戳 ⇒ 每次构建改一次契约、关于页显示一长串时间；且 7ah 用 `V\d+\.\d+\.\d+` 抽首版本号后与整串比，加了 `+` 必然不等 ⇒ 得连改 5 处文档行。
+
+**验证**
+- **四件套**：`verify` **113/0**（7ao 对 **76 份**存量清单逐份通过）· `unittest` **499 OK（+17）** · `smoke` 35/0 · `browser_smoke` 33/0
+- **零风险侧证**：`digest` 只算 `files` ⇒ 新增 `build` 块**不改变任何历史指纹**（`test_build_metadata_does_not_affect_digest` 直接钉住：只换 `--author` 不得产生新修订）
+- **不迁移历史**：76 份旧清单的 `YYYY-MM-DD HH:mm:ss` **原样保留** —— 改写历史的风险远大于「两种写法并存」的观感损失；`handoff` 已把两者渲染成同一形态
+
+**性质**：改 `tools/` + `tests/` + `docs/`，**不动 `src/` 也不动 `VERSION`** ⇒ `store.py commit` 实测**自动跳过**（M2：内容指纹与 `r2` 完全一致）⇒ **无 store 修订、无新 tag**，回退点＝ git commit。⚠ 故**不叫 `r3`**（M6 的 `rN` 专指 store 修订），沿用既有「`rN 后续`」体例。**副作用（据实）**：新增的 `--author / --task / --evidence` 因此**没在真实仓库里跑过一次真正的提交** —— 其正确性由 `BuildMetaTests` 6 条单测覆盖（临时目录里跑真 `do_commit`）；等下一步动 `src/` 时会被真实使用。
+
 ---
 
 ## V0.0.52 — 2026-10-17

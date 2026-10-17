@@ -93,6 +93,33 @@ def manifest_digest(files: dict[str, str]) -> str:
     return h.hexdigest()
 
 
+# ── 清单时间戳口径（V0.0.53 立）────────────────────────────────────────
+# 规则依据：**日期不进版本号**（SemVer 2.0.0 里 build metadata 不参与优先级比较，
+# 当不了回退点标识；本项目的「同版本多次构建」由 `revision` / `@rN` 承担，两者不叠加）。
+# 日期只作为**构建元数据**记在清单里，两种写法并存、各有分工：
+#   · `createdAt`    —— 人读 + 可进文件名：`YYYY-MM-DD_HH-mm-ss`
+#                        （**刻意不用冒号**：Windows 文件名禁止 `:`，用了就没法拿来命名）
+#   · `createdAtIso` —— 机器读：ISO 8601 **带时区偏移**，可排序、跨机器无歧义
+# 历史清单（V0.0.53 之前）的 `createdAt` 是 `YYYY-MM-DD HH:mm:ss`，**不迁移**：
+# 迁移 76 个历史清单的收益远小于「改写历史」的风险。
+STAMP_HUMAN = "%Y-%m-%d_%H-%M-%S"
+#: 两种合法写法，供守卫（verify 7ao）与单测共用 —— 新增格式必须同时改这里。
+STAMP_PATTERNS = (
+    r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$",   # V0.0.53 起
+    r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$",   # 历史形态
+)
+
+
+def now_stamps() -> tuple[str, str]:
+    """返回（人读时间, 带时区 ISO 时间）两个字符串。
+
+    用 `astimezone()` 取**本机时区**而非 `utcnow()`：清单是给人看的历史记录，
+    记本地时间才有意义；时区偏移在 ISO 串里显式写出，跨机器也不会有歧义。
+    """
+    now = datetime.now().astimezone()
+    return now.strftime(STAMP_HUMAN), now.isoformat(timespec="seconds")
+
+
 def fingerprint_diff(root: Path, recorded: dict[str, str]) -> tuple[list[str], list[str], list[str]]:
     """主线现状 vs 清单记录 →（改动, 新增, 缺失）三个**已排序**的路径列表。
 
@@ -200,7 +227,8 @@ def load_manifest(root: Path, version: str, rev: int | None = None) -> dict | No
 
 # ---------- commit ----------
 
-def do_commit(root: Path, source: Path, note: str, alias: str, dry_run: bool = False) -> int:
+def do_commit(root: Path, source: Path, note: str, alias: str, dry_run: bool = False,
+              author: str = "", task: str = "", evidence: str = "") -> int:
     raw = (root / "VERSION").read_text(encoding="utf-8").strip()
     try:
         version = versioning.format_version(versioning.parse(raw))
@@ -255,12 +283,24 @@ def do_commit(root: Path, source: Path, note: str, alias: str, dry_run: bool = F
     dest.mkdir(parents=True, exist_ok=True)
 
     previous_versions = [v for v in list_versions(root) if v != version]
+    stamp_human, stamp_iso = now_stamps()
     meta = {
         "version": version,
         "revision": rev,
-        "createdAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        # 时间戳口径见 now_stamps() / STAMP_PATTERNS 上方注释：**不进版本号**，只进清单。
+        "createdAt": stamp_human,
+        "createdAtIso": stamp_iso,
         "source": str(source),
         "note": note,
+        # 构建溯源（V0.0.53）：谁做的、做什么、凭证在哪。
+        # **刻意不把时间再抄一遍进 build** —— 同一事实写两处必然漂移；
+        # 时间统一由顶层 `createdAt` / `createdAtIso` 承担。
+        # 三个字段取不到就写 null（**不编造**：宁可「未记录」，不可「记假的」）。
+        "build": {
+            "author": author or None,
+            "task": task or note or None,
+            "evidence": evidence or None,
+        },
         "parent": previous_versions[-1] if previous_versions else None,
         "parentManifest": manifest_filename(prev_rev) if prev_rev else None,
         "legacyAlias": alias or None,
@@ -451,6 +491,10 @@ def main() -> int:
     parser.add_argument("--from", dest="source", default=None)
     parser.add_argument("--note", default="")
     parser.add_argument("--alias", default="")
+    # 构建溯源（V0.0.53）。三项皆可选，缺省写 null —— 宁可「未记录」，不可「记假的」。
+    parser.add_argument("--author", default="", help="谁产出了这批改动（人 / 助手 + 模型名）")
+    parser.add_argument("--task", default="", help="这批改动在做什么（缺省沿用 --note）")
+    parser.add_argument("--evidence", default="", help="凭证位置（截图 / 报告 / 测试日志的路径）")
     parser.add_argument("--dry-run", action="store_true")
     opts = parser.parse_args()
 
@@ -471,7 +515,8 @@ def main() -> int:
             print(f"[警告] --from 不在 --root 之下：{source}")
             print("        清单相对路径以顶层 src/start.bat/VERSION 为锚，")
             print("        请确认该目录布局与主线同构，否则 verify --against 会失配。")
-        return do_commit(root, source, opts.note, opts.alias, opts.dry_run)
+        return do_commit(root, source, opts.note, opts.alias, opts.dry_run,
+                         author=opts.author, task=opts.task, evidence=opts.evidence)
     if opts.action == "checkout":
         if not opts.args:
             parser.error("checkout 需要一个版本号，如 V0.0.1 或 V0.0.1@r2")

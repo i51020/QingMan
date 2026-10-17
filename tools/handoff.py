@@ -133,6 +133,25 @@ def timeline_latest(root: Path) -> str | None:
 
 # ---------- 渲染 ----------
 
+
+def manifest_time(meta: dict) -> str:
+    """修订链「时间」列的统一显示口径（V0.0.53）。
+
+    背景：清单时间戳有过两种写法 ——
+      · V0.0.53 起：`createdAtIso`（ISO 8601 带时区）为主，`createdAt` 为 `YYYY-MM-DD_HH-mm-ss`；
+      · 历史清单：只有 `createdAt`，形如 `YYYY-MM-DD HH:mm:ss`。
+    同一列里一半下划线一半空格很难看，故统一成 `YYYY-MM-DD HH:mm:ss` 展示。
+
+    ⚠ **刻意不解析日期**（不 `datetime.fromisoformat`）：只做**字符串切片**把 ISO 的
+      第 11 位 `T` 换成空格、截到秒。理由：这里只要"显示一致"，不需要时区换算；
+      一旦真去解析，就得处理无时区的历史串、非法串、时区缺失等一堆边界 —— 引入的
+      失败面远大于它解决的问题。切不动就原样退回 `createdAt`。
+    """
+    iso = meta.get("createdAtIso")
+    if isinstance(iso, str) and len(iso) >= 19 and iso[10] == "T":
+        return f"{iso[:10]} {iso[11:19]}"
+    return meta.get("createdAt") or "—"
+
 def render_live(root: Path) -> str:
     """渲染实况段正文（不含 HANDOFF 标记）。纯函数：同一盘上状态必得同一输出。"""
     out: list[str] = []
@@ -156,7 +175,7 @@ def render_live(root: Path) -> str:
             for r in store.revisions(root, v):
                 meta = store.load_manifest(root, v, r) or {}
                 note = (meta.get("note") or "—").replace("|", "\\|")
-                out.append(f"| `{v}@r{r}` | {meta.get('createdAt', '—')} | {note} |")
+                out.append(f"| `{v}@r{r}` | {manifest_time(meta)} | {note} |")
         out.append("")
         out.append(f"**回退**：`python tools/store.py checkout {cur}`（最高修订）"
                    f" ／ `checkout {cur}@r1`（基线）")

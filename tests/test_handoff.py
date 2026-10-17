@@ -122,6 +122,35 @@ class SplitTagsTests(unittest.TestCase):
             self.assertNotIn(odd, rev_tags)
 
 
+class ManifestTimeTests(unittest.TestCase):
+    """V0.0.53：修订链「时间」列的显示口径 `manifest_time()`。
+
+    **判据为何存在**：清单时间戳有两种写法（新下划线式 / 历史空格式）。同一张表里
+    一半下划线一半空格既难看又容易被当成两种含义，故统一渲染成 `YYYY-MM-DD HH:mm:ss`。
+    ⚠ 刻意**不解析日期**：只做字符串切片。所以还要钉住「切不动时原样退回、绝不抛异常」。
+    """
+
+    def test_prefers_iso_stamp(self):
+        self.assertEqual(
+            handoff.manifest_time({"createdAt": "2026-10-17_14-44-40",
+                                   "createdAtIso": "2026-10-17T14:44:40+08:00"}),
+            "2026-10-17 14:44:40")
+
+    def test_falls_back_to_legacy_stamp(self):
+        self.assertEqual(handoff.manifest_time({"createdAt": "2026-10-09 13:38:44"}),
+                         "2026-10-09 13:38:44")
+
+    def test_malformed_iso_never_raises(self):
+        """陷阱对照：残缺 ISO 不得抛异常，也不得把乱串塞进表格。"""
+        self.assertEqual(
+            handoff.manifest_time({"createdAt": "2026-10-09 13:38:44",
+                                   "createdAtIso": "garbage"}),
+            "2026-10-09 13:38:44")
+
+    def test_empty_meta_is_dash(self):
+        self.assertEqual(handoff.manifest_time({}), "—")
+
+
 class TimelineLatestTests(unittest.TestCase):
 
     def _root(self, body: str) -> Path:

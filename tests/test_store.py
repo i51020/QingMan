@@ -168,6 +168,66 @@ class CommitIntegrationTests(unittest.TestCase):
         self.assertEqual(store.latest_revision(self.root, "V0.0.1"), 1)
 
 
+class BuildMetaTests(unittest.TestCase):
+    """V0.0.53：日期只进元数据、不进版本号；`build` 块记构建溯源。
+
+    **判据为何存在**：清单是**手能改、机器也会读**的文件。时间写法一改，下游按格式取值
+    的代码会静默错位；`build` 块字段一多，没人同步守卫就悄悄漂移。故把三条钉死：
+    时间必须 Windows 文件名安全（无冒号）、ISO 必须带时区、构建溯源不得影响内容指纹。
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="qm_build_")
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        (self.root / "src").mkdir()
+        (self.root / "src" / "a.py").write_text("print('a')\n", encoding="utf-8")
+        (self.root / "start.bat").write_text("@echo off\r\n", encoding="utf-8")
+        (self.root / "VERSION").write_text("V0.0.1\n", encoding="utf-8", newline="\n")
+
+    def _meta(self, rev=1):
+        return json.loads(
+            (self.root / "versions" / "V0.0.1" / store.manifest_filename(rev))
+            .read_text(encoding="utf-8"))
+
+    def test_created_at_is_windows_filename_safe(self):
+        """`createdAt` 不含冒号 —— 它要能直接拿来命名文件（Windows 禁止 `:`）。"""
+        store.do_commit(self.root, self.root, "首次", "")
+        stamp = self._meta()["createdAt"]
+        self.assertNotIn(":", stamp)
+        self.assertRegex(stamp, store.STAMP_PATTERNS[0])
+
+    def test_iso_stamp_carries_timezone(self):
+        store.do_commit(self.root, self.root, "首次", "")
+        iso = self._meta()["createdAtIso"]
+        self.assertRegex(iso, r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$")
+
+    def test_build_block_records_provenance(self):
+        store.do_commit(self.root, self.root, "首次", "",
+                        author="测试助手", task="做点事", evidence="outputs/x.png")
+        build = self._meta()["build"]
+        self.assertEqual(build, {"author": "测试助手", "task": "做点事",
+                                 "evidence": "outputs/x.png"})
+
+    def test_missing_provenance_is_null_not_invented(self):
+        """取不到就写 null —— 宁可「未记录」，不可「记假的」；`task` 缺省沿用 note。"""
+        store.do_commit(self.root, self.root, "首次", "")
+        self.assertEqual(self._meta()["build"],
+                         {"author": None, "task": "首次", "evidence": None})
+
+    def test_build_metadata_does_not_affect_digest(self):
+        """只改构建溯源（`author`）不得产生新修订 —— 它是人写字段，不是内容。"""
+        store.do_commit(self.root, self.root, "首次", "", author="甲")
+        store.do_commit(self.root, self.root, "首次", "", author="乙")
+        self.assertFalse((self.root / "versions" / "V0.0.1" / "MANIFEST-r2.json").exists(),
+                         "构建溯源不应参与内容指纹")
+
+    def test_version_stamp_has_no_date(self):
+        """版本号里不得出现日期（SemVer 2.0.0：build metadata 不参与优先级比较）。"""
+        store.do_commit(self.root, self.root, "首次", "")
+        self.assertRegex(self._meta()["version"], r"^V\d+\.\d+\.\d+$")
+
+
 class FingerprintDiffTests(unittest.TestCase):
     """§P2-9：指纹比对单点（handoff 与 verify 复用同一实现）。"""
 

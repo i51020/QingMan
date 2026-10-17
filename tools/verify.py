@@ -35,6 +35,10 @@
      里出现的 `**` / 反引号 / `~~` / `[文字](链接)` 会原样上屏。**只查 `help.*`**
      （`sample.readmeContent` 是生成的 README 正文，那里的 Markdown 是应当的）；
      抽到的条数低于哨兵即报红，防「抽取式失配 → 循环空转 → 判据恒真」（§三.87 / §三.88）
+ 7ao. 清单元数据契约（V0.0.53）：**日期只进元数据、不进版本号**（SemVer 2.0.0 §10：
+     build metadata 不参与优先级比较，当不了回退点；同版多次构建由 `@rN` 承担）。
+     全部存量清单逐份查：`version` 纯三段式 / `createdAt` 在已登记写法内 /
+     `createdAtIso` 带时区 / `build` 块字段白名单
  7d-9. 皮肤文件**顶层只许 `:root` + `--qm-*` 声明**（§P0-3 L5）：与 7d「组件 CSS 不感知皮肤」
      **方向相反**，两者合起来才是完整的**双向隔离**（`skins/README.md` 契约「皮肤 == 一组变量
      覆盖值，不是一整套组件样式」的机器化；§P2 第 45 项）
@@ -82,7 +86,8 @@ PROJECT_ROOT = TOOLS_DIR.parent
 
 sys.path.insert(0, str(TOOLS_DIR))
 sys.dont_write_bytecode = True  # 校验工具不得在项目内留下 __pycache__
-from store import fingerprint_diff, latest_revision, load_manifest, manifest_filename  # noqa: E402
+from store import (STAMP_PATTERNS, fingerprint_diff, latest_revision,  # noqa: E402
+                   load_manifest, manifest_filename)
 
 PAIRED_TAGS = (
     "html", "head", "body", "div", "section", "aside", "header", "footer",
@@ -601,6 +606,52 @@ def help_markdown_violations(locale_text: str, label: str) -> list[str]:
             found = pat.search(val)
             if found:
                 hits.append(f"{label} 的 {key} 含{why}（渲染器不解析 Markdown，会原样上屏）")
+    return hits
+
+
+# 清单元数据判据（V0.0.53）：**日期只进元数据、不进版本号**。
+# 依据：SemVer 2.0.0 §10 —— build metadata 不参与优先级比较，因此它当不了「回退点标识」；
+# 本项目「同一版本的多次构建」由 `revision` / `@rN` 承担（§P0-6），两种机制不叠加。
+MANIFEST_VERSION_RE = re.compile(r"^V\d+\.\d+\.\d+$")
+MANIFEST_ISO_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:[+-]\d{2}:\d{2}|Z)$")
+MANIFEST_BUILD_KEYS = {"author", "task", "evidence"}
+
+
+def manifest_meta_violations(meta: dict, label: str) -> list[str]:
+    """返回一份 store 清单的**元数据违规**项（V0.0.53 · 守卫 7ao）。
+
+    守的是三条**不会自己报错**的约定（写错了清单照常能读，只是语义悄悄变了）：
+
+      ① `version` 必须是纯 SemVer 三段式 —— 日期不得进版本号。塞成 `V0.0.53+2026-…`
+         也能被 `store.py checkout` 跑通，但会与 `rN` 语义重复、且污染
+         `schema.json` 契约字段与 `help.versionFallback` 这种**用户可见**的串。
+      ② 时间字段必须是**已登记的写法**之一（`STAMP_PATTERNS`：新下划线式 / 历史空格式）。
+         新增写法必须同时改 `store.py` 的常量 —— 否则下游按格式取值的代码会静默错位。
+      ③ `build` 块只许登记过的三个键。**多出来的键一律报红**：本仓反复踩过
+         「字段悄悄加、无人同步」的坑（§三.88 同族），故这里取白名单式而非黑名单式。
+      ⚠ `build` 与 `createdAtIso` 是**同批引入**的 ⇒ 有 `build` 就必须有 `createdAtIso`；
+        缺一个说明清单被人手改过。
+    """
+    hits: list[str] = []
+    ver = meta.get("version")
+    if not isinstance(ver, str) or not MANIFEST_VERSION_RE.match(ver):
+        hits.append(f"{label} 的 version 不是纯 SemVer 三段式：{ver!r}（日期不得进版本号）")
+    stamp = meta.get("createdAt")
+    if not isinstance(stamp, str) or not any(re.match(p, stamp) for p in STAMP_PATTERNS):
+        hits.append(f"{label} 的 createdAt 不在已登记写法内：{stamp!r}")
+    iso = meta.get("createdAtIso")
+    if iso is not None and (not isinstance(iso, str) or not MANIFEST_ISO_RE.match(iso)):
+        hits.append(f"{label} 的 createdAtIso 不是带时区的 ISO 8601：{iso!r}")
+    build = meta.get("build")
+    if build is not None:
+        if not isinstance(build, dict):
+            hits.append(f"{label} 的 build 不是对象")
+        else:
+            extra = sorted(set(build) - MANIFEST_BUILD_KEYS)
+            if extra:
+                hits.append(f"{label} 的 build 有未登记字段 {extra}（新增须同步本守卫的白名单）")
+        if iso is None:
+            hits.append(f"{label} 有 build 却缺 createdAtIso（两者同批引入，缺一说明被手改）")
     return hits
 
 
@@ -1828,6 +1879,26 @@ def main() -> int:
     check(not _md_bad, "帮助页文案无 Markdown 标记 V0.0.53@r2",
           "；".join(_md_bad) if _md_bad
           else "两包 help.* 全为纯文本 —— 无粗体 / 反引号 / 删除线 / 链接残留")
+
+    # 7ao. 清单元数据契约（V0.0.53）：**日期只进元数据、不进版本号**。
+    #      三条判据与口径见模块级 `manifest_meta_violations()` 的 docstring。
+    #      覆盖面＝**全部存量清单**而不只是最新那份 —— 历史清单被手改同样要在意
+    #      （这正是本仓「只查最新 = 只守一半」的老毛病，§三.87 同族）。
+    _meta_bad: list[str] = []
+    _vers_dir = root / "versions"
+    _manifests = sorted(_vers_dir.rglob("MANIFEST*.json")) if _vers_dir.is_dir() else []
+    if not _manifests:
+        _meta_bad.append("未找到任何 MANIFEST*.json（store 尚未建立基线？）")
+    for _mf in _manifests:
+        try:
+            _m = json.loads(_mf.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            _meta_bad.append(f"{_mf.relative_to(root).as_posix()} 读不成 JSON：{exc}")
+            continue
+        _meta_bad += manifest_meta_violations(_m, _mf.relative_to(root).as_posix())
+    check(not _meta_bad, "清单元数据契约 V0.0.53",
+          "；".join(_meta_bad[:4]) if _meta_bad
+          else f"{len(_manifests)} 份清单：版本号纯 SemVer / 时间写法已登记 / build 字段白名单")
 
     # 7n. note 契约与 .md 边界（V0.0.17：节点说明 + 三粒度复制）
     #     裁定：note 与 .md content 一律**纯文本** —— 工具不解析、不渲染、不校验 Markdown。
