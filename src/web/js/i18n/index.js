@@ -8,9 +8,10 @@
  * 其余语言包放 `locales/<tag>.js`（V0.3.0 起在项目根，服务端经 `/locales/` 提供），由 `/api/locales.js` 枚举、
  * 前端经 `loadLocale()` 按需动态加载 —— **新增一门语言无需改动任何代码**。
  *
- * 五个偏好键持久化在 localStorage（**§P0-3 L6 为权威清单**，`tools/verify.py` 的 7ai 守卫
+ * 六个偏好键持久化在 localStorage（**§P0-3 L6 为权威清单**，`tools/verify.py` 的 7ai 守卫
  * 绑死「实现 / 守卫 / 约定」三方一致）：
- * `qm.lang`（语言）/ `qm.skin`（皮肤）/ `qm.inspMode`（检视器模式，V0.0.43）/`qm.launchIcon`（皮肤联动启动图标，V0.0.15 —— 唯一消费者 `ui/launch-icon.js`）。
+ * `qm.lang`（语言）/ `qm.skin`（皮肤）/ `qm.inspMode`（检视器模式，V0.0.43）/`qm.launchIcon`（皮肤联动启动图标，V0.0.15 —— 唯一消费者 `ui/launch-icon.js`）/
+ * `qm.tplUsage`（模板使用记录，V0.3.2 —— 唯一消费者 `modules/templates.js`，只用于**同名模板之间**的次级排序）。
  * V0.0.51@r9：`qm.genBar`（生成栏折叠态）**退场** —— 折叠撤销，见本文件下方说明。
  * 本模块的 DOM / localStorage 访问全部发生在函数内部 —— 顶层导入是安全的，
  * 因此纯逻辑模块（如 modules/tree-model.js）也可以取词。
@@ -128,6 +129,14 @@ export const SKIN_KEY = 'qm.skin';
 export const INSP_KEY = 'qm.inspMode';
 /** 上次已上传的启动图标配色指纹（P3-9）：持久化后，页面重载不再无条件重传图标。 */
 export const ICON_KEY = 'qm.launchIcon';
+/**
+ * 模板使用记录（V0.3.2）：`{ "文件名": { last: 毫秒戳, count: 次数 } }`。
+ *
+ * 只服务**排序的次级键**（显示名打平时才比较），不是用户可见的统计 —— 因此
+ * 不显示在界面上、也不进服务端。唯一读写点：`modules/templates.js` 的
+ * `readUsage` / `bumpUsage`（口径见 `modules/tpl-order.js` 头注释）。
+ */
+export const TPL_USAGE_KEY = 'qm.tplUsage';
 
 let locale = DEFAULT_LOCALE;
 let dict = BUILTIN_LOCALES[DEFAULT_LOCALE].dict;

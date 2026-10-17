@@ -8,9 +8,10 @@
 
 import { api } from '../core/api.js';
 import { localizeError } from '../core/errors.js';
-import { t } from '../i18n/index.js';
+import { readPref, writePref, t, TPL_USAGE_KEY } from '../i18n/index.js';
 import { toast } from '../ui/toast.js';
 import { fromNestedTree, adoptTemplateNote, treePayload } from './tree-model.js';
+import { sortTemplates } from './tpl-order.js';
 
 /** 与 main.js 同款取元素助手（各自持有 1 行，不为一个 1 行函数再拆模块）。 */
 const el = (id) => document.getElementById(id);
@@ -25,6 +26,61 @@ export function createTemplates({ ctxMenu, store, getLayers, pushHistory, setSta
 /* ---------- 模板库（V0.0.11） ---------- */
 
 /* 错误本地化已迁至 ./core/errors.js（V0.0.12）：主界面与帮助页共用同一套 `err.<code>` 取词。 */
+
+/* ---------- 模板使用记录（V0.3.2） ---------- */
+
+/**
+ * 使用记录：`{ [文件名]: { last: 毫秒戳, count: 次数 } }`。
+ *
+ * **只存文件名，不存显示名** —— 改名后旧记录自然失效。这是有意的取舍：宁可丢掉
+ * 一条记录（退回按显示名排），也不让「改过名的模板」顶着别人的使用次数排到前面。
+ *
+ * 排序口径本身**不在这里**（见 `./tpl-order.js`）：本模块只负责「记一次」与
+ * 「读出来」，模块顶层 import 了 `core/api.js`（读 `window.location.origin`），
+ * 在 Node 里导不进来 —— 拆开才能让排序口径被单测钉住。
+ */
+const TPL_USAGE_MAX = 200;   // 最多记 200 套，防止 localStorage 无限增长
+
+/** 读使用记录。手改坏 / 隐私模式下取不到 —— 一律当「没有记录」，不让列表挂掉。 */
+function readUsage() {
+  try {
+    const raw = readPref(TPL_USAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (err) {
+    return {};
+  }
+}
+
+function writeUsage(map) {
+  try {
+    writePref(TPL_USAGE_KEY, JSON.stringify(map));
+  } catch (err) {
+    /* 存不下就只在本次会话内生效：排序降级为纯显示名序，不影响任何功能 */
+  }
+}
+
+/**
+ * 记一次「用了这套模板」。
+ *
+ * **只在 `applyTemplate` 里调用** —— 载入编辑器才叫「用」。复制（`duplicateTemplateItem`）
+ * 与「新建时以某套为起点」（`submitNewTemplate`）都会读模板，但那是取材、不是使用；
+ * 若一并计入，常用模板会被「复制副本」这类一次性动作带偏。
+ */
+function bumpUsage(file) {
+  if (!file) return;
+  const map = readUsage();
+  const prev = map[file] && typeof map[file] === 'object' ? map[file] : {};
+  const count = Number(prev.count);
+  map[file] = { last: Date.now(), count: (Number.isFinite(count) ? count : 0) + 1 };
+  const files = Object.keys(map);
+  if (files.length > TPL_USAGE_MAX) {
+    // 超限只淘汰**最久没用**的那些（按 last 降序保留前 N 条）
+    files.sort((a, b) => (Number(map[b].last) || 0) - (Number(map[a].last) || 0));
+    for (const key of files.slice(TPL_USAGE_MAX)) delete map[key];
+  }
+  writeUsage(map);
+}
 
 /* ---------- 模板目录绑定（V0.0.38 · 6E） ---------- */
 
@@ -152,6 +208,9 @@ async function loadTemplateList({ force = true } = {}) {
     return;
   }
   const items = (res && res.items) || [];
+  // 签名**只取后端原序**（`file|mtime|size`）。刻意**不并入**排序结果：排序含使用
+  // 记录，若进签名，载入一套模板就会让下一次轮询判定「变了」→ 重建 DOM，
+  // 正在浏览的用户会看到滚动位置被重置（与 V0.0.38 · 6E 的防抖动取舍同源）。
   const sig = templateSignature(res);
   if (!force && sig === tplSignature) return;
   tplSignature = sig;
@@ -172,7 +231,8 @@ async function loadTemplateList({ force = true } = {}) {
   // 绑了外部目录 → 用户。列表整体同层，故徽标文案只需算一次。
   const layerKey = (!lastDirRes || lastDirRes.source === 'default')
     ? 'template.layerBuiltin' : 'template.layerUser';
-  for (const item of items) {
+  // 顺序：显示名优先，同名才看使用记录（V0.3.2，口径见 ./tpl-order.js）
+  for (const item of sortTemplates(items, readUsage())) {
     const li = document.createElement('li');
     li.className = 'tpl-row';
     const btn = document.createElement('button');
@@ -408,6 +468,7 @@ async function applyTemplate(item) {
     setStatus(t('template.loaded', { name: res.name || item.name })
       + (noteFrom ? t('template.noteAdopted', { file: noteFrom }) : ''));
     markDirty();
+    bumpUsage(item.file);   // 载入成功才算「用过一次」（V0.3.2 排序次级键）
   } catch (err) {
     toast(t('template.loadFailed', { message: localizeError(err) }), 'error', 6000);
   }
@@ -486,7 +547,8 @@ async function fillTemplateBaseOptions() {
   sel.appendChild(blank);
   try {
     const res = await api.listTemplates();
-    for (const item of (res && res.items) || []) {
+    // 与左侧列表同一口径（V0.3.2）：下拉里看到的次序不该和列表里不一样
+    for (const item of sortTemplates((res && res.items) || [], readUsage())) {
       const opt = document.createElement('option');
       opt.value = item.file;
       opt.textContent = item.name;

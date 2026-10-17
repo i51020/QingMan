@@ -1282,7 +1282,8 @@ def main() -> int:
     # V0.0.15 起的第五键 `qm.launchIcon`（快捷方式图标持久化）此前**不在守卫内** ——
     # 属盲区：删掉 `ICON_KEY` 声明无人报错。2026-10-15 据实补齐（见表 §P0-3 L6）。
     # V0.0.51@r9：`qm.genBar`（生成栏折叠态）随折叠撤销一并退场 → 5 键降为 4 键。
-    PREF_KEYS = ("qm.lang", "qm.skin", "qm.inspMode", "qm.launchIcon")
+    # V0.3.2：新增 `qm.tplUsage`（模板使用记录 · 只作排序次级键）→ 4 键升为 5 键。
+    PREF_KEYS = ("qm.lang", "qm.skin", "qm.inspMode", "qm.launchIcon", "qm.tplUsage")
     prefs_body = prefs_js.read_text(encoding="utf-8") if prefs_js.is_file() else ""
     prefs_missing = [key for key in PREF_KEYS if key not in prefs_body]
     check(not prefs_missing, "偏好键名 §P0-3 L6",
