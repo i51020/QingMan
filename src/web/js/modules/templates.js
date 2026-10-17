@@ -169,8 +169,9 @@ function markCreated(file) { markFresh('created', [file]); }
  * ② 单个导入 / ③ 批量导入（V0.3.4 起按「本次选了几个文件」分段）。
  *
  * 判据来自 `importBucket`（纯函数、可单测）：**一次选 1 个 → ②**，**一次选多个 → ③**。
- * 连续多次单选都落进 ② 段，段内一律按名称 —— 用户要的「连续操作等同同批」自动成立，
- * 不需要额外记「上一步是不是导入」。
+ * 连续多次单选都落进 ② 段：**段内按导入先后、后导入的在前**（V0.3.8 修正）。
+ * 旧注释曾写「段内一律按名称 —— 连续操作等同同批，自动成立」，那是错的：
+ * 两次独立导入本就是两次动作，按名称排会让**刚导入的那套**被名字更小的挤下去。
  */
 function markImported(files, count) {
   const n = count === undefined ? (files || []).length : count;
@@ -753,8 +754,8 @@ async function submitImport(filename, text) {
       return;
     }
   }
-  // ② 本次单个导入。**连续多次导入自动并入同一批** —— 段内一律按名称排，
-  // 所以「连续操作等同同批」不需要额外判「上一步是不是导入」，结果本就一致。
+  // ② 本次单个导入。连续多次单选导入都进同一段，**段内按导入先后、后导入的在前**
+  // （V0.3.8）：不再靠名称序冒充「同批」，否则刚导入的那套会被名字更小的顶下去。
   markImported([saved]);
   toast(t('template.imported', { name: filename }), 'ok');
   await loadTemplateList();

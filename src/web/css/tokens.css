@@ -95,6 +95,32 @@
   --qm-qr-shadow:     0 2px 8px var(--qm-soft-dark);
   --qm-btn-edge:      inset 0 1px 0 var(--qm-edge-hi);
 
+  /* ---------- 单向落影（V0.3.8 · 按钮立体化）----------
+     与上面 `--qm-tap` 的两点**语义分工**，不要混用：
+       `--qm-tap` / `--qm-tap-in` = **双向** neumorphism（左上亮 + 右下暗），
+         用于「凹槽 / 凸起」的成对语义（分段控件、被动槽、输入框内陷）。
+       本组 = **单向** 落影（只向下、不留左上高光），用于「按钮是浮在面板上的一片」。
+     起因（用户实测反馈）：图标钮用 `--qm-tap` 时，深色皮肤的亮侧（白 α.06）几乎不可见、
+     暗侧（黑 α.62）在按钮下方糊成一圈 → 视觉读成「按钮塌进底板」的**凹槽**，与
+     「凸起」正相反。改成单向后方向唯一，不再有「凹 / 凸」的二义性；立体感与按压
+     反馈改由 `transform: translateY/scale` 承担（soft.css 中不写任何位移字面量）。 */
+  --qm-drop:            0 1px 2px var(--qm-shadow-dark);
+  --qm-drop-hover:      0 4px 10px var(--qm-shadow-dark);
+  --qm-drop-active:     0 1px 1px var(--qm-shadow-dark);
+  --qm-drop-expanded:   0 2px 6px var(--qm-shadow-dark);
+  /* 主按钮 = 单向落影 + 顶面内高光（--qm-btn-edge）。内高光是"顶面反光"，
+     与落影不冲突，故合成一个变量，避免 soft.css 里再拼表达式。 */
+  --qm-drop-primary:        0 2px 6px var(--qm-shadow-dark), var(--qm-btn-edge);
+  --qm-drop-primary-hover:  0 5px 14px var(--qm-shadow-dark), var(--qm-btn-edge);
+  --qm-drop-primary-active: 0 1px 2px var(--qm-shadow-dark), var(--qm-btn-edge);
+
+  /* ---------- 动效语法变量（V0.3.8）----------
+     时长 / 缓动同样只此一份：按钮的立体化与换肤过渡共用，避免各组规则各写一套。
+     `.16s` + 该贝塞尔 = 「快起慢收、无回弹」，适合按下/悬停这类**短程**位移；
+     系统「减少动态效果」时不位移，只留阴影（见 soft.css 第 3 节末的 media 段）。 */
+  --qm-mo-fast: .16s;
+  --qm-mo-ease: cubic-bezier(.2, .7, .3, 1);
+
   /* 下拉箭头**遮罩**（D-P3-2）：遮罩本身不带颜色，实际颜色由 base.css 的
      `.topbar-select::after` 以 `background-color: var(--qm-text-dim)` 上色 ——
      于是箭头随**皮肤**（皮肤覆盖 --qm-text-dim）与 light/dark 一同变化，

@@ -1452,6 +1452,17 @@ def main() -> int:
                           ('html input[type="text"]:focus', "input:focus 描边")):
             if pat not in sbody:
                 soft_errs.append(f"缺实测补丁：{name}")
+        # 7d-6 续（V0.3.8）：字面量清零后，「变量是否真的存在」成了新的静默失效点 ——
+        # var(--qm-drop) 拼错或 tokens 里漏定义时，CSS 只是**不生效**（无报错、无回退色），
+        # 表现为「按钮突然没有立体感」，与"忘记加阴影"难以区分。故反向锚定 soft.css
+        # 引用的**单向落影 / 动效**变量必须在 tokens.css 中确有定义。
+        _tok_txt = (root / "src/web/css/tokens.css").read_text(encoding="utf-8") \
+            if (root / "src/web/css/tokens.css").is_file() else ""
+        _used = {v for v in re.findall(r"var\((--qm-(?:drop|mo)[\w-]*)", sbody)}
+        _undef = sorted(v for v in _used if not re.search(
+            rf"^\s*{re.escape(v)}\s*:", _tok_txt, re.M))
+        if _undef:
+            soft_errs.append("soft.css 引用了未定义变量：" + ", ".join(_undef[:4]))
     else:
         soft_errs.append("缺少 soft.css")
     check(not soft_errs, "Soft 转基础层 V0.0.45",
@@ -2907,6 +2918,19 @@ def main() -> int:
         ("function exportTemplateItem", "6E 导出未接线"),
     ):
         if token not in tpl_js:
+            fe_bad.append(why)
+    # V0.3.8：①/② 两段内必须按「本次会话的操作先后」排，**不能**沿用 ③ 段的名称序。
+    # 用户实测报障「新建的模板没排在最前」：①段每次只进一个文件（`markCreated` 单参），
+    # 名称序与动作先后无关，于是刚建的那套被名字更小的老条目顶到中间（甲→乙→辛 建完
+    # 显示 `乙,甲,辛`）。删掉分流即复发，且单测 `TPL/created-latest-first` 会一起红。
+    tpl_order_js = _read("src/web/js/modules/tpl-order.js")
+    for token, why in (
+        ("function freshSeq", "①/② 段缺「操作序号」（段内只能按名称，新建的不置顶）"),
+        ("if (ra === RANK_CREATED || ra === RANK_SINGLE)",
+         "①/② 段未与 ③ 段分流（回退成段内按名称）"),
+        ("return sb - sa", "①/② 段未按「后发生的在前」排序"),
+    ):
+        if token not in tpl_order_js:
             fe_bad.append(why)
     for token, why in (
         ("'/api/templates-dir/pick'", "api.js 未接线原生目录选择端点"),

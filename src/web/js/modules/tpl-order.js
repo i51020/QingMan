@@ -11,7 +11,8 @@
  *   ⑥ **名称**（先小写再原文，升序）→ **文件名**（兜底）—— 纯名称序也是
  *      「首次进入 / 点刷新」的唯一口径（`SORT_NAME` 模式）。
  *
- * **段 ①②③ 内一律按名称排**：同批的模板在用户眼里没有先后之别，只有名字可依。
+ * **段 ③ 内按名称排**：一次批量导入的模板在用户眼里没有先后之别，只有名字可依。
+ * **段 ①② 内按「本次会话的操作先后」（后建的在前）** —— V0.3.8 修正，见 `freshSeq`。
  *
  * ---
  *
@@ -183,6 +184,35 @@ export function planExternal(sess, files) {
 }
 
 /**
+ * 段 ① / ② 内的次序：**本会话内的操作先后，后发生的在前**（V0.3.8）。
+ *
+ * 为什么不能沿用「段内按名称」：
+ *   `markCreated` / `markImported([f], 1)` **每次只推进一个文件** —— ①、② 两段里
+ *   每一条都是**独立的一次用户动作**，从来没有「同批」可言。而名称序与动作发生的
+ *   先后毫无关系，于是「刚建完的那个」会被名字更小的老条目顶到中间。实测（甲→乙→辛
+ *   依次新建）：`乙,甲,辛` —— 最新的「辛」反而垫底。用户口径是「我刚建的那套应该
+ *   在第一个」。
+ *   ③ 段相反：`markExternal` / 批量导入**一次推入一整批**，批内无先后，故仍按名称。
+ *
+ * 取数组下标即可 —— `markFresh` 恒为**追加**（`push`），下标越大 = 越晚发生。
+ * 无需额外时间戳，也就不存在「同毫秒并列」的排序不稳定问题。
+ *
+ * @param {string} file 文件名
+ * @param {number} rank `freshRank` 的结果
+ * @param {object} fresh `{created, single, batch}`
+ * @returns {number} 该段的操作序号；不在段内返回 0
+ */
+function freshSeq(file, rank, fresh) {
+  const bucket = rank === RANK_CREATED ? 'created'
+    : (rank === RANK_SINGLE ? 'single' : null);
+  if (!bucket) return 0;
+  const list = (fresh || {})[bucket];
+  if (!Array.isArray(list)) return 0;
+  const i = list.indexOf(file);
+  return i < 0 ? 0 : i;
+}
+
+/**
  * 两条模板的比较器（供 `Array.prototype.sort` 直接使用）。
  * @param {object} a 模板项 `{file, name, ...}`
  * @param {object} b 模板项
@@ -199,7 +229,14 @@ export function compareTemplates(a, b, ctx) {
   const rb = freshRank(b && b.file, bu[1], c.fresh);
 
   if (ra !== rb) return ra - rb;          // 段号小的在前（RANK_NONE 最大 ⇒ 排最后）
-  if (ra !== RANK_NONE) return cmpNameThenFile(a, b);   // 同一新段内：按名称
+  if (ra === RANK_CREATED || ra === RANK_SINGLE) {
+    // ①②：后发生的在前（见 freshSeq）。全等才退回名称 —— 保证结果仍可复现。
+    const sa = freshSeq(a && a.file, ra, c.fresh);
+    const sb = freshSeq(b && b.file, ra, c.fresh);
+    if (sa !== sb) return sb - sa;
+    return cmpNameThenFile(a, b);
+  }
+  if (ra !== RANK_NONE) return cmpNameThenFile(a, b);   // ③ 同批：按名称
 
   if (au[0] !== bu[0]) return bu[0] - au[0];   // ④ 最近使用在前
   if (au[1] !== bu[1]) return bu[1] - au[1];   // ⑤ 用得多的在前

@@ -337,12 +337,41 @@ const tm = await import(SRC + '/modules/tree-model.js');
        [mk('a.json', 'A'), mk('b.json', 'B'), mk('c.json', 'C'), mk('d.json', 'D')],
        ev({ created: ['c.json'], single: ['b.json'], batch: ['a.json'] }))));
 
-  /* ④ 同一段内按名称 —— 这就是「同时载入的多个模板按名称」 */
+  /* ④ 同一段内按名称 —— 这就是「同时载入的多个模板按名称」。
+        **只对 ③（批量导入 / 外部新增）成立**：那一批是同一个动作推进来的，批内无先后。 */
   ok('TPL/batch-by-name',
      seq(order.sortTemplates([mk('3.json', 'c'), mk('1.json', 'a'), mk('2.json', 'b')],
        ev({ batch: ['3.json', '1.json', '2.json'] }))) === '1.json,2.json,3.json',
      seq(order.sortTemplates([mk('3.json', 'c'), mk('1.json', 'a'), mk('2.json', 'b')],
        ev({ batch: ['3.json', '1.json', '2.json'] }))));
+
+  /* ④b V0.3.8 **① 段内按操作先后、后建的在前**（旧实现按名称 → 用户报「新建的没排前面」）。
+        实测样本：依次新建 甲 → 乙 → 辛，旧口径输出 `乙,甲,辛`（中文按 UTF-16 码位，
+        最新建的「辛」垫底）；新口径应为 `辛,乙,甲`。
+        注意这条**不依赖名称序**：即使名称升序与操作序一致也判得出（见 ④c）。 */
+  ok('TPL/created-latest-first',
+     seq(order.sortTemplates(
+       [mk('jia.json', '甲'), mk('yi.json', '乙'), mk('xin.json', '辛')],
+       ev({ created: ['jia.json', 'yi.json', 'xin.json'] })))
+       === 'xin.json,yi.json,jia.json',
+     seq(order.sortTemplates(
+       [mk('jia.json', '甲'), mk('yi.json', '乙'), mk('xin.json', '辛')],
+       ev({ created: ['jia.json', 'yi.json', 'xin.json'] }))));
+
+  /* ④c 反向对照：操作序与名称升序**故意相反**（先建 A 再建 Z）——
+        按名称排会得到 `a,z`，按操作先后应为 `z,a`。这一条才是判据本身。 */
+  ok('TPL/created-defies-name',
+     seq(order.sortTemplates([mk('a.json', 'A'), mk('z.json', 'Z')],
+       ev({ created: ['a.json', 'z.json'] }))) === 'z.json,a.json',
+     seq(order.sortTemplates([mk('a.json', 'A'), mk('z.json', 'Z')],
+       ev({ created: ['a.json', 'z.json'] }))));
+
+  /* ④d ② 段同理：两次独立单选导入，后导入的在前 */
+  ok('TPL/single-latest-first',
+     seq(order.sortTemplates([mk('a.json', 'A'), mk('z.json', 'Z')],
+       ev({ single: ['a.json', 'z.json'] }))) === 'z.json,a.json',
+     seq(order.sortTemplates([mk('a.json', 'A'), mk('z.json', 'Z')],
+       ev({ single: ['a.json', 'z.json'] }))));
 
   /* ⑤ **用过即出队**：仍在新建段里的模板，只要次数 ≥ 1 就退出，改按最近使用排。
         漏掉这条，新建的模板会永远压顶，④⑤ 再也轮不到。 */
@@ -544,6 +573,8 @@ class FrontendJsTests(unittest.TestCase):
            新建的会永远压顶，④⑤ 再也轮不到，等于把六段退化成一节。
         """
         for n in ("TPL/name-mode", "TPL/new-first", "TPL/seg-order", "TPL/batch-by-name",
+                  "TPL/created-latest-first", "TPL/created-defies-name",
+                  "TPL/single-latest-first",
                   "TPL/used-leaves", "TPL/rest-recent", "TPL/rest-count",
                   "TPL/tie-name-file", "TPL/dirty-usage", "TPL/no-fresh",
                   "TPL/no-mutate", "TPL/empty", "TPL/ext-first-sight", "TPL/ext-later",

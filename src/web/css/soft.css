@@ -82,29 +82,66 @@ html .btn:disabled {
   background: transparent; border-color: transparent; box-shadow: none;
 }
 
-/* ---------- 3. 图标钮族：浅底 + 淡边 + 短程柔光 ----------
+/* ---------- 3. 图标钮族：浅底 + 淡边 + **单向落影**（V0.3.8） ----------
    ⚠ `:not(.tpl-more)` 必须要有：左栏模板行右端的 ⋮ 类名正是
-     `.btn.btn-ghost.btn-mini.btn-ic`，不加排除会被本组规则退回「外挂描边方块」。 */
+     `.btn.btn-ghost.btn-mini.btn-ic`，不加排除会被本组规则退回「外挂描边方块」。
+
+   **V0.3.8 为什么不再用 `--qm-tap`（双向 neumorphism）**：它是
+   「左上 -2px 亮 rgba(255,255,255,.06) + 右下 2px 暗 rgba(0,0,0,.62)」——
+   深浅两侧强度差近 10 倍。深色皮肤上亮侧基本看不见、暗侧糊成按钮下方的一圈，
+   视觉上读成「按钮塌进底板」的**凹槽**，而不是凸起（用户实测反馈：截图里每个
+   图标钮下面都有一道凹边）。改成**单向落影**（只向下、不留左上高光）后，
+   方向唯一、不再有"凹"的二义性；立体感与悬停动画由 `transform` 承担 ——
+   这正是本文件里 `.chip-btn` / `.btn-primary` 一直以来的做法。
+   位移 / 模糊 / 时长**全部**在 tokens.css 的 `--qm-drop-*` / `--qm-mo-*` 里，
+   本节只做 `var()` 引用（守卫 7d-6：本文件不得出现 px 字面量）。 */
 html .icon-btn,
 html .btn.btn-ghost.btn-ic:not(.tpl-more),
 html .btn.btn-ghost.btn-mini.btn-ic:not(.tpl-more) {
   background: var(--qm-surface-2);
   border-color: var(--qm-line-soft);
-  box-shadow: var(--qm-tap);
+  box-shadow: var(--qm-drop);
+  /* **只过渡 transform / box-shadow**（V0.3.8 实测修正）。
+     早先把 background-color / border-color / color 也列进来，想让「换肤」也渐变过去 ——
+     代价是**颜色变成了随时间变化的值**：换肤瞬间 `getComputedStyle().color` 返回
+     插值中间态，页面冒烟 D-P3-2（图标色须等于 `--qm-text-dim`）当场读到
+     `rgb(93,102,115)` 而变量是 `rgb(93,88,79)` → 判定「图标色未随皮肤」。
+     这不是判据太严：颜色即时切换才是可复现的；「立体 + 动画」也不靠颜色渐变，
+     它靠 translateY / scale 与落影深浅。故颜色类属性一律不进过渡。 */
+  transition: transform var(--qm-mo-fast) var(--qm-mo-ease),
+              box-shadow var(--qm-mo-fast) var(--qm-mo-ease);
 }
 html .icon-btn:hover:not(:disabled),
 html .btn.btn-ghost.btn-ic:not(.tpl-more):hover:not(:disabled),
 html .btn.btn-ghost.btn-mini.btn-ic:not(.tpl-more):hover:not(:disabled) {
-  box-shadow: var(--qm-tap-hi);
+  transform: translateY(-1px);
+  box-shadow: var(--qm-drop-hover);
 }
 html .icon-btn:active:not(:disabled),
 html .btn.btn-ghost.btn-ic:not(.tpl-more):active:not(:disabled),
 html .btn.btn-ghost.btn-mini.btn-ic:not(.tpl-more):active:not(:disabled) {
-  box-shadow: var(--qm-tap-in);
+  transform: translateY(0) scale(.96);
+  box-shadow: var(--qm-drop-active);
 }
+/* 展开态（弹层已开）：靠强调底色 + 描边区分，**不再用 inset** ——
+   否则一点开就"按进去"，与悬停时的"抬起来"方向相反，手感是断的。 */
 html .icon-btn[aria-expanded="true"] {
   background: var(--qm-accent-soft); color: var(--qm-accent-ink);
-  border-color: transparent; box-shadow: var(--qm-tap-in);
+  border-color: var(--qm-accent);
+  box-shadow: var(--qm-drop-expanded);
+}
+/* 动效可关断：系统设了"减少动态效果"就不位移，只留阴影变化 */
+@media (prefers-reduced-motion: reduce) {
+  html .icon-btn,
+  html .btn.btn-ghost.btn-ic:not(.tpl-more),
+  html .btn.btn-ghost.btn-mini.btn-ic:not(.tpl-more) {
+    transition: box-shadow .01ms linear;
+  }
+  html .icon-btn:hover:not(:disabled),
+  html .btn.btn-ghost.btn-ic:not(.tpl-more):hover:not(:disabled),
+  html .btn.btn-ghost.btn-mini.btn-ic:not(.tpl-more):hover:not(:disabled) {
+    transform: none;
+  }
 }
 
 /* ---------- 4. 顶栏状态组：被动槽凹陷，组内可点 chip 反向凸起 ---------- */
@@ -133,17 +170,24 @@ html .btn.btn-primary {
   border-color: var(--qm-btn-bg);
   color: var(--qm-on-accent);
   border-radius: var(--qm-r-sm);
-  /* V0.0.45：位移 / 模糊收敛到语法变量（--qm-tap / --qm-tap-hi / --qm-sink），
-     与本文件其它按钮同源 —— 「形态」只有一处出口，改一处全站生效。 */
-  box-shadow: var(--qm-tap), var(--qm-btn-edge);
+  /* V0.0.45：位移 / 模糊收敛到语法变量；**V0.3.8**：不再叠双向 `--qm-tap`，
+     改为「单向落影 + 顶部内高光（--qm-btn-edge）」。理由同第 3 节 ——
+     双向投影在深色皮肤上会在按钮下方糊出一圈凹边，而内高光才是真正的"顶面反光"。
+     三态阴影（常态 / 悬停 / 按下）已合成为 `--qm-drop-primary*`，本节只做引用。 */
+  box-shadow: var(--qm-drop-primary);
+  /* 同第 3 节：颜色类属性不进过渡（换肤须即时可复现，否则计算色变成时间函数）。 */
+  transition: transform var(--qm-mo-fast) var(--qm-mo-ease),
+              box-shadow var(--qm-mo-fast) var(--qm-mo-ease);
 }
 html .btn.btn-primary:hover:not(:disabled) {
   background: var(--qm-btn-bg-hi);
   border-color: var(--qm-btn-bg-hi);
-  box-shadow: var(--qm-tap-hi), var(--qm-btn-edge);
+  transform: translateY(-1px);
+  box-shadow: var(--qm-drop-primary-hover);
 }
 html .btn.btn-primary:active:not(:disabled) {
-  box-shadow: var(--qm-sink);
+  transform: translateY(0) scale(.97);
+  box-shadow: var(--qm-drop-primary-active);
 }
 
 /* ---------- 6. 操作带分组：凹陷胶囊（分段控件语言） ---------- */
