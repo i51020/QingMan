@@ -18,10 +18,12 @@
 **同步注入**首屏语言（走同步脚本是为了不闪烁）。静态托管没有后端，这两条会 404，
 于是这里生成同形的静态文件 —— 内容与 `routes.env_script()` / `routes.locales_script()` 对齐。
 
-**浏览器内演示后端**（`tools/web-demo/demo-backend.js`）：线上没有 Python，若 `/api/*`
-全 404，界面只能显示「后端未连接」，访客会以为站点坏了。故注入一个按**同一套 HTTP 契约**
-实现的演示后端：健康检查通过、编辑态存 `localStorage`（刷新不丢）、模板库给内置空白模板，
-**写盘类动作明确说明做不到**（浏览器本来也不该能写用户磁盘）。它只存在于静态产物里，
+**浏览器内在线后端**（`tools/web-demo/demo-backend.js`）：线上没有 Python，若 `/api/*`
+全 404，界面只能显示「后端未连接」。故注入一个按**同一套 HTTP 契约**实现的后端：
+健康检查通过、编辑态存 `localStorage`（刷新不丢）、模板库存内置空白模板，
+而**生成目录改走浏览器的文件夹授权**（File System Access API）—— 由用户当场点选目录，
+逐个创建真实文件夹与文件。也就是说线上版**真的能建目录**，只是写盘通道从 Python 换成了浏览器，
+代价是需要 Edge / Chrome 且位置靠点选（不能填路径）。它只存在于静态产物里，
 `src/` 不感知 —— 生产代码一个字都不为演示让步。
 
 **用法**：`py -3 tools/build_static_site.py [--out dist/static-site]`
@@ -171,7 +173,7 @@ def main(argv: "list[str] | None" = None) -> int:
     print(f"[静态] {out}")
     print(f"  web {info['web']} 个 + locales {info['locales']} 个 → 共 {info['files']} 文件，"
           f"{info['bytes'] / 1024:.0f} KB")
-    print("  演示后端：" + ("已注入（编辑态存 localStorage，写盘类动作给明确说明）"
+    print("  在线后端：" + ("已注入（草稿存 localStorage；生成走浏览器文件夹授权，真写磁盘）"
                           if info["demo"] else "未注入（缺 tools/web-demo/demo-backend.js）"))
     return 0
 
