@@ -497,6 +497,11 @@ export const dict = {
   'help.templates.2': 'Unzip it into the template folder (by default the templates folder next to the app; open it from Service settings). Both .json and .md are accepted.',
   'help.templates.3': 'Back in the main window the list refreshes within seconds. Importing a template with an existing name asks before overwriting; the old file goes to the recycle folder.',
   'help.templates.4': 'Right-click a template to export: .json for re-import, .md for reading and version control. Both carry the same content.',
+  'help.shortcut.title': 'Desktop shortcut',
+  'help.shortcut.1': 'The QingMan wordmark in the top-left corner is itself a button: click it to create a launcher on your desktop.',
+  'help.shortcut.2': 'You are asked to confirm first. The shortcut icon follows the current skin; click again after switching skins to refresh it.',
+  'help.shortcut.3': 'If the desktop is not writable (managed machine, read-only desktop), the app downloads a .lnk file instead — drag it to the desktop and it works the same.',
+  'help.shortcut.4': 'The shortcut points at start.bat inside the program folder. If you move or rename that folder, the old icon stops working — just click the wordmark again.',
   'help.quickStart.title': 'Quick Start',
   'help.quickStart.1': 'Double-click start.bat in the project root to launch the local server',
   'help.quickStart.2': 'Browser opens automatically; a status dot in the ready colour at the top right means the service is up (click it for service status and settings)',
@@ -577,6 +582,9 @@ export const helpSections = [
   { id: 'tree', title: 'help.tree.title', kind: 'ul', items: [
     'help.tree.1', 'help.tree.2', 'help.tree.3', 'help.tree.4', 'help.tree.5',
     'help.tree.6', 'help.tree.7', 'help.tree.8',
+  ] },
+  { id: 'shortcut', title: 'help.shortcut.title', kind: 'ul', items: [
+    'help.shortcut.1', 'help.shortcut.2', 'help.shortcut.3', 'help.shortcut.4',
   ] },
   { id: 'templates', title: 'help.templates.title', kind: 'ul', items: [
     'help.templates.1', 'help.templates.2', 'help.templates.3', 'help.templates.4',

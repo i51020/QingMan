@@ -502,6 +502,11 @@ export const dict = {
   'help.templates.2': '把压缩包解压到模板库目录即可（默认是程序目录下的 templates；可在「服务设置」里点图标打开该目录）。.json 与 .md 两种格式都认。',
   'help.templates.3': '解压后回到主界面，模板列表会在几秒内自动出现；导入同名模板时会询问是否覆盖，旧模板移入回收站、可找回。',
   'help.templates.4': '右键模板可导出：.json 便于再导入，.md 便于阅读与放进版本库，两种内容等价。',
+  'help.shortcut.title': '创建桌面快捷方式',
+  'help.shortcut.1': '左上角那个「青蔓 QingMan」标志本身就是按钮：点它，会在桌面生成一个启动快捷方式，以后双击桌面图标即可打开。',
+  'help.shortcut.2': '生成前会先问一次「是否在桌面创建」。快捷方式的图标会跟着当前皮肤配色走，换肤后重新点一次即可更新。',
+  'help.shortcut.3': '如果桌面不可写（公司受管电脑、只读桌面等），会改为下载一个 .lnk 文件，把它拖到桌面同样能用。',
+  'help.shortcut.4': '快捷方式指向程序目录里的 start.bat。把程序目录移动、改名或换盘之后，旧图标会失效 —— 重新点一次标志生成即可。',
   'help.quickStart.title': '快速开始',
   'help.quickStart.1': '双击项目根目录的 start.bat 启动本地服务',
   'help.quickStart.2': '浏览器自动打开；顶栏右侧那颗状态点呈就绪色即表示服务正常（点它可查看服务状态与设置）',
@@ -589,6 +594,9 @@ export const helpSections = [
   { id: 'tree', title: 'help.tree.title', kind: 'ul', items: [
     'help.tree.1', 'help.tree.2', 'help.tree.3', 'help.tree.4', 'help.tree.5',
     'help.tree.6', 'help.tree.7', 'help.tree.8',
+  ] },
+  { id: 'shortcut', title: 'help.shortcut.title', kind: 'ul', items: [
+    'help.shortcut.1', 'help.shortcut.2', 'help.shortcut.3', 'help.shortcut.4',
   ] },
   { id: 'templates', title: 'help.templates.title', kind: 'ul', items: [
     'help.templates.1', 'help.templates.2', 'help.templates.3', 'help.templates.4',
