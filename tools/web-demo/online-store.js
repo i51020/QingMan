@@ -114,9 +114,10 @@
       .catch(function () { return true; });
   }
 
-  function dirPermission(handle) {
+  /** 目录权限查询。`mode` 默认 `'read'`（模板库只读进来用），写盘前要传 `'readwrite'`。 */
+  function dirPermission(handle, mode) {
     if (!handle || typeof handle.queryPermission !== 'function') { return Promise.resolve('denied'); }
-    return handle.queryPermission({ mode: 'read' }).catch(function () { return 'denied'; });
+    return handle.queryPermission({ mode: mode || 'read' }).catch(function () { return 'denied'; });
   }
 
   /* ---------- 生成目标位置（与模板库**分键**，互不影响） ----------
@@ -178,8 +179,42 @@
   }
 
   function targetPermission(handle) {
-    if (!handle || typeof handle.queryPermission !== 'function') { return Promise.resolve('denied'); }
-    return handle.queryPermission({ mode: 'readwrite' }).catch(function () { return 'denied'; });
+    return dirPermission(handle, 'readwrite');
+  }
+
+  /* ---------- 写目录（模板库绑到真实文件夹后，写操作必须真的落盘） ----------
+   *
+   * 2026-10-17 修：此前只实现了「从目录读」，写操作（新建 / 改名 / 删除 / 导入）仍
+   * 一律写 `localStorage`，而列表在绑定目录后只读目录 —— 于是「新建模板看不见」。
+   * 读写必须同源：绑了目录就以目录为准，没绑才用浏览器内存储。
+   */
+
+  /** 目录里是否已有这个文件（`getFileHandle` 不带 create，缺失会抛 NotFoundError）。 */
+  function dirFileExists(dirHandle, file) {
+    if (!dirHandle || typeof dirHandle.getFileHandle !== 'function') { return Promise.resolve(false); }
+    return dirHandle.getFileHandle(file)
+      .then(function () { return true; })
+      .catch(function () { return false; });
+  }
+
+  /** 把一段文本写成目录里的文件（覆盖写）。 */
+  function writeDirFile(dirHandle, file, text) {
+    return dirHandle.getFileHandle(file, { create: true }).then(function (fh) {
+      return fh.createWritable().then(function (writable) {
+        return writable.write(text).then(function () { return writable.close(); });
+      });
+    });
+  }
+
+  /** 删目录里的一个文件；本来就没有也算成功（幂等，避免"已删过"变成报错）。 */
+  function removeDirEntry(dirHandle, file) {
+    if (!dirHandle || typeof dirHandle.removeEntry !== 'function') {
+      return Promise.reject({ code: 'demoFsUnsupported' });
+    }
+    return dirHandle.removeEntry(file).catch(function (err) {
+      if (err && err.name === 'NotFoundError') { return true; }
+      throw err;
+    });
   }
 
   /* ---------- 从目录读模板 ---------- */
@@ -444,6 +479,9 @@
     targetPermission: targetPermission,
     readDirTemplates: readDirTemplates,
     readDirTemplate: readDirTemplate,
+    dirFileExists: dirFileExists,
+    writeDirFile: writeDirFile,
+    removeDirEntry: removeDirEntry,
     sortByFile: sortByFile,
     snapshot: snapshot,
     listBackups: listBackups,

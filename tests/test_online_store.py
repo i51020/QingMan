@@ -15,6 +15,9 @@
 本测试立刻红。另覆盖**目标位置的独立存储**：`targetDir` 与 `templatesDir` 分键，
 两个方向都不得互相影响（选目标不动模板库、改绑模板库不动目标）。
 
+第四条契约（2026-10-17 追加）：**读写必须同源**。绑定真实目录后，新建 / 改名 / 删除的落点
+必须是那个目录，不能仍写 `localStorage` —— 否则列表读目录、写操作写浏览器，模板"存了却看不见"。
+
 第三条契约（2026-10-17 追加）：**列表顺序必须由代码规定，不得沿用文件系统枚举序**。
 `FileSystemDirectoryHandle.values()` 不承诺稳定（Windows 目录索引 / 同步盘 / 增删改名都会变），
 前端轮询的签名又是 `file|mtime|size` 按序拼接 —— 顺序一抖，签名就"变了"，列表每 2.5s 重建。
@@ -211,6 +214,49 @@ const STORE = win.QMDemoStore;
   ok('排序幂等', JSON.stringify(STORE.sortByFile(once.map((f) => ({ file: f }))).map((x) => x.file))
      === JSON.stringify(once), once.join(','));
 
+  /* ⑪ 写目录：读写同源的地基（dirFileExists / writeDirFile / removeDirEntry） */
+  function fakeWriteDir(disk) {
+    return {
+      name: '可写库',
+      queryPermission: function () { return Promise.resolve('granted'); },
+      getFileHandle: function (f, opt) {
+        if (!(f in disk) && !(opt && opt.create)) {
+          var miss = new Error('missing'); miss.name = 'NotFoundError';
+          return Promise.reject(miss);
+        }
+        if (!(f in disk)) { disk[f] = ''; }
+        return Promise.resolve({
+          name: f,
+          createWritable: function () {
+            var buf = '';
+            return Promise.resolve({
+              write: function (s) { buf += String(s); return Promise.resolve(); },
+              close: function () { disk[f] = buf; return Promise.resolve(); },
+            });
+          },
+        });
+      },
+      removeEntry: function (f) {
+        if (!(f in disk)) {
+          var miss2 = new Error('missing'); miss2.name = 'NotFoundError';
+          return Promise.reject(miss2);
+        }
+        delete disk[f];
+        return Promise.resolve();
+      },
+    };
+  }
+
+  const disk = {};
+  const wdir = fakeWriteDir(disk);
+  ok('写前目录里没有', (await STORE.dirFileExists(wdir, '新模板.json')) === false);
+  await STORE.writeDirFile(wdir, '新模板.json', '{"tree":{"甲":{}}}');
+  ok('写后目录里有', (await STORE.dirFileExists(wdir, '新模板.json')) === true);
+  ok('正文确实落盘', disk['新模板.json'] === '{"tree":{"甲":{}}}', disk['新模板.json']);
+  await STORE.removeDirEntry(wdir, '新模板.json');
+  ok('删后目录里没有', (await STORE.dirFileExists(wdir, '新模板.json')) === false);
+  ok('删不存在不报错', (await STORE.removeDirEntry(wdir, '根本没有.json')) === true);
+
   process.stdout.write('RESULT ' + JSON.stringify(results) + '\n');
 })().catch((err) => {
   ok('异常', false, err && (err.message || err.name));
@@ -294,6 +340,14 @@ class OnlineStoreTests(unittest.TestCase):
         self._ok("枚举顺序变了结果不变")
         self._ok("仅大小写不同按原名定序")
         self._ok("排序幂等")
+
+    def test_dir_write_primitives(self):
+        """读写同源的地基：目录能判断存在、能写、能删，且删不存在的算成功。"""
+        self._ok("写前目录里没有")
+        self._ok("写后目录里有")
+        self._ok("正文确实落盘")
+        self._ok("删后目录里没有")
+        self._ok("删不存在不报错")
 
     def test_rebind_still_works(self):
         self._ok("另一个目录也可按名绑定")

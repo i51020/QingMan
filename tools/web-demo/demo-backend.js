@@ -42,6 +42,9 @@
       fsUnsupported: '当前浏览器不支持直接写入文件夹（请用 Edge / Chrome）。可以改用本机 start.bat。',
       usePwa: '在线版没有桌面快捷方式 —— 浏览器菜单里选「安装此应用 / 安装青蔓」，就会在桌面与开始菜单得到图标（还能离线使用）。',
       needPermission: '模板目录的读取权限已失效（浏览器在重启后常要求重新确认）。请点「选择目录」再授权一次。',
+      tplNeedWrite: '模板目录没有写入授权，模板没保存。请点「选择目录」再授权一次，并在弹框里允许修改。',
+      tplWriteFail: '写入模板目录失败：{msg}',
+      tplNameInvalid: '这个模板名不能当文件名（含 / \\ : * ? " < > | ，或以 .. 开头），请换一个。',
     },
     en: {
       nameZh: 'QingMan',
@@ -62,6 +65,9 @@
       fsUnsupported: 'This browser cannot write to folders directly (use Edge / Chrome), or run start.bat locally.',
       usePwa: 'The online version has no desktop shortcut — use your browser menu "Install app" to get an icon on the desktop and Start menu (it also works offline).',
       needPermission: 'Read access to the template folder expired (browsers usually re-ask after a restart). Click "Choose folder" and grant it again.',
+      tplNeedWrite: 'The template folder has no write permission, so nothing was saved. Click "Choose folder" again and allow editing.',
+      tplWriteFail: 'Failed to write into the template folder: {msg}',
+      tplNameInvalid: 'That name cannot be used as a file name (it contains / \\ : * ? " < > | or starts with ..). Pick another.',
     },
   };
   function tr(key) { return (ZH ? TEXT.zh : TEXT.en)[key] || key; }
@@ -323,6 +329,135 @@
     });
   }
 
+  /* ---------- 写模板：绑了目录就必须落盘（读写同源） ----------
+   *
+   * 2026-10-17 修：此前**写**操作（新建 / 改名 / 删除 / 导入）恒写 `localStorage`，
+   * 而列表在绑定目录后只读目录 —— 于是「新建模板看不见」。读写必须同源：
+   * 绑了真实目录就以目录为准，没绑才用浏览器内存储。
+   */
+
+  /* 文件名净化：这个名字会**真的写到用户磁盘上**，必须挡路径穿越与非法字符。
+     与本机版 `templates.py` 的 `TEMPLATE_FILE` 同一取舍：只认「名字 + .json/.md」；
+     不合规就**拒绝**而不是悄悄改名 —— 悄悄改名会让用户以为存上了、其实名字被换掉。 */
+  var ILLEGAL_FILE = /[\\/:*?"<>|\u0000-\u001f]/;
+
+  function safeTemplateFile(raw) {
+    var file = String(raw || '').trim();
+    if (!file) return '';
+    if (!/\.[^.]+$/.test(file)) file += '.json';
+    if (!/\.(json|md)$/i.test(file)) return '';       /* 别把 .exe 之类写进模板库 */
+    if (file.length > 120) return '';
+    if (ILLEGAL_FILE.test(file)) return '';
+    if (file.indexOf('..') === 0) return '';
+    if (/\s$/.test(stemOf(file))) return '';          /* Windows 不接受文件名结尾空格 */
+    return file;
+  }
+
+  /** 当前模板库的写目标：绑了真实目录 → `{dir}`；没绑 → `{local:true}`；无写权限 → `{needPermission}`。 */
+  function templateSink() {
+    if (!STORE) return Promise.resolve({ local: true });
+    return STORE.getDir().then(function (handle) {
+      if (!handle) return { local: true };
+      return STORE.dirPermission(handle, 'readwrite').then(function (state) {
+        if (state !== 'granted') return { needPermission: true, name: handle.name };
+        return { dir: handle, name: handle.name };
+      });
+    });
+  }
+
+  /** 读一套模板的文档（目录优先、浏览器内兜底）。找不到回 `null`。 */
+  function readTemplateDoc(file) {
+    if (!STORE) return Promise.resolve(null);
+    return STORE.getDir().then(function (handle) {
+      if (!handle) return null;
+      return STORE.dirPermission(handle).then(function (state) {
+        if (state !== 'granted') return null;
+        return STORE.readDirTemplate(handle, file).catch(function () { return null; });
+      });
+    });
+  }
+
+  /** 按文件扩展名序列化：`.md` 走 md 文法渲染，其余写 JSON（与本机版「保持原格式」一致）。 */
+  function serializeTemplateDoc(file, doc) {
+    var body = { name: doc.name, description: doc.description || '', tree: doc.tree || {} };
+    if (/\.md$/i.test(file) && MD) { return MD.render(body); }
+    return JSON.stringify(body, null, 2) + '\n';
+  }
+
+  /** 把一套模板写进当前模板库（目录 or localStorage）。 */
+  function saveTemplateDoc(file, doc, overwrite) {
+    return templateSink().then(function (sink) {
+      if (sink.needPermission) return fail('demoNeedPermission', tr('tplNeedWrite'), 403);
+      if (sink.local) {
+        var map = userTemplates();
+        if (map[file] && !overwrite) return fail('templateExists', tr('tplExists'));
+        map[file] = doc;
+        writeJson(LS_TPL, map);
+        return ok({ file: file, name: doc.name, sink: 'local' });
+      }
+      return STORE.dirFileExists(sink.dir, file).then(function (exists) {
+        if (exists && !overwrite) return fail('templateExists', tr('tplExists'));
+        /* 落盘时**不写 mtime** —— 真实文件自带 lastModified，多一个字段只是噪音 */
+        var text = serializeTemplateDoc(file, doc);
+        return STORE.writeDirFile(sink.dir, file, text).then(function () {
+          return ok({ file: file, name: doc.name, sink: 'dir', dir: sink.name });
+        }).catch(function (err) {
+          if (err && (err.name === 'NotAllowedError' || err.name === 'SecurityError')) {
+            return fail('demoNoPermission', tr('tplNeedWrite'), 403);
+          }
+          return fail('ioError', tr('tplWriteFail').replace('{msg}', (err && err.message) || ''), 500);
+        });
+      });
+    });
+  }
+
+  /** 从当前模板库删一套模板。 */
+  function removeTemplateDoc(file) {
+    return templateSink().then(function (sink) {
+      if (sink.needPermission) return fail('demoNeedPermission', tr('tplNeedWrite'), 403);
+      if (sink.local) {
+        var map = userTemplates();
+        if (!map[file]) return fail('templateNotFound', tr('noExport'), 404);
+        delete map[file];
+        writeJson(LS_TPL, map);
+        return ok({ file: file, sink: 'local' });
+      }
+      return STORE.dirFileExists(sink.dir, file).then(function (exists) {
+        if (!exists) return fail('templateNotFound', tr('noExport'), 404);
+        return STORE.removeDirEntry(sink.dir, file).then(function () {
+          return ok({ file: file, sink: 'dir', dir: sink.name });
+        }).catch(function (err) {
+          return fail('ioError', tr('tplWriteFail').replace('{msg}', (err && err.message) || ''), 500);
+        });
+      });
+    });
+  }
+
+  /** 改名 = 读旧 + 写新 + 删旧（同一文件名时只覆盖写）。
+   *
+   * 两条语义**对齐本机版 `rename_template`**：
+   * ① 同时改文件名与文件内 `name`（只改一个，会出现"点了 A 却载入 B"）；
+   * ② **保持原格式**：`.md` 进则 `.md` 出，不把用户的 md 偷偷转成 json。 */
+  function renameTemplateDoc(from, toRaw, displayName) {
+    var stem = stemOf(String(toRaw || '').trim());
+    var ext = extOf(from) === 'md' ? '.md' : '.json';
+    var to = safeTemplateFile(stem + ext);
+    if (!to) return Promise.resolve(fail('templateNameInvalid', tr('tplNameInvalid')));
+    return readTemplateDoc(from).then(function (doc) {
+      if (!doc) return fail('templateNotFound', tr('noExport'), 404);
+      var next = {
+        name: displayName || doc.name,
+        description: doc.description || '',
+        tree: doc.tree || {},
+        mtime: Date.now(),
+      };
+      return saveTemplateDoc(to, next, from === to).then(function (res) {
+        if (!res || res.status >= 400 || from === to) return res;
+        return removeTemplateDoc(from).then(function () { return res; });
+      });
+    });
+  }
+
   function handle(path, method, init, search) {
     /* 健康检查：让界面进入「已连接」，并把数据位置如实说成浏览器存储 */
     if (path === '/api/health' && method === 'GET') {
@@ -410,31 +545,19 @@
     if (path === '/api/templates' && method === 'POST') {
       var tplPayload = bodyOf(init);
       if (!tplPayload) return fail('badJson', tr('badJson'));
-      var fileName = String(tplPayload.name || '').trim();
-      if (!fileName) return fail('templateNameInvalid', tr('noExport'));
-      if (!/\.[^.]+$/.test(fileName)) fileName += '.json';
-      var map = userTemplates();
-      if (map[fileName] && !tplPayload.overwrite) {
-        return fail('templateExists', tr('tplExists'));
-      }
-      map[fileName] = {
-        name: tplPayload.name, description: tplPayload.description || '',
-        tree: tplPayload.tree || {}, mtime: Date.now(),
-      };
-      writeJson(LS_TPL, map);
-      return ok({ file: fileName, name: tplPayload.name });
+      var fileName = safeTemplateFile(tplPayload.name);
+      if (!fileName) return fail('templateNameInvalid', tr('tplNameInvalid'));
+      return saveTemplateDoc(fileName, {
+        name: String(tplPayload.name || '').trim().replace(/\.[^.]+$/, '') || stemOf(fileName),
+        description: tplPayload.description || '',
+        tree: tplPayload.tree || {},
+        mtime: Date.now(),
+      }, !!tplPayload.overwrite);
     }
     if (path.indexOf('/api/templates/') === 0 && path !== '/api/templates/import') {
       var rawName = decodeURIComponent(path.slice('/api/templates/'.length));
       if (method === 'GET') {
-        if (!STORE) { return templateFromLocal(rawName); }
-        return STORE.getDir().then(function (handle) {
-          if (!handle) { return null; }
-          return STORE.dirPermission(handle).then(function (state) {
-            if (state !== 'granted') { return null; }
-            return STORE.readDirTemplate(handle, rawName).catch(function () { return null; });
-          });
-        }).then(function (fromDir) {
+        return readTemplateDoc(rawName).then(function (fromDir) {
           if (!fromDir) { return templateFromLocal(rawName); }
           return ok({
             file: fromDir.file, name: fromDir.name, description: fromDir.description,
@@ -443,23 +566,15 @@
         });
       }
       if (method === 'DELETE') {
-        var delMap = userTemplates();
-        if (rawName === P0.file || !delMap[rawName]) return fail('templateNotFound', tr('noExport'), 404);
-        delete delMap[rawName];
-        writeJson(LS_TPL, delMap);
-        return ok({ file: rawName });
+        /* 内置示例是页面自带的，不在任何目录里 —— 删不掉（沿用既有取舍） */
+        if (rawName === P0.file) return fail('templateNotFound', tr('noExport'), 404);
+        return removeTemplateDoc(rawName);
       }
       if (method === 'POST') {
         var renamePayload = bodyOf(init) || {};
         var nextName = String(renamePayload.name || '').trim();
-        var rmap = userTemplates();
-        if (!rmap[rawName] || !nextName) return fail('templateNotFound', tr('noExport'), 404);
-        if (!/\.[^.]+$/.test(nextName)) nextName += '.json';
-        if (rmap[nextName]) return fail('templateExists', tr('tplExists'));
-        rmap[nextName] = rmap[rawName];
-        delete rmap[rawName];
-        writeJson(LS_TPL, rmap);
-        return ok({ file: nextName });
+        if (!nextName) return fail('templateNameEmpty', tr('tplNameInvalid'));
+        return renameTemplateDoc(rawName, nextName, nextName);
       }
     }
 
@@ -605,17 +720,16 @@
       if (!impDoc || typeof impDoc !== 'object') return fail('templateBadJson', tr('noExport'));
       var treeBad = validateTree(impDoc.tree, true);
       if (treeBad) return fail(treeBad, tr('noExport'));
-      var storeName = stemOf(impName) + '.json';
-      var storeMap = userTemplates();
-      if (storeMap[storeName] && !imp.overwrite) return fail('templateExists', tr('tplExists'));
-      storeMap[storeName] = {
-        name: impDoc.name || stemOf(impName),
-        description: impDoc.description || '',
-        tree: impDoc.tree,
-        mtime: Date.now(),
-      };
-      writeJson(LS_TPL, storeMap);
-      return ok({ file: storeName, name: storeMap[storeName].name, source: 'json' });
+      var storeName = safeTemplateFile(stemOf(impName) + '.json');
+      if (!storeName) return fail('templateNameInvalid', tr('tplNameInvalid'));
+      var docName = impDoc.name || stemOf(impName);
+      return saveTemplateDoc(storeName, {
+        name: docName, description: impDoc.description || '',
+        tree: impDoc.tree, mtime: Date.now(),
+      }, !!imp.overwrite).then(function (res) {
+        if (res && res.status >= 400) return res;
+        return ok({ file: storeName, name: docName, source: 'json' });
+      });
     }
 
     /* 其余 /api/* 一律挡住：绝不因为漏配而真的打到静态托管的 404 页面上 */
