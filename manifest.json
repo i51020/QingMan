@@ -232,6 +232,27 @@
         "os": "Windows-11-10.0.26300-SP0"
       },
       "note": "V0.3.0 语言包迁出 + 800K 上限"
+    },
+    {
+      "version": "V0.3.1",
+      "revision": 1,
+      "createdAt": "2026-10-17T22:51:53+08:00",
+      "timezone": {
+        "name": "中国标准时间",
+        "offset": "+08:00"
+      },
+      "model": {
+        "name": "DeepSeek-V4.1-Flash",
+        "vendor": "DeepSeek",
+        "agent": "WorkBuddy"
+      },
+      "tools": {
+        "python": "3.13.14",
+        "node": "22.22.2",
+        "zlib": "1.3.1",
+        "os": "Windows-11-10.0.26300-SP0"
+      },
+      "note": "V0.3.1 对比度收口（词表 + DOM 双层审计）"
     }
   ]
 }
