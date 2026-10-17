@@ -157,6 +157,9 @@ REQUIRED_FILES = (
     "src/server/__main__.py",
     "src/server/config.py",
     "src/server/dtree_core.py",
+    # V0.0.54：`routes.py` 拆模块 —— 共同助手与模板子系统各自成文件（理由见两文件头部）
+    "src/server/common.py",
+    "src/server/templates.py",
     "src/server/routes.py",
     "src/server/app.py",
     "src/shared/schema.json",
@@ -190,6 +193,22 @@ REQUIRED_FILES = (
     "src/web/js/ui/inspector.js",
     "src/web/js/ui/toast.js",
 )
+
+# 服务端模块分布（V0.0.54 起 `templates.py` / `common.py` 自 `routes.py` 拆出）。
+# 守卫**按名字取文本**，不再把路径散写在各检查项里 —— 这样再拆模块只需改这张表，
+# 而不是逐条改字符串（§三.71：搬家必须同批重锚；重锚的正确姿势是「让路径可配」）。
+SERVICE_MODULES = {
+    "routes": "src/server/routes.py",
+    "templates": "src/server/templates.py",
+    "common": "src/server/common.py",
+}
+
+
+def service_text(root: Path, key: str) -> str:
+    """读服务端模块源码文本；文件缺失时返回空串（由调用方的判据报红）。"""
+    path = root / SERVICE_MODULES[key]
+    return path.read_text(encoding="utf-8") if path.is_file() else ""
+
 
 CJK = re.compile(r"[\u4e00-\u9fff]")
 
@@ -1661,18 +1680,18 @@ def main() -> int:
         if not target.is_file() or token not in target.read_text(encoding="utf-8"):
             tpl_absent.append(f"{rel}:{token}")
 
-    routes_py = root / "src/server/routes.py"
+    tpl_py = root / SERVICE_MODULES["templates"]
     bodies: dict[str, str] = {}
     funcs: dict[str, ast.FunctionDef] = {}
-    if not routes_py.is_file():
-        tpl_absent.append("routes.py:未读到")
+    if not tpl_py.is_file():
+        tpl_absent.append("templates.py:未读到")
     else:
-        rtext = routes_py.read_text(encoding="utf-8")
+        rtext = tpl_py.read_text(encoding="utf-8")
         rlines = rtext.splitlines()
         try:
             rtree = ast.parse(rtext)
         except SyntaxError:
-            tpl_absent.append("routes.py:无法解析")
+            tpl_absent.append("templates.py:无法解析")
             rtree = None
         if rtree is not None:
             for node in ast.walk(rtree):
@@ -1682,7 +1701,7 @@ def main() -> int:
                         rlines[node.lineno - 1:(node.end_lineno or node.lineno)])
     for fn in ("save_template", "load_template"):
         if fn not in bodies:
-            tpl_absent.append(f"routes.py:缺少 {fn}")
+            tpl_absent.append(f"templates.py:缺少 {fn}")
 
     def dict_key_sets(node: ast.FunctionDef | None) -> list[set[str]]:
         """函数体内每个字典字面量的**常量键集合**。"""
@@ -2132,18 +2151,19 @@ def main() -> int:
     #     与重命名子路径分发；④ 前端 api 有 rename/delete 且列表项有操作按钮接线；
     #     ⑤ note 编辑按**会话**入栈（`noteHistoryId`）而非每次输入；⑥ 错误码登记齐备。
     crud_bad: list[str] = []
-    rt = root / "src/server/routes.py"
-    rtext = rt.read_text(encoding="utf-8") if rt.is_file() else ""
+    rtext = service_text(root, "routes")          # 端点与常量仍在这边
+    ttext = service_text(root, "templates")       # CRUD 本体已迁出（V0.0.54）
     for fn in ("delete_template", "rename_template", "_template_path_or_raise"):
-        if not re.search(rf"def {fn}\(", rtext):
-            crud_bad.append(f"routes.py:缺 {fn}")
-    m = re.search(r"def delete_template\(.*?\n    return", rtext, flags=re.S)
+        if not re.search(rf"def {fn}\(", ttext):
+            crud_bad.append(f"templates.py:缺 {fn}")
+    m = re.search(r"def delete_template\(.*?\n    return", ttext, flags=re.S)
     if not m:
-        crud_bad.append("routes.py:delete_template 体不可解析")
+        crud_bad.append("templates.py:delete_template 体不可解析")
     elif not re.search(r"TEMPLATE_TRASH_DIRNAME|trash", m.group(0)):
         crud_bad.append("delete_template 未走回收站（应软删除）")
-    if re.search(r"\.unlink\(|os\.remove\(", rtext):
-        crud_bad.append("routes.py 出现真删除（unlink/remove），违反「只复制不删除」")
+    for mod in ("routes", "templates"):
+        if re.search(r"\.unlink\(|os\.remove\(", service_text(root, mod)):
+            crud_bad.append(f"{mod}.py 出现真删除（unlink/remove），违反「只复制不删除」")
     ap = root / "src/server/app.py"
     atext = ap.read_text(encoding="utf-8") if ap.is_file() else ""
     if "def do_DELETE(" not in atext:
@@ -2197,9 +2217,9 @@ def main() -> int:
     #     ⑤ 前端 saveAsTemplate 捕获 templateExists → 二次确认 → 带 overwrite 重发；
     #     ⑥ 两语取词齐备。
     overwrite_bad: list[str] = []
-    m = re.search(r"def save_template\(.*?\n    return \{", rtext, flags=re.S)
+    m = re.search(r"def save_template\(.*?\n    return \{", ttext, flags=re.S)
     if not m:
-        overwrite_bad.append("routes.py:save_template 体不可解析")
+        overwrite_bad.append("templates.py:save_template 体不可解析")
     else:
         body21 = m.group(0)
         if 'payload.get("overwrite") is not True' not in body21:
@@ -2380,10 +2400,10 @@ def main() -> int:
             if k not in text:
                 p3_bad.append(f"{name}:{k}")
 
-    if rtext:
-        m = re.search(r"def save_template\(.*?\n    return \{", rtext, flags=re.S)
+    if ttext:
+        m = re.search(r"def save_template\(.*?\n    return \{", ttext, flags=re.S)
         if not m:
-            p3_bad.append("routes.py:save_template 体不可解析")
+            p3_bad.append("templates.py:save_template 体不可解析")
         else:
             body_p3 = m.group(0)
             if "trashed_old" not in body_p3 or "os.replace(trashed_old, path)" not in body_p3:
@@ -2393,14 +2413,14 @@ def main() -> int:
             pos_overwrite = body_p3.find("templateExists")
             if pos_size < 0 or (pos_overwrite >= 0 and pos_size > pos_overwrite):
                 p3_bad.append("save_template 体积检查未前置到覆盖之前（P3-11 未修）")
-        m = re.search(r"def rename_template\(.*?\n    return \{", rtext, flags=re.S)
+        m = re.search(r"def rename_template\(.*?\n    return \{", ttext, flags=re.S)
         if not m:
-            p3_bad.append("routes.py:rename_template 体不可解析")
+            p3_bad.append("templates.py:rename_template 体不可解析")
         elif "templateRenameFailed" not in m.group(0) or (
                 "os.replace(new_path" not in m.group(0) and "trash / new_filename" not in m.group(0)):
             p3_bad.append("rename_template 旧件入回收站失败未回滚（P3-11 未修）")
     else:
-        p3_bad.append("缺 routes.py")
+        p3_bad.append("缺 templates.py")
     dtree_p3 = root / "src/server/dtree_core.py"
     if dtree_p3.is_file():
         if "pathConflictDir" not in dtree_p3.read_text(encoding="utf-8"):
@@ -2467,6 +2487,8 @@ def main() -> int:
 
     srcs = {
         "routes": _read("src/server/routes.py"),
+        "templates": _read("src/server/templates.py"),
+        "common": _read("src/server/common.py"),
         "app": _read("src/server/app.py"),
         "config": _read("src/server/config.py"),
         "core": _read("src/server/dtree_core.py"),
@@ -2479,7 +2501,7 @@ def main() -> int:
         ("A-P3-4", "config", "def desktop_dir(", "缺真实桌面解析"),
         ("A-P3-4", "routes", "config.desktop_dir()", "create_shortcut 未用真实桌面"),
         ("A-P3-6", "routes", 'payload.get("dryRun") is True', "dryRun 未严格布尔判定"),
-        ("A-P3-3", "routes", "seq:03d", "模板回收站目录未唯一化"),
+        ("A-P3-3", "templates", "seq:03d", "模板回收站目录未唯一化"),
         ("A-P3-7", "app", "_read_chunked_body", "未支持 chunked body"),
         ("A-P3-8", "app", "timer.daemon = True", "Timer 未设守护"),
         ("A-P3-5", "core", "while stack:", "count_tree 未迭代化（未见显式栈循环）"),
@@ -2487,13 +2509,17 @@ def main() -> int:
     for code, key, token, why in anchors_def:
         if token not in srcs[key]:
             def_bad.append(f"{code} {why}")
-    # A-P3-2：助手存在 + 四处原子写均已改用 + 旧固定名已清除
-    rt = srcs["routes"]
-    if "_tmp_sibling(" not in rt:
-        def_bad.append("A-P3-2 缺唯一临时名助手")
-    elif rt.count("_tmp_sibling(") < 5:   # 1 定义 + 4 调用点
-        def_bad.append("A-P3-2 原子写未全部改用 _tmp_sibling")
-    if 'path.name + ".tmp"' in rt or 'new_path.name + ".tmp"' in rt:
+    # A-P3-2：助手存在 + 六处原子写均已改用 + 旧固定名已清除
+    # V0.0.54 拆模块后：助手定义在 common.py，调用点分布在 routes（3）与 templates（3）。
+    # 判据按**模块分别计数**，不写死总数 —— 将来再搬一处，改的是这张表而不是死数字。
+    if "def _tmp_sibling(" not in srcs["common"]:
+        def_bad.append("A-P3-2 缺唯一临时名助手（应在 common.py）")
+    for mod, need in (("routes", 3), ("templates", 3)):
+        if srcs[mod].count("_tmp_sibling(") < need:
+            def_bad.append(f"A-P3-2 {mod}.py 原子写未全部改用 _tmp_sibling"
+                           f"（{srcs[mod].count('_tmp_sibling(')} < {need}）")
+    if any('path.name + ".tmp"' in srcs[m] or 'new_path.name + ".tmp"' in srcs[m]
+           for m in ("routes", "templates")):
         def_bad.append("A-P3-2 仍残留固定临时名")
     check(not def_bad, "后端防御批 V0.0.30",
           f"缺失：{', '.join(def_bad)}" if def_bad
@@ -2621,9 +2647,9 @@ def main() -> int:
         ("6B-1", cfg_tpl, "def settings_candidates()", "config 缺 settings 候选位置"),
         ("6B-1", cfg_tpl, "TEMPLATES_DIR_ENV", "config 缺绑定目录 env 名"),
         ("6B-1", cfg_tpl, "DEFAULT_TEMPLATES_DIR", "config 缺内置默认目录常量"),
-        ("6B-2", rtext, "def _templates_dir_blocked(", "routes 缺绑定判据"),
-        ("6B-2", rtext, "def _templates_dir_reason(", "routes 缺运行态判据"),
-        ("6B-2", rtext, "def _templates_dir_or_raise(", "routes 缺写路径校验入口"),
+        ("6B-2", ttext, "def _templates_dir_blocked(", "templates 缺绑定判据"),
+        ("6B-2", ttext, "def _templates_dir_reason(", "templates 缺运行态判据"),
+        ("6B-2", ttext, "def _templates_dir_or_raise(", "templates 缺写路径校验入口"),
         ("6B-2", rtext, "def get_templates_dir(", "routes 缺 GET 处理器"),
         ("6B-2", rtext, "def set_templates_dir(", "routes 缺 PUT 处理器"),
         ("6B-2", rtext, "TEMPLATES_DIR_PATH = ", "routes 缺端点常量"),
@@ -2636,8 +2662,9 @@ def main() -> int:
         if token not in text:
             bind_bad.append(f"{code} {why}")
     # 旧写法清零：写路径若仍直接读固定常量，绑定形同虚设
-    if re.search(r"config\.TEMPLATES_DIR\b", rtext):
-        bind_bad.append("routes.py 仍在直接读 config.TEMPLATES_DIR（应走 templates_dir()）")
+    for mod in ("routes", "templates"):
+        if re.search(r"config\.TEMPLATES_DIR\b", service_text(root, mod)):
+            bind_bad.append(f"{mod}.py 仍在直接读 config.TEMPLATES_DIR（应走 templates_dir()）")
     check(not bind_bad, "模板目录绑定批 V0.0.35",
           f"缺失：{', '.join(bind_bad)}" if bind_bad
           else "解析入口 / 绑定与运行态双判据 / GET+PUT 接线 / 两枚错误码 齐备")
@@ -2655,16 +2682,16 @@ def main() -> int:
     en_i18n = _read("src/web/locales/en-US.js")
     fmt_bad: list[str] = []
     fmt_anchors = (
-        ("6C-1", rtext, "TEMPLATE_FILE = re.compile(", "routes 缺双格式白名单"),
-        ("6C-1", rtext, "def _template_source(", "routes 缺格式判定"),
-        ("6C-1", rtext, "def _strip_template_ext(", "routes 缺扩展名剥离助手"),
-        ("6C-1", rtext, "def _read_template_doc(", "routes 缺统一读取分派"),
-        ("6C-1", rtext, 'd.glob("*.md")', "list_templates 未扫 .md"),
-        ("6C-1", rtext, '"source": _template_source(', "列表项未标 source"),
+        ("6C-1", ttext, "TEMPLATE_FILE = re.compile(", "templates 缺双格式白名单"),
+        ("6C-1", ttext, "def _template_source(", "templates 缺格式判定"),
+        ("6C-1", ttext, "def _strip_template_ext(", "templates 缺扩展名剥离助手"),
+        ("6C-1", ttext, "def _read_template_doc(", "templates 缺统一读取分派"),
+        ("6C-1", ttext, 'd.glob("*.md")', "list_templates 未扫 .md"),
+        ("6C-1", ttext, '"source": _template_source(', "列表项未标 source"),
         ("6C-2", rtext, "TEMPLATES_IMPORT_PATH = ", "routes 缺导入端点常量"),
-        ("6C-2", rtext, "def import_template(", "routes 缺导入处理器"),
-        ("6C-2", rtext, "dtree_core.validate_template(", "导入未走全量校验"),
-        ("6C-2", rtext, "dtree_core.render_md_template(", "导入 .md 未规范化重渲染"),
+        ("6C-2", ttext, "def import_template(", "templates 缺导入处理器"),
+        ("6C-2", ttext, "dtree_core.validate_template(", "导入未走全量校验"),
+        ("6C-2", ttext, "dtree_core.render_md_template(", "导入 .md 未规范化重渲染"),
         ("6C-2", app_tpl, "routes.import_template(", "app.py 未接线导入"),
         ("6C-2", app_tpl, "is_import = path == routes.TEMPLATES_IMPORT_PATH",
          "app.py 缺 is_import 判定（会被 is_rename 前缀吞掉）"),
@@ -2676,10 +2703,11 @@ def main() -> int:
         if token not in text:
             fmt_bad.append(f"{code} {why}")
     # 分工判据：`TEMPLATE_NAME` 必须仍是**只认 `.json`**（防被顺手放宽成双格式）
-    if '_TPL_STEM_PATTERN + r"\\.json$"' not in rtext:
+    # V0.0.54：白名单常量随模板子系统迁至 templates.py —— 判据对象同步换，**判据本身不动**。
+    if '_TPL_STEM_PATTERN + r"\\.json$"' not in ttext:
         fmt_bad.append("TEMPLATE_NAME 不再是「只认 .json」（新建/改名的格式契约被破坏）")
     # 列表若仍用旧白名单，会漏掉 `.md`
-    if "TEMPLATE_NAME.match(p.name)" in rtext:
+    if "TEMPLATE_NAME.match(p.name)" in ttext:
         fmt_bad.append("list_templates 仍用 TEMPLATE_NAME（应改 TEMPLATE_FILE）")
     check(not fmt_bad, "模板双格式批 V0.0.36",
           f"缺失：{', '.join(fmt_bad)}" if fmt_bad
@@ -2804,6 +2832,7 @@ def main() -> int:
     api_js = _read("src/web/js/core/api.js")
     idx_html = _read("src/web/index.html")
     rt_tpl = _read("src/server/routes.py")
+    tpl_py_6e = _read("src/server/templates.py")
     bs_front = _read("tools/browser_smoke.py")
     for token, why in (
         ("const TPL_POLL_MS = 2500", "6E 轮询间隔被改（设计裁决 2500ms）"),
@@ -2833,11 +2862,12 @@ def main() -> int:
         ("TEMPLATES_DIR_PICK_PATH", "routes 缺原生目录选择端点常量"),
         ("TEMPLATES_EXPORT_PATH", "routes 缺导出端点常量"),
         ('NO_GUI_PICK_ENV = "QM_NO_GUI_PICK"', "routes 缺原生框关断 env（自动化会弹窗挂起）"),
-        ("def export_template(", "routes 缺导出实现"),
         ("def pick_templates_dir(", "routes 缺选择实现"),
     ):
         if token not in rt_tpl:
             fe_bad.append(why)
+    if "def export_template(" not in tpl_py_6e:      # V0.0.54：导出实现已迁 templates.py
+        fe_bad.append("templates 缺导出实现")
     for token, why in (
         ("tplDirBtns", "browser_smoke 缺绑定 UI 断言"),
         ("tplMenuN", "browser_smoke 缺右键菜单项断言"),

@@ -7,6 +7,57 @@
 
 ---
 
+## V0.0.54 — 2026-10-17
+
+**主题**：**拆 `src/server/routes.py`** —— 模板子系统与共同助手各自成文件。**零行为变更、零契约变更**，按 **§P0-6 M9「只改实现、契约不动 → 升 PATCH」** 升 `V0.0.53` → `V0.0.54`（这是 M9 立后**首次按判据升版**，此前一律 patch 只是习惯）。**无新增错误码**。**契约变更 0 处**（唯一动到契约文件的是版本戳本身）。
+
+> **为什么现在拆**：`routes.py` 达 **62,374 B / 单文件 65,536 B（余 4.8%）**，下一次往服务端加功能必撞线。
+> 施工单 `docs/待办_拆分routes_20261017.md` 已写明这不是「搬一个文件」：有**循环导入**、**守卫 AST 锚死函数体**、**单测打桩打在模块对象上**三重连带面。
+
+### 一 · 拆分结果
+
+| 文件 | 体积 | 职责 |
+|---|---|---|
+| `src/server/routes.py` | 62,374 → **36,686 B**（余 **28,850**） | **端点与请求/响应形状**；从另两个模块**显式导入**被搬走的名字 |
+| `src/server/templates.py`（新） | **28,313 B** | 模板 CRUD（列表/读取/保存/改名/删除/导入导出）+ **目录绑定判据簇**（`_same_path` / `_templates_dir_blocked` / `_reason` / `_or_raise`）+ 四个白名单常量 |
+| `src/server/common.py`（新） | **1,159 B** | `_tmp_sibling`（原子写唯一临时名）—— 抽出是为了**打断 `routes ↔ templates` 环** |
+| `src/` 合计 | 619,486 → **623,270 B**（余 32,090 / 640K） | **净吃回 3,784 B 骨架开销**（§三.70：拆模块省单文件线、吃总量线，本次是 17 个函数 + 2 个模块头） |
+
+### 二 · 搬运纪律与实证
+
+| 判据 | 结果 |
+|---|---|
+| **逐字节等价** | 17 个函数（1 + 16）新旧源码**逐字节一致，0 处差异**；4 个常量与 1 条分节注释同样一致 |
+| **无残留** | `routes.py` 内**已无**任何被搬函数的同名定义 |
+| **再导出同一性** | `routes.save_template is templates.save_template` → **True**；`routes._tmp_sibling is common._tmp_sibling` → **True**（`mock.patch.object(routes, …)` 继续有效） |
+| **单测连带面** | 首轮 **22 ERROR**，根因**一条**：`templates.py` 漏 `from datetime import datetime`（`save_template` 的 `updated` 字段 / `_template_trash_dir` 的戳）。补后 **543 OK**，其余零改动 |
+| **四件套** | `verify` **117/0**（115 → 117：+2 是 `REQUIRED_FILES` 新增两模块）· `unittest` **543 OK** · `smoke` 35/0 · `browser_smoke` 33/0 |
+
+### 三 · 守卫重锚（8 项 · 判据一条未改）
+
+| 守卫 | 处置 |
+|---|---|
+| 7j 模板保存契约 | 判据对象 → `templates.py`（AST 钉 `save_template` / `load_template` 函数体） |
+| 7q 模板 CRUD + note 会话 | CRUD 体 → `templates.py`；**「只复制不删除」的 unlink 检查扩到两模块**（原只查 routes） |
+| 7r 模板覆盖写 · 7v P3 整洁 | `save_template` / `rename_template` 体 → `templates.py` |
+| 6B 模板目录绑定 | 判据簇 → `templates.py`；`get/set_templates_dir` 与端点常量**仍在 routes**（不动） |
+| 6C 模板双格式 | 白名单 / 格式判定 / 统一读取 / 导入实现 → `templates.py`；导入端点常量**仍在 routes** |
+| 7x 后端防御（A-P3-2 / A-P3-3） | 助手定义改查 `common.py`；原子写调用点**按模块分别计数**（routes 3 + templates 3），不再写死总数 |
+| 7af 模板前端 | `export_template` 实现 → `templates.py` |
+| `REQUIRED_FILES` | 新增 `src/server/common.py` / `src/server/templates.py` |
+
+**★ 结构性改进（防下次散弹式重锚）**：`verify.py` 新增 `SERVICE_MODULES` 表 + `service_text(root, key)` —— 守卫**按名字取文本**，不再把 `src/server/routes.py` 散写在 8 个检查项里。再拆模块时**只改这张表**（§三.71：搬家必须同批重锚；重锚的正确姿势是「让路径可配」，不是逐条改字符串）。
+
+### 四 · 施工单的三处事实修正（实测）
+
+1. **`_fail` 根本不存在** —— 施工单把它列为待抽的共享助手，实际错误一律 `raise TreeError(...)`（58 处），由 `app.py` 统一转 4xx。第 1 步据此改为**只抽 `_tmp_sibling`**。
+2. **搬迁范围不够** —— 模板族除 `_tmp_sibling` 外还调用 `_templates_dir_or_raise` / `_templates_dir_reason`（在「目录绑定」块里）。只搬 CRUD 会反向依赖 `routes` ⇒ **判据簇随 CRUD 一并搬**（这是施工单没算到的一层）。
+3. **硬判据不可能成立** —— 施工单要求「`store` 指纹搬前搬后一致」，但 `manifest_digest` 是「路径 + 指纹」排序后的 SHA-256，**新增两个文件必然改 digest**。改为等价判据：**17 个函数逐字节一致 + 四件套全绿 + 端点/错误码/响应字段一字不变**。
+
+### 五 · 版本口径
+
+**升 patch `V0.0.53` → `V0.0.54`**（M9「只改实现、契约不动」）。四处版本戳同改：`VERSION` / `schema.json` 的 `version` / 两包 `help.versionFallback`；漏一处即被「版本兜底一致 §P0-3 L1」或「共享契约版本戳」抓住。
+
 ## V0.0.53 — 2026-10-17
 
 **主题**：**三行小标题退出主界面 ＋ 顶栏两枚状态件图标化**（用户对上一版挂起的两项给出裁定）。① 三个面板标题「模板工作区 / 目录树工作区 / 属性工作区」**全部退出主界面**；② 顶栏那条长「服务就绪」**压成小圆圈**（只留**颜色点 + 小三角**），**保存状态一并改图标展示**。**升 patch `V0.0.52` → `V0.0.53`**。**无新增错误码**。**契约变更 1 处**：`src/shared/schema.json` 的 `version`（版本戳，随升版同步）。

@@ -4,7 +4,7 @@
 
 - 中文名：**青蔓**
 - 英文名：**QingMan**
-- 当前版本：**V0.0.53**
+- 当前版本：**V0.0.54**
 - 运行环境：Windows 10/11 + Python 3.8+，完全离线，仅监听 `127.0.0.1`
 - 实测环境：**Windows 11**（鼠标 + 键盘）。触屏与其他操作系统**未验证**，故不做针对性适配
 
@@ -64,7 +64,7 @@ QingMan/
 │  │     │              selection.js 选择集合语义（V0.0.43 拆出）· templates.js 模板库（V0.0.48 拆出）—— 均为解单文件 64K 上限
 │  │     └─ ui/         tree-view.js 目录树 · inspector.js 属性面板 · ctx-menu.js 右键菜单 · toast.js 轻提示
 │  │                    lang-picker.js 语言选择 · skin-picker.js 皮肤选择 · launch-icon.js 皮肤联动图标
-│  ├─ server/           后端：Python 标准库，零第三方依赖
+│  ├─ server/           后端：Python 标准库，零第三方依赖（routes 端点 / templates 模板 / common 助手 / dtree_core 核心 / config 配置）
 │  └─ shared/           前后端共享契约：schema.json / error-codes.json
 ├─ data/                运行时数据：editor.json（编辑态文档；**不进 git**，见 §P0-7）
 ├─ store/               内容寻址仓库
