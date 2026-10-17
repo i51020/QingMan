@@ -1,0 +1,2254 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-soft="hybrid">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>青蔓 QingMan · 目标形态原型 v6（设计稿）</title>
+<link rel="stylesheet" href="./css/tokens.css">
+<link rel="stylesheet" href="./css/base.css">
+<link rel="stylesheet" href="./css/local-logo.css">
+<link rel="stylesheet" href="./css/layout.css">
+<link rel="stylesheet" id="skinLink" href="./css/skins/s06-moonlight-pengray.css">
+<style>
+/* =====================================================================
+   本 <style> 块 = 「将来要写进 base.css / layout.css 的提案样式」。
+   此处仅为设计预览，仓库尚未包含以下任何一条。
+   v2 修正：帮助/支持改居中弹窗 · 弹层基元去 drawer · 操作带三分组 ·
+            左栏并一行 · 补 toast · logo 恢复「生成桌面快捷方式」。
+   v3 修正：支持弹窗按参考项目约定补齐赞赏声明 · 顶栏窄窗折入「更多 ▾」 ·
+            属性工作区成为唯一改名入口（节点 / 模板双模式）·「另存为模板」与「导出」措辞区分。
+   v4 修正（本轮 8 条）：① 品牌区去掉链形符号；② 按钮/模块尺寸统一到 32 / 28 / 24 三档；
+            ③ 删预览壳皮肤浮动条；④ 皮肤按钮改三圆点（颜色随皮肤变化）+ 配色网格卡片重做；
+            ⑤ 支持弹窗删掉额外声明，只留盘上 i18n 真值 4 项（标题 / lead / 赞赏码 / 感谢）；
+            ⑥ 中栏重排为「目标位置 → 编辑功能 + 一键生成 → 目录树」；
+            ⑦ 删「根文件夹名」单列项，改由属性工作区改根文件夹名；⑧ 状态栏不再显示版本号。
+   v5 修正：① 皮肤按钮三圆点由「一字排开」改为「三角排列」（按用户提供的图标）；
+            ② 工作区按钮全部去文字 → 纯线性图标，鼠标悬停显示功能描述（.btn-ic + [data-tip]）；
+            ③ 支持弹窗中间由「文字占位」改为「赞赏码图片」（大 · 居中 · 圆角）。
+   v6 修正（本轮 8 条，对应用户 6 图 + 1 条正文；另加评审中发现的 1 条，见 ⑨）：
+            ① 预览对照开关（柔光 关/青蔓化/全量）确认**不进正式版** —— 只是 soft_preview 的
+               评审工具；正式版按「青蔓化」档定基线（本轮只在文档里写明，无代码动作）。
+            ② 皮肤色块条 26px → 14px；删掉网格底部「15 款 · 按背景明度亮 → 暗」与「当前：…」两行。
+            ③ 支持弹窗文案：lead + 题注「微信赞赏码」+ thanks 三处**合并成一句**
+               「随缘使用，自愿投喂；非买卖，无特权，BUG 佛修。」并移到赞赏码**下方**。
+            ④ 弹层光影收敛：去掉双向大偏移柔光（-9/-9/24 + 13/13/36），改成「一个向下中距投影
+               + 一圈 1px 极淡外描边」，边缘锐利、层级靠落差而非「晕」。
+            ⑤ 一键生成按钮去掉 0 0 18px 黄色外发光（soft 档）——配色本身另列待裁决项。
+            ⑥ 模板工作区的「另存为 / 导出 / 多选 / 兼容 SKILL」→ 功能合理化设计（另出方案，待裁决）。
+            ⑦ 目录树补 HTML5 拖拽调层级（对齐仓库 tree-view.js V0.0.19 的防环与高亮规则）。
+            ⑧ 属性区「说明」文本框补 .prop-note 样式（此前**全站零样式**，走浏览器默认外观）。
+            ⑨ 评审中「logo 不见了」：品牌区 .brand-logo 是空元素、靠 CSS mask 取形状，而
+               base.css 用的是**外部 SVG 文件** url("../assets/logo.svg")。Chrome 在 file:// 下
+               会把每个本地文件当独立 opaque origin，**阻止 mask-image 引用外部 SVG** ⇒ logo 空白
+               （实测 logo 区暗像素：file=0 / http=40 / 内联 data URI + file=40）。
+               全站另外 23 枚图标本就是**内联 data URI** mask，所以只有 logo 这一处「掉队」。
+               处置：新增**设计稿专属**的 ./css/local-logo.css（在 base.css 之后 link，
+               同权重覆盖，无需 !important），base.css 保持与仓库 sha256 逐字节一致。
+               注：真身跑 http.server，无此问题；但将来若改用 file:// 加载（如套 Electron 壳）会踩同一坑。
+   v5 遗留修正：支持弹窗的占位图换成**仓库真图**（src/web/assets/sponsor-wechat.png，640×640，
+            sha256 2325e359… 同源）；并按 Pillow 实测「二维码仅占全图宽 38.4%」把展示尺寸 216 → 300px
+            （216px 时二维码只有 83px，几乎扫不动）。
+   v7 修正（本轮 5 条 · 全部已裁决，见 templates-design.html）：
+            ① **模板工作区方案 2 落地** —— 行尾 ⋮ 常驻。根因：仓库 V0.0.38 · 6E 把「载入 / 重命名 /
+               复制 / 导出 / 删除」五项**全部收进右键菜单**（见 css/layout.css:133 注释原文），功能都在，
+               但界面上**没有任何入口提示** ⇒ 用户不知道能右键。
+            ② **多选**（#btnMulti，aria-pressed 进/出选择模式）—— 触发方式用**独立按钮**而非 Ctrl/Shift
+               （裁决理由：对触屏友好，且不必教用户快捷键）。多选态下点模板行 = **切换勾选、不载入**
+               （否则勾第二套时会把当前正在编辑的目录树换掉）。
+            ③ **批量条**（#tplBatchBar，仅多选态可见）：全选 / 已选 N 项 / 导出 ZIP / 删除 / 退出；
+               「全选」带 indeterminate 半选态（没有它用户分不清到底选中了没有）。
+            ④ **「另存为」迁出左栏 → 中栏操作带**（.ob-group.ob-save，夹在视图组与生成组之间）——
+               它操作的是**当前目录树**，不是模板库；位置错配。语义顺序 = 编辑目录树 → 存成模板 → 生成到磁盘。
+               左栏腾出的位置给「多选」。批量导出打发参见 §Q3 裁决（**一个 ZIP**，不是逐个下载）。
+            ⑤ **兼容 SKILL 方向澄清** —— 诉求是「导出物能被别的 SKILL 消费」，不是「用青蔓制作 SKILL」；
+               实测独立消费方解析器读 16 套真实导出物 **16/16 逐节点一致** ⇒ 现有 .md 已可用、不必改格式。
+               完整证据见 skill-compat.html（本轮重写）。
+   v7.2 修正（本轮 1 条 · 用户裁决）：
+            **弹窗右下角不再放「关闭」按钮** —— 与右上角 × 功能完全重复（二者走同一套接线：
+            `document` 上代理 `[data-close]` → `closeAll()`），且底部 border-top + 按钮把内容又挤了一层。
+            处置：① 帮助弹窗（modal-lg）`.lay-foot` **整块删除**（块内只有一个「关闭」）；
+                  ② 支持弹窗（modal-sm）`.lay-foot` **整块删除**（同上）；
+                  ③ 服务设置弹窗（modal-md）**删掉第三个按钮「完成」**（`btn-primary` + `data-close`，
+                     同样是重复的关闭入口），保留「恢复默认 / 测试连接」两个**真动作**。
+            ⇒ 关闭入口统一收敛为三个，且**都不在右下角**：右上角 × / Esc / 点遮罩。
+            连带一笔：`.layer.modal` 补 `overflow: hidden` —— 删掉 `.lay-foot` 后 `.lay-body`
+            成为最后一个子元素，滚动时会顶破底部圆角。`.lay-foot` 定义**保留**（服务设置仍在用）。
+   v8 修正（本轮 3 条 · 用户 2026-10-13 反馈，详见文件末尾 §14）：
+            ① 生成按钮外面那圈框不是按钮自己的 —— 是父容器 .ob-group.ob-gen 的描边，已移除；
+            ② 关闭按钮由「26px 光秃按钮」改为「28px 圆形退场钮」（淡底承载 + hover 灰底 + 3px 光环）；
+            ③ 全站建立 e1→e4 四档 elevation 阶梯，拉开板块 / 模块 / 控件的层级差（原来全是 .15）。
+   ===================================================================== */
+
+/* ---------- 1. 图标系统（currentColor SVG mask，禁第三方图标字体） ---------- */
+.ic { display: inline-block; width: 18px; height: 18px; background-color: currentColor;
+  -webkit-mask: var(--m) center / 18px 18px no-repeat;
+          mask: var(--m) center / 18px 18px no-repeat; }
+.ic-sm { width: 14px; height: 14px; -webkit-mask-size: 14px 14px; mask-size: 14px 14px; }
+.ic-globe  { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M3 12h18M12 3c2.4 2.5 3.7 5.6 3.7 9S14.4 18.5 12 21c-2.4-2.5-3.7-5.6-3.7-9S9.6 5.5 12 3z'/%3E%3C/svg%3E"); }
+/* 原 .ic-palette 已移除：皮肤按钮改由 .skin-dots 三枚圆点绘制（见下方 §2） */
+.ic-heart  { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20.2s-7.2-4.6-7.2-9.8A4.6 4.6 0 0 1 12 7.2a4.6 4.6 0 0 1 7.2 3.2c0 5.2-7.2 9.8-7.2 9.8z'/%3E%3C/svg%3E"); }
+.ic-help   { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M9.6 9.4a2.5 2.5 0 0 1 4.6 1.4c0 1.7-2.2 2-2.2 3.4'/%3E%3Ccircle cx='12' cy='17.4' r='1'/%3E%3C/svg%3E"); }
+.ic-gear   { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='3.2'/%3E%3Cpath d='M12 2.8v2.4M12 18.8v2.4M4.5 7.5l2.1 1.2M17.4 15.3l2.1 1.2M4.5 16.5l2.1-1.2M17.4 8.7l2.1-1.2'/%3E%3C/svg%3E"); }
+.ic-folder-plus { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h3.6l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3Cpath d='M12 11.6v4.2M9.9 13.7h4.2'/%3E%3C/svg%3E"); }
+.ic-folder-open { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h3.6l1.8 2H19a2 2 0 0 1 2 2v1.4H3z'/%3E%3Cpath d='M3 10.4h18l-1.7 6.7a2 2 0 0 1-1.9 1.4H5.6a2 2 0 0 1-1.9-1.4z'/%3E%3C/svg%3E"); }
+.ic-close  { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round'%3E%3Cpath d='M6.5 6.5l11 11M17.5 6.5l-11 11'/%3E%3C/svg%3E"); }
+.ic-refresh{ --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.5 12a8.5 8.5 0 1 1-2.5-6'/%3E%3Cpath d='M20.8 4.2v4.3h-4.3'/%3E%3C/svg%3E"); }
+.ic-check  { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+/* 「更多 ⋮」：窄窗顶栏折叠入口（非皮肤按钮，勿与 .skin-dots 混用） */
+.ic-more   { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Ccircle cx='12' cy='5.4' r='1.7'/%3E%3Ccircle cx='12' cy='12' r='1.7'/%3E%3Ccircle cx='12' cy='18.6' r='1.7'/%3E%3C/svg%3E"); }
+
+/* v5 新增：随「按钮去文字」一同补齐的线性图标（全部 currentColor mask，无一第三方图标字体） */
+.ic-undo       { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 8.6h9.4a5.4 5.4 0 0 1 0 10.8H8.2'/%3E%3Cpath d='M7.6 5.1 4 8.6l3.6 3.5'/%3E%3C/svg%3E"); }
+.ic-redo       { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 8.6h-9.4a5.4 5.4 0 0 0 0 10.8h5.2'/%3E%3Cpath d='M16.4 5.1 20 8.6l-3.6 3.5'/%3E%3C/svg%3E"); }
+.ic-node-plus  { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M4 6h11M4 12h11M4 18h5'/%3E%3Cpath d='M18 14.4v7.2M14.4 18h7.2'/%3E%3C/svg%3E"); }
+.ic-pencil     { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.2 19.8l1-3.9L16.4 4.6a2 2 0 0 1 2.9 0l.1.1a2 2 0 0 1 0 2.9L8.1 18.8z'/%3E%3Cpath d='M14.7 6.3l3 3'/%3E%3C/svg%3E"); }
+.ic-trash      { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7h16'/%3E%3Cpath d='M9.6 7V4.9h4.8V7'/%3E%3Cpath d='M6.4 7l1 12.1a1.8 1.8 0 0 0 1.8 1.6h5.6a1.8 1.8 0 0 0 1.8-1.6L17.6 7'/%3E%3Cpath d='M10.4 10.8v5.8M13.6 10.8v5.8'/%3E%3C/svg%3E"); }
+.ic-expand-all { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8.2 9.4 12 5.6l3.8 3.8'/%3E%3Cpath d='M8.2 14.6 12 18.4l3.8-3.8'/%3E%3C/svg%3E"); }
+.ic-collapse-all { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8.2 5.6 12 9.4l3.8-3.8'/%3E%3Cpath d='M8.2 18.4 12 14.6l3.8 3.8'/%3E%3C/svg%3E"); }
+.ic-copy       { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='8.6' y='8.6' width='11.4' height='11.4' rx='2.2'/%3E%3Cpath d='M15.4 5.6H6.4a2 2 0 0 0-2 2v9'/%3E%3C/svg%3E"); }
+.ic-import     { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.4v9.2'/%3E%3Cpath d='M8.6 9.2 12 12.6l3.4-3.4'/%3E%3Cpath d='M4 14.6v3.4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.4'/%3E%3C/svg%3E"); }
+.ic-export     { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 12.6V3.4'/%3E%3Cpath d='M8.6 6.8 12 3.4l3.4 3.4'/%3E%3Cpath d='M4 14.6v3.4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.4'/%3E%3C/svg%3E"); }
+.ic-load       { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.4 12h11.2'/%3E%3Cpath d='M11.2 8.4 14.6 12l-3.4 3.6'/%3E%3Cpath d='M17.6 4.6v14.8'/%3E%3C/svg%3E"); }
+.ic-save       { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.8 3.4h10.4l4 4v13.2a1.8 1.8 0 0 1-1.8 1.8H4.8A1.8 1.8 0 0 1 3 20.6V5.2a1.8 1.8 0 0 1 1.8-1.8z'/%3E%3Cpath d='M7.8 3.4v6h8.4v-6'/%3E%3Cpath d='M7.4 14.6h9.2v7.6H7.4z'/%3E%3C/svg%3E"); }
+.ic-spark      { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13.4 2.6 5.8 13.4h5.2l-.8 8 7.6-10.8h-5.2z'/%3E%3C/svg%3E"); }
+
+/* ---------- 2. 顶栏三区分组 ---------- */
+#topbar { gap: 8px; }
+.topbar-right { gap: 8px; }
+.tb-group { display: flex; align-items: center; gap: 4px; padding: 3px 5px;
+  border-radius: var(--qm-r-md); }
+.tb-status { border: 1px solid var(--qm-line-soft); background: var(--qm-surface-2); }
+.tb-actions { gap: 2px; }
+.sel-label { display: none; }        /* 去掉两个冗余文字 label */
+.topbar-select { display: none; }    /* 语言/皮肤改由图标 popover 承载 */
+
+/* 只读 chip：无边框淡底、24px 高 —— 比同行按钮矮一档，一眼看出「不可点」 */
+.chip.chip-ghost { border-color: transparent; background: var(--qm-surface);
+  height: 24px; display: inline-flex; align-items: center; padding: 0 9px; }
+
+/* 状态 chip 升级为按钮：实线边框 + hover 抬升，32px 与按钮齐平，明确「可点」 */
+.chip-btn {
+  appearance: none; font: inherit; font-size: 12px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 32px; padding: 0 11px; border-radius: 999px;
+  border: 1px solid var(--qm-line); background: var(--qm-surface); color: var(--qm-text-dim);
+}
+.chip-btn:hover { color: var(--qm-accent-ink); border-color: var(--qm-accent); }
+.chip-btn:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: 1px; }
+.chip-btn .ic { opacity: .8; }
+.chip-btn .caret { font-size: 9px; }
+
+/* 图标按钮：32×32，与 .btn 同高 —— 顶栏成一条整齐基线（尺寸统一） */
+.icon-btn {
+  appearance: none; cursor: pointer; background: transparent; color: var(--qm-text-dim);
+  width: 32px; height: 32px; border-radius: var(--qm-r-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid transparent;
+  /* 必须重置 UA 对 button 的默认 padding(1px 6px)：否则内容盒只剩 18px，
+     19px 图标会被 flex 收缩回 18px，声明尺寸静默失效（实测缺陷）。 */
+  padding: 0;
+}
+.icon-btn:hover { color: var(--qm-accent-ink); background: var(--qm-surface-2); border-color: var(--qm-line-soft); }
+.icon-btn:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: 1px; }
+.icon-btn[aria-expanded="true"] { color: var(--qm-accent-ink); background: var(--qm-accent-soft); border-color: var(--qm-accent); }
+/* 顶栏图标尺寸比正文图标大半档（19px），与 32px 按钮成比例 */
+/* flex: 0 0 auto —— 图标是 flex 子项，禁止收缩，保证「声明 19px = 实际 19px」 */
+.icon-btn .ic { width: 19px; height: 19px; flex: 0 0 auto;
+  -webkit-mask-size: 19px 19px; mask-size: 19px 19px; }
+
+/* 皮肤按钮 = 三枚圆点，**三角排列**（顶 1 底 2，按用户提供的图标）。
+   v5 修正①：由「水平一字排开」改为「三角形」，与用户给的皮肤图标一致。
+   v5 修正②：颜色改用 currentColor 单色，**不再**取当前皮肤三色。
+     实测证据：s06 的 swatch = #f7f7f5 / #65696f / #ffffff，头尾两色几乎等于面板底色，
+     三个点在浅色顶栏上被「吃掉」两个，只剩一个孤点（v5 截图 01 可见）。
+     改单色后随按钮文字色走（悬停即强调色），既与用户给的图标一致，也不会被皮肤配色拖累。
+     配色预览由皮肤网格 popover 承担，不再压在图标上。 */
+.skin-dots { position: relative; display: block; width: 17px; height: 17px; flex: 0 0 auto; }
+.skin-dots i { position: absolute; display: block; width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor; }
+.skin-dots i:nth-child(1) { top: 0;    left: 5px; }   /* 上·中 */
+.skin-dots i:nth-child(2) { bottom: 0; left: 0;   }   /* 下·左 */
+.skin-dots i:nth-child(3) { bottom: 0; right: 0;  }   /* 下·右 */
+
+/* 品牌区 = 生成桌面快捷方式（V0.0.9 需求；title 走 topbar.logoTip 真值） */
+.brand { cursor: pointer; }
+.brand:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: 2px; border-radius: var(--qm-r-sm); }
+
+/* ---------- 3. 中栏：目标位置行 + 操作带（尺寸统一：行高 44/40，按钮 28 档） ---------- */
+/* 目标位置行：常显。删掉「根文件夹名」后只剩两项，已无折叠必要。 */
+#targetBar {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 7px 10px; min-height: 44px;
+  border-bottom: 1px solid var(--qm-line-soft);
+}
+.tf-field { display: flex; align-items: center; gap: 8px; flex: 1 1 320px; min-width: 0; }
+.tf-field > span { font-size: 12px; color: var(--qm-text-dim); white-space: nowrap; }
+.input-group { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
+.input-group input { flex: 1 1 auto; min-width: 0; height: 28px; }
+.input-group .btn { flex: 0 0 auto; white-space: nowrap; }
+
+/* 操作带：三分组（编辑 ｜ 结构 ｜ 视图）+ 右侧生成组 */
+.opband {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 6px 10px; min-height: 40px;
+  border-bottom: 1px solid var(--qm-line-soft);
+}
+/* 每个分组自带淡底与圆角 —— 让「哪几个是一类」一眼可辨 */
+.ob-group { display: flex; align-items: center; gap: 3px; padding: 2px 4px;
+  border-radius: var(--qm-r-md); background: var(--qm-surface-2); }
+.ob-group.ob-edit { background: transparent; padding: 2px 0; }
+.ob-group .btn { height: 28px; padding: 0 10px; font-size: 12px; }
+
+.obband-sep { width: 1px; align-self: stretch; margin: 2px 1px; background: var(--qm-line-soft); }
+
+/* 生成组：靠右独立，杜绝「删除↔生成」误触。
+   v8（用户：「这个按钮外面不需要框」）—— 删掉原有的
+     border: 1px solid var(--qm-accent-soft) + background: var(--qm-surface)
+   实测证据（无头 Edge 计算样式，非目测）：按钮本体 button#btnGenerate = 34×30、无外框；
+   而其父 span.ob-group.ob-gen = 44×36、border 1px rgb(191,196,200)（=--qm-accent-soft）、
+   padding 2px 4px ⇒ 左右各 5px / 上下各 3px 的贴身浅色圆角框 —— 正是截图里那圈框。
+   分组语义改由「距离（margin-left:auto）+ 主按钮自身的 elevation 抬升」承担，不套框也能分开。 */
+.ob-group.ob-gen { border: 0; background: transparent; margin-left: auto; }
+.ob-group.ob-gen .btn { height: 28px; padding: 0 18px; }
+
+/* ---------- 4. 左栏：一级标题 + 一行操作（小按钮 24px 档） ---------- */
+.panel-head { display: flex; align-items: center; justify-content: space-between;
+  gap: 6px; flex-wrap: wrap; }   /* 宽度不足时操作组折到第二行，不横向溢出 */
+.panel-head .panel-title { white-space: nowrap; }
+.panel-actions { display: inline-flex; gap: 4px; }
+.btn-mini { display: inline-flex; align-items: center; gap: 4px;
+  height: 24px; padding: 0 8px; font-size: 12px; }
+
+/* 状态栏：28px 档，只显示「就绪 + 计数」（版本号已按要求移除） */
+#statusBar { min-height: 28px; padding: 5px 12px; font-size: 12px; }
+
+/* ---------- 5. 弹层基元（modal / popover 两类；drawer 已无使用场景，不再实现） ---------- */
+#scrim { position: fixed; inset: 0; z-index: 900; background: rgba(16, 21, 28, .42);
+  opacity: 0; transition: opacity .16s ease; }
+#scrim.is-open { opacity: 1; }
+#scrim[hidden] { display: none; }
+
+.layer { position: fixed; z-index: 1000; }
+/* `hidden` 必须压过下面的 `.layer.modal{display:flex}` / `.layer.popover{...}` ——
+   否则「关闭」只是 opacity:0，元素仍以 1000 层占位且可点击（实测缺陷）。
+   用「变体 + [hidden]」显式提优先级，不依赖书写顺序。 */
+.layer[hidden], .layer.modal[hidden], .layer.popover[hidden] { display: none; }
+
+.layer.modal {
+  left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.97);
+  display: flex; flex-direction: column;
+  max-height: 84vh;
+  background: var(--qm-surface); border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-md);
+  /* v7.2：圆角兜底。帮助 / 支持两个弹窗已删掉底部 .lay-foot ⇒ .lay-body 成了最后一个
+     子元素，内容一滚动就会把右下圆角顶破（modal 本身只有 border-radius，不裁子元素）。
+     裁掉溢出即可 —— .lay-body 自带 14px padding、.lay-head 自带 11/14px padding，
+     里面的控件与 focus 描边都在 padding 内，不会被切。 */
+  overflow: hidden;
+  /* v6 收敛 elevation（用户：光影范围太大 → 要边缘清晰锐利、层级清晰立体）。
+     原方案吃 --qm-shadow-raise，在青蔓化(soft)档下被覆盖成
+       -6px -6px 14px rgba(255,255,255,.95) + 9px 9px 22px rgba(146,137,120,.30)
+     —— 左上白高光 + 右下大偏移暖灰，在深色遮罩上糊成一圈柔光晕，边缘发虚。
+     改为：① 去掉左上白高光；② 只留一个向下中距投影做「层级落差」；
+     ③ 外圈补 1px 极淡描边，和已有 border 一起把边界钉死。 */
+  --qm-elev: 0 2px 4px rgba(16, 21, 28, .08), 0 16px 40px rgba(16, 21, 28, .30);
+  box-shadow: var(--qm-elev), 0 0 0 1px rgba(16, 21, 28, .04);
+  padding: 0; opacity: 0; transition: opacity .16s ease, transform .16s ease;
+}
+.layer.modal.is-open { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+/* 三档宽度 —— 由「内容量」决定，这是 v2 的核心修正 */
+.modal-sm { width: min(360px, 90vw); }   /* 支持（赞赏码） */
+.modal-md { width: min(460px, 92vw); }   /* 服务设置 / 危险确认 */
+.modal-lg { width: min(680px, 92vw); }   /* 帮助（7 分节长文） */
+
+.layer.popover {
+  background: var(--qm-surface); border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-sm);
+  /* v6：popover 层级低于 modal，投影距离与不透明度同步收一档 */
+  --qm-elev: 0 1px 2px rgba(16, 21, 28, .08), 0 8px 22px rgba(16, 21, 28, .22);
+  box-shadow: var(--qm-elev), 0 0 0 1px rgba(16, 21, 28, .04);
+  padding: 8px; min-width: 150px;
+  opacity: 0; transform: translateY(-4px); transition: opacity .13s ease, transform .13s ease;
+}
+.layer.popover.is-open { opacity: 1; transform: translateY(0); }
+
+.lay-head { display: flex; align-items: center; gap: 8px; padding: 11px 14px;
+  border-bottom: 1px solid var(--qm-line-soft); flex: 0 0 auto; }
+.lay-head h3 { margin: 0; font-size: 13px; color: var(--qm-text); flex: 1 1 auto; }
+.lay-head .icon-btn { width: 26px; height: 26px; }
+.lay-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
+.lay-foot { padding: 11px 14px; border-top: 1px solid var(--qm-line-soft);
+  display: flex; gap: 8px; justify-content: flex-end; flex: 0 0 auto; }
+.lay-body p { margin: 0; font-size: 12px; color: var(--qm-text-dim); line-height: 1.75; }
+.lay-body h4 { margin: 2px 0 0; font-size: 12px; color: var(--qm-text); }
+.lay-body .kv { display: flex; gap: 8px; font-size: 12px; }
+.lay-body .kv b { flex: 0 0 62px; color: var(--qm-text-dim); font-weight: 400; }
+
+@media (prefers-reduced-motion: reduce) {
+  #scrim, .layer { transition: none !important; }
+}
+
+/* ---------- 6. 帮助弹窗：左目录 + 右正文（7 分节长文需要导航） ---------- */
+.help-2col { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 14px; }
+.help-toc { border-right: 1px solid var(--qm-line-soft); padding-right: 10px; }
+.help-toc a { display: block; font-size: 12px; padding: 4px 7px; border-radius: var(--qm-r-sm);
+  color: var(--qm-text-dim); text-decoration: none; }
+.help-toc a:hover { background: var(--qm-accent-soft); color: var(--qm-accent-ink); }
+.help-doc { max-height: 56vh; overflow: auto; padding-right: 4px; }
+.help-sec { margin-bottom: 16px; }
+.help-sec h4 { margin: 0 0 6px; font-size: 12.5px; color: var(--qm-accent-ink); }
+.help-sec ul, .help-sec ol { margin: 0; padding-left: 18px; }
+.help-sec li { font-size: 12px; color: var(--qm-text-dim); line-height: 1.8; }
+.help-sec li b { color: var(--qm-text); }
+.help-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.help-table th { text-align: left; font-weight: 400; color: var(--qm-text-dim); padding: 4px 8px 4px 0; white-space: nowrap; vertical-align: top; }
+.help-table td { color: var(--qm-text); padding: 4px 0; }
+@media (max-width: 640px) {
+  .help-2col { grid-template-columns: minmax(0, 1fr); }
+  .help-toc { border-right: 0; border-bottom: 1px solid var(--qm-line-soft); padding: 0 0 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+}
+
+/* ---------- 7. 支持弹窗（单栏居中 · 内容 = 盘上 i18n 真值 4 项，不加料） ----------
+   v5：中间由「文字占位」改为「赞赏码图片」，版式规则统一收在 §13.3，此处不再重复定义。
+   必须删净旧的 .sup-qr-img{padding:42px 16px} —— 否则它会继续作用到新的 <img> 上
+   （同权重、不同属性，后写者不会覆盖 padding），把 216×216 的内容盒吃成 184×132，
+   属 v4「19px 图标被静默挤没」同一类缺陷。 */
+.support-lead { color: var(--qm-text); }
+
+/* ---------- 8. 皮肤色块网格（popover 内容 · 卡片本身就是配色缩影） ---------- */
+#popSkin { width: 344px; max-height: 420px; overflow: auto; }
+.skin-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.skin-tile {
+  appearance: none; cursor: pointer; font: inherit; text-align: left;
+  position: relative; padding: 0; overflow: hidden;
+  border: 1px solid var(--qm-line); border-radius: var(--qm-r-md);
+  background: var(--qm-surface);
+  box-shadow: 0 1px 2px var(--qm-shadow-dark);
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+.skin-tile:hover { border-color: var(--qm-accent);
+  transform: translateY(-1px); box-shadow: 0 3px 7px var(--qm-shadow-dark); }
+.skin-tile:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: 1px; }
+/* 三色条：底色 44% / 面板色 32% / 强调色 24% —— 权重贴近真实用色比例
+   v6：高度 26px → 14px（用户：色块能看清是什么颜色即可，不必占很大地方）。
+   14px 在 344px popover 的 3 列布局下（单卡约 104px 宽）仍能分辨三色比例，
+   同时把 15 款的总高从约 5×61px 压到约 5×49px，一屏基本放得下。 */
+.skin-tile .sw { display: flex; height: 14px; }
+.skin-tile .sw i { display: block; }
+.skin-tile .sw i:nth-child(1) { flex: 44 1 0; }
+.skin-tile .sw i:nth-child(2) { flex: 32 1 0; }
+.skin-tile .sw i:nth-child(3) { flex: 24 1 0; }
+.skin-tile .nm { display: block; font-size: 11px; line-height: 1.4; padding: 5px 7px 6px;
+  color: var(--qm-text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border-top: 1px solid var(--qm-line-soft); }
+.skin-tile[aria-pressed="true"] { border-color: var(--qm-accent);
+  box-shadow: 0 0 0 1px var(--qm-accent), 0 2px 6px var(--qm-shadow-dark); }
+.skin-tile[aria-pressed="true"] .nm { color: var(--qm-accent-ink); font-weight: 700; }
+/* 选中角标：小圆 + 勾 —— 比「整卡描边」视觉噪声更小。
+   v6：色块条压到 14px 后，15px 角标会越界盖住名字行 ⇒ 缩到 13px 并贴边 2px。 */
+.skin-tile[aria-pressed="true"]::after {
+  content: '✓'; position: absolute; top: 2px; right: 2px;
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--qm-accent); color: var(--qm-on-accent);
+  font-size: 9px; line-height: 13px; text-align: center; font-weight: 700;
+  box-shadow: 0 1px 2px rgba(16, 21, 28, .25);
+}
+/* v6：原 .skin-grid-foot（「15 款 · 按背景明度亮 → 暗」+「当前：月光序章·钢笔灰」）
+   整块删除 —— 用户明确要求这两行不要出现。样式与 HTML 同步移除，
+   不留无消费者的死规则（核验方式：grep skin-grid-foot 应为 0 命中）。 */
+
+/* 语言菜单 */
+#popLang { min-width: 148px; }
+.menu-item { appearance: none; cursor: pointer; font: inherit; font-size: 12px; width: 100%;
+  display: flex; align-items: center; gap: 8px; text-align: left;
+  padding: 6px 9px; border: 0; border-radius: var(--qm-r-sm);
+  background: transparent; color: var(--qm-text); }
+.menu-item:hover { background: var(--qm-accent-soft); color: var(--qm-accent-ink); }
+.menu-item[aria-checked="true"] { color: var(--qm-accent-ink); font-weight: 700; }
+.menu-item .ic-check { visibility: hidden; }
+.menu-item[aria-checked="true"] .ic-check { visibility: visible; }
+
+/* 模板行右键菜单（复用 V0.0.38 #ctxMenu 定位逻辑的设计示意） */
+#ctxMenu { position: fixed; z-index: 1100; min-width: 132px; padding: 5px; }
+#ctxMenu[hidden] { display: none; }
+
+/* 顶栏状态点 */
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--qm-accent); flex: 0 0 auto; }
+
+/* ---------- 9. toast（盘上已有 #toastHost，设计稿补上） ---------- */
+.toast-host { position: fixed; right: 14px; bottom: 14px; z-index: 1500;
+  display: flex; flex-direction: column; gap: 8px; align-items: flex-end; pointer-events: none; }
+.toast { pointer-events: auto; font-size: 12px; color: var(--qm-text);
+  background: var(--qm-surface); border: 1px solid var(--qm-line); border-left: 3px solid var(--qm-accent);
+  border-radius: var(--qm-r-sm); box-shadow: var(--qm-shadow-raise);
+  padding: 9px 13px; max-width: 320px; line-height: 1.6;
+  opacity: 0; transform: translateY(6px); transition: opacity .16s ease, transform .16s ease; }
+.toast.is-open { opacity: 1; transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none !important; } }
+
+/* ---------- 10. 窄窗顶栏：低频项折入「更多 ▾」（裁决：是） ---------- */
+#btnMore { display: none; }
+@media (max-width: 920px) {
+  /* 高频保留：品牌 · 语言 · 皮肤 · 更多 */
+  .tb-actions #btnSupport, .tb-actions #btnHelp { display: none; }
+  #btnMore { display: inline-flex; }
+  .tb-status #chipSave { display: none; }          /* 保存状态让位（实现时移入底部状态栏） */
+  .chip-btn .btn-txt { display: none; }            /* 服务 chip 收成一个状态圆点 */
+  .chip-btn { padding: 2px 6px; }
+  #topbar { gap: 6px; }
+}
+#popMore { min-width: 208px; }
+.pop-more-sep { height: 1px; background: var(--qm-line-soft); margin: 5px 2px; }
+.pop-more-status { display: flex; align-items: center; gap: 7px; padding: 5px 9px;
+  font-size: 12px; color: var(--qm-text-dim); }
+
+/* （原「支持弹窗内容 · 补声明」块已删除：支持弹窗不再有任何额外声明段落，
+   样式统一收在 §7；用户明确要求「不要多填文字内容」。） */
+
+/* ---------- 12. 属性工作区 = 唯一改名入口（节点 / 模板 双模式） ---------- */
+.insp-mode { font-size: 11px; color: var(--qm-text-dim); margin: -2px 0 7px; }
+.prop-edit { display: flex; align-items: center; gap: 5px; flex: 1 1 auto; min-width: 0; }
+.prop-input { appearance: none; font: 12px/1.5 var(--qm-font); width: 100%; min-width: 0;
+  padding: 3px 6px; border-radius: var(--qm-r-sm); border: 1px solid var(--qm-line);
+  background: var(--qm-surface-2); color: var(--qm-text); }
+.prop-input:focus { outline: 2px solid var(--qm-accent-soft); border-color: var(--qm-accent); }
+.prop-input[readonly] { border-color: transparent; background: transparent;
+  color: var(--qm-text-dim); cursor: default; padding-left: 0; }
+.prop-hint { font-size: 11px; color: var(--qm-text-dim); line-height: 1.6; margin: 5px 0 0; }
+
+/* v6 新增：属性工作区「说明」文本框。
+   此前全站**零样式**（grep `textarea` 只命中焦点陷阱选择器，样式区零定义），
+   于是走浏览器默认外观 —— 白底 + 1px 黑边 + 直角 + 系统字体，与整套设计语言不搭。
+   与 .prop-input 同源（同底 / 同边 / 同圆角 / 同聚焦环），只多出多行尺寸与竖向自适应。 */
+.prop-note { display: block; width: 100%; min-height: 82px; max-height: 220px;
+  resize: vertical; appearance: none;
+  font: 12px/1.6 var(--qm-font); color: var(--qm-text);
+  padding: 6px 8px; border-radius: var(--qm-r-sm);
+  border: 1px solid var(--qm-line); background: var(--qm-surface-2); }
+.prop-note::placeholder { color: var(--qm-text-dim); opacity: .75; }
+.prop-note:focus { outline: 2px solid var(--qm-accent-soft);
+  border-color: var(--qm-accent); background: var(--qm-surface); }
+.tpl-item.is-active { background: var(--qm-accent-soft); border-color: var(--qm-accent); }
+.tpl-item.is-active .tpl-name { color: var(--qm-accent-ink); }
+
+/* 原「预览壳浮动条」(#probe / #probeLabel / #probeSkin) 样式已随该元素一并删除。 */
+
+/* =====================================================================
+   §13 v5 修正（本轮 3 条）
+   ① 皮肤按钮三圆点三角排列（见 §2，已就地改）
+   ② 工作区按钮去文字 → 纯线性图标 + 悬停功能描述（.btn-ic / [data-tip] / #qmTip）
+   ③ 支持弹窗中间 = 赞赏码图片（.sup-qr / .sup-qr-img）
+   本节置于样式表**末尾**：.btn-ic 要压过 §3 的 `.ob-group .btn{padding:0 10px}`
+   与 §4 的 `.btn-mini{padding:0 8px}`，靠书写顺序取胜，不靠 !important。
+   ===================================================================== */
+
+/* ---------- 13.1 纯图标按钮（四档方形，图标居中，与同名文字按钮同高） ---------- */
+.btn-ic {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0;
+}
+.ob-group .btn-ic { padding: 0; }                       /* 压过 `.ob-group .btn{padding:0 10px}` */
+.btn-mini.btn-ic { width: 24px; height: 24px; padding: 0; }  /* 压过 `.btn-mini{padding:0 8px}` */
+.tpl-dir-actions .btn-ic { padding: 0; }
+.prop .btn-ic { padding: 0; }
+.btn-ic > .ic { width: 16px; height: 16px; flex: 0 0 auto;
+  -webkit-mask-size: 16px 16px; mask-size: 16px 16px; }
+.btn-mini.btn-ic > .ic { width: 14px; height: 14px;
+  -webkit-mask-size: 14px 14px; mask-size: 14px 14px; }
+/* 主操作「一键生成」：唯一强调色方块，稍大一档以示主次。
+   必须显式补 padding:0 —— `.ob-group.ob-gen .btn{padding:0 18px}`（0,3,0）会压过
+   `.btn-ic{padding:0}`（0,1,0）；box-sizing:border-box 下 34px 宽减 36px 内边距
+   会把内容盒压成负值，图标被静默挤没（与 v4「19px 图标失效」同一类坑）。 */
+.ob-group.ob-gen .btn-ic { width: 34px; height: 30px; padding: 0; }
+
+/* ---------- 13.2 悬停功能描述（单例 fixed tooltip） ----------
+   为什么不用「[data-tip]:hover::after」纯 CSS 方案（v5 首版就是那么写的）：
+       layout.css:48  #sidebar, #inspector { overflow: auto }
+       layout.css:139 #center            { overflow: hidden }
+   三栏都是溢出容器，**绝对定位的伪元素一定会被裁掉**——
+   实测截图里右栏「导出：…（与「另存为」不同）」只露出一小截。
+   改为挂在 <body> 下的单例 #qmTip（position:fixed），彻底脱离溢出上下文，
+   并在 JS 里按视口夹取 + 下方放不下时自动翻到上方。
+   方向提示走独立属性 data-tip-side="right"（data-tip 本身存的是文案）。 */
+#qmTip {
+  position: fixed; z-index: 2000; pointer-events: none;
+  max-width: 260px; padding: 4px 9px; border-radius: var(--qm-r-sm);
+  background: var(--qm-text); color: var(--qm-surface);
+  font-size: 11px; line-height: 1.5; white-space: normal;
+  box-shadow: 0 3px 12px rgba(16, 21, 28, .26);
+}
+#qmTip[hidden] { display: none; }
+
+/* ---------- 13.4 目录树拖拽（v6 新增 · 用户要求「便于调整层级」） ----------
+   落点高亮 `.tree-row.is-drop-target` **不在这里重写** —— 仓库 css/layout.css:255
+   已有同规则（V0.0.19，`background: accent-soft + 1px dashed accent`），
+   设计稿的 ./css/layout.css 是逐字节同源的副本，直接复用即可。
+   此处只补「正在被拖的那一行」的弱化态，以及可拖手势。 */
+.tree-row.is-dragging { opacity: .45; }
+.tree-row[draggable="true"] { cursor: grab; }
+.tree-row[draggable="true"]:active { cursor: grabbing; }
+
+/* ---------- 13.3 支持弹窗：中间 = 赞赏码图片（大 · 居中 · 圆角） ---------- */
+/* v4 是「一段文字占位」；v5 换成 <img>；v6 换成**仓库真图**。
+   素材来源：src/web/assets/sponsor-wechat.png（640×640，28,521 B，
+   sha256 2325e359… 与仓库逐字节一致）。v5 曾用设计稿自造的 Pillow 占位图，
+   本轮修正 —— 设计稿的资产必须与仓库同源，否则预览会持续误导。
+
+   尺寸 216 → 300px 的依据（Pillow 实测，不是目测）：
+     · 真图内二维码外接框 = 246×247px，仅占全图宽 **38.4%**（四周大片白边）；
+     · 216px 显示 ⇒ 二维码只有 246/640×216 ≈ **83px**，低于微信码可用下限，几乎扫不动；
+     · 300px 显示 ⇒ 二维码 ≈ **115px**；弹窗 sm(360px) 的内容宽 332px，左右各余 16px。
+   若后续要更大的码，两条路：① 支持弹窗升级 modal-md(460px) + 图 380px（码≈146px）；
+   ② 裁掉真图白边另存一份素材。二者都需要用户裁决，本轮先取 300px。 */
+.sup-qr { margin: 0 auto; width: 300px; max-width: 100%;
+  border: 0; background: transparent; overflow: visible; }
+.sup-qr-img { display: block; width: 300px; height: 300px; object-fit: cover;
+  border: 1px solid var(--qm-line); border-radius: var(--qm-r-md);
+  background: var(--qm-surface-2);
+  box-shadow: 0 2px 8px var(--qm-shadow-dark); }
+/* v6：文案合并 —— 原 `.sup-figcap`（题注「微信赞赏码」）、`.sup-lead`（顶部一段）、
+   `.sup-thanks`（底部一句）三处并存，用户要求全部换成**一句**并放到赞赏码**下方**。 */
+.sup-note { margin: 0; padding: 0 4px; text-align: center;
+  font-size: 12px; line-height: 1.9; letter-spacing: .2px;
+  color: var(--qm-accent-ink); }
+/* ================= v7 新增：模板工作区「可发现 + 多选」（方案 2） =================
+   用户本轮裁决：
+     · Q1 选**方案 2** —— 常驻 ⋮ + 多选 + 批量条 + 「另存为」移出模板工作区；
+     · Q3 批量导出 = **一个 ZIP**（不是逐个下载）；
+     · Q4 多选触发 = **独立多选按钮**（进入选择模式，对触屏比 Ctrl/Shift 友好）。
+
+   为什么必须有这一段：仓库 V0.0.38 · 6E 把「载入 / 重命名 / 复制 / 导出 / 删除」
+   全部收进**右键菜单**（见 css/layout.css:133 的注释原文），功能都在，
+   但**界面上没有任何入口提示** —— 找得到才怪。⋮ 补的就是这个入口；
+   多选补的是「一次处理多套」这件事本身。 */
+
+/* 图标：复选框（本轮新增第 24 枚）—— 与全站一致走 currentColor mask，不用图标字体 */
+.ic-checkbox { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.4' y='3.4' width='17.2' height='17.2' rx='4'/%3E%3Cpath d='M7.8 12.2l2.9 2.9 5.5-6'/%3E%3C/svg%3E"); }
+
+/* 行尾 ⋮：**常驻但弱化** —— 常驻才有可发现性（这正是 P0-1 要修的），
+   弱化才不喧宾夺主（opacity .45；悬停 / 键盘聚焦时变实）。 */
+.tpl-more { flex: 0 0 auto; align-self: center; opacity: .45; transition: opacity .12s ease; }
+.tpl-row:hover .tpl-more,
+.tpl-row:focus-within .tpl-more,
+.tpl-more:focus-visible { opacity: 1; }
+.tpl-more:hover { color: var(--qm-accent-ink); }
+
+/* 复选框：自绘（appearance:none），不复用浏览器默认外观 —— 与全站控件同族 */
+.tpl-checkbox {
+  --m-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+  appearance: none; -webkit-appearance: none;
+  width: 14px; height: 14px; flex: 0 0 auto; align-self: center;
+  margin: 0 6px 0 2px; border-radius: 4px; cursor: pointer;
+  border: 1px solid var(--qm-line); background: var(--qm-surface-2);
+}
+.tpl-checkbox:hover { border-color: var(--qm-accent); }
+.tpl-checkbox:checked { background: var(--qm-accent); border-color: var(--qm-accent); }
+.tpl-checkbox:checked::after {
+  content: ''; display: block; width: 100%; height: 100%;
+  background-color: var(--qm-on-accent);
+  -webkit-mask: var(--m-check) center / 10px 10px no-repeat;
+          mask: var(--m-check) center / 10px 10px no-repeat;
+}
+.tpl-checkbox:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: 1px; }
+
+/* 行内复选框只在多选模式出现 —— 单选模式下模板行保持干净（少一层视觉噪音） */
+.tpl-row .tpl-checkbox { display: none; }
+body.is-multi .tpl-row .tpl-checkbox { display: block; }
+/* 多选模式下行被勾中：整行套强调底，与 .tpl-item.is-active 同一套语言 */
+.tpl-item.is-checked { border-color: var(--qm-accent); background: var(--qm-accent-soft); }
+
+/* 批量条：只占一行，不动模板列表的其它布局 */
+.tpl-batchbar {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 6px; padding: 4px 6px 4px 8px;
+  border: 1px solid var(--qm-accent); border-radius: var(--qm-r-sm);
+  background: var(--qm-accent-soft); color: var(--qm-accent-ink); font-size: 11px;
+}
+.tpl-batchbar[hidden] { display: none; }
+.tpl-batch-all { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; }
+.tpl-batch-count { flex: 1 1 auto; text-align: center; color: var(--qm-text-dim); }
+.tpl-batch-ops { display: inline-flex; gap: 3px; }
+.tpl-batchbar .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ================= v7.1 重设计：模板行「一体化」（用户 2026-10-13 反馈） =================
+   用户原话：「更多功能的按钮跟模板模块的设计不好看，需要重新设计一下。」
+
+   现状的两个问题（读 layout.css / base.css 定位，不是主观感受）：
+     ① **行尾 ⋮ 是个描边小方块** —— 它挂的类是 `.btn.btn-ghost.btn-mini.btn-ic`，
+        而 `.btn-ghost` 只清掉 `background` 与 `box-shadow`，**没有清 `border`**
+        （base.css:88-91）；于是 `.btn` 的 `border:1px solid var(--qm-line)` 留着，
+        叠上 `border-radius: var(--qm-r-sm)`，渲染出一个 **24×24 的描边方块**，
+        孤悬在卡片右侧。它和卡片**不是一体**，却服务于同一个对象 —— 观感割裂。
+     ② 「一张卡片 + 外面一块按钮」= 两个视觉块承载一件事。信息层级也被摊平：
+        `.tpl-badge`（json / md）是描边小方块，与统计文字挤在同一行，颗粒度很碎。
+
+   重设计 = **把两个块并成一张卡**：
+     · 描边 / 圆角 / 底 / 阴影**上移到 `.tpl-row`** ⇒ 整行成为唯一载体；
+     · `.tpl-item` 透明化 —— 它只负责「主区」的点击与排版，不再画卡片；
+     · ⋮ 退掉按钮外观，成为**卡内右端的圆形图标钮**；淡显与点亮**沿用 v7 段既有规则**
+       （`opacity: .45` → 悬停整行时 1，避免同一属性两处定义而漂移）——
+       保住 v7 的**可发现性**初衷，但不再是「贴在外面的一块」；
+     · 选中态 / 勾选态改由整卡承担（`.tpl-row.is-active` / `.tpl-row.is-checked`）。
+
+   特异性与顺序：一律用 `.tpl-row` 前缀（0,2,0）压过 layout.css 的 `.tpl-item`（0,1,0）；
+   与 base.css 的 `.btn-mini.btn-ic`（同为 0,2,0）**靠本段书写顺序在后取胜**，不靠 !important。
+   本轮 **零 HTML 结构改动、零功能逻辑改动**（仅把两个「态」类同步到行上，见 JS）。 */
+
+/* 1) 整行成为一张卡（外观从 .tpl-item 上移到这里） */
+.tpl-row {
+  border: 1px solid var(--qm-line-soft);
+  border-radius: var(--qm-r-sm);
+  background: var(--qm-surface-2);
+  box-shadow: var(--qm-shadow);
+  padding: 0 3px;
+  transition: border-color .12s ease, background .12s ease;
+}
+.tpl-row:hover,
+.tpl-row.is-active,
+.tpl-row.is-checked { border-color: var(--qm-accent); background: var(--qm-accent-soft); }
+.tpl-row.is-active .tpl-name { color: var(--qm-accent-ink); }
+
+/* 2) 主区透明化 —— 卡片外观已由 .tpl-row 承担 */
+.tpl-row .tpl-item {
+  border-color: transparent; background: transparent; box-shadow: none;
+  padding: 6px 6px 6px 5px;
+}
+.tpl-row .tpl-item:hover { background: transparent; border-color: transparent; }
+.tpl-row .tpl-item:active { box-shadow: var(--qm-inset); }   /* 按下反馈保留（内陷），不再重画外框 */
+
+/* 3) ⋮ 退掉按钮外观 → 卡内右端的圆形图标钮
+      （淡显 `.45` 与「悬停整行点亮」**沿用 v7 段既有规则**，本节只管外观，不重复定义） */
+.tpl-row .tpl-more {
+  border-color: transparent; background: transparent; box-shadow: none;
+  width: 22px; height: 22px; border-radius: 999px;
+  color: var(--qm-text-dim);
+  margin: 0 1px 0 0;
+  transition: opacity .12s ease, background .12s ease, color .12s ease;
+}
+/* 选中的那张卡上，⋮ 不该是半透明的（正在操作的对象，入口要显形） */
+.tpl-row.is-active .tpl-more { opacity: 1; }
+.tpl-row .tpl-more:hover:not(:disabled) {
+  background: var(--qm-surface);
+  border-color: transparent;
+  box-shadow: none;                 /* 压过 `.btn-ghost:hover` 的 inset 双阴影 */
+  color: var(--qm-accent-ink);
+}
+
+/* 4) 多选态：复选框内嵌到卡内左端（不再贴在最外侧） */
+.tpl-row .tpl-checkbox { margin: 0 4px 0 5px; }
+
+/* 5) 徽标柔化：描边小方块 → 淡底胶囊（不再与统计文字争视觉重量） */
+.tpl-row .tpl-badge {
+  border-color: transparent; background: var(--qm-line-soft);
+  border-radius: 999px; padding: 0 6px; font-weight: 600;
+}
+
+/* =====================================================================
+   §14 v8 修正（本轮 3 条 · 用户 2026-10-13）
+   用户原话：①「这个按钮外面不需要框」②「关闭按钮设计的好看一点」
+             ③「板块、模块、按钮等，需要优化阴影。我想要层级更清楚的立体感觉」
+   ①（生成按钮去框）已在 §3 `.ob-group.ob-gen` 处就地改，本节处理 ②③。
+
+   ⚠ 本节置于样式表**最末尾**是刻意的：全部靠「同特异性 + 书写顺序在后」取胜，
+     一行 !important 都不需要。要覆盖的既有声明及其特异性见各条注释。
+   ===================================================================== */
+
+/* ---------- 14.1 关闭按钮重做 ----------
+   before（无头 Edge 实测，不是目测）：`.lay-head .icon-btn` = 26×26、
+     border: 1px solid transparent、背景透明 ⇒ 面板上浮着一根**孤零零的 × 线**：
+     没有承载、没有落点、没有层次，hover 也只是「多一圈淡描边」。
+   after 三件事：
+     ① **给承载** —— 28px 正圆 + 极淡灰底（--qm-line-soft，在 #ffffff 头部上 ≈ #ebecEC，
+        可见但柔和）+ 顶缘 1px 内高光，× 从「飘着」变成「坐得住」；
+     ② **给反馈** —— hover 底加深到 --qm-line（.16）+ **3px 外扩光环**（现代 UI 的通用语言），
+        按下 scale(.94) 给物理回弹；
+     ③ **刻意不用强调色** —— 关闭是「退场」语义；一屏里已经有一个绿色主按钮（一键生成），
+        关闭钮再绿一次，主次立刻糊掉。这里走中性灰阶，靠明度而非色相表达状态。
+   为什么用 `[data-close]` 而不直接改 `.icon-btn`：弹窗头部将来可能再放别的图标钮，
+   只针对关闭钮（特异性 0,3,0，稳过 `.lay-head .icon-btn` 的 0,2,0 与 `.icon-btn:hover` 的 0,2,0）。 */
+.lay-head .icon-btn[data-close] {
+  width: 28px; height: 28px; border-radius: 999px;
+  border: 1px solid transparent;
+  color: var(--qm-text-dim);
+  background: var(--qm-line-soft);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .55), 0 1px 1.5px rgba(35, 41, 49, .06);
+  transition: background .15s ease, color .15s ease, box-shadow .15s ease, transform .1s ease;
+}
+.lay-head .icon-btn[data-close]:hover {
+  color: var(--qm-text);
+  background: var(--qm-line);
+  border-color: transparent;
+  box-shadow: 0 0 0 3px var(--qm-line-soft), 0 1px 2px rgba(35, 41, 49, .10);
+}
+.lay-head .icon-btn[data-close]:active {
+  transform: scale(.94);
+  box-shadow: 0 0 0 3px var(--qm-line-soft);
+}
+.lay-head .icon-btn[data-close]:focus-visible {
+  outline: 2px solid var(--qm-accent-soft); outline-offset: 2px;
+}
+/* 图标精修：比全局 .ic-close 细一档（1.9 → 1.7 线宽）、跨度略舒展（6.5→6.2 / 17.5→17.8），
+   15px 落在 28px 圆内比例更匀（原来 19px 图标塞 26px 方框，四周只剩 3.5px，发挤）。
+   全局 .ic-close 不动 —— 批量条里的「退出多选」在 14px 小尺寸下仍需粗一档才清楚。 */
+.lay-head .icon-btn[data-close] .ic {
+  width: 15px; height: 15px;
+  -webkit-mask-size: 15px 15px; mask-size: 15px 15px;
+  --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round'%3E%3Cpath d='M6.2 6.2l11.6 11.6M17.8 6.2L6.2 17.8'/%3E%3C/svg%3E");
+}
+
+/* ---------- 14.2 elevation 阶梯（用户：「层级更清楚的立体感觉」） ----------
+   先看**现状为什么不清楚**（全部是实测值，逐个从计算样式读出来的）：
+     · #sidebar / #center / #inspector : 3px 3px 8px rgba(99,99,98,.15) + -2px -2px 6px rgba(255,255,255,.55)
+     · #topbar                         : 0 1px 2px rgba(99,99,98,.15)
+     · .tpl-row                        : 0 1px 2px rgba(99,99,98,.15)
+     · .btn                            : 1px 1px 2px rgba(99,99,98,.15)
+     · .tb-group / #targetBar / .opband: **none**（三处完全没有阴影）
+   两个病灶：
+     甲、**不透明度全是 .15、距离全在 1–3px** —— 所有层级共用同一个「几乎看不见」的投影，
+         于是大板块和小按钮看起来一样「平」。层级差不是靠"更黑"，而是靠**距离与模糊成倍拉开**。
+     乙、那层 `-2px -2px 6px rgba(255,255,255,.55)` 左上白高光**在 #ffffff 面板上是白配白、
+         完全不可见**（面板本身就是 255）—— 纯属虚设，还让 box-shadow 变长难读。
+         v6 已对 modal 下过同样判断（「去掉左上白高光」），本轮推广到全站，口径终于统一。
+
+   ⇒ 重做为 e1→e4 四档，每档**多层堆叠**（近距锐利 + 中距 + 远距）：
+        距离 1/2 → 3/9 → 6/16/40 → 12/32 —— 距离递增才是「高度」的视觉信号；
+        同时每层的近距分量都很小，所以边缘仍然锐利 —— 延续 v6「要边缘清晰、不要柔光晕」的主张。
+      方向也统一改为**只向下**（`0 Ypx`），并把「左上白高光」换成
+        「顶缘 1px 内高光 `inset 0 1px 0`」= 顶面受光，物理方向正确。
+
+   ⚠ 分层归属（避免「什么都浮起来」——浮起的东西一旦超过三档，层级就又糊了）：
+        e0 平面：.opband 内的透明分组、#targetBar、#statusBar   → 保持 none
+        e1 控件：按钮 / chip / 图标钮 / 输入框                   → 微微浮起（1px 级）
+        e2 模块：顶栏 / 状态组 / 模板行 / 皮肤卡 / 批量条         → 明显浮起（3px 级）
+        e3 板块：三栏主体                                        → 强落差（16–40px 级）
+        e4 浮层：modal（popover / toast / 右键菜单压一档）        → 最高
+
+   ⚠ 光影是**刻度不是配色**：新增的 --qm-e* 应由 tokens.css 提供，**皮肤文件不需要也不应该覆盖**
+     （15 款皮肤的 --qm-shadow-dark / --qm-light 继续服务 --qm-inset 等既有用途，互不冲突）。
+     这样做的收益是可验证的：换任何一款皮肤，层级关系都保持同一套刻度，不会因皮肤明暗而漂移。 */
+:root {
+  /* 控件档：按钮、chip、图标钮、输入框 */
+  --qm-e1:    0 1px 2px rgba(35, 41, 49, .13), 0 2px 5px rgba(35, 41, 49, .06),
+              inset 0 1px 0 rgba(255, 255, 255, .85);
+  --qm-e1-hi: 0 1px 2px rgba(35, 41, 49, .15), 0 4px 10px rgba(35, 41, 49, .12),
+              inset 0 1px 0 rgba(255, 255, 255, .95);
+  /* 模块档：顶栏、状态组、模板行、皮肤卡、批量条 */
+  --qm-e2:    0 1px 2px rgba(35, 41, 49, .08), 0 3px 9px rgba(35, 41, 49, .08),
+              inset 0 1px 0 rgba(255, 255, 255, .90);
+  --qm-e2-hi: 0 1px 2px rgba(35, 41, 49, .10), 0 6px 16px rgba(35, 41, 49, .13),
+              inset 0 1px 0 rgba(255, 255, 255, .95);
+  /* 板块档：三栏主体 */
+  --qm-e3:    0 1px 2px rgba(35, 41, 49, .05), 0 6px 16px rgba(35, 41, 49, .08),
+              0 18px 40px rgba(35, 41, 49, .07),
+              inset 0 1px 0 rgba(255, 255, 255, .90);
+  /* 浮层档：modal（其下 popover / toast / 右键菜单各压一档，见 14.3e） */
+  --qm-e4:    0 2px 4px rgba(16, 21, 28, .10), 0 12px 28px rgba(16, 21, 28, .20),
+              0 32px 64px rgba(16, 21, 28, .14);
+  /* 内陷档：输入框、按下态 —— 与「浮起」反向，凹槽语义 */
+  --qm-e-in:  inset 0 2px 5px rgba(35, 41, 49, .13), inset 0 -1px 0 rgba(255, 255, 255, .75);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --qm-e1:    0 1px 2px rgba(0, 0, 0, .45), 0 2px 6px rgba(0, 0, 0, .30),
+                inset 0 1px 0 rgba(255, 255, 255, .06);
+    --qm-e1-hi: 0 1px 2px rgba(0, 0, 0, .50), 0 4px 12px rgba(0, 0, 0, .42),
+                inset 0 1px 0 rgba(255, 255, 255, .09);
+    --qm-e2:    0 1px 2px rgba(0, 0, 0, .42), 0 4px 12px rgba(0, 0, 0, .34),
+                inset 0 1px 0 rgba(255, 255, 255, .05);
+    --qm-e2-hi: 0 1px 2px rgba(0, 0, 0, .46), 0 7px 20px rgba(0, 0, 0, .44),
+                inset 0 1px 0 rgba(255, 255, 255, .08);
+    --qm-e3:    0 2px 4px rgba(0, 0, 0, .40), 0 10px 26px rgba(0, 0, 0, .42),
+                inset 0 1px 0 rgba(255, 255, 255, .05);
+    --qm-e4:    0 2px 6px rgba(0, 0, 0, .50), 0 16px 40px rgba(0, 0, 0, .55);
+    --qm-e-in:  inset 0 2px 6px rgba(0, 0, 0, .50), inset 0 -1px 0 rgba(255, 255, 255, .05);
+  }
+}
+
+/* ---------- 14.3a 板块档（e3）：三栏主体 —— 最大的落差在这里 ---------- */
+#sidebar, #center, #inspector { box-shadow: var(--qm-e3); }
+
+/* ---------- 14.3b 模块档（e2）：顶栏 / 状态组 / 模板行 / 皮肤卡 / 批量条 ---------- */
+#topbar { box-shadow: var(--qm-e2); }
+.tb-group { box-shadow: var(--qm-e1); }          /* 顶栏内的分组：比顶栏低一档，不抢 */
+.tpl-row { box-shadow: var(--qm-e2); }
+.tpl-row:hover, .tpl-row.is-active, .tpl-row.is-checked { box-shadow: var(--qm-e2-hi); }
+.skin-tile { box-shadow: var(--qm-e1); }
+.skin-tile:hover { box-shadow: var(--qm-e2-hi); }
+.skin-tile[aria-pressed="true"] { box-shadow: 0 0 0 1px var(--qm-accent), var(--qm-e2); }
+.tpl-batchbar { box-shadow: var(--qm-e1); }
+
+/* ---------- 14.3c 控件档（e1）：按钮 / chip / 图标钮 ---------- */
+/* 连 hover / active / disabled 三态一起重写 —— 只改常态会留下「一悬停又跳回旧阴影」的缝。 */
+.btn { box-shadow: var(--qm-e1); }
+.btn:hover:not(:disabled) { box-shadow: var(--qm-e1-hi); }
+.btn:active:not(:disabled) { box-shadow: var(--qm-e-in); }
+.btn:disabled { box-shadow: none; }
+/* 主按钮（一键生成）比普通按钮**高一档** —— 它没有外框了（见 §3），分量得自己扛起来 */
+.btn-primary { box-shadow: var(--qm-e1-hi); }
+.btn-primary:hover:not(:disabled) { box-shadow: var(--qm-e1-hi); }
+.btn-primary:active:not(:disabled) { box-shadow: var(--qm-e-in); }
+/* 图标钮默认透明底 —— 透明底配阴影会「凭空浮起」，故默认 none，有底色时才给 */
+.icon-btn { box-shadow: none; }
+.icon-btn:hover { box-shadow: var(--qm-e1); }
+.icon-btn[aria-expanded="true"] { box-shadow: var(--qm-e1); }
+.chip-btn { box-shadow: var(--qm-e1); }
+.chip-btn:hover { box-shadow: var(--qm-e1-hi); }
+/* .ob-group：操作带里的分组容器 —— 透明底的组保持平，其余给最轻一档「芯片感」。
+   ⚠ .ob-gen 必须显式置 none：它在 §3 已改为**透明底**（用户要求去框），
+     而透明底元素配 box-shadow 会投出一个 44×34 的**方形影框** ——
+     等于把刚删掉的那圈边框换成了「影子做的框」，诉求原地反弹。
+     两条同特异性（0,2,0），靠书写顺序在后取胜。 */
+.ob-group { box-shadow: none; }
+.ob-group:not(.ob-edit) { box-shadow: var(--qm-e1); }
+.ob-group.ob-gen { box-shadow: none; }
+
+/* ---------- 14.3d 内陷档（e-in）：输入类控件 —— 与浮起反向，凹槽 ---------- */
+/* v9 修正：原写的 `#propNote` 是**死选择器** —— 属性区说明框的真实挂点是
+   `.prop-note`（class），不是 id（实测《青蔓化统一皮肤诊断》：`#propNote` 未命中）。
+   这就是「说明文本框一直拿到浏览器默认外观」的直接原因。 */
+input[type="text"], select, .prop-note { box-shadow: var(--qm-e-in); }
+
+/* ---------- 14.3e 浮层档：modal 最高，其余各压一档 ----------
+   .layer.modal 那条**必须保留** v6 定下的「外圈 1px 极淡描边」——
+   它是把投影边界钉死、避免边缘发虚的关键，换档时不能顺手丢掉。 */
+.layer.modal { box-shadow: var(--qm-e4), 0 0 0 1px rgba(16, 21, 28, .05); }
+.layer.popover { box-shadow: var(--qm-e2-hi), 0 0 0 1px rgba(16, 21, 28, .04); }
+#ctxMenu { box-shadow: var(--qm-e2-hi), 0 0 0 1px rgba(16, 21, 28, .04); }
+.toast { box-shadow: var(--qm-e2-hi); }
+/* 支持弹窗的赞赏码图：给 e2，让它从弹窗底上「抬」起来 */
+.sup-qr-img { box-shadow: var(--qm-e2); }
+</style>
+
+<style id="qmSoftSkin">
+/* =====================================================================
+   青蔓化皮肤层（Soft UI / Neomorphism）· 光影语法层 · v14
+   ---------------------------------------------------------------------
+   ★ v14 定位变更：本层从此**只管光影与形状，不管配色**。
+     起因：用户报「皮肤选择器切了没反应（15 款呈现同一套）」。
+     根因：本层选择器 html[data-soft] 特异性 (0,1,1) 高于皮肤文件的 :root (0,1,0)，
+           而 v12 在此重定义了 16 个配色变量 ⇒ 15 款皮肤的颜色被整层覆盖。
+     修复：① 删掉全部配色变量与写死的色值，交回 tokens.css + 15 款皮肤；
+           ② 光影「颜色」改引用皮肤自带的 --qm-shadow-light / --qm-shadow-dark，
+              深浅皮肤自动成立；本层只保留「语法」（镜像对称 + 模糊 = 位移 × 2）。
+     实测：修前 15 款唯一渲染组合数 = 1；修后见 neomorphism-风格规格.md §12。
+
+   用户裁决（2026-10-13）：「我喜欢这个风格，帮我把皮肤按照这种设计修改」
+   ⇒ 风格基准 = docs/reference/neomorphism-demo-20261013.html（Neomorphism Demo），
+     设计语言见 docs/reference/neomorphism-demo-实测与移植结论.md §4.3。
+
+   参数取舍按该文档 §5 的实测分档，不是照搬 demo 数值：
+     ✅ 学「位移:模糊 = 1:2」+「双光源镜像对称」—— 唯一被单变量实验证明有效的两招
+        （立体总量 11.0% → 13.0%，临时副本 + 无头 Edge + Pillow 剖面实测）
+     ❌ 不学「不透明纯色阴影」—— 实测无效（−0.1%），且固定色会锁死皮肤切换
+     ❌ 不学「槽+块」照搬到面板级 —— 3px 凹陷在 205px 高区域只占 1.5%，不可见
+   色值仍取自项目既有实测档（规格见 neomorphism-风格规格.md），未自拟。
+
+   挂载方式 = <html data-soft="hybrid"> 属性开关，而非改 base.css / 皮肤文件：
+   base.css 与仓库逐字节同源（sha256 已校验），故全部差异隔离在本块内，可整块摘除。
+
+   三条硬化规则（均来自实测教训，不是审美偏好）：
+   ① 有底才有影 —— 透明底元素配 box-shadow 会投出一个**方形影框**。
+      v8 把 .ob-gen 改成透明底却留着 e1 阴影，等于「把删掉的边框换成了影子做的框」。
+   ② 父子不能都浮起 —— 父层浅底+柔光、子按钮再浮起，两层影会叠成一圈白晕。
+      这正是 v9 前「一键生成」放大后「黄块贴白块」的成因（用户截图 #1）。
+   ③ 小控件的光影必须比大区块短 —— 偏移 2–4px、模糊 5–10px。
+      参考图能出柔光是因为卡片面积大；34px 的按钮照搬 17px 偏移只会糊成一团。
+   ===================================================================== */
+
+/* ---------- 1. 语法层：只定「光源 + 比例 + 圆角」，不碰配色（v14） ----------
+   v12 曾在此定义 16 个配色变量（画布 #ececec、主色 #fdd378 …），后果是把 15 款
+   皮肤的颜色全部压死（「切了没反应」的根因，见下方 ★）。
+   v14 起本层只保留两条**与颜色无关**的规则：
+     ① 圆角刻度（--qm-r-sm / --qm-r-md）
+     ② 光影语法（镜像对称 + 模糊 = 位移 × 2），影色引用皮肤变量
+   配色一律来自 tokens.css 的 :root 与 15 款皮肤 —— 谁的颜色谁负责。 */
+html[data-soft] {
+  /* ★ v14：本层不再定义任何**配色**变量（--qm-bg / surface / accent / btn-bg / text …）。
+     那些交回 15 款皮肤 + tokens.css 的 :root。
+     为什么必须让：`html[data-soft]` 特异性 = (0,1,1)，高于皮肤文件的 `:root` = (0,1,0)，
+     只要这里写一个 --qm-bg，15 款皮肤的 --qm-bg 就全部失效 —— 实测「15 款唯一渲染
+     组合数 = 1」、像素级完全相同 (240,240,238)，这就是「切了没反应」的根因。
+     本层从此只负责**语法**：光源方向、镜像对称、模糊 = 位移 × 2、圆角刻度。 */
+
+  /* 大圆角：demo --radius: 20px（小件按同心比例取 12px） */
+  --qm-r-sm: 12px;
+  --qm-r-md: 20px;
+
+  /* 光源固定左上：白高光在左上、影在右下（demo 双光源镜像，两侧位移与模糊相等）。
+     位移:模糊 = 1:2 —— 模糊半径小 → 阴影能量更集中 → 峰值浓度更高 → 窄缝里更「实」。
+     原先写的 1:3（6/9、7/... ）偏糊，实测立体总量反低 1.6 个点。
+
+     ★ v14 关键修正：影色**不再自拟**，改为引用皮肤自己的 --qm-shadow-light / -dark。
+     实测两档皮肤给出的值：
+       浅色皮肤 s06/s11 → dark α.15、light α.55  ⇒ 灰影 + 白高光
+       深色皮肤 s03/s07/s14 → dark α.62、light α.06 ⇒ 黑影 + 极弱高光
+     一旦把影色写死成 rgba(140,140,138)，深色皮肤上灰影会比底色还亮 → 光影方向反转。
+     交回皮肤后，深浅自动成立；软层只统一「语法」，不碰「颜色」。 */
+  --qm-soft-dark:  var(--qm-shadow-dark);
+  --qm-raise:      -3px -3px 6px  var(--qm-shadow-light),  3px  3px  6px  var(--qm-shadow-dark);
+  --qm-raise-hi:   -5px -5px 10px var(--qm-shadow-light),  5px  5px 10px  var(--qm-shadow-dark);
+  --qm-sink:       inset  3px  3px 6px var(--qm-shadow-dark), inset -3px -3px 6px var(--qm-shadow-light);
+  /* 小控件档：同比例（1:2），刻度各短一档 —— 规则③「小控件的光影必须比大区块短」 */
+  --qm-tap:        -2px -2px 4px  var(--qm-shadow-light),  2px  2px  4px  var(--qm-shadow-dark);
+  --qm-tap-hi:     -3px -3px 6px  var(--qm-shadow-light),  3px  3px  6px  var(--qm-shadow-dark);
+  --qm-tap-in:     inset  2px  2px 4px var(--qm-shadow-dark), inset -2px -2px 4px var(--qm-shadow-light);
+}
+
+html[data-soft] body { background: var(--qm-bg); }
+
+/* ---------- 2. 板块：三栏 / 顶栏 —— 结构线保留，投影换成柔性大偏移 ---------- */
+html[data-soft] #sidebar,
+html[data-soft] #center,
+html[data-soft] #inspector {
+  background: var(--qm-surface);
+  border-color: var(--qm-line);
+  box-shadow: var(--qm-raise), inset .5px .5px 1px var(--qm-edge-hi);
+}
+html[data-soft] #topbar {
+  background: var(--qm-surface);
+  border-bottom-color: transparent;
+  /* 位移:模糊 = 1:2，与其他档同比例（原 6/16 = 1:2.67，比下沿糊） */
+  box-shadow: 0 5px 10px var(--qm-soft-dark);
+}
+html[data-soft] #statusBar { box-shadow: none; }
+html[data-soft] .opband { border-bottom-color: var(--qm-line-soft); }
+
+/* ---------- 3. 通用按钮：柔性凸起（全站统一语言） ---------- */
+html[data-soft] .btn {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-tap);
+}
+html[data-soft] .btn:hover:not(:disabled) { box-shadow: var(--qm-tap-hi); }
+html[data-soft] .btn:active:not(:disabled) { box-shadow: var(--qm-tap-in); }
+html[data-soft] .btn:disabled {
+  background: transparent; border-color: transparent; box-shadow: none;
+}
+
+/* ---------- 4. 图标钮族：给底 + 分层（用户本轮点名的第二处） ----------
+   原先 .icon-btn{box-shadow:none} 沿用「透明底不配影」的旧约定，结果整排按钮
+   趴在平面上、零分层；顶栏那排的边框还是 transparent（实测读数）。
+   改为「浅底 + 淡边 + 短程柔光」= 浮起的小圆键，与用户给的参考截图同语言。
+
+   ⚠ `:not(.tpl-more)` 不是可有可无的保险，而是必须的：左栏模板行右端的 ⋮
+     类名正是 `.btn.btn-ghost.btn-mini.btn-ic`（v7.1 把它从「外挂描边方块」改成
+     「卡内圆形图标钮」）。不加排除，本组规则会把它**原样退回描边方块**——
+     回归探针的 `V7.1 ⋮ 已无描边` 断言正是这样抓到的：rgb(227,224,217)。 */
+html[data-soft] .icon-btn,
+html[data-soft] .btn.btn-ghost.btn-ic:not(.tpl-more),
+html[data-soft] .btn.btn-ghost.btn-mini.btn-ic:not(.tpl-more) {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-tap);
+}
+html[data-soft] .icon-btn:hover:not(:disabled),
+html[data-soft] .btn.btn-ghost.btn-ic:not(.tpl-more):hover:not(:disabled),
+html[data-soft] .btn.btn-ghost.btn-mini.btn-ic:not(.tpl-more):hover:not(:disabled) {
+  box-shadow: var(--qm-tap-hi);
+}
+html[data-soft] .icon-btn:active:not(:disabled),
+html[data-soft] .btn.btn-ghost.btn-ic:not(.tpl-more):active:not(:disabled),
+html[data-soft] .btn.btn-ghost.btn-mini.btn-ic:not(.tpl-more):active:not(:disabled) {
+  box-shadow: var(--qm-tap-in);
+}
+html[data-soft] .icon-btn[aria-expanded="true"] {
+  background: var(--qm-accent-soft); color: var(--qm-accent-ink);
+  border-color: transparent; box-shadow: var(--qm-tap-in);
+}
+
+/* ---------- 5. 顶栏状态组：被动槽（凹陷） —— 组内可点 chip 反向凸起，对比即成 ---------- */
+html[data-soft] .tb-status {
+  background: var(--qm-bg);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-sink);
+}
+html[data-soft] .tb-status .chip-btn {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-tap);
+}
+
+/* ---------- 6. 主操作「一键生成」：单体浮起（本轮重设计） ----------
+   旧结构 = 父 .ob-gen 浅底 + 大柔光 ⇒ 里面黄块再浮起 ⇒ 两层影叠成一圈白晕，
+   放大后即用户截图里那圈「黄块贴白块」。现改为**父层完全退场**、黄块一次性塑形：
+   左上白高光 / 右下暖影 / 顶部内高光 —— neomorphism 的「实体按块」。
+   保留 border 0：参考图那颗黄方块靠渐变与光影出边界，不靠描边。 */
+html[data-soft] .ob-group.ob-gen {
+  background: transparent; border: 0; border-radius: 0; padding: 0; box-shadow: none;
+}
+html[data-soft] .ob-group.ob-gen .btn-ic { width: 34px; height: 32px; padding: 0; }
+html[data-soft] .btn.btn-primary {
+  background: var(--qm-btn-bg);
+  border-color: var(--qm-btn-bg);
+  color: var(--qm-on-accent);
+  border-radius: var(--qm-r-sm);
+  /* 对称 ±2 / 模糊 4（1:2）+ 皮肤影色 —— 与全站同一套光源，不「自成一派」。
+     v14：底色交回 --qm-btn-bg（各皮肤自带主色，且已按 WCAG 配 --qm-on-accent），
+     不再烘死成黄色渐变 —— 否则切任何皮肤它都还是黄块，等于「切了没反应」。
+     立体感改由「对称柔光 + 顶部内高光」承担（demo 的纯色块语言），不依赖渐变。 */
+  box-shadow: -2px -2px 4px  var(--qm-shadow-light),
+               2px  2px 4px  var(--qm-shadow-dark),
+               inset 0 1px 0 var(--qm-edge-hi);
+}
+html[data-soft] .btn.btn-primary:hover:not(:disabled) {
+  background: var(--qm-btn-bg-hi);
+  border-color: var(--qm-btn-bg-hi);
+  box-shadow: -3px -3px 6px var(--qm-shadow-light),
+               3px  3px 6px var(--qm-shadow-dark),
+               inset 0 1px 0 var(--qm-edge-hi);
+}
+html[data-soft] .btn.btn-primary:active:not(:disabled) {
+  box-shadow: inset  3px  3px 6px var(--qm-shadow-dark),
+              inset -3px -3px 6px var(--qm-shadow-light);
+}
+
+/* ---------- 7. 操作带分组：凹陷胶囊（借参考图「分段控件」语言） ---------- */
+html[data-soft] .ob-group {
+  background: transparent; border: 0;
+  box-shadow: var(--qm-sink);
+}
+html[data-soft] .ob-group.ob-edit { box-shadow: none; }
+html[data-soft] .obband-sep { background: var(--qm-line-soft); }
+
+/* ---------- 8. 左栏模板行（v7.1 已把卡片上移到 .tpl-row，此处按新挂点适配） ---------- */
+html[data-soft] .tpl-row {
+  background: var(--qm-surface);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-tap);
+}
+html[data-soft] .tpl-row:hover { box-shadow: var(--qm-tap-hi); }
+html[data-soft] .tpl-row.is-active,
+html[data-soft] .tpl-row.is-checked {
+  background: var(--qm-accent-soft); border-color: var(--qm-accent);
+  box-shadow: var(--qm-tap-hi);
+}
+html[data-soft] .tpl-item { background: transparent; border-color: transparent; box-shadow: none; }
+/* 按下反馈沿用 v7.1 的「内陷」语义，只把刻度换成软档 */
+html[data-soft] .tpl-row .tpl-item:active { box-shadow: var(--qm-tap-in); }
+/* ⋮ 在软层下的形态 = **保持 v7.1 的透明圆形**。
+   ⚠ 两处都得挡：① 第 4 节的图标钮组已用 :not(.tpl-more) 排除；② 但 ⋮ 本身是
+     `.btn.btn-ghost.btn-mini.btn-ic`，会被**第 3 节的通用 `.btn` 规则**重新上底上边
+     ——只排一处不够，实测断言仍在报 rgb(227,224,217)（=--qm-line-soft）。
+     故此处给一条 (0,3,1) 的复位，高于 `.btn` 的 (0,2,1)。 */
+html[data-soft] .tpl-row .tpl-more {
+  background: transparent; border-color: transparent; box-shadow: none;
+}
+html[data-soft] .tpl-row .tpl-more:hover:not(:disabled) {
+  background: var(--qm-surface-2); border-color: transparent; box-shadow: var(--qm-tap);
+}
+html[data-soft] .tpl-row .tpl-badge { background: var(--qm-surface-2); border-color: transparent; }
+
+/* ---------- 9. 目录树 ---------- */
+html[data-soft] .tree-row:hover { background: transparent; box-shadow: var(--qm-tap-in); }
+/* 选中态 = F′：奶油黄底（保识别度）+ 向外凸起（保触感）+ 淡轮廓（钉边界）。
+   实测依据：纯凸起（候选 A/F）在 ~24px 真实行高下光影铺不开、几乎看不出选中；
+   纯内陷（改前）颜色对了但方向与参考图相反（参考图里所有「激活」都是凸的）。
+   v12：换成对称 ±2/4（1:2）+ 中性影，与全站一套光源。 */
+html[data-soft] .tree-row.is-selected {
+  background: var(--qm-accent-soft); color: var(--qm-accent-ink);
+  border-color: var(--qm-accent); border-radius: 10px;
+  box-shadow: -2px -2px 4px var(--qm-shadow-light), 2px 2px 4px var(--qm-shadow-dark);
+}
+
+/* ---------- 10. 表单 / 文本域 ---------- */
+html[data-soft] input[type="text"],
+html[data-soft] select,
+html[data-soft] .prop-input {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line);
+  box-shadow: var(--qm-tap-in);
+}
+html[data-soft] .prop-note {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line);
+  box-shadow: var(--qm-tap-in);
+}
+html[data-soft] .prop-note:focus { box-shadow: none; border-color: var(--qm-accent); }
+
+/* ---------- 11. 浮层：v13 统一为「中性暗影 + 外圈 ring」 ----------
+   用户指令（v13）：「弹窗也采用现在的设计风格，但是同样要注意边缘」。
+   ——「采用现在的设计风格」与「注意边缘」在浮层上是一对**互斥**要求，
+   因为 Neomorphism 的白色高光天然会把边界糊成一圈光。五轮单变量实测
+   （22 个候选、逐设备像素剖面）得到的结论：
+
+   ① 白色高光是边缘杀手（量化）：
+      弱白高光(-2/-2/10, α.55) 把 modal 左缘梯度从 84.8 → 42.9，并产生 +19.6 外亮晕；
+      完整对称双影(-6/-6/14, α.95) 只剩 20.0，外亮晕 +68.9 —— 边缘彻底不可辨。
+      物理：遮罩后底色 ≈145 灰，白影(255)叠上去必然比底色亮一大截 → 光晕。
+      浅画布(236)上同样存在，只是幅度小（+9~11，见 popover 三轮）→ 一样削弱边缘。
+
+   ② 影色必须比「所在底色」更暗才可见：
+      v12 的中性影 rgba(140,140,138) 落在遮罩底(≈145)上，立体感只剩 4.1
+      （对比：现状冷蓝黑影 33.7）。故浮层影色取 **112**（中性、更暗一档）。
+
+   ③ 裁决：白高光属于「内嵌元素」的语言（按钮/卡片/输入框与背景同色、靠光影凸起，
+      皮肤里已在用）；浮层与背景是**不同材质的分离关系**，靠暗影 + 描边区分才对。
+      故浮层不用白高光，改用「近层钉边 + 远层立体 + 外圈 ring」三层钉死边界。
+      比例律仍守 1:2（模糊 = 位移 × 2），与全站光影同一条物理律。
+
+   ④ 遮罩深度是「边缘锐度」的放大器（第五轮补测）：
+      遮罩压得越深、底色越暗，弹窗面(240)与底色的对比越大 → 边缘跃升越高。
+      实测同一套影配三档遮罩：(64,62,58,.44)→底色157→跃升 84.8；
+                                (48,46,44,.50)→底色139→跃升 94.7~99.8。
+      即「加深遮罩」比「加粗阴影」更能买回边缘清晰度，且不会弄脏画面。
+
+   定档依据（实测值，非拍脑袋）：
+     modal   = 候选 M4：底色 137.9（与 v12 现状 141.8 基本持平，观感不突变）
+                        边缘跃升 +99.8（现状 102.7 → 几乎无损）、外光亮晕 +0.3、下影 21.1
+     popover = 候选 Q2：外侧暗廓 −20.9、外光亮晕 0.0、下影 72.1、边缘跃升 +33.9
+   ring 之外的 1px 实描边来自元素自身 border（--qm-line），两者叠加 = 三重边界标记。 */
+/* v14：遮罩改**纯黑**。v13 用的是暖灰 rgba(48,46,44,.50)，那是「浅色皮肤」下限定的；
+   实测深色皮肤（s12 月岩 bg #1a1a1a）下，暖灰遮罩把背景压到 L≈44，
+   而弹窗面 --qm-surface = #282828 只有 L≈40 —— **弹窗比背景还暗，方向反转，边界消失**。
+   改纯黑后：浅色皮肤弹窗/背景落差 98 → 131（更大）；深色皮肤 −4 → +27（由反转转正向）。
+   遮罩本身是「把背景压暗」的中性操作，与皮肤色相无关，纯黑是各皮肤通吃的正解。 */
+html[data-soft] #scrim { background: rgba(0, 0, 0, .50); }
+/* v14：浮层影色也交回皮肤（--qm-shadow-dark）。原写死的 rgba(112,112,110,.58) 是
+   「浅色皮肤 + 深遮罩」这一种物理条件下的定档值，搬到深色皮肤上会失效（黑影才对）。
+   通用化手段 = **同一影色叠多层**，靠 α 累积出足够浓度：
+     浅色皮肤 dark α.15 → 3 层等效 .386（对齐 v13 单层 .48 的观感）
+     深色皮肤 dark α.62 → 3 层等效 .945（深底需要更强分离，正好）
+   比例律仍守 1:2（模糊 = 位移 × 2）；ring 用皮肤自己的描边色 --qm-line。 */
+html[data-soft] .layer.modal {
+  box-shadow: 0 3px 6px var(--qm-shadow-dark),
+              0 8px 16px var(--qm-shadow-dark),
+              0 18px 36px var(--qm-shadow-dark),
+              0 0 0 1px var(--qm-line);
+}
+html[data-soft] .layer.popover,
+html[data-soft] #ctxMenu {
+  box-shadow: 0 3px 6px var(--qm-shadow-dark),
+              0 10px 20px var(--qm-shadow-dark),
+              0 0 0 1px var(--qm-line);
+}
+html[data-soft] .sup-qr-img { box-shadow: 0 2px 8px var(--qm-soft-dark); }
+/* toast 归入同一「浮层档」——它和 popover 一样是画布上的浮起物，语言必须一致 */
+html[data-soft] .toast {
+  box-shadow: 0 3px 6px var(--qm-shadow-dark),
+              0 10px 20px var(--qm-shadow-dark),
+              0 0 0 1px var(--qm-line);
+}
+
+/* ---------- 12. 皮肤色块 ---------- */
+html[data-soft] .skin-tile { box-shadow: var(--qm-tap); }
+html[data-soft] .skin-tile:hover { box-shadow: var(--qm-tap-hi); }
+html[data-soft] .skin-tile[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--qm-accent), var(--qm-tap-hi);
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ================= 顶栏：三区分组 ================= -->
+  <header id="topbar">
+    <!-- 品牌区 = 生成桌面快捷方式（V0.0.9 需求；title 走 i18n 真值 topbar.logoTip） -->
+    <!-- 品牌区 = 生成桌面快捷方式（V0.0.9 需求；title 走 i18n 真值 topbar.logoTip）。
+         用户裁决：不要再加任何「链形」提示符号。 -->
+    <button type="button" class="brand" id="btnLogo" title="点击生成桌面快捷方式">
+      <span class="brand-logo" aria-hidden="true"></span>
+      <span class="brand-mark">青蔓</span>
+      <span class="brand-sub">QingMan</span>
+    </button>
+
+    <div class="topbar-right">
+      <!-- 状态区：只读 chip（无边框淡底、24px）+ 可点按钮（实线边框、32px） -->
+      <div class="tb-group tb-status">
+        <span class="chip chip-ghost" id="chipSave">已保存</span>
+        <button type="button" class="chip-btn" id="chipBackend" aria-haspopup="dialog" title="本地服务设置">
+          <span class="dot" aria-hidden="true"></span><span class="btn-txt">服务就绪</span><span class="caret" aria-hidden="true">▾</span>
+        </button>
+      </div>
+
+      <!-- 操作区：4 颗常显图标按钮 + 1 颗窄窗「更多 ⋯」 -->
+      <div class="tb-group tb-actions">
+        <button type="button" class="icon-btn" id="btnLang" aria-haspopup="true" aria-expanded="false" aria-label="语言" title="语言">
+          <span class="ic ic-globe" aria-hidden="true"></span>
+        </button>
+        <!-- 皮肤按钮 = 三枚圆点（颜色随当前皮肤实时变化，见 applySkin） -->
+        <button type="button" class="icon-btn" id="btnSkin" aria-haspopup="true" aria-expanded="false" aria-label="皮肤" title="皮肤">
+          <span class="skin-dots" id="skinDots" aria-hidden="true"><i></i><i></i><i></i></span>
+        </button>
+        <button type="button" class="icon-btn" id="btnSupport" aria-haspopup="dialog" aria-label="赞赏与支持" title="赞赏与支持">
+          <span class="ic ic-heart" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="icon-btn" id="btnHelp" aria-haspopup="dialog" aria-label="使用说明" title="使用说明">
+          <span class="ic ic-help" aria-hidden="true"></span>
+        </button>
+        <!-- 窄窗（<920px）折入：本地服务设置 / 赞赏与支持 / 使用说明 三项低频入口 -->
+        <button type="button" class="icon-btn" id="btnMore" aria-haspopup="true" aria-expanded="false" aria-label="更多" title="更多">
+          <span class="ic ic-more" aria-hidden="true"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+
+    <!-- ================= 左栏：一级标题 + 一行操作 ================= -->
+    <aside id="sidebar">
+      <div class="panel-head">
+        <h2 class="panel-title" style="margin:0;">模板工作区</h2>
+        <!-- v5：按钮去文字，改纯线性图标；功能描述走悬停 tooltip（data-tip）+ aria-label -->
+        <span class="panel-actions">
+          <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnNewTpl"
+                  data-tip="新建模板：新建一套空白模板" aria-label="新建模板">
+            <span class="ic ic-folder-plus" aria-hidden="true"></span></button>
+          <button type="button" class="btn btn-ghost btn-mini btn-ic"
+                  data-tip="导入模板：从文件导入一套模板" aria-label="导入模板">
+            <span class="ic ic-import" aria-hidden="true"></span></button>
+          <!-- v7：原「另存为模板」已移出本区，并入中栏操作带 ——
+               它操作的是**当前目录树**，不是模板库（用户裁决，理由：位置错配）。
+               腾出的位置给「多选」—— 这是本轮真正新增的能力（方案 2）。 -->
+          <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnMulti"
+                  aria-pressed="false"
+                  data-tip="多选：进入选择模式，可批量导出（ZIP）或删除" aria-label="多选">
+            <span class="ic ic-checkbox" aria-hidden="true"></span></button>
+        </span>
+      </div>
+
+      <!-- v7：批量条 —— 只在多选模式下出现（方案 2 的核心增量）。
+           触发方式是**独立多选按钮**（用户裁决 Q4：对触屏比 Ctrl/Shift 友好）；
+           导出按**一个 ZIP** 打包（用户裁决 Q3：17 个文件逐个下载太吵）。 -->
+      <div class="tpl-batchbar" id="tplBatchBar" hidden>
+        <label class="tpl-batch-all">
+          <input type="checkbox" class="tpl-checkbox" id="tplCheckAll">全选
+        </label>
+        <span class="tpl-batch-count" id="tplBatchCount">已选 0 项</span>
+        <span class="tpl-batch-ops">
+          <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnBatchExport"
+                  data-tip="导出所选：打成一个 ZIP（不是逐个下载）" aria-label="导出所选">
+            <span class="ic ic-export" aria-hidden="true"></span></button>
+          <button type="button" class="btn btn-danger btn-mini btn-ic" id="btnBatchDelete"
+                  data-tip="删除所选：移入 templates/.trash/（可人工找回，有二次确认）" aria-label="删除所选">
+            <span class="ic ic-trash" aria-hidden="true"></span></button>
+          <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnMultiExit"
+                  data-tip="退出多选" aria-label="退出多选">
+            <span class="ic ic-close" aria-hidden="true"></span></button>
+        </span>
+      </div>
+
+      <!-- 目录绑定行：路径 + 选择… + 刷新（与「导入」成组，链路相邻） -->
+      <div class="tpl-dir" id="tplDirRow">
+        <span class="tpl-dir-label">模板目录</span>
+        <code class="tpl-dir-path">templates/</code>
+        <span class="tpl-dir-actions">
+          <button type="button" class="btn btn-ghost btn-mini btn-ic"
+                  data-tip="选择模板目录：指定模板库所在的文件夹" aria-label="选择模板目录">
+            <span class="ic ic-folder-open" aria-hidden="true"></span></button>
+          <button type="button" class="btn btn-ghost btn-mini btn-ic"
+                  data-tip="刷新：重新读取模板列表" aria-label="刷新模板列表">
+            <span class="ic ic-refresh" aria-hidden="true"></span></button>
+        </span>
+      </div>
+
+      <ul class="tpl-list" id="templateList">
+        <!-- v7：每行左侧多一枚复选框（仅多选模式显示），右侧多一枚**常驻** ⋮ ——
+             原实现把「载入/重命名/复制/导出/删除」全部收进右键菜单（V0.0.38 · 6E），
+             结果是**功能都在、但没人找得到**（P0-1 可发现性）。⋮ 就是那个入口。
+             ⋮ 常驻但弱化（opacity .45），悬停/聚焦时变实 —— 既不藏也不吵。 -->
+        <li class="tpl-row">
+          <input type="checkbox" class="tpl-checkbox tpl-row-check" aria-label="选择 P0 空白项目模板">
+          <button type="button" class="tpl-item" data-name="P0 空白项目模板" data-fmt="json" data-file="P0_空白项目模板">
+          <span class="tpl-name">P0 空白项目模板</span>
+          <span class="tpl-meta"><span class="tpl-badge">json</span><span class="tpl-stats">1 目录 · 0 文件</span></span>
+        </button>
+          <button type="button" class="btn btn-ghost btn-mini btn-ic tpl-more"
+                  data-tip="更多：载入 / 重命名 / 复制 / 导出 / 删除" aria-label="更多操作">
+            <span class="ic ic-more" aria-hidden="true"></span></button>
+        </li>
+        <li class="tpl-row">
+          <input type="checkbox" class="tpl-checkbox tpl-row-check" aria-label="选择 S2 前端工程脚手架">
+          <button type="button" class="tpl-item" data-name="S2 前端工程脚手架" data-fmt="md" data-file="S2_前端工程脚手架">
+          <span class="tpl-name">S2 前端工程脚手架</span>
+          <span class="tpl-meta"><span class="tpl-badge">md</span><span class="tpl-stats">18 目录 · 4 文件</span></span>
+        </button>
+          <button type="button" class="btn btn-ghost btn-mini btn-ic tpl-more"
+                  data-tip="更多：载入 / 重命名 / 复制 / 导出 / 删除" aria-label="更多操作">
+            <span class="ic ic-more" aria-hidden="true"></span></button>
+        </li>
+        <li class="tpl-row">
+          <input type="checkbox" class="tpl-checkbox tpl-row-check" aria-label="选择 S6 资料归档库">
+          <button type="button" class="tpl-item" data-name="S6 资料归档库" data-fmt="md" data-file="S6_资料归档库">
+          <span class="tpl-name">S6 资料归档库</span>
+          <span class="tpl-meta"><span class="tpl-badge">md</span><span class="tpl-stats">12 目录 · 1 文件</span></span>
+        </button>
+          <button type="button" class="btn btn-ghost btn-mini btn-ic tpl-more"
+                  data-tip="更多：载入 / 重命名 / 复制 / 导出 / 删除" aria-label="更多操作">
+            <span class="ic ic-more" aria-hidden="true"></span></button>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- ================= 中栏 ================= -->
+    <section id="center">
+
+      <!-- ① 生成目标（常显 · 最上面）：目标位置 + 选择… + 仅演练。
+           「根文件夹名」整项已删除 —— 根文件夹就是目录树的首层文件夹，改名在右栏属性工作区。 -->
+      <div id="targetBar">
+        <label class="tf-field">
+          <span>目标位置</span>
+          <span class="input-group">
+            <input type="text" id="inTarget" value="E:\我的项目" placeholder="例如：E:\我的项目">
+            <button type="button" class="btn btn-ghost btn-ic" id="btnPickTarget"
+                    data-tip="选择目标位置：指定生成目录的落盘位置" aria-label="选择目标位置">
+              <span class="ic ic-folder-open" aria-hidden="true"></span></button>
+          </span>
+        </label>
+        <label class="switch">
+          <input type="checkbox" id="inDryRun" checked>
+          <span>仅演练（不写盘）</span>
+        </label>
+      </div>
+
+      <!-- ② 编辑功能 + 一键生成（三分组 ｜ 右侧生成组独立） -->
+      <div class="opband" id="opBand">
+        <!-- v5：操作带按钮全部去文字，改纯线性图标；功能描述走悬停 tooltip -->
+        <span class="ob-group ob-edit">
+          <button type="button" class="btn btn-ghost btn-ic" disabled
+                  data-tip="撤销：回退上一步编辑（Ctrl+Z）" aria-label="撤销">
+            <span class="ic ic-undo" aria-hidden="true"></span></button>
+          <button type="button" class="btn btn-ghost btn-ic" disabled
+                  data-tip="重做：恢复被撤销的编辑（Ctrl+Y）" aria-label="重做">
+            <span class="ic ic-redo" aria-hidden="true"></span></button>
+        </span>
+        <span class="obband-sep" aria-hidden="true"></span>
+
+        <span class="ob-group">
+          <button type="button" class="btn btn-ic"
+                  data-tip="新建子节点：在选中目录下添加一个子目录" aria-label="新建子节点">
+            <span class="ic ic-node-plus" aria-hidden="true"></span></button>
+          <button type="button" class="btn btn-ic"
+                  data-tip="重命名：修改选中节点名称（F2）" aria-label="重命名">
+            <span class="ic ic-pencil" aria-hidden="true"></span></button>
+          <button type="button" class="btn btn-danger btn-ic"
+                  data-tip="删除：移除选中节点及其全部子节点（有二次确认）" aria-label="删除">
+            <span class="ic ic-trash" aria-hidden="true"></span></button>
+        </span>
+        <span class="obband-sep" aria-hidden="true"></span>
+
+        <span class="ob-group">
+          <button type="button" class="btn btn-ghost btn-ic"
+                  data-tip="全部展开：展开目录树所有层级" aria-label="全部展开">
+            <span class="ic ic-expand-all" aria-hidden="true"></span></button>
+          <button type="button" class="btn btn-ghost btn-ic"
+                  data-tip="全部折叠：折叠目录树所有层级" aria-label="全部折叠">
+            <span class="ic ic-collapse-all" aria-hidden="true"></span></button>
+        </span>
+        <span class="obband-sep" aria-hidden="true"></span>
+
+        <!-- v7：「另存为模板」从**模板工作区**移到此处（用户裁决）。
+             理由：它操作的对象是**当前目录树**，不是模板库 —— 放在模板列表标题右侧属位置错配。
+             位置选在这里（视图组之后、一键生成之前）也是语义顺序：
+             编辑目录树 → 存成模板 → 生成到磁盘。 -->
+        <span class="ob-group ob-save">
+          <button type="button" class="btn btn-ic" id="btnSaveAs"
+                  data-tip="另存为模板：把当前目录树存成一套新模板（不是导出文件）" aria-label="另存为模板">
+            <span class="ic ic-save" aria-hidden="true"></span></button>
+        </span>
+
+        <span class="ob-group ob-gen">
+          <button type="button" class="btn btn-primary btn-ic" id="btnGenerate"
+                  data-tip="一键生成：按当前目录树在目标位置创建真实目录" aria-label="一键生成">
+            <span class="ic ic-spark" aria-hidden="true"></span></button>
+        </span>
+      </div>
+
+      <!-- 目录树画布 -->
+      <div id="treeWrap">
+        <div id="treeCanvas" role="tree" aria-label="目录树">
+          <div class="tree-node" role="treeitem" aria-expanded="true">
+            <div class="tree-row is-selected" draggable="true"><span class="tree-toggle">▾</span><span class="tree-icon">📁</span><span class="tree-name">我的项目</span></div>
+            <div class="tree-children" role="group">
+              <div class="tree-node" role="treeitem" aria-expanded="true">
+                <div class="tree-row" draggable="true"><span class="tree-toggle">▾</span><span class="tree-icon">📁</span><span class="tree-name">01_文档</span></div>
+                <div class="tree-children" role="group">
+                  <div class="tree-node" role="treeitem"><div class="tree-row" draggable="true"><span class="tree-toggle is-leaf">▾</span><span class="tree-icon">📄</span><span class="tree-name">说明.md</span></div></div>
+                  <div class="tree-node" role="treeitem"><div class="tree-row" draggable="true"><span class="tree-toggle is-leaf">▾</span><span class="tree-icon">📄</span><span class="tree-name">需求清单.md</span></div></div>
+                </div>
+              </div>
+              <div class="tree-node" role="treeitem" aria-expanded="true">
+                <div class="tree-row" draggable="true"><span class="tree-toggle">▾</span><span class="tree-icon">📁</span><span class="tree-name">02_素材</span></div>
+                <div class="tree-children" role="group">
+                  <div class="tree-node" role="treeitem"><div class="tree-row" draggable="true"><span class="tree-toggle is-leaf">▾</span><span class="tree-icon">📁</span><span class="tree-name">图片</span></div></div>
+                </div>
+              </div>
+              <div class="tree-node" role="treeitem"><div class="tree-row" draggable="true"><span class="tree-toggle is-leaf">▾</span><span class="tree-icon">📄</span><span class="tree-name">readme.md</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 状态栏：只放「就绪 + 计数」。用户裁决 —— 不出现版本号等信息。 -->
+      <footer id="statusBar">
+        <span id="statusText">就绪</span>
+        <span id="statusCount" class="status-count">目录 5 · 文件 3</span>
+      </footer>
+    </section>
+
+    <!-- ================= 右栏：属性工作区 = 唯一改名入口 ================= -->
+    <aside id="inspector">
+      <h2 class="panel-title">属性工作区</h2>
+      <p class="insp-mode" id="inspMode">当前对象：<b>文件夹</b>「我的项目」</p>
+
+      <!-- 模式 A · 树节点（选中目录树里的行） -->
+      <div id="propNode">
+        <div class="prop-list">
+          <div class="prop">
+            <span class="prop-key">文件夹名</span>
+            <span class="prop-edit">
+              <input class="prop-input" id="propNameInput" type="text" value="我的项目"
+                     aria-label="文件夹名称" title="根文件夹就是目录树的首层文件夹，可在此直接改名">
+            </span>
+          </div>
+          <div class="prop"><span class="prop-key">类型</span><span class="prop-val">目录</span></div>
+          <div class="prop"><span class="prop-key">路径</span><span class="prop-val prop-mono">E:\我的项目</span><button type="button" class="btn btn-ghost btn-mini btn-ic" data-tip-side="right"
+                data-tip="复制节点路径" aria-label="复制节点路径"><span class="ic ic-copy" aria-hidden="true"></span></button></div>
+          <div class="prop"><span class="prop-key">深度</span><span class="prop-val">0</span></div>
+          <div class="prop"><span class="prop-key">子目录</span><span class="prop-val">5</span></div>
+          <div class="prop"><span class="prop-key">文件</span><span class="prop-val">3</span></div>
+        </div>
+        <p class="prop-hint" id="propNameHint">根文件夹就是目录树的首层文件夹，可直接在这里改名（入撤销栈）。选中子目录或文件时同样在此改名。</p>
+        <h3 class="panel-sub">说明</h3>
+        <textarea class="prop-note" rows="4" placeholder="为该节点写一段说明（纯文本）…" aria-label="节点说明">项目根目录。</textarea>
+        <h3 class="panel-sub">生成结果</h3>
+        <pre class="result">尚未生成</pre>
+      </div>
+
+      <!-- 模式 B · 模板（点选左栏模板行时切换） -->
+      <div id="propTpl" hidden>
+        <div class="prop-list">
+          <div class="prop">
+            <span class="prop-key">模板名</span>
+            <span class="prop-edit">
+              <input class="prop-input" id="propTplName" type="text" value="" aria-label="模板名称">
+            </span>
+          </div>
+          <div class="prop"><span class="prop-key">格式</span><span class="prop-val" id="propTplFmt">—</span></div>
+          <div class="prop"><span class="prop-key">规模</span><span class="prop-val" id="propTplStat">—</span></div>
+          <div class="prop"><span class="prop-key">路径</span><span class="prop-val prop-mono" id="propTplPath">—</span></div>
+        </div>
+        <p class="prop-hint">模板改名会同时改「磁盘文件名 + 文件内名称」，服务端拒绝重名。与树节点改名同一套交互：直接在属性工作区里改，不再弹系统输入框。</p>
+        <h3 class="panel-sub">操作</h3>
+        <div class="note-actions" style="justify-content:flex-start;gap:6px;">
+          <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnTplLoad" data-tip-side="right"
+                  data-tip="载入：把这套模板载入目录树编辑区" aria-label="载入模板">
+            <span class="ic ic-load" aria-hidden="true"></span></button>
+          <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnTplRename" data-tip-side="right"
+                  data-tip="应用改名：把上方「模板名」写入磁盘文件名与文件内名称" aria-label="应用模板改名">
+            <span class="ic ic-check" aria-hidden="true"></span></button>
+          <button type="button" class="btn btn-ghost btn-mini btn-ic" id="btnTplExport" data-tip-side="right"
+                  data-tip="导出：导出模板原文文件（与「另存为」不同）" aria-label="导出模板">
+            <span class="ic ic-export" aria-hidden="true"></span></button>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+</div>
+
+<!-- ================= 弹层（overlay 层，全部在 #app 之外） ================= -->
+<div id="scrim" hidden></div>
+
+<!-- 悬停功能描述（单例）：必须在 #app 之外，否则会被 .layer 的 inert 与三栏溢出裁掉 -->
+<div id="qmTip" role="tooltip" hidden></div>
+
+<!-- M1-a · 服务设置（modal-md） -->
+<div class="layer modal modal-md" id="dlgService" role="dialog" aria-modal="true" aria-labelledby="dlgServiceT" hidden>
+  <div class="lay-head">
+    <span class="ic ic-gear" aria-hidden="true"></span>
+    <h3 id="dlgServiceT">本地服务设置</h3>
+    <button type="button" class="icon-btn" data-close aria-label="关闭"><span class="ic ic-close" aria-hidden="true"></span></button>
+  </div>
+  <div class="lay-body">
+    <p>桌面工具常遇端口占用。此处可查看当前地址、测试连通性，或恢复默认。</p>
+    <div class="kv"><b>当前地址</b><code style="font-family:var(--qm-mono);font-size:11px;">http://127.0.0.1:8765/</code></div>
+    <label class="field" style="min-width:0;">
+      <span>服务端口</span>
+      <input type="text" value="8765" data-autofocus>
+    </label>
+    <p id="svcResult" style="color:var(--qm-text-dim);">尚未测试。</p>
+    <p style="border-top:1px solid var(--qm-line-soft);padding-top:10px;">
+      <b style="color:var(--qm-text);">改端口后需重启本地服务才会生效</b> —— 关闭本工具再双击 <code>start.bat</code> 即可。
+    </p>
+  </div>
+  <div class="lay-foot">
+    <!-- v7.2：原第三个按钮「完成」（`class="btn btn-primary" data-close`）已删 ——
+         它挂的是 data-close，即**功能等同右上角 ×**，属重复的关闭入口（用户裁决）。
+         底部因此只剩两个**真动作**：恢复默认 / 测试连接（点测试在当前弹窗内出结果，
+         不需要「完成」收尾）。关闭仍走右上角 × / Esc / 点遮罩。 -->
+    <button type="button" class="btn btn-ghost" id="btnSvcReset">恢复默认</button>
+    <button type="button" class="btn" id="btnSvcTest">测试连接</button>
+  </div>
+</div>
+
+<!-- M2-a · 帮助（modal-lg，左目录 + 右正文，7 分节） -->
+<div class="layer modal modal-lg" id="dlgHelp" role="dialog" aria-modal="true" aria-labelledby="dlgHelpT" hidden>
+  <div class="lay-head">
+    <span class="ic ic-help" aria-hidden="true"></span>
+    <h3 id="dlgHelpT">使用说明</h3>
+    <button type="button" class="icon-btn" data-close aria-label="关闭"><span class="ic ic-close" aria-hidden="true"></span></button>
+  </div>
+  <div class="lay-body">
+    <p class="support-lead">青蔓 QingMan 是一个本地离线运行的目录结构设计工具：可视化编辑目录树，一键在磁盘上生成真实目录。</p>
+    <div class="help-2col">
+      <nav class="help-toc" aria-label="帮助目录">
+        <a href="#h-quickStart">快速开始</a>
+        <a href="#h-ops">界面说明</a>
+        <a href="#h-tree">目录树操作</a>
+        <a href="#h-kbd">快捷键</a>
+        <a href="#h-safety">安全说明</a>
+        <a href="#h-about">版本与关于</a>
+        <a href="#h-disclaimer">免责声明</a>
+      </nav>
+      <div class="help-doc" id="helpDoc">
+
+        <section class="help-sec" id="h-quickStart">
+          <h4>快速开始</h4>
+          <ol>
+            <li>双击项目根目录的 start.bat 启动本地服务</li>
+            <li>浏览器自动打开，确认顶栏显示「后端已连接」</li>
+            <li>在左侧「模板工作区」选一套模板直接载入，或在中间自行编辑目录树</li>
+            <li>填写「目标位置」，先保持「仅演练」勾选试跑一次</li>
+            <li>确认结果无误后取消勾选，点「一键生成」真实落盘</li>
+          </ol>
+        </section>
+
+        <section class="help-sec" id="h-ops">
+          <h4>界面说明</h4>
+          <ul>
+            <li><b>左栏「模板工作区」</b>——列出模板库中的模板，点击即载入；标题右侧三枚按钮是「新建模板 / 导入模板 / 多选」。<b>多选</b>进入选择模式后，行前出现复选框，可批量导出（打成一个 ZIP）或批量删除（移入 templates/.trash/）。每行行尾还有一个 <b>⋮</b>，点开是「载入 / 重命名 / 复制 / 导出 / 删除」（与右键菜单同一套）。</li>
+            <li><b>中栏操作带里的「另存为模板」</b>——把<b>当前目录树</b>存成模板库里的一套新模板。它和左栏模板行的「导出」<b>不是一回事</b>：后者是把模板库里已存的那份文件<b>原文</b>取出来下载。</li>
+            <li><b>中栏「目录树工作区」</b>——顶部是生成参数与操作带，主体是目录树。</li>
+            <li>参数区左上角可点开／收起：收起后只留一行摘要（<b>目标位置 · 根名 · 演练或写盘</b>），当前设定仍一眼可见。</li>
+            <li><b>右栏「属性工作区」</b>——选中节点的名称、类型、路径、深度与统计；下方显示生成结果。</li>
+          </ul>
+        </section>
+
+        <section class="help-sec" id="h-tree">
+          <h4>目录树操作</h4>
+          <ul>
+            <li>单击节点选中，右栏属性面板同步刷新</li>
+            <li>「新建子节点」在选中的目录下增加一个子目录</li>
+            <li>「重命名」修改节点名称；根节点名称由「根文件夹名」决定，不在此处改</li>
+            <li>「删除」移除选中节点及其全部子节点（有二次确认）</li>
+            <li>「全部展开 / 全部折叠」批量切换层级</li>
+            <li>拖拽节点到某个目录上，可把它移动到该目录下（不能移到自己的子目录里）</li>
+            <li>在节点上单击右键可弹出菜单：新建子节点 / 重命名 / 删除 / 复制路径</li>
+          </ul>
+        </section>
+
+        <section class="help-sec" id="h-kbd">
+          <h4>快捷键</h4>
+          <ul>
+            <li>Ctrl / Cmd + S — 立即保存（跳过防抖，不等自动保存）</li>
+            <li>Ctrl / Cmd + Z — 撤销上一步编辑</li>
+            <li>Ctrl / Cmd + Y 或 Ctrl / Cmd + Shift + Z — 重做</li>
+            <li>Delete — 删除选中节点（有二次确认，可撤销）</li>
+            <li>F2 — 重命名选中节点</li>
+            <li>其余键位待功能面稳定后统一约定。</li>
+          </ul>
+        </section>
+
+        <section class="help-sec" id="h-safety">
+          <h4>安全说明</h4>
+          <ul>
+            <li>后端仅监听本机回环地址（127.0.0.1），局域网内其他设备无法访问</li>
+            <li>服务端做调用来源校验（Host 白名单 + Origin 严格同源 + 写操作防护头），阻断跨站页面盲发请求</li>
+            <li>不收集任何数据、不上传任何信息；目录树与生成结果都只留在本机</li>
+            <li>「仅演练」模式不写盘；真实生成时已存在的文件一律跳过、不覆盖，且全程不删除任何既有内容</li>
+            <li>删除节点等破坏性操作均有二次确认</li>
+          </ul>
+        </section>
+
+        <section class="help-sec" id="h-about">
+          <h4>版本与关于</h4>
+          <!-- 按 §10.2 #10 / D：不含「文档入口」行；按 §324：不写「版本号只在帮助页展示」这类说明句 -->
+          <table class="help-table">
+            <tr><th>应用名称</th><td>青蔓 QingMan</td></tr>
+            <tr><th>版本号</th><td>V0.0.39</td></tr>
+            <tr><th>后端</th><td>已连接</td></tr>
+            <tr><th>赞赏与支持</th><td><button type="button" class="btn btn-ghost btn-mini" id="btnToSupport">打开赞赏与支持</button></td></tr>
+          </table>
+        </section>
+
+        <section class="help-sec" id="h-disclaimer">
+          <h4>免责声明</h4>
+          <ul>
+            <li>本软件免费提供，不保证无缺陷，使用风险由使用者自行承担。赞赏属于无偿心意支持，不构成交易，不提供任何额外服务。</li>
+          </ul>
+        </section>
+
+      </div>
+    </div>
+  </div>
+  <!-- v7.2：原 `.lay-foot` 里的「关闭」按钮已整块删除（用户裁决）。
+       理由：它与右上角的 × 走的是**同一套接线**（`document` 上代理 `[data-close]` → `closeAll()`），
+       一个窗口两个关闭入口属纯重复；且底部那条 border-top + 按钮把 7 分节长文又往下挤了一层。
+       关闭入口统一为三个：右上角 × / Esc / 点遮罩。 -->
+</div>
+
+<!-- M2-b · 支持（modal-sm，单栏居中）
+     内容严格 = 盘上 i18n 真值，一共 4 项，不加任何额外段落：
+       help.support.title        → 支持青蔓（标题）
+       help.support.lead         → 青蔓是本地离线免费工具。如果你觉得它有帮助，欢迎自愿投喂支持持续维护。
+       help.support.wechat/qrAlt → 微信赞赏码（figure > img + figcaption）
+       help.support.thanks       → 感谢支持，BUG 佛修。
+     对标 src/web/support.html 的 buildSupport()：figure(.help-qr) + p(.help-thanks)。 -->
+<div class="layer modal modal-sm" id="dlgSupport" role="dialog" aria-modal="true" aria-labelledby="dlgSupportT" hidden>
+  <div class="lay-head">
+    <span class="ic ic-heart" aria-hidden="true"></span>
+    <h3 id="dlgSupportT">支持青蔓</h3>
+    <button type="button" class="icon-btn" data-close aria-label="关闭"><span class="ic ic-close" aria-hidden="true"></span></button>
+  </div>
+  <div class="lay-body">
+    <!-- v6：删掉顶部 lead 段与底部 figcaption+thanks —— 用户裁决：两处文字合并成**一句**，
+         放在赞赏码**下方**。对应 i18n 键 help.support.lead / .wechat / .thanks 在本弹窗
+         不再渲染（实现阶段需同步 zh-CN.js / en-US.js）。 -->
+    <figure class="sup-qr">
+      <img class="sup-qr-img" src="./assets/sponsor-wechat.png" width="300" height="300"
+           alt="微信赞赏码：随缘使用，自愿投喂；非买卖，无特权，BUG 佛修。">
+    </figure>
+    <!-- ⚠待裁决：真图**内部已印有**同一句（位图文字，读屏不可达）⇒ 此处是等价文本。
+         视觉上二者重复。若要彻底去重，需裁掉真图下方文字区再另存一份素材。 -->
+    <p class="sup-note">随缘使用，自愿投喂；非买卖，无特权，BUG 佛修。</p>
+  </div>
+  <!-- v7.2：原 `.lay-foot`「关闭」按钮已整块删除 —— 与右上角 × 重复（用户裁决）。
+       本弹窗内容最短（一张赞赏码 + 一句文案），底部那条按钮让弹窗凭空高一截。 -->
+</div>
+
+<!-- M3 · 语言（popover） -->
+<div class="layer popover" id="popLang" role="menu" aria-label="语言" hidden>
+  <button type="button" class="menu-item" role="menuitemradio" aria-checked="true"><span class="ic ic-sm ic-check"></span>跟随系统</button>
+  <button type="button" class="menu-item" role="menuitemradio" aria-checked="false"><span class="ic ic-sm ic-check"></span>中文</button>
+  <button type="button" class="menu-item" role="menuitemradio" aria-checked="false"><span class="ic ic-sm ic-check"></span>English</button>
+</div>
+
+<!-- M4 · 更多 ▾（窄窗 <920px 时显示：服务设置 / 赞赏 / 帮助 折入） -->
+<div class="layer popover" id="popMore" role="menu" aria-label="更多" hidden>
+  <div class="pop-more-status"><span class="dot" aria-hidden="true"></span>服务就绪 · 127.0.0.1:8765</div>
+  <div class="pop-more-sep" aria-hidden="true"></div>
+  <button type="button" class="menu-item" id="moreService" role="menuitem"><span class="ic ic-sm ic-gear" aria-hidden="true"></span>本地服务设置…</button>
+  <button type="button" class="menu-item" id="moreSupport" role="menuitem"><span class="ic ic-sm ic-heart" aria-hidden="true"></span>赞赏与支持</button>
+  <button type="button" class="menu-item" id="moreHelp" role="menuitem"><span class="ic ic-sm ic-help" aria-hidden="true"></span>使用说明</button>
+</div>
+
+<!-- M3 · 皮肤色块网格（popover） -->
+<div class="layer popover" id="popSkin" role="listbox" aria-label="选择皮肤" hidden>
+  <div class="skin-grid" id="skinGrid"></div>
+  <!-- v6：原 .skin-grid-foot 整块删除（「15 款 · 按背景明度亮 → 暗」+「当前：月光序章·钢笔灰」）。
+       教训：这类删除必须 CSS / HTML / JS **三处同步** ——
+         只删 CSS ⇒ 留下悬挂的 DOM 节点（无样式可吃）；
+         只删 HTML ⇒ applySkin() 里的 getElementById('skinNow') 直接抛 null 中断后续写值。
+       本轮我先只删了 CSS，探针当场把另外两处揪出来（3 条固定 FAIL）。 -->
+</div>
+
+<!-- M3 · 模板行右键菜单 -->
+<div class="layer popover" id="ctxMenu" role="menu" hidden>
+  <button type="button" class="menu-item" role="menuitem">载入</button>
+  <button type="button" class="menu-item" role="menuitem">重命名</button>
+  <button type="button" class="menu-item" role="menuitem">复制</button>
+  <button type="button" class="menu-item" role="menuitem">导出</button>
+  <button type="button" class="menu-item" role="menuitem" style="color:var(--qm-danger);">删除</button>
+</div>
+
+<!-- toast 宿主（盘上已有 #toastHost，设计稿补上） -->
+<div id="toastHost" class="toast-host" aria-live="polite"></div>
+
+<!-- 预览壳浮动条（原 #probe 皮肤下拉）已删除：用户裁决「模板工作区最下面皮肤那一栏没用」。
+     皮肤入口唯一化 —— 顶栏的 .skin-dots 三圆点按钮。 -->
+
+<script>
+/* ============ 皮肤数据：与 src/web/js/i18n/skins.js 逐值同源 ============ */
+const SKINS = [
+  { cid:1,  file:'s01-cream-pink',           label:'奶白·樱粉',        swatch:['#f9f0f4','#e32d6a','#fff5f8'] },
+  { cid:2,  file:'s02-offwhite-pine',        label:'米白·松绿',        swatch:['#f4f0e1','#3e7a4c','#faf6e9'] },
+  { cid:3,  file:'s03-softdark-iceblue',     label:'柔暗·冰蓝',        swatch:['#1f2c42','#50b5e0','#313d51'] },
+  { cid:4,  file:'s04-warmwhite-amber',      label:'暖白·暖橙',        swatch:['#fdf2e5','#d3670a','#fff7ee'] },
+  { cid:5,  file:'s05-cream-warmwhite',      label:'奶黄·暖白',        swatch:['#faf0d4','#b27e0d','#fff8e5'] },
+  { cid:6,  file:'s06-moonlight-pengray',    label:'月光序章·钢笔灰',  swatch:['#f7f7f5','#65696f','#ffffff'] },
+  { cid:7,  file:'s07-night-inkblue',        label:'夜空墨蓝',        swatch:['#162a46','#d8d0c1','#293b55'] },
+  { cid:8,  file:'s08-winter-sun',           label:'冬日暖阳',        swatch:['#cfdfef','#0068ba','#e4eef7'] },
+  { cid:9,  file:'s09-first-snow',           label:'初雪',            swatch:['#dfdff0','#0068b8','#eaecf8'] },
+  { cid:10, file:'s10-white-moonlight',      label:'白月光',          swatch:['#d4f0f6','#2c748e','#e5f6fa'] },
+  { cid:11, file:'s11-vintage-paper',        label:'旧书纸棕',        swatch:['#e8dcc8','#8b6e54','#f0e6d5'] },
+  { cid:12, file:'s12-moonrock',             label:'月岩写意',        swatch:['#1a1a1a','#a6a6a6','#282828'] },
+  { cid:13, file:'s13-apple-silver-blue',    label:'苹果银·蓝',        swatch:['#e3e4e6','#266cda','#eff0f2'] },
+  { cid:14, file:'s14-blackgold-silentsea',  label:'黑金·寂海',        swatch:['#202020','#f0f0c0','#2c2c2c'] },
+  { cid:15, file:'s15-cream-sunrise',        label:'奶黄·晨曦',        swatch:['#f5edc8','#483f36','#fff9e3'] },
+];
+
+/* 与 src/web/js/ui/skin-picker.js:11-23 逐字同源的 luma + 降序排序 */
+function luma(hex) {
+  const s = hex.replace('#', '');
+  const r = parseInt(s.slice(0, 2), 16) / 255;
+  const g = parseInt(s.slice(2, 4), 16) / 255;
+  const b = parseInt(s.slice(4, 6), 16) / 255;
+  const gamma = (c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  return 0.2126 * gamma(r) + 0.7152 * gamma(g) + 0.0722 * gamma(b);
+}
+const SORTED = [...SKINS].sort((a, b) => luma(b.swatch[0]) - luma(a.swatch[0]));
+
+/* ============ 皮肤应用 ============ */
+const link = document.getElementById('skinLink');
+let current = 's06-moonlight-pengray';
+function applySkin(file) {
+  current = file;
+  link.href = './css/skins/' + file + '.css';
+  const meta = SKINS.find((s) => s.file === file) || {};
+  /* v6：原「当前：xxx」页脚已删除 ⇒ 不再写 #skinNow（写了会 null 抛错、中断后面三圆点重绘）。
+     注意：注释里也不要用「小于号 + 标签名 + 大于号」这种写法（本轮就写了「小于号 label 大于号」
+     而被结构校验的计数正则误判成真标签，白红一次）。 */
+  document.getElementById('popSkin').setAttribute('data-current-label', meta.label || '');
+  /* v5：顶栏三圆点改用 currentColor 单色，**不再**写皮肤三色。
+     实测证据：s06 的 swatch = #f7f7f5 / #65696f / #ffffff，头尾两色几乎等于面板底色，
+     三点在浅色顶栏上被吃掉两个（截图 01 只剩一个孤点）。配色预览交回本 popover 的色块网格。 */
+  for (const t of document.querySelectorAll('.skin-tile')) {
+    t.setAttribute('aria-pressed', t.dataset.file === file ? 'true' : 'false');
+  }
+}
+
+/* 皮肤网格：按 luma 降序（亮 → 暗）渲染，3 列 */
+const grid = document.getElementById('skinGrid');
+for (const s of SORTED) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'skin-tile'; b.dataset.file = s.file;
+  b.setAttribute('role', 'option');
+  b.setAttribute('aria-pressed', 'false');
+  b.title = s.label;
+  b.innerHTML = '<span class="sw"><i style="background:' + s.swatch[0] + '"></i>'
+              + '<i style="background:' + s.swatch[1] + '"></i>'
+              + '<i style="background:' + s.swatch[2] + '"></i></span>'
+              + '<span class="nm">' + s.label + '</span>';
+  b.addEventListener('click', () => { applySkin(s.file); closeAll(); document.getElementById('btnSkin').focus(); });
+  grid.appendChild(b);
+}
+
+/* #probe 皮肤下拉已删除（用户裁决「模板工作区最下面皮肤那一栏没用」）。
+   皮肤入口唯一化到顶栏 .skin-dots 三圆点按钮；探针改走 window.__qm 或直接点按钮。 */
+applySkin(current);
+
+/* ============ toast ============ */
+const toastHost = document.getElementById('toastHost');
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  toastHost.appendChild(t);
+  void t.offsetWidth;
+  t.classList.add('is-open');
+  setTimeout(() => { t.classList.remove('is-open'); setTimeout(() => t.remove(), 200); }, 2600);
+}
+
+/* ============ 弹层基元：modal / popover 两类共用一套行为 ============ */
+const scrim = document.getElementById('scrim');
+const appEl = document.getElementById('app');
+const popSkinEl = document.getElementById('popSkin');
+const popLangEl = document.getElementById('popLang');
+let openStack = [];
+let lastFocus = null;
+
+/* 锚定型浮层定位：贴触发器下沿，右对齐并夹在视口内 */
+function placeUnder(btn, el, width) {
+  const r = btn.getBoundingClientRect();
+  el.style.top = (r.bottom + 6) + 'px';
+  el.style.left = Math.max(8, r.right - width) + 'px';
+}
+
+function isPopover(el) { return el.classList.contains('popover'); }
+
+/* 强制重排后再挂 is-open —— 不依赖 rAF（rAF 在无头虚拟时间下不可靠），
+   同时用 __hideT 清掉未决的关闭定时器，避免「快速重开被上一次的关闭回调吃掉」。 */
+function show(el) {
+  if (el.__hideT) { clearTimeout(el.__hideT); el.__hideT = 0; }
+  el.hidden = false;
+  void el.offsetWidth;
+  el.classList.add('is-open');
+}
+function hide(el, delay) {
+  el.classList.remove('is-open');
+  if (el.__hideT) clearTimeout(el.__hideT);
+  el.__hideT = setTimeout(() => { el.hidden = true; el.__hideT = 0; }, delay);
+}
+
+/* 焦点陷阱：真实实现 Tab / Shift+Tab 循环（v1 只 focus 首个元素，属声明未兑现） */
+function focusables(el) {
+  return [...el.querySelectorAll(
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )].filter((n) => n.offsetParent !== null || n === document.activeElement);
+}
+function trapTab(e) {
+  if (e.key !== 'Tab' || !openStack.length) return;
+  const top = openStack[openStack.length - 1];
+  const f = focusables(top);
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+
+function openLayer(el, trigger) {
+  closeAll(true);
+  lastFocus = trigger || document.activeElement;
+  show(el);
+
+  if (!isPopover(el)) {
+    show(scrim);
+    appEl.setAttribute('inert', '');
+  }
+  if (trigger && trigger.setAttribute && trigger.hasAttribute('aria-expanded')) {
+    trigger.setAttribute('aria-expanded', 'true');
+  }
+  const f = el.querySelector('[data-autofocus]') || focusables(el)[0] || el;
+  setTimeout(() => { try { f.focus(); } catch (e) { /* ignore */ } }, 30);
+  openStack.push(el);
+}
+
+function closeLayer(el, returnFocus) {
+  if (!el || el.hidden) return;
+  const wasPopover = isPopover(el);
+  hide(el, wasPopover ? 140 : 170);
+  if (!wasPopover) {
+    hide(scrim, 170);
+    appEl.removeAttribute('inert');
+  }
+  if (returnFocus !== false && lastFocus && lastFocus.focus) {
+    try { lastFocus.focus(); } catch (e) { /* ignore */ }
+  }
+  lastFocus = null;
+  ['btnLang', 'btnSkin'].forEach((id) => document.getElementById(id).setAttribute('aria-expanded', 'false'));
+}
+
+function closeAll(silent) {
+  for (const el of [...openStack]) closeLayer(el, silent === true ? false : true);
+  openStack = [];
+  hide(scrim, 170);
+  appEl.removeAttribute('inert');
+  ['btnLang', 'btnSkin'].forEach((id) => document.getElementById(id).setAttribute('aria-expanded', 'false'));
+}
+
+scrim.addEventListener('click', () => closeAll());
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && openStack.length) { e.preventDefault(); closeAll(); return; }
+  trapTab(e);
+});
+
+/* 统一接线：data-close 按钮关闭所属层 */
+document.addEventListener('click', (e) => {
+  const c = e.target.closest('[data-close]');
+  if (c) { closeAll(); return; }
+});
+
+/* ---------- 触发器 ---------- */
+const btnLang = document.getElementById('btnLang');
+const btnSkin = document.getElementById('btnSkin');
+const btnMore = document.getElementById('btnMore');
+const popMoreEl = document.getElementById('popMore');
+const chipBackend = document.getElementById('chipBackend');
+
+btnLang.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (!popLangEl.hidden) { closeAll(); return; }
+  placeUnder(btnLang, popLangEl, 148);
+  openLayer(popLangEl, btnLang);
+});
+
+btnSkin.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (!popSkinEl.hidden) { closeAll(); return; }
+  placeUnder(btnSkin, popSkinEl, 344);
+  openLayer(popSkinEl, btnSkin);
+});
+
+chipBackend.addEventListener('click', () => openLayer(document.getElementById('dlgService'), chipBackend));
+document.getElementById('btnHelp').addEventListener('click', () => openLayer(document.getElementById('dlgHelp'), document.getElementById('btnHelp')));
+document.getElementById('btnSupport').addEventListener('click', () => openLayer(document.getElementById('dlgSupport'), document.getElementById('btnSupport')));
+
+/* 窄窗「更多 ▾」：默认隐藏（CSS 只在 <920px 放开），承载三处低频入口 */
+btnMore.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (!popMoreEl.hidden) { closeAll(); return; }
+  placeUnder(btnMore, popMoreEl, 208);
+  openLayer(popMoreEl, btnMore);
+});
+document.getElementById('moreService').addEventListener('click', () => openLayer(document.getElementById('dlgService'), btnMore));
+document.getElementById('moreSupport').addEventListener('click', () => openLayer(document.getElementById('dlgSupport'), btnMore));
+document.getElementById('moreHelp').addEventListener('click', () => openLayer(document.getElementById('dlgHelp'), btnMore));
+
+/* 帮助弹窗内的「打开赞赏与支持」：切到支持弹窗 */
+document.getElementById('btnToSupport').addEventListener('click', () => openLayer(document.getElementById('dlgSupport'), document.getElementById('btnToSupport')));
+
+/* 帮助弹窗内目录跳转（在 .help-doc 内滚动） */
+document.querySelectorAll('.help-toc a').forEach((a) => {
+  a.addEventListener('click', (e) => {
+    e.preventDefault();
+    const t = document.querySelector(a.getAttribute('href'));
+    if (t) t.scrollIntoView({ block: 'start' });
+  });
+});
+
+/* 品牌区 = 生成桌面快捷方式（V0.0.9 需求；结果走 toast） */
+document.getElementById('btnLogo').addEventListener('click', () => {
+  toast('已生成桌面快捷方式：青蔓 QingMan.lnk（设计示意）');
+});
+
+/* popover 点击外部关闭 */
+document.addEventListener('click', (e) => {
+  const open = openStack.find((el) => !el.hidden && isPopover(el));
+  if (!open) return;
+  if (open.contains(e.target)) return;
+  if (btnLang.contains(e.target) || btnSkin.contains(e.target) || btnMore.contains(e.target)) return;
+  if (e.target.closest('.tpl-item')) return;
+  closeAll();
+});
+
+/* ---------- 语言菜单单选 ---------- */
+document.querySelectorAll('#popLang .menu-item').forEach((mi) => {
+  mi.addEventListener('click', () => {
+    document.querySelectorAll('#popLang .menu-item').forEach((o) => o.setAttribute('aria-checked', 'false'));
+    mi.setAttribute('aria-checked', 'true');
+    closeAll();
+  });
+});
+
+/* ---------- 服务设置交互 ---------- */
+document.getElementById('btnSvcTest').addEventListener('click', () => {
+  const el = document.getElementById('svcResult');
+  el.textContent = '连接正常：HTTP 200 · 响应 12 ms（设计示意）';
+  el.style.color = 'var(--qm-accent-ink)';
+});
+document.getElementById('btnSvcReset').addEventListener('click', () => {
+  const el = document.getElementById('svcResult');
+  el.textContent = '已恢复默认端口 8765（设计示意）';
+  el.style.color = 'var(--qm-text-dim)';
+});
+
+/* ---------- 生成目标行：常显 ----------
+   「根文件夹名」已删除、折叠摘要随之取消 —— 剩余两项（目标位置 / 仅演练）不需要折叠态，
+   也彻底消除 v1 里「两套折叠状态」（#genBar.is-collapsed 与 .opband[data-expanded]）的隐患。 */
+document.getElementById('opBand').removeAttribute('data-expanded');
+
+/* ---------- 选择目标位置 / 新建模板（设计示意） ---------- */
+document.getElementById('btnPickTarget').addEventListener('click', () => {
+  toast('已打开目录选择器（复用 POST /api/templates-dir/pick）');
+});
+document.getElementById('btnNewTpl').addEventListener('click', () => { toast('新建空白模板（设计示意）'); });
+
+/* ---------- 属性工作区：唯一改名入口（节点 / 模板 双模式） ----------
+   设计决定：树节点与模板的「改名」都收进属性工作区，一律不再弹 window.prompt。
+   两类对象语义不同（节点名改内存树、入撤销栈；模板名改磁盘文件名 + 文件内名称、走服务端），
+   所以**面板不合并、交互统一**：面板按「当前对象」切换，改名都在同一个名称框里完成。 */
+const inspMode = document.getElementById('inspMode');
+const propNodeEl = document.getElementById('propNode');
+const propTplEl = document.getElementById('propTpl');
+const nameInput = document.getElementById('propNameInput');
+const propNameHint = document.getElementById('propNameHint');
+const tplNameInput = document.getElementById('propTplName');
+
+function setInspMode(mode, name) {
+  inspMode.textContent = '';
+  inspMode.append('当前对象：');
+  const b = document.createElement('b');
+  b.textContent = mode === 'tpl' ? '模板' : '文件夹';
+  inspMode.append(b, '「' + name + '」');
+  propNodeEl.hidden = mode === 'tpl';
+  propTplEl.hidden = mode !== 'tpl';
+}
+
+/* 初始状态由 JS 统一写入，杜绝「静态 HTML 与 JS 两处漂移」
+   （v4 曾出现静态写「树节点」而 JS 写「文件夹」的不一致）。 */
+setInspMode('node', nameInput.value);
+
+function selectTemplate(item) {
+  document.querySelectorAll('.tpl-item').forEach((n) => {
+    const on = n === item;
+    n.classList.toggle('is-active', on);
+    /* v7.1：卡片描边与底已上移到 .tpl-row ⇒ 选中态必须同步到**整行**，
+       否则点选后只有「看不见的 item」变态，卡片外观毫无反应。 */
+    n.closest('.tpl-row').classList.toggle('is-active', on);
+  });
+  const name = item.dataset.name;
+  tplNameInput.value = name;
+  document.getElementById('propTplFmt').textContent = item.dataset.fmt;
+  document.getElementById('propTplStat').textContent = item.querySelector('.tpl-stats').textContent;
+  document.getElementById('propTplPath').textContent = 'templates/' + item.dataset.file + '.' + item.dataset.fmt;
+  setInspMode('tpl', name);
+}
+
+document.querySelectorAll('.tpl-item').forEach((it) => {
+  it.addEventListener('click', () => {
+    /* v7：多选模式下点击行 = 切换勾选，**不再载入** ——
+       否则勾第二套模板时会把当前目录树换掉，用户会丢正在编辑的东西。 */
+    if (multiOn()) {
+      const c = it.closest('.tpl-row').querySelector('.tpl-row-check');
+      c.checked = !c.checked;
+      syncBatch();
+      return;
+    }
+    selectTemplate(it);
+    toast('已载入模板「' + it.dataset.name + '」（设计示意）');
+  });
+});
+
+document.querySelectorAll('.tree-row').forEach((r) => {
+  r.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.tree-row').forEach((x) => x.classList.remove('is-selected'));
+    r.classList.add('is-selected');
+    const nm = r.querySelector('.tree-name').textContent;
+    const isRoot = !r.closest('.tree-children');
+    nameInput.value = nm;
+    /* 根文件夹 = 目录树的首层文件夹 ⇒ 改名同样在这里做，不再有独立的「根文件夹名」输入项 */
+    nameInput.readOnly = false;
+    propNameHint.textContent = isRoot
+      ? '根文件夹就是目录树的首层文件夹，可直接在这里改名（入撤销栈）。'
+      : '回车提交改名（入撤销栈，可 Ctrl+Z 撤销）。';
+    setInspMode('node', nm);
+  });
+});
+
+/* ---------- v6：目录树拖拽调层级（HTML5 DnD · 设计稿演示实现） ----------
+   仓库 src/web/js/ui/tree-view.js 里同款交互**已存在**（V0.0.19），且比这里更严谨：
+     · draggable 只挂非根节点（根不参与拖拽）
+     · dragover 复用模型层 isSelfOrDescendant 预判「拖进自身/子孙」，不亮假高亮
+     · dragleave 用 leftRow(row, event) 判「是否真的离开了这一行」，避开划过行内子元素时的闪烁
+     · drop 交回模型层 onMove(id, targetId) 统一校验（同名冲突等仍由模型层兜底）
+   本页是静态树，下面是**等价简化版**：只移动 DOM、不接模型层，供评审看交互手感。
+   防环规则与模型层同名同义 —— 自身或子孙不可作落点。 */
+const qmTree = document.getElementById('treeCanvas');
+let qmDragRow = null;
+
+function qmRowOf(el) { return el && el.closest ? el.closest('.tree-row') : null; }
+function qmNodeName(row) { const n = row.querySelector('.tree-name'); return n ? n.textContent : ''; }
+function qmIsDirRow(row) {
+  const i = row.querySelector('.tree-icon');
+  return !!i && i.textContent.indexOf('📁') === 0;
+}
+
+qmTree.addEventListener('dragstart', (e) => {
+  const row = qmRowOf(e.target);
+  if (!row || !row.closest('.tree-children')) { e.preventDefault(); return; }   /* 根节点不可拖 */
+  qmDragRow = row;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/qm-node-name', qmNodeName(row));
+  row.classList.add('is-dragging');
+});
+
+qmTree.addEventListener('dragend', () => {
+  qmDragRow = null;
+  qmTree.querySelectorAll('.is-drop-target, .is-dragging')
+    .forEach((x) => x.classList.remove('is-drop-target', 'is-dragging'));
+});
+
+qmTree.addEventListener('dragover', (e) => {
+  const row = qmRowOf(e.target);
+  if (!row || !qmDragRow || row === qmDragRow) return;
+  const src = qmDragRow.closest('.tree-node');
+  const dst = row.closest('.tree-node');
+  if (!src || !dst || src.contains(dst)) return;    /* 防环：不得拖进自身或自身子孙 */
+  if (!qmIsDirRow(row)) return;                     /* 只有目录能作落点（对应 tree-view.js 的 if (dir)） */
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  row.classList.add('is-drop-target');
+});
+
+qmTree.addEventListener('dragleave', (e) => {
+  const row = qmRowOf(e.target);
+  if (!row) return;
+  if (row.contains(e.relatedTarget)) return;        /* 划过行内子元素不算离开（对应 leftRow） */
+  row.classList.remove('is-drop-target');
+});
+
+qmTree.addEventListener('drop', (e) => {
+  const row = qmRowOf(e.target);
+  if (!row) return;
+  e.preventDefault();
+  row.classList.remove('is-drop-target');
+  const src = qmDragRow && qmDragRow.closest('.tree-node');
+  const dst = row.closest('.tree-node');
+  if (!src || !dst || src === dst || src.contains(dst)) return;
+  let box = dst.querySelector(':scope > .tree-children');
+  if (!box) {
+    box = document.createElement('div');
+    box.className = 'tree-children';
+    box.setAttribute('role', 'group');
+    dst.appendChild(box);
+    const t = row.querySelector('.tree-toggle');
+    if (t) t.classList.remove('is-leaf');
+  }
+  const movedName = qmNodeName(qmDragRow);
+  const intoName = qmNodeName(row);
+  box.appendChild(src);
+  qmDragRow = null;
+  toast('已把「' + movedName + '」移到「' + intoName + '」下（设计示意 · 走 moveNode，可撤销）');
+});
+
+nameInput.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || nameInput.readOnly) return;
+  e.preventDefault();
+  toast('已重命名节点为「' + nameInput.value.trim() + '」（设计示意 · 走 renameNode，可撤销）');
+});
+
+function applyTplRename() {
+  const v = tplNameInput.value.trim();
+  if (!v) { toast('模板名称不能为空'); return; }
+  const it = document.querySelector('.tpl-item.is-active');
+  if (it) { it.dataset.name = v; it.querySelector('.tpl-name').textContent = v; }
+  setInspMode('tpl', v);
+  toast('已重命名模板为「' + v + '」（设计示意 · 走 POST /api/templates/<name>）');
+}
+tplNameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applyTplRename(); } });
+document.getElementById('btnTplRename').addEventListener('click', applyTplRename);
+document.getElementById('btnTplLoad').addEventListener('click', () => toast('已载入模板「' + tplNameInput.value.trim() + '」（设计示意）'));
+document.getElementById('btnTplExport').addEventListener('click', () => toast('已导出模板原文（设计示意 · 走 GET /api/templates-export/<name>）'));
+
+/* 另存为模板 ≠ 导出：这里明确写出动作与落点 */
+document.getElementById('btnSaveAs').addEventListener('click', () => {
+  toast('另存为模板：当前目录树 → templates/<新名字>.json（走 POST /api/templates，同名不覆盖）');
+});
+
+/* ---------- 模板行右键菜单 ---------- */
+const ctx = document.getElementById('ctxMenu');
+document.querySelectorAll('.tpl-item').forEach((it) => {
+  it.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    ctx.style.left = Math.min(e.clientX, window.innerWidth - 150) + 'px';
+    ctx.style.top = Math.min(e.clientY, window.innerHeight - 190) + 'px';
+    show(ctx);
+    openStack = [ctx];
+  });
+});
+document.querySelectorAll('#ctxMenu .menu-item').forEach((mi) => {
+  mi.addEventListener('click', () => { toast('模板「' + mi.textContent.trim() + '」（设计示意）'); closeAll(); });
+});
+
+/* ---------- v7：模板工作区多选（方案 2 · 用户裁决） ----------
+   触发 = **独立多选按钮**（Q4：对触屏比 Ctrl/Shift 友好，且不必教用户快捷键）；
+   批量导出 = **一个 ZIP**（Q3：17 个文件逐个下载很吵）；
+   批量删除 = 移入 templates/.trash/（沿用项目「只复制不删除」的既有规则）。
+   注意这些元素与函数都不做「幽灵行为」—— 只弹 toast 说明会走哪个端点，不假装真的写了盘。 */
+const btnMulti    = document.getElementById('btnMulti');
+const batchBar    = document.getElementById('tplBatchBar');
+const batchCount  = document.getElementById('tplBatchCount');
+const checkAllEl  = document.getElementById('tplCheckAll');
+const btnBatchEx  = document.getElementById('btnBatchExport');
+const btnBatchDel = document.getElementById('btnBatchDelete');
+const rowChecks   = () => Array.from(document.querySelectorAll('.tpl-row-check'));
+
+function multiOn() { return document.body.classList.contains('is-multi'); }
+
+function syncBatch() {
+  const all = rowChecks();
+  const n = all.filter((c) => c.checked).length;
+  batchCount.textContent = '已选 ' + n + ' 项';
+  checkAllEl.checked = n > 0 && n === all.length;
+  /* 半选态：没有它，用户分不清「全选」到底选中了没有 */
+  checkAllEl.indeterminate = n > 0 && n < all.length;
+  all.forEach((c) => {
+    const r = c.closest('.tpl-row');
+    r.querySelector('.tpl-item').classList.toggle('is-checked', c.checked);
+    r.classList.toggle('is-checked', c.checked);   /* v7.1：勾选态同样落在整卡上 */
+  });
+  btnBatchEx.disabled = n === 0;
+  btnBatchDel.disabled = n === 0;
+}
+
+function setMulti(on) {
+  document.body.classList.toggle('is-multi', on);
+  batchBar.hidden = !on;
+  btnMulti.setAttribute('aria-pressed', on ? 'true' : 'false');
+  if (!on) rowChecks().forEach((c) => { c.checked = false; });
+  syncBatch();
+  toast(on ? '多选模式：勾选模板后可批量导出（ZIP）或删除' : '已退出多选');
+}
+
+btnMulti.addEventListener('click', () => setMulti(!multiOn()));
+document.getElementById('btnMultiExit').addEventListener('click', () => setMulti(false));
+checkAllEl.addEventListener('change', () => {
+  rowChecks().forEach((c) => { c.checked = checkAllEl.checked; });
+  syncBatch();
+});
+rowChecks().forEach((c) => {
+  c.addEventListener('change', syncBatch);
+  c.addEventListener('click', (e) => e.stopPropagation());   /* 点勾不应顺带触发行的载入 */
+});
+
+btnBatchEx.addEventListener('click', () => {
+  const n = rowChecks().filter((c) => c.checked).length;
+  toast('导出所选：' + n + ' 套 → QingMan-模板包.zip（逐个取原文后打包，只触发一次下载）');
+});
+btnBatchDel.addEventListener('click', () => {
+  const n = rowChecks().filter((c) => c.checked).length;
+  toast('删除所选：' + n + ' 套 → templates/.trash/<时间戳>/（可人工找回 · 需二次确认）');
+});
+
+/* 行尾 ⋮：打开**既有** #ctxMenu（复用 V0.0.38 的右键菜单与定位夹取，不另造一套） */
+document.querySelectorAll('.tpl-more').forEach((b) => {
+  b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const r = b.getBoundingClientRect();
+    ctx.style.left = Math.min(r.left, window.innerWidth - 150) + 'px';
+    ctx.style.top = Math.min(r.bottom + 4, window.innerHeight - 190) + 'px';
+    show(ctx);
+    openStack = [ctx];
+  });
+});
+
+syncBatch();
+
+/* ---------- 视口变化 ----------
+   modal 由 CSS 居中，缩放窗口时**保持打开**（桌面工具缩窗不该丢掉用户正在做的事）；
+   锚定型 popover 需重定位；右键菜单位置已失真，直接关闭。
+   注意：不再覆写 #statusText（v1 的 resize 处理器会污染状态栏，属演示痕迹）。 */
+window.addEventListener('resize', () => {
+  if (!popSkinEl.hidden) placeUnder(btnSkin, popSkinEl, 344);
+  if (!popLangEl.hidden) placeUnder(btnLang, popLangEl, 148);
+  if (!popMoreEl.hidden) placeUnder(btnMore, popMoreEl, 208);
+  if (!ctx.hidden) closeAll();
+});
+
+/* ---------- 悬停功能描述：单例 tooltip ----------
+   为什么不用「[data-tip]:hover::after」：见 §13.2 —— 三栏都是溢出容器，
+   绝对定位伪元素必被裁（实测截图里右栏 tooltip 只露出一小截）。
+   本实现挂在 <body> 下的 #qmTip 上：position:fixed 脱离溢出上下文，
+   按视口夹取，下方放不下时自动翻到触发器上方。 */
+const qmTip = document.getElementById('qmTip');
+function showTip(el) {
+  const txt = el.getAttribute('data-tip');
+  if (!txt) return;
+  qmTip.textContent = txt;
+  qmTip.hidden = false;
+  const r = el.getBoundingClientRect();
+  const w = qmTip.offsetWidth, h = qmTip.offsetHeight;
+  let left = el.getAttribute('data-tip-side') === 'right' ? (r.right - w) : (r.left + r.width / 2 - w / 2);
+  left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
+  let top = r.bottom + 8;
+  if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 8);
+  qmTip.style.left = left + 'px';
+  qmTip.style.top = top + 'px';
+}
+function hideTip() { qmTip.hidden = true; }
+
+document.addEventListener('mouseover', (e) => {
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  if (el) showTip(el);
+});
+document.addEventListener('mouseout', (e) => {
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  if (!el) return;
+  const to = e.relatedTarget;
+  if (!to || !el.contains(to)) hideTip();
+});
+document.addEventListener('focusin', (e) => {
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  if (el) showTip(el); else hideTip();
+});
+document.addEventListener('focusout', hideTip);
+window.addEventListener('scroll', hideTip, true);
+window.addEventListener('resize', hideTip);
+
+/* 探针入口：原 #probe 皮肤下拉已删除，改由只读 API 暴露给无头交互探测使用。 */
+window.__qm = { applySkin, SKINS, SORTED, current: () => current,
+  open: openLayer, close: closeAll, toast, showTip, hideTip };
+</script>
+</body>
+</html>
