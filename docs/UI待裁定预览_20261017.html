@@ -3,10 +3,1549 @@
 <head>
 <meta charset="UTF-8">
 <title>青蔓 · UI 待裁定预览（V0.0.54）</title>
-<link rel="stylesheet" href="../src/web/css/tokens.css">
-<link rel="stylesheet" href="../src/web/css/base.css">
-<link rel="stylesheet" href="../src/web/css/layout.css">
-<link rel="stylesheet" href="../src/web/css/soft.css">
+<!-- ↓ 原样内联自 src/web/css/tokens.css（8909 B, sha256:053e7ba8b7f08129）—— 预览页必须自包含：
+     预览面板把单个 HTML 复制到静态目录后单独托管，任何相对路径都会 404（本次就因 ../src/web/css 全 404 而白屏）。 -->
+<style data-src="src/web/css/tokens.css">
+/* 青蔓 QingMan · 设计变量（唯一色彩与尺寸来源） */
+
+:root {
+  --qm-bg: #eceff4;
+  --qm-surface: #f6f8fb;
+  /* V0.0.47：由 #ffffff 收窄至 #f3f5f8（CIE ΔL* +2.49 → −1.04）。--qm-surface-2 是**填充色**、
+     不承担凸凹语义（凸凹归 soft.css 的 --qm-tap / --qm-tap-in），故与 --qm-surface 的 CIE L*
+     落差须 ≤1.5 且**浅色区制为负**；原值 #ffffff 比面板更亮，方向与 11 款浅色皮肤全相反。
+     取面板同色相降一档（缩放 --qm-surface 而非 #ffffff，以保住冷调）。规则见 css/skins/README.md。 */
+  --qm-surface-2: #f3f5f8;
+  --qm-line: #d5dbe5;
+  --qm-line-soft: #e4e9f0;
+  --qm-text: #1e2732;
+  --qm-text-dim: #5d6a7c;
+  --qm-accent: #2f8f6b;
+  --qm-accent-ink: #1d6d50;
+  --qm-accent-soft: #e2f0e9;
+  /* 强调色背景上的文字色（§P0-3 L4：组件 CSS 不得写裸色值） */
+  --qm-on-accent: #ffffff;
+  /* 主按钮底色（§P2 第 13 项）：--qm-accent 作白字底仅 3.99，未达 AA 4.5；
+     故单列本变量调深一档（同色相、仅降明度）→ 白字对比度 4.82，且**不动品牌主色**——
+     --qm-accent 仍用于描边 / 选中态 / 进度点等「非文本」用途（3:1 门槛下 3.99 已达标）。 */
+  --qm-btn-bg: #2a8060;
+  --qm-btn-bg-hi: #257154;
+  --qm-danger: #b14536;
+  --qm-danger-soft: #f7e6e2;
+  /* §P2 第 13 项：原 #a8721a 在 --qm-surface 上仅 3.88，调深一档 → 4.82 */
+  --qm-warn: #946417;
+
+  /* V0.0.40「青蔓化」：圆角放大（原 6 / 8），与 soft.css 的柔光语言配套 */
+  --qm-r-sm: 12px;
+  --qm-r-md: 20px;
+  --qm-gap: 10px;
+
+  /* ---------- 字号尺度（§P0-3 L4「禁止裸尺寸」的**字号档**；V0.0.51@r10）----------
+     9 档，**逐档对应一个既有取值** —— 本轮只做「字面量 → 变量」搬迁，取值一字未改
+     （零视觉变更，逐处等价）。组件 CSS 一律 `font-size: var(--qm-fs-*)`，由 `verify.py`
+     的「组件 CSS 无裸字号 §P0-3 L4」（7c-1）把关；`tokens.css` 自身豁免（变量定义处）。
+     半档（11.5 / 12.5px）**刻意保留**：它们是既有的「说明文字 / 正文」与「正文 / 小节标题」
+     之分，抹平即改视觉 —— 迁移不等于顺手统一，要统一须单独立项裁定。
+     注意：`--qm-fs-*` 是**字号**，与 `--qm-font`（字体族）不是一事。 */
+  --qm-fs-3xs: 9px;
+  --qm-fs-2xs: 10px;
+  --qm-fs-xs: 11px;
+  --qm-fs-sm: 11.5px;
+  --qm-fs-md: 12px;
+  --qm-fs-lg: 12.5px;
+  --qm-fs-xl: 13px;
+  --qm-fs-2xl: 14px;
+  --qm-fs-3xl: 16px;
+
+  --qm-shadow: 0 1px 2px rgba(30, 39, 50, .07);
+  /* V0.0.45 形态统一：形态表达式**只此一份**，影/边色由变量**动态解析** ——
+     皮肤只提供 --qm-shadow-* / --qm-edge-* 的「颜色」，表达式随变量自动适配明暗，
+     故下方 @media(dark) 段**不再需要**升影 / 内陷的覆写。
+     （15 款皮肤中原本各自复制的同名表达式，实测 15 份**取值完全一致**，已全部剥离。） */
+  --qm-shadow-raise: 4px 4px 9px var(--qm-shadow-dark), -3px -3px 8px var(--qm-shadow-light), inset 1px 1px 1.5px var(--qm-edge-hi), inset -1px -1px 1.5px var(--qm-edge-lo);
+
+  /* 新拟物锐利边缘变量（皮肤文件可覆盖；§P0-3 L4：仅 tokens.css 允许字面量色值） */
+  --qm-edge-hi: rgba(255, 255, 255, .55);
+  --qm-edge-lo: rgba(30, 39, 50, .10);
+  --qm-shadow-dark: rgba(30, 39, 50, .12);
+  --qm-shadow-light: rgba(255, 255, 255, .85);
+  --qm-inset: inset 2px 2px 5px var(--qm-shadow-dark), inset -2px -2px 5px var(--qm-shadow-light), inset .5px .5px 1px var(--qm-edge-lo), inset -.5px -.5px 1px var(--qm-edge-hi);
+  /* 主按钮内高光 / 按下内阴影（D-P2-1：自 base.css 的裸 rgba 上移为变量；值不变 → 零视觉变更）。
+     light / dark 同值：搬迁前 base.css 是**单一字面量**、本就不随主题变化，同值才是等价搬迁。 */
+  --qm-btn-hi: rgba(255, 255, 255, .18);
+  --qm-btn-lo: rgba(0, 0, 0, .25);
+
+  /* ---------- 软光「语法层」变量（V0.0.40 · 并入自设计稿 prototype.html 的 qmSoftSkin）----------
+     本组只定**光源方向与比例**，不写死任何色相：影/光颜色一律引用皮肤变量 ——
+       浅色皮肤 → --qm-shadow-dark 灰 α.15 / --qm-shadow-light 白 α.55
+       深色皮肤 → --qm-shadow-dark 黑 α.62 / --qm-shadow-light 白 α.06
+     早先把影色写死成 rgba(140,140,138) 时，深色皮肤上灰影比底色还亮 → 光影方向整体反转。
+     语法两条：① 两侧镜像对称（光源固定左上）；② 模糊 = 位移 × 2（能量集中 → 窄缝更「实」）。 */
+  --qm-soft-dark: var(--qm-shadow-dark);
+  --qm-raise:     -3px -3px 6px  var(--qm-shadow-light),  3px  3px  6px  var(--qm-shadow-dark);
+  --qm-raise-hi:  -5px -5px 10px var(--qm-shadow-light),  5px  5px 10px  var(--qm-shadow-dark);
+  --qm-sink:      inset  3px  3px 6px var(--qm-shadow-dark), inset -3px -3px 6px var(--qm-shadow-light);
+  --qm-tap:       -2px -2px 4px  var(--qm-shadow-light),  2px  2px  4px  var(--qm-shadow-dark);
+  --qm-tap-hi:    -3px -3px 6px  var(--qm-shadow-light),  3px  3px  6px  var(--qm-shadow-dark);
+  --qm-tap-in:    inset  2px  2px 4px var(--qm-shadow-dark), inset -2px -2px 4px var(--qm-shadow-light);
+  /* 遮罩：纯黑。原是暖灰 rgba(48,46,44,.5)，深色皮肤下会把背景压到与弹窗面同亮度 → 边界消失；
+     改纯黑后浅色皮肤弹窗/背景落差 98 → 131，深色皮肤 −4 → +27（由反转转正向）。 */
+  --qm-scrim: rgba(0, 0, 0, .5);
+
+  /* ---------- 形态语法变量（V0.0.45 · 「变量切换」）----------
+     soft.css 中原本**硬编码**的位移 / 模糊一律收敛到此处，使「形态」只有这一处出口 ——
+     要调整全站立体感（更平 / 更深）只改这里，不必翻组件规则。
+     影色仍引用皮肤变量，故各皮肤仅"配色不同、形态相同"。 */
+  --qm-card-edge:     inset .5px .5px 1px var(--qm-edge-hi);
+  --qm-topbar-shadow: 0 5px 10px var(--qm-soft-dark);
+  --qm-layer-shadow:  0 3px 6px var(--qm-shadow-dark), 0 8px 16px var(--qm-shadow-dark), 0 18px 36px var(--qm-shadow-dark), 0 0 0 1px var(--qm-line);
+  --qm-pop-shadow:    0 3px 6px var(--qm-shadow-dark), 0 10px 20px var(--qm-shadow-dark), 0 0 0 1px var(--qm-line);
+  --qm-qr-shadow:     0 2px 8px var(--qm-soft-dark);
+  --qm-btn-edge:      inset 0 1px 0 var(--qm-edge-hi);
+
+  /* 下拉箭头**遮罩**（D-P3-2）：遮罩本身不带颜色，实际颜色由 base.css 的
+     `.topbar-select::after` 以 `background-color: var(--qm-text-dim)` 上色 ——
+     于是箭头随**皮肤**（皮肤覆盖 --qm-text-dim）与 light/dark 一同变化，
+     不再是一枚烘死在 SVG 里的灰色常客（旧版仅随 light/dark，选深色皮肤时对比度不足）。
+     描边取白色：遮罩无论按 alpha 还是 luminance 解释，白色都表示"完全显示"。 */
+  --qm-select-arrow-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%23fff' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+
+  --qm-font: "Microsoft YaHei UI", "Microsoft YaHei", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --qm-mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --qm-bg: #161a1f;
+    --qm-surface: #1d2229;
+    /* V0.0.47：由 #232a32 收窄至 #1f242b（CIE ΔL* +3.70 → +0.97）。本段是 help / support
+       两页在深色系统下的**直接生效值**（两页无皮肤选择器）；取面板同色相升一档。 */
+    --qm-surface-2: #1f242b;
+    --qm-line: #323a44;
+    --qm-line-soft: #2a313a;
+    --qm-text: #e7ecf2;
+    --qm-text-dim: #9aa7b5;
+    --qm-accent: #4fbf90;
+    --qm-accent-ink: #7dd6b0;
+    --qm-accent-soft: #1f3a31;
+    /* 深色主题下 --qm-accent 本身是浅绿，叠加白字对比度不足，改用深墨绿 */
+    --qm-on-accent: #0f1a16;
+    /* 深色下按钮底色即 --qm-accent（本主题 0 处对比度违规，无需调深） */
+    --qm-btn-bg: #4fbf90;
+    --qm-btn-bg-hi: #5ec499;
+    --qm-danger: #e0776a;
+    --qm-danger-soft: #3a2422;
+    --qm-warn: #d9a45b;
+    --qm-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+
+    --qm-edge-hi: rgba(255, 255, 255, .08);
+    --qm-edge-lo: rgba(0, 0, 0, .35);
+    --qm-shadow-dark: rgba(0, 0, 0, .45);
+    --qm-shadow-light: rgba(255, 255, 255, .03);
+    /* --qm-shadow-raise / --qm-inset 在此**刻意不再覆写**（V0.0.45）：
+       二者已改为引用上面这几个影 / 边色变量，随本段自动切换，无需重复。 */
+    --qm-btn-hi: rgba(255, 255, 255, .18);
+    --qm-btn-lo: rgba(0, 0, 0, .25);
+
+    /* 箭头遮罩无颜色 → 深色主题无需另设一份（颜色由 ::after 的 --qm-text-dim 决定，D-P3-2）。 */
+  }
+}
+
+</style>
+<!-- ↓ 原样内联自 src/web/css/base.css（20619 B, sha256:20a68dba6c48942b）—— 预览页必须自包含：
+     预览面板把单个 HTML 复制到静态目录后单独托管，任何相对路径都会 404（本次就因 ../src/web/css 全 404 而白屏）。 -->
+<style data-src="src/web/css/base.css">
+/* 青蔓 QingMan · 基础元素样式（锐利新拟物） */
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--qm-bg);
+  color: var(--qm-text);
+  font-family: var(--qm-font);
+  font-size: var(--qm-fs-xl);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { margin: 0; font-weight: 600; }
+
+code, .prop-mono, .result {
+  font-family: var(--qm-mono);
+  font-size: var(--qm-fs-md);
+}
+
+code {
+  background: var(--qm-line-soft);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+/* ---------- 按钮：锐利新拟物 ---------- */
+.btn {
+  appearance: none;
+  border: 1px solid var(--qm-line);
+  background: var(--qm-surface-2);
+  color: var(--qm-text);
+  border-radius: var(--qm-r-sm);
+  padding: 5px 12px;
+  font-family: inherit;
+  font-size: var(--qm-fs-xl);
+  cursor: pointer;
+  box-shadow:
+    1px 1px 2px var(--qm-shadow-dark),
+    -1px -1px 1px var(--qm-shadow-light),
+    inset .5px .5px 1px var(--qm-edge-hi);
+  transition: background .12s ease, border-color .12s ease, color .12s ease, box-shadow .12s ease;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--qm-accent);
+  color: var(--qm-accent-ink);
+  box-shadow:
+    1.5px 1.5px 3px var(--qm-shadow-dark),
+    -1px -1px 1px var(--qm-shadow-light),
+    inset .5px .5px 1px var(--qm-edge-hi);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: var(--qm-inset);
+}
+.btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-primary {
+  /* 用 --qm-btn-bg 而非 --qm-accent：白字在其上需 ≥4.5（§P2 第 13 项） */
+  background: var(--qm-btn-bg);
+  border-color: var(--qm-btn-bg);
+  color: var(--qm-on-accent);
+  box-shadow:
+    1px 1px 2px var(--qm-shadow-dark),
+    inset .5px .5px 1px var(--qm-btn-hi);
+}
+.btn-primary:hover:not(:disabled) {
+  /* hover 底色用专用 token --qm-btn-bg-hi，不用 --qm-accent-ink：
+     后者语义是「强调色的墨色」（暗色皮肤下为浅色），拿它当按钮底再配
+     --qm-on-accent 会与本皮肤的字色撞车 —— 详见《错误笔记》里「把墨色当
+     按钮底色」一条（对比度由 tools/verify.py 的皮肤 WCAG 守卫把关）。 */
+  background: var(--qm-btn-bg-hi);
+  border-color: var(--qm-btn-bg-hi);
+  color: var(--qm-on-accent);
+}
+.btn-primary:active:not(:disabled) { box-shadow: inset 1px 1px 3px var(--qm-btn-lo); }
+
+.btn-ghost {
+  background: transparent;
+  box-shadow: none;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--qm-line-soft);
+  box-shadow: inset 1px 1px 2px var(--qm-shadow-light), inset -1px -1px 2px var(--qm-shadow-dark);
+}
+.btn-danger { color: var(--qm-danger); border-color: var(--qm-line); }
+.btn-danger:hover:not(:disabled) { background: var(--qm-danger-soft); border-color: var(--qm-danger); color: var(--qm-danger); }
+
+/* ---------- 表单：下拉框 ---------- */
+select {
+  appearance: none;
+  border: 1px solid var(--qm-line);
+  background: var(--qm-surface-2);
+  color: var(--qm-text);
+  border-radius: var(--qm-r-sm);
+  padding: 4px 22px 4px 8px;
+  font-family: inherit;
+  font-size: var(--qm-fs-md);
+  cursor: pointer;
+  box-shadow:
+    1px 1px 2px var(--qm-shadow-dark),
+    -1px -1px 1px var(--qm-shadow-light),
+    inset .5px .5px 1px var(--qm-edge-hi);
+  /* 箭头不再由 select 自绘：改由包裹层 .topbar-select::after 用遮罩上色（D-P3-2）。
+     右侧 padding 仍为箭头预留位置。 */
+}
+select:focus { outline: 2px solid var(--qm-accent-soft); border-color: var(--qm-accent); }
+select option { background: var(--qm-surface-2); color: var(--qm-text); }
+
+.topbar-select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--qm-fs-md);
+  color: var(--qm-text-dim);
+}
+/* 通用下拉包裹层（V0.0.41）：顶栏之外的 <select> 用它包裹，与 .topbar-select 共用箭头。
+   加它的起因就是下面那条「新增 <select> 须另配箭头」的约定 —— 弹窗里的「起点」下拉
+   正是不在顶栏的一例，抽成共用选择器比再抄一遍箭头规则更不易漂移。 */
+.select-wrap { position: relative; display: block; }
+.select-wrap > select { width: 100%; }
+
+/* D-P3-2：下拉箭头用**遮罩**上色 —— 颜色取 --qm-text-dim，随皮肤 / 主题自动变化
+   （旧版把颜色烘死在 background-image 的 SVG 里，只随 light/dark，不随皮肤）。
+   <select> 由包裹层统一绘制箭头：顶栏用 .topbar-select，别处用 .select-wrap（V0.0.41）。 */
+.topbar-select::after,
+.select-wrap::after {
+  content: '';
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  width: 10px;
+  height: 6px;
+  transform: translateY(-50%);
+  background-color: var(--qm-text-dim);
+  -webkit-mask: var(--qm-select-arrow-mask) center / 10px 6px no-repeat;
+  mask: var(--qm-select-arrow-mask) center / 10px 6px no-repeat;
+  pointer-events: none;
+}
+.select-label { font-size: var(--qm-fs-xs); letter-spacing: .5px; }
+
+input[type="text"] {
+  width: 100%;
+  border: 1px solid var(--qm-line);
+  background: var(--qm-surface-2);
+  color: var(--qm-text);
+  border-radius: var(--qm-r-sm);
+  padding: 5px 8px;
+  font-family: inherit;
+  font-size: var(--qm-fs-xl);
+  box-shadow: var(--qm-inset);
+}
+input[type="text"]::placeholder { color: var(--qm-text-dim); opacity: .8; }
+input[type="text"]:focus { outline: 2px solid var(--qm-accent-soft); border-color: var(--qm-accent); }
+
+.chip {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--qm-accent-soft);
+  color: var(--qm-accent-ink);
+  font-size: var(--qm-fs-xs);
+  font-family: var(--qm-mono);
+}
+.chip-ghost { background: transparent; color: var(--qm-text-dim); border: 1px solid var(--qm-line); }
+/* V0.0.51 · 「已保存」改中性色（原为琥珀底 + 琥珀字）。
+ * 琥珀底色 `--qm-accent-soft` 与琥珀字 `--qm-accent-ink` 同色系相叠，而它左右
+ * 紧邻的正是偏暖的顶栏灰白底 —— 三个暖色挤在一条线上，观感"发闷、发脏"。
+ * 「已保存」是**只读状态提示**，不需要抢注意力，故改用中性浅底 + 次级灰字：
+ * 去彩色后顶栏右端层次变成「灰 chip（不可点）+ 白按钮（可点）」，
+ * 对比度由 5.15:1 升到 5.80:1（WCAG AA 正文 ≥4.5 仍达标）。
+ * 两色均取自皮肤既有变量，**不新增色值**（§P0-3 L4）。 */
+.chip-ok { background: var(--qm-surface-2); color: var(--qm-text-dim); }
+.chip-bad { background: var(--qm-danger-soft); color: var(--qm-danger); }
+
+.hint { color: var(--qm-text-dim); font-size: var(--qm-fs-md); margin: 6px 0 0; }
+.divider { width: 1px; align-self: stretch; background: var(--qm-line); margin: 0 2px; }
+.spacer { flex: 1; }
+
+/* 品牌区（主界面与帮助页共用，故置于 base.css 而非某一页的布局表）
+ *
+ * 标记走 CSS mask 而非 <img>/内联 SVG：
+ *   - <img> 引用的 SVG 是独立文档，currentColor 不继承，无法跟随主题与皮肤（违反 §P0-3 L4/L5）
+ *   - 跨文档 <use href="x.svg#id"> 在现代浏览器已不支持
+ *   - mask 只取形状，颜色由 background-color 给，色值仍单一来源于 --qm-*
+ */
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+  color: inherit;
+}
+.brand:hover { opacity: .85; }
+.brand-logo {
+  align-self: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  background-color: var(--qm-accent-ink);
+  -webkit-mask-image: url("../assets/logo.svg");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-image: url("../assets/logo.svg");
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}
+.brand-mark { font-size: var(--qm-fs-3xl); font-weight: 700; letter-spacing: 2px; color: var(--qm-accent-ink); }
+.brand-sub { font-size: var(--qm-fs-md); color: var(--qm-text-dim); font-family: var(--qm-mono); }
+
+/* ===================== V0.0.40 · 设计提案层（图标 / 图标按钮） =====================
+ * 来源：设计稿 prototype.html 的提案样式块第 1 / 2 节（顶栏三区分组）。
+ * 纪律不变（§P0-3 L4）：色值一律 var(--qm-*)，本节无任何裸色值。
+ * **本节**图标为 currentColor SVG mask（形状内联 data-URI，着色 `background-color: currentColor`），
+ * 禁用第三方图标字体（版权合规）。⚠️ **限定「本节」** —— 全项目的「图标」是**一条四径**
+ * （本节 mask ／ tokens 变量 mask ／ assets 文件 mask ／ 文字字形），权威清单见 §P0-3 L8（守卫 7aj）。
+ * 每个图标只声明 `--m`（局部变量，非 --qm-*），由 .ic 统一取用。
+ */
+
+/* ---------- 图标系统 ---------- */
+.ic {
+  display: inline-block; width: 18px; height: 18px; background-color: currentColor;
+  -webkit-mask: var(--m) center / 18px 18px no-repeat;
+          mask: var(--m) center / 18px 18px no-repeat;
+}
+.ic-sm { width: 14px; height: 14px; -webkit-mask-size: 14px 14px; mask-size: 14px 14px; }
+.ic-globe { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M3 12h18M12 3c2.4 2.5 3.7 5.6 3.7 9S14.4 18.5 12 21c-2.4-2.5-3.7-5.6-3.7-9S9.6 5.5 12 3z'/%3E%3C/svg%3E"); }
+.ic-heart { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20.2s-7.2-4.6-7.2-9.8A4.6 4.6 0 0 1 12 7.2a4.6 4.6 0 0 1 7.2 3.2c0 5.2-7.2 9.8-7.2 9.8z'/%3E%3C/svg%3E"); }
+.ic-help { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M9.6 9.4a2.5 2.5 0 0 1 4.6 1.4c0 1.7-2.2 2-2.2 3.4'/%3E%3Ccircle cx='12' cy='17.4' r='1'/%3E%3C/svg%3E"); }
+.ic-gear { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='3.2'/%3E%3Cpath d='M12 2.8v2.4M12 18.8v2.4M4.5 7.5l2.1 1.2M17.4 15.3l2.1 1.2M4.5 16.5l2.1-1.2M17.4 8.7l2.1-1.2'/%3E%3C/svg%3E"); }
+.ic-close { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round'%3E%3Cpath d='M6.5 6.5l11 11M17.5 6.5l-11 11'/%3E%3C/svg%3E"); }
+.ic-check { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+/* 「更多 ⋮」：窄窗顶栏折叠入口（非皮肤按钮，勿与 .sw-dots 混用） */
+.ic-more { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Ccircle cx='12' cy='5.4' r='1.7'/%3E%3Ccircle cx='12' cy='12' r='1.7'/%3E%3Ccircle cx='12' cy='18.6' r='1.7'/%3E%3C/svg%3E"); }
+
+/* V0.0.50 · I 组「按钮图标化」：形状表逐字节复刻设计稿 `prototype.html` 的图标系统节
+   （该处头注释：「v5 新增：随「按钮去文字」一同补齐的线性图标（全部 currentColor mask，
+   无一第三方图标字体）」）。本轮新增 14 枚 → 定义域 7 → 21。
+   V0.0.52 再 +2（`.ic-folder` / `.ic-file`，树行图标归一）→ **定义域 23**。
+   设计稿另备 ic-checkbox / ic-export / ic-load 三枚，本项目无对应控件（多选靠手势、
+   批量条是「复制路径」而非导出 ZIP、模板区无载入按钮），故**不引入** —— 图标契约要求
+   定义与使用双向配对，引入即留死形状。占位色 %23000 只参与 mask 形状、不参与着色，
+   属 §P0-3 L4 的成文豁免。 */
+.ic-folder-plus { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h3.6l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3Cpath d='M12 11.6v4.2M9.9 13.7h4.2'/%3E%3C/svg%3E"); }
+.ic-folder-open { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h3.6l1.8 2H19a2 2 0 0 1 2 2v1.4H3z'/%3E%3Cpath d='M3 10.4h18l-1.7 6.7a2 2 0 0 1-1.9 1.4H5.6a2 2 0 0 1-1.9-1.4z'/%3E%3C/svg%3E"); }
+
+/* V0.0.52：树行图标由 emoji 归一为 mask —— 补「文件夹 / 文件」两枚形状。
+   笔画参数（viewBox 24 / stroke-width 1.8 / 圆头圆角）与同族 `.ic-folder-plus` /
+   `.ic-folder-open` 完全一致，故同一行里两族图标粗细相同。
+   消费者只有一个：`tree-view.js` 按节点类型给 `.tree-icon` 挂上其一（见该文件注释）。 */
+.ic-folder { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h3.6l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3C/svg%3E"); }
+.ic-file { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3.2h6.6L18 8.6v11.2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5.2a2 2 0 0 1 2-2z'/%3E%3Cpath d='M12.6 3.2v5.4H18'/%3E%3C/svg%3E"); }
+.ic-refresh { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.5 12a8.5 8.5 0 1 1-2.5-6'/%3E%3Cpath d='M20.8 4.2v4.3h-4.3'/%3E%3C/svg%3E"); }
+.ic-undo { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 8.6h9.4a5.4 5.4 0 0 1 0 10.8H8.2'/%3E%3Cpath d='M7.6 5.1 4 8.6l3.6 3.5'/%3E%3C/svg%3E"); }
+.ic-redo { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 8.6h-9.4a5.4 5.4 0 0 0 0 10.8h5.2'/%3E%3Cpath d='M16.4 5.1 20 8.6l-3.6 3.5'/%3E%3C/svg%3E"); }
+.ic-node-plus { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M4 6h11M4 12h11M4 18h5'/%3E%3Cpath d='M18 14.4v7.2M14.4 18h7.2'/%3E%3C/svg%3E"); }
+.ic-pencil { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.2 19.8l1-3.9L16.4 4.6a2 2 0 0 1 2.9 0l.1.1a2 2 0 0 1 0 2.9L8.1 18.8z'/%3E%3Cpath d='M14.7 6.3l3 3'/%3E%3C/svg%3E"); }
+.ic-trash { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7h16'/%3E%3Cpath d='M9.6 7V4.9h4.8V7'/%3E%3Cpath d='M6.4 7l1 12.1a1.8 1.8 0 0 0 1.8 1.6h5.6a1.8 1.8 0 0 0 1.8-1.6L17.6 7'/%3E%3Cpath d='M10.4 10.8v5.8M13.6 10.8v5.8'/%3E%3C/svg%3E"); }
+.ic-expand-all { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8.2 9.4 12 5.6l3.8 3.8'/%3E%3Cpath d='M8.2 14.6 12 18.4l3.8-3.8'/%3E%3C/svg%3E"); }
+.ic-collapse-all { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8.2 5.6 12 9.4l3.8-3.8'/%3E%3Cpath d='M8.2 18.4 12 14.6l3.8 3.8'/%3E%3C/svg%3E"); }
+.ic-copy { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='8.6' y='8.6' width='11.4' height='11.4' rx='2.2'/%3E%3Cpath d='M15.4 5.6H6.4a2 2 0 0 0-2 2v9'/%3E%3C/svg%3E"); }
+.ic-import { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.4v9.2'/%3E%3Cpath d='M8.6 9.2 12 12.6l3.4-3.4'/%3E%3Cpath d='M4 14.6v3.4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.4'/%3E%3C/svg%3E"); }
+.ic-save { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.8 3.4h10.4l4 4v13.2a1.8 1.8 0 0 1-1.8 1.8H4.8A1.8 1.8 0 0 1 3 20.6V5.2a1.8 1.8 0 0 1 1.8-1.8z'/%3E%3Cpath d='M7.8 3.4v6h8.4v-6'/%3E%3Cpath d='M7.4 14.6h9.2v7.6H7.4z'/%3E%3C/svg%3E"); }
+.ic-spark { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13.4 2.6 5.8 13.4h5.2l-.8 8 7.6-10.8h-5.2z'/%3E%3C/svg%3E"); }
+
+/* ---------- 图标按钮：34×34，与 .btn 同高（顶栏成一条整齐基线） ----------
+ * V0.0.51 · 尺寸整体上调一档（见同批 `layout.css` 的 `.btn-ic` 节）。 */
+.icon-btn {
+  appearance: none; cursor: pointer; background: transparent; color: var(--qm-text-dim);
+  width: 34px; height: 34px; border-radius: var(--qm-r-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid transparent;
+  /* 必须重置 UA 对 button 的默认 padding(1px 6px)：否则内容盒只剩 18px，
+     19px 图标会被 flex 收缩回 18px，声明尺寸静默失效（设计稿实测缺陷）。 */
+  padding: 0;
+}
+.icon-btn:hover { color: var(--qm-accent-ink); background: var(--qm-surface-2); border-color: var(--qm-line-soft); }
+.icon-btn:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: 1px; }
+.icon-btn[aria-expanded="true"] { color: var(--qm-accent-ink); background: var(--qm-accent-soft); border-color: var(--qm-accent); }
+/* 顶栏图标比正文图标大半档（20px），flex:0 0 auto 保证「声明 20px = 实际 20px」 */
+.icon-btn .ic { width: 20px; height: 20px; flex: 0 0 auto; -webkit-mask-size: 20px 20px; mask-size: 20px 20px; }
+
+/* ---------- 状态按钮：可点的服务状态 chip（实线边框 + hover 抬升，34px 与按钮齐平） ----------
+   V0.0.53：由「圆点 + 文字 + 下三角」的**胶囊**压成 **34×34 圆圈**（用户裁定「只留颜色点
+   与下三角、不显示文字」）。padding 归零 + 内容居中即可 —— 这**不是新形态**：窄窗
+   (`@media (max-width: 920px)`) 早已用同一套规则把它收成这个样子，本批只是把它从
+   「窄窗应急形态」提升为**常态**（那两条窄窗规则随之删除）。
+   ⚠ 文字退场后，可见状态信号只剩「圆点颜色 + 下三角」；无障碍名由 `setServiceState()`
+   合成进 `aria-label`（默认名 + 状态词）。状态**原话**并没有消失 —— 它仍在「更多 ⋮」
+   浮层 `#popMoreStatus` 与服务弹窗里，只是不再占顶栏。 */
+.chip-btn {
+  appearance: none; font: inherit; font-size: var(--qm-fs-md); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  width: 34px; height: 34px; padding: 0; border-radius: 999px;
+  border: 1px solid var(--qm-line); background: var(--qm-surface); color: var(--qm-text-dim);
+}
+.chip-btn:hover { color: var(--qm-accent-ink); border-color: var(--qm-accent); }
+.chip-btn:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: 1px; }
+.chip-btn .caret { font-size: var(--qm-fs-3xs); }
+/* 状态点：就绪=强调色、离线=危险色（离线态由 JS 加 .is-offline） */
+.chip-btn .dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; background: var(--qm-accent); }
+.chip-btn.is-offline { color: var(--qm-danger); border-color: var(--qm-danger); }
+.chip-btn.is-offline .dot { background: var(--qm-danger); }
+
+
+</style>
+<!-- ↓ 原样内联自 src/web/css/layout.css（37283 B, sha256:9e94257effede287）—— 预览页必须自包含：
+     预览面板把单个 HTML 复制到静态目录后单独托管，任何相对路径都会 404（本次就因 ../src/web/css 全 404 而白屏）。 -->
+<style data-src="src/web/css/layout.css">
+/* 青蔓 QingMan · 布局（锐利新拟物 + 三栏职责） */
+
+#app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 顶栏 */
+#topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--qm-gap);
+  padding: 8px 14px;
+  background: var(--qm-surface);
+  border-bottom: 1px solid var(--qm-line);
+  box-shadow: 0 1px 2px var(--qm-shadow-dark);
+}
+/* 品牌区样式见 base.css（主界面与帮助页共用） */
+
+.topbar-right { display: flex; align-items: center; gap: var(--qm-gap); }
+
+/* 三栏主体 */
+#main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 240px minmax(360px, 1fr) 280px;
+  gap: var(--qm-gap);
+  padding: var(--qm-gap);
+}
+
+#sidebar, #center, #inspector {
+  min-height: 0;
+  background: var(--qm-surface);
+  border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-md);
+  display: flex;
+  flex-direction: column;
+  box-shadow:
+    3px 3px 8px var(--qm-shadow-dark),
+    -2px -2px 6px var(--qm-shadow-light),
+    inset .5px .5px 1px var(--qm-edge-hi);
+}
+
+#sidebar, #inspector { padding: var(--qm-gap); overflow: auto; }
+
+/* 面板标题（左 / 中 / 右三栏的「模板工作区 / 目录树工作区 / 属性工作区」）。
+   V0.0.53：主界面那三处消费者**全部退场**（用户裁定「三行小标题退出主界面」）
+   —— 本规则现**只余 `help.html` 的帮助导航标题**一名消费者，**不是死码，勿删**。
+   两条与主界面容器绑定的修饰规则（`.center-head .panel-title` /
+   `.insp-head .panel-title`）随各自容器一并删除。 */
+.panel-title {
+  font-size: var(--qm-fs-md);
+  letter-spacing: 1px;
+  color: var(--qm-text-dim);
+  text-transform: none;
+  margin-bottom: 8px;
+}
+.panel-sub {
+  font-size: var(--qm-fs-md);
+  color: var(--qm-text-dim);
+  margin: 14px 0 6px;
+}
+.panel-block { margin-top: 16px; }
+
+/* ---------- 左栏：模板列表（V0.0.11） ---------- */
+
+/* 标题与「另存为模板」同一行：标题是 h3 自带上下 margin，用 flex 对齐基线 */
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.panel-head .panel-sub { margin-bottom: 0; }
+/* 右侧动作组（V0.0.38 · 6E）：把多个迷你按钮并成一个 flex 子项，
+   否则 space-between 会把它们摊开在标题与右缘之间。 */
+.panel-actions { display: flex; align-items: baseline; gap: 6px; }
+
+/* 侧栏窄，常规按钮 padding 会把模板名挤到换行 */
+.btn-mini {
+  padding: 2px 8px;
+  font-size: var(--qm-fs-xs);
+  white-space: nowrap;
+}
+
+/* ---------- V0.0.50 · I 组：纯图标按钮（四档方形，图标居中） ----------
+   照设计稿 `prototype.html` 的「纯图标按钮（四档方形，图标居中，与同名文字按钮同高）」节。
+   为何落在这里而不是 base.css：设计稿把它置于样式表**末尾**，靠书写顺序压过
+   `.ob-group .btn{padding:0 10px}` 与 `.btn-mini{padding:0 8px}`；本项目分层为
+   base → layout，而 `.btn-mini` 就在本文件上方、`.btn` 的 `5px 12px` 在 base.css，
+   故放这里即天然排在两者之后，同层同文件解决，不靠 !important、不跨层引用。
+   设计稿另有三条 `.ob-group / .tpl-dir-actions / .prop` 的 padding 归零，
+   在本项目由 `.btn-mini.btn-ic`（0,2,0）一条统一覆盖（对应按钮全部是 btn-mini），
+   未逐个抄录，以免留下永不适用的死规则。 */
+/* V0.0.51 · 尺寸整体上调一档（用户反馈「按钮可以再大一些」）：
+   工作区 28→32、侧栏（btn-mini 档）24→27，图标同步 16→18 / 14→15。
+   只缩放尺寸，四档层级与居中方式不变；`height` 与顶栏 34px 档仍保持一大一小的节奏。 */
+.btn-ic {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; padding: 0;
+}
+.btn-ic > .ic {
+  width: 18px; height: 18px; flex: 0 0 auto;
+  -webkit-mask-size: 18px 18px; mask-size: 18px 18px;
+}
+.btn-mini.btn-ic { width: 27px; height: 27px; padding: 0; }
+.btn-mini.btn-ic > .ic {
+  width: 15px; height: 15px;
+  -webkit-mask-size: 15px 15px; mask-size: 15px 15px;
+}
+
+/* 模板目录绑定行（V0.0.38 · 6E）：标签 + 省略显示的路径 + 两个迷你按钮 */
+.tpl-dir { display: flex; align-items: center; gap: 6px; margin: 8px 0 4px; font-size: var(--qm-fs-md); }
+.tpl-dir-label { flex: 0 0 auto; color: var(--qm-text-dim); }
+.tpl-dir-path {
+  flex: 1 1 auto; min-width: 0; font-size: var(--qm-fs-xs); color: var(--qm-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tpl-dir-actions { flex: 0 0 auto; display: flex; gap: 4px; }
+.tpl-dir-hint { margin: 0 0 6px; font-size: var(--qm-fs-xs); color: var(--qm-text-dim); line-height: 1.4; }
+
+.tpl-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+
+.tpl-item {
+  /* 铺满整行：模板名长度不一，固定宽度会截断中文名 */
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid var(--qm-line-soft);
+  border-radius: var(--qm-r-sm);
+  background: var(--qm-surface-2);
+  box-shadow: var(--qm-shadow);
+  color: var(--qm-text);
+  font-size: var(--qm-fs-md);
+  text-align: left;
+  cursor: pointer;
+}
+.tpl-item:hover { background: var(--qm-accent-soft); border-color: var(--qm-accent); }
+.tpl-item:active { box-shadow: var(--qm-inset); }
+
+.tpl-name { font-weight: 600; line-height: 1.3; }
+/* 来源层徽标 + 统计同一行（V0.0.38 · 6E） */
+.tpl-meta { display: flex; align-items: center; gap: 6px; }
+.tpl-badge {
+  padding: 0 5px;
+  border: 1px solid var(--qm-line-soft);
+  border-radius: var(--qm-r-sm);
+  color: var(--qm-text-dim);
+  font-size: var(--qm-fs-2xs);
+  line-height: 1.6;
+}
+.tpl-stats { color: var(--qm-text-dim); font-size: var(--qm-fs-xs); }
+
+.tpl-empty { color: var(--qm-text-dim); font-size: var(--qm-fs-md); padding: 4px 0; }
+.tpl-empty.tpl-warn { color: var(--qm-warn); }
+
+/* 历史版本列表（V0.0.51@r9）。外观与 .tpl-list 一致，但每行**左右两栏**：
+   左＝时间 + 根名（可能带「已归档」徽标），右＝大小 + 「恢复这一版」按钮。
+   `min-width:0` 是省略号兜底：根名可能很长，不给它收缩余量就会把右栏挤出去。 */
+.bak-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.bak-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--qm-line-soft);
+  border-radius: var(--qm-r-sm);
+  background: var(--qm-surface-2);
+  font-size: var(--qm-fs-md);
+}
+.bak-item.is-broken { opacity: .62; }
+.bak-meta { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.bak-meta b { flex: 0 0 auto; font-weight: 600; }
+.bak-meta > span {
+  color: var(--qm-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bak-tag {
+  flex: 0 0 auto;
+  padding: 0 5px;
+  border: 1px solid var(--qm-line-soft);
+  border-radius: var(--qm-r-sm);
+  color: var(--qm-text-dim);
+  font-size: var(--qm-fs-2xs);
+  line-height: 1.6;
+}
+.bak-right { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
+.bak-size { color: var(--qm-text-dim); font-size: var(--qm-fs-xs); }
+.bak-empty { color: var(--qm-text-dim); font-size: var(--qm-fs-md); padding: 4px 0; }
+
+/* 模板行（V0.0.11）。V0.0.38 · 6E 把操作收进**右键菜单**（载入 / 重命名 / 复制 / 导出 /
+   删除）并移除行内**文字**按钮（`.tpl-ops` / `.tpl-op`，该套样式随之删除）；V0.0.51@r11
+   又补回**一颗 ⋮** 作常驻入口 —— 但它**不承载任何动作**，只负责把**同一个**右键菜单开在
+   同一位置（动作与右键完全同源，见 `modules/templates.js` 的 `openTemplateContextMenu`）。
+   故本节只写它的**占位与显隐**；外观复位仍归 `soft.css` 的 `html .tpl-row .tpl-more` 一节。 */
+.tpl-row { position: relative; display: flex; align-items: stretch; }
+.tpl-row .tpl-item { flex: 1 1 auto; }
+/* ⋮：`flex: 0 0 auto` 保证它不参与伸缩、不挤压行文字；平时半透明常驻，hover / 键盘聚焦全亮。
+   半透明常驻的出处是设计稿 `prototype.html` 的 `.tpl-more { opacity: .45 }` 一节。
+   ⚠ 点亮条件只用**真实可达态**（`:hover` / `:focus-within` / `:focus-visible`）——
+   不要写成 `.tpl-row.is-active`：该组合类在 `src/web/js` 里**零消费者**，产品中根本不存在
+   「模板行选中态」，照抄它等于再添一条死码（此坑由本批勘察实测：`is-active` / `is-checked`
+   在全 `src/web/js` 命中 0，仅 `soft.css` 与历史样张里有）。 */
+.tpl-row .tpl-more {
+  flex: 0 0 auto; align-self: center;
+  opacity: .45; transition: opacity .12s ease;
+}
+.tpl-row:hover .tpl-more,
+.tpl-row:focus-within .tpl-more,
+.tpl-more:focus-visible { opacity: 1; }
+.tpl-more:hover { color: var(--qm-accent-ink); }
+
+/* 中栏 */
+#center { background: var(--qm-surface); padding: 0; overflow: hidden; }
+
+/* V0.0.53：中栏标题行整体退场 —— 标题 `<h2 class="panel-title">` 与包裹它的
+   `<header class="center-head">` 一并从 index.html 删除。它**不能只留空壳**：
+   本条自带 padding + 底边框，留空会在 #genBar 上方画出一条**多余的横线**
+   （#genBar 自带 padding 与底边框，现已是 #center 的首个子项）。 */
+
+.bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--qm-gap);
+  padding: var(--qm-gap);
+  border-bottom: 1px solid var(--qm-line-soft);
+  flex-wrap: wrap;
+}
+#toolbar { align-items: center; border-bottom: 1px solid var(--qm-line-soft); }
+
+/* 工具栏语义分组（V0.0.43 · G 组）：编辑 / 视图 / 输出。
+   组间用软竖线分隔（原先手写的两处 .divider 退场）—— 组内一律不留分隔，
+   因为「撤销 · 重做」与「加子节点 · 重命名 · 删除」同属「改数据」，被分开才是错位。
+   role="group" + aria-label 让这三组对读屏也可辨（原先读作一长串按钮）。
+   注意：不要用 .skin- 前缀命名（会触发 7d「组件不得感知皮肤」）。 */
+.tb-group { display: inline-flex; align-items: center; gap: 6px; }
+.tb-group + .tb-group {
+  margin-left: 2px;
+  padding-left: 12px;
+  border-left: 1px solid var(--qm-line);
+}
+
+/* 批量操作条（V0.0.43 · F 组）：多选 ≥2 项时才出现，紧贴工具栏下方。
+   计数用强调色，操作提示用弱化色；动作按钮一律复用既有 .btn 变体，不新造视觉语言。 */
+#batchBar { align-items: center; gap: 8px; border-bottom: 1px solid var(--qm-line-soft); }
+/* .bar 已声明 display:flex，会盖掉 [hidden] 的 UA 默认 none —— 显式提回来（同 .layer[hidden]） */
+#batchBar[hidden] { display: none; }
+.batch-info { font-size: var(--qm-fs-md); color: var(--qm-accent-ink); }
+.batch-hint { font-size: var(--qm-fs-xs); color: var(--qm-text-dim); }
+
+/* 生成参数区：**常显**（V0.0.51@r9）。
+   原先可折叠，而折叠态写进偏好 `qm.genBar` **永久记住** —— 用户随手一收，此后每次
+   打开，「目标位置」整行连同「选择目录」图标按钮都不见了，摘要行只剩「未设置目标位置」，
+   看上去像功能消失。参数区只占一行，省下的高度远不值这个风险，故撤销折叠：
+   摘要行改为**常驻状态行**（生成前核验用：目标位置 · 根名 · 演练或写盘），参数区永远可见。 */
+#genBar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--qm-gap);
+  border-bottom: 1px solid var(--qm-line-soft);
+}
+.genbar-summary {
+  margin: 0;
+  color: var(--qm-text-dim);
+  font-size: var(--qm-fs-md);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.genbar-fields {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--qm-gap);
+  flex-wrap: wrap;
+}
+
+.field { display: flex; flex-direction: column; gap: 3px; min-width: 150px; }
+.field-wide { flex: 1 1 240px; }
+.field > span:not(.select-wrap) { font-size: var(--qm-fs-xs); color: var(--qm-text-dim); }
+
+/* 字段内联行（V0.0.40）：输入框与其后的微型按钮同行；输入框吃掉剩余宽度。
+   复用模板目录行（.tpl-dir-actions）的「输入 + 选择…」形态，不另造一套按钮样式。 */
+.field-inline { display: flex; align-items: center; gap: 6px; }
+.field-inline > input { flex: 1 1 auto; min-width: 0; }
+
+.switch { display: flex; align-items: center; gap: 6px; font-size: var(--qm-fs-md); color: var(--qm-text-dim); padding-bottom: 4px; }
+
+#treeWrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 10px;
+}
+
+#treeCanvas { outline: none; }
+
+.tree-node { }
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: var(--qm-r-sm);
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid transparent;
+}
+.tree-row:hover {
+  background: var(--qm-line-soft);
+  box-shadow: inset 1px 1px 2px var(--qm-shadow-light), inset -1px -1px 2px var(--qm-shadow-dark);
+}
+/* 多选命中（V0.0.43 · F 组）。与单选的「实底 + 内阴影」刻意区分：多选只是「加入集合」，
+   用淡底 + 描边更轻。**必须排在 .is-selected 之前** —— 两者特异性相同，
+   同时命中时（锚点行）由后写的 .is-selected 胜出，锚点才看得出是「主选中」。 */
+.tree-row.is-multi {
+  background: var(--qm-line-soft);
+  border-color: var(--qm-accent);
+}
+.tree-row.is-selected {
+  background: var(--qm-accent-soft);
+  color: var(--qm-accent-ink);
+  border-color: var(--qm-accent-soft);
+  box-shadow: var(--qm-inset);
+}
+.tree-toggle {
+  width: 14px;
+  text-align: center;
+  color: var(--qm-text-dim);
+  font-size: var(--qm-fs-2xs);
+  flex: 0 0 auto;
+}
+.tree-toggle.is-leaf { visibility: hidden; }
+/* 树行图标（V0.0.52）：由 emoji（📁 / 📄）归一为 `.ic` mask。
+   旧实现靠 `font-size: var(--qm-fs-md)` 撑起一个**彩色字形** —— emoji 不吃 `color`，
+   于是换肤时树行图标**不随配色**（这正是 §P0-3 L8 落地行里登记的最后一条 D 类遗留）。
+   改 mask 后由 `.ic` 基类的 `background-color: currentColor` 着色，16 款皮肤自动跟随。
+   尺寸走**既有**的尺寸修饰符 `.ic-sm`（14px），不新造尺寸词汇；形状名（`ic-folder` /
+   `ic-file`）由 `tree-view.js` 按节点类型挂上，本文件只管占位与不参与伸缩。
+   本规则原有的 `font-size` 一并删掉 —— 留着即是**无消费者的死码**（同 V0.0.51@r11 的
+   `.tpl-more` 教训：先写样式、后找消费者，正是「先写后删」那种半成品）。 */
+.tree-icon { flex: 0 0 auto; }
+.tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* V0.0.42：根节点空名占位（「（不建根）」）—— 弱化显示，与真实节点名区分 */
+.tree-name.is-placeholder { color: var(--qm-text-dim); font-style: italic; }
+.tree-children { margin-left: 16px; border-left: 1px dashed var(--qm-line); padding-left: 4px; }
+.tree-children.is-collapsed { display: none; }
+
+/* 拖拽落点高亮（V0.0.19）—— 只用既有变量，不新造视觉语言 */
+.tree-row.is-drop-target {
+  background: var(--qm-accent-soft);
+  outline: 1px dashed var(--qm-accent);
+  outline-offset: -1px;
+}
+
+/* 右键菜单（V0.0.19）—— 面板质感复用 base.css 变量。
+   z-index 1000 → 1100（V0.0.40）：浮层基元（.layer）落位 1000，右键菜单须压在其上，
+   否则菜单会被同层的弹窗盖住（两者都是 fixed）。 */
+.ctx-menu {
+  position: fixed;
+  z-index: 1100;
+  min-width: 160px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--qm-surface);
+  border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-sm);
+  box-shadow: 2px 3px 8px var(--qm-shadow-dark);
+}
+.ctx-item {
+  text-align: left;
+  padding: 6px 10px;
+  border: none;
+  border-radius: var(--qm-r-sm);
+  background: transparent;
+  color: var(--qm-text);
+  font: inherit;
+  cursor: pointer;
+}
+.ctx-item:hover:not(:disabled), .ctx-item:focus-visible {
+  background: var(--qm-accent-soft);
+  color: var(--qm-accent-ink);
+  outline: none;
+}
+.ctx-item.is-danger { color: var(--qm-danger); }
+.ctx-item:disabled { opacity: 0.45; cursor: not-allowed; }
+
+#statusBar {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--qm-gap);
+  padding: 6px 12px;
+  border-top: 1px solid var(--qm-line-soft);
+  color: var(--qm-text-dim);
+  font-size: var(--qm-fs-md);
+  background: var(--qm-surface-2);
+}
+.status-count { font-family: var(--qm-mono); }
+
+/* 右栏 */
+.prop-list { display: flex; flex-direction: column; gap: 2px; }
+.prop { display: flex; gap: 8px; align-items: baseline; }
+.prop-key { flex: 0 0 56px; color: var(--qm-text-dim); font-size: var(--qm-fs-md); }
+.prop-val { flex: 1 1 auto; word-break: break-all; }
+.prop-mono { font-size: var(--qm-fs-xs); color: var(--qm-text-dim); }
+
+/* 检视器标题行（V0.0.43 · H 组）：标题左、模式分段控件右。
+   复用 .panel-head 的 flex + space-between，只把基线对齐改为居中 ——
+   分段控件是带边框的块，与 12px 文字按基线对齐会偏低。
+   V0.0.53：标题退场后本行**只剩一个子项**，而 space-between 会把独子**推到左缘**
+   ⇒ 分段控件会从右上角滑到左上角。故补 `justify-content: flex-end` 把它**钉回原位**
+   —— 「去掉标题」是对方要的，「按钮跑位」不是，两件事不能混为一谈。 */
+.insp-head { align-items: center; justify-content: flex-end; }
+#inspPropPane, #inspSrcPane { margin-top: 8px; }
+/* 分段控件（属性 ⇄ 源码）：两个相邻 .seg-btn 共用一圈外框，中间一条缝。
+   注意类名不得带 .skin- 前缀（7d）。 */
+.seg {
+  display: inline-flex;
+  flex: 0 0 auto;
+  border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-sm);
+  overflow: hidden;
+}
+.seg-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--qm-text-dim);
+  font-family: inherit;
+  font-size: var(--qm-fs-xs);
+  padding: 3px 9px;
+  cursor: pointer;
+}
+.seg-btn + .seg-btn { border-left: 1px solid var(--qm-line); }
+.seg-btn:hover { color: var(--qm-accent-ink); background: var(--qm-surface-2); }
+.seg-btn.is-on { background: var(--qm-accent-soft); color: var(--qm-accent-ink); }
+.seg-btn:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: -2px; }
+/* [hidden] 是 UA 默认的 display:none，但只要上面给了 display 就会被盖掉 —— 显式提回来。
+   与 .layer[hidden]、#batchBar[hidden] 同一处理。 */
+#inspPropPane[hidden], #inspSrcPane[hidden] { display: none; }
+
+/* 节点说明（V0.0.17）：纯文本编辑，随选中节点切换；禁用态（未选中）置灰 */
+#propNote {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 72px;
+  padding: 6px 8px;
+  border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-sm);
+  background: var(--qm-surface-2);
+  color: var(--qm-text);
+  font: 12px/1.6 var(--qm-font);
+  box-shadow: var(--qm-inset);
+}
+#propNote:focus { outline: 2px solid var(--qm-accent-soft); border-color: var(--qm-accent); }
+#propNote:disabled { color: var(--qm-text-dim); }
+.note-actions { display: flex; justify-content: flex-end; margin-top: 4px; }
+
+.result {
+  margin: 0;
+  padding: 8px;
+  background: var(--qm-surface-2);
+  border: 1px solid var(--qm-line-soft);
+  border-radius: var(--qm-r-sm);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 240px;
+  overflow: auto;
+  color: var(--qm-text-dim);
+  box-shadow: var(--qm-inset);
+}
+
+/* 提示条 */
+.toast-host {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* z-index 50 → 1500（V0.0.40）：遮罩 900 / 浮层 1000 / 右键菜单 1100，
+     提示条必须在它们**之上** —— 否则弹窗一开，保存失败之类的提示就被遮罩吃掉了。 */
+  z-index: 1500;
+  pointer-events: none;
+}
+.toast {
+  background: var(--qm-surface-2);
+  border: 1px solid var(--qm-line);
+  border-left: 3px solid var(--qm-accent);
+  border-radius: var(--qm-r-sm);
+  box-shadow: var(--qm-shadow-raise);
+  padding: 8px 12px;
+  font-size: var(--qm-fs-md);
+  max-width: 380px;
+}
+.toast.is-error { border-left-color: var(--qm-danger); }
+.toast.is-warn { border-left-color: var(--qm-warn); }
+
+/* ---------- 窄窗兜底（D-P3-1） ----------
+   三栏固定列（240 + minmax(360,1fr) + 280）＋ 栏间距/内边距，最小需求约 920px；
+   窗口窄于此时中栏被挤到不足 360px 并溢出裁切（#main 原本无溢出策略）。
+   参考 help.css 的窄屏处理（@media max-width:720px），改为**单列纵向堆叠**：
+   中栏（树 / 工具栏）给足高度、内部照常滚动，左右栏随内容自然增高、由 #main 统一滚动。 */
+@media (max-width: 920px) {
+  #main {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: min-content;
+    align-content: start;
+    overflow: auto;
+  }
+  #sidebar, #inspector { overflow: visible; }
+  #center { min-height: 60vh; }
+}
+
+/* ===================== V0.0.40 · 设计提案层（顶栏 / 弹层 / 浮层） =====================
+ * 来源：设计稿 prototype.html 的提案样式块第 2 / 5–10 / 13 节。
+ * 落实《项目手册》10.2 节 #6（顶栏按钮图标化）/ #9（支持·帮助改应用内弹窗）/ #7（服务状态可点）。
+ * 纪律不变（§P0-3 L4/L5）：色值一律 var(--qm-*)，且**不得出现 `.skin-` 前缀选择器**
+ * —— 故皮肤色块用 `.sw-*`（swatch）命名，避开守卫的皮肤感知判据。
+ */
+
+/* ---------- 1. 顶栏三区分组：状态区（左）+ 操作区（右） ---------- */
+#topbar { gap: 8px; }
+.topbar-right { gap: 8px; }
+.tb-group {
+  display: flex; align-items: center; gap: 4px; padding: 3px 5px;
+  border-radius: var(--qm-r-md);
+}
+.tb-status { border: 1px solid var(--qm-line-soft); background: var(--qm-surface-2); }
+.tb-actions { gap: 2px; }
+
+/* 只读 chip：无边框淡底、24px 高 —— 比同行按钮矮一档，一眼看出「不可点」。
+   V0.0.53：内容由**文字**（未保存 / 保存中… / 已保存 / 保存失败 ＋ 时间）改为一枚 14px
+   图标，故左右内边距归零、收成 24×24 圆。它与旁边那颗 34px 的**可点**圆之间仍留着
+   三重差异（矮一档 / 无边框 / 无下三角），不会看混。
+   ⚠ 时间戳（「已保存 23:56」）随之**离开可见界面** —— 现只存在于 `aria-label`。
+   若要它回到鼠标可见处，唯一入口是把状态写进本元素的 `title`。 */
+.chip.chip-ghost {
+  border-color: transparent; background: var(--qm-surface);
+  height: 24px; width: 24px; display: inline-flex; align-items: center;
+  justify-content: center; padding: 0;
+}
+
+/* 保存中：那颗 `ic-refresh` 转起来（V0.0.53）。全项目**仅此一处**动画，就近声明、
+   不进 tokens.css —— 只有一枚图标会用到的东西，放通用层反而是负担。
+   动效偏好为「减少动态效果」时停转（见下文的 @media prefers-reduced-motion）。 */
+@keyframes qm-spin { to { transform: rotate(360deg); } }
+.ic.is-spinning { animation: qm-spin 1s linear infinite; }
+
+/* 皮肤按钮 = 三枚圆点，**三角排列**（顶 1 底 2）。
+   颜色取 currentColor 单色：设计稿实测 s06 的 swatch 头尾两色几乎等于面板底色，
+   直接铺三色会让三个点在浅色顶栏上被「吃掉」两个、只剩一个孤点。
+   配色预览交回 #popSkin 的色块网格。 */
+.sw-dots { position: relative; display: block; width: 17px; height: 17px; flex: 0 0 auto; }
+.sw-dots i {
+  position: absolute; display: block; width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor;
+}
+.sw-dots i:nth-child(1) { top: 0; left: 5px; }
+.sw-dots i:nth-child(2) { bottom: 0; left: 0; }
+.sw-dots i:nth-child(3) { bottom: 0; right: 0; }
+
+/* ---------- 2. 弹层基元：modal / popover 两类共用一套行为 ---------- */
+#scrim {
+  position: fixed; inset: 0; z-index: 900; background: var(--qm-scrim);
+  opacity: 0; transition: opacity .16s ease;
+}
+#scrim.is-open { opacity: 1; }
+#scrim[hidden] { display: none; }
+
+.layer { position: fixed; z-index: 1000; }
+/* `hidden` 必须压过下面的 `.layer.modal{display:flex}` / `.layer.popover{...}` ——
+   否则「关闭」只是 opacity:0，元素仍以 1000 层占位且可点击（设计稿实测缺陷）。
+   用「变体 + [hidden]」显式提优先级，不依赖书写顺序。 */
+.layer[hidden], .layer.modal[hidden], .layer.popover[hidden] { display: none; }
+
+.layer.modal {
+  left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.97);
+  display: flex; flex-direction: column;
+  max-height: 84vh; padding: 0;
+  background: var(--qm-surface); border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-md);
+  /* `overflow:hidden` 是圆角兜底：帮助 / 支持弹窗没有 .lay-foot，.lay-body 成了
+     最后一个子元素，内容一滚动就会把右下圆角顶破（modal 本身不裁子元素）。 */
+  overflow: hidden;
+  /* 非软皮肤档的兜底投影。软皮肤档由 soft.css 覆写为「皮肤暗影叠层 + 皮肤描边 ring」。
+     此处仍只允许 var(--qm-*)，不得写裸色值。 */
+  box-shadow: 0 2px 4px var(--qm-shadow-dark), 0 16px 40px var(--qm-shadow-dark), 0 0 0 1px var(--qm-line);
+  opacity: 0; transition: opacity .16s ease, transform .16s ease;
+}
+.layer.modal.is-open { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+/* 三档宽度 —— 由「内容量」决定 */
+.modal-sm { width: min(360px, 90vw); }   /* 支持（赞赏码） */
+.modal-md { width: min(460px, 92vw); }   /* 服务设置 */
+.modal-lg { width: min(680px, 92vw); }   /* 帮助（7 分节长文） */
+
+.layer.popover {
+  background: var(--qm-surface); border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-sm); padding: 8px; min-width: 150px;
+  box-shadow: 0 1px 2px var(--qm-shadow-dark), 0 8px 22px var(--qm-shadow-dark), 0 0 0 1px var(--qm-line);
+  opacity: 0; transform: translateY(-4px); transition: opacity .13s ease, transform .13s ease;
+}
+.layer.popover.is-open { opacity: 1; transform: translateY(0); }
+
+.lay-head {
+  display: flex; align-items: center; gap: 8px; padding: 11px 14px;
+  border-bottom: 1px solid var(--qm-line-soft); flex: 0 0 auto;
+}
+.lay-head h3 { margin: 0; font-size: var(--qm-fs-xl); color: var(--qm-text); flex: 1 1 auto; }
+.lay-head .icon-btn { width: 28px; height: 28px; }   /* V0.0.51：随顶栏同批 26→28 */
+.lay-head .ic { color: var(--qm-text-dim); }
+.lay-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
+.lay-foot {
+  padding: 11px 14px; border-top: 1px solid var(--qm-line-soft);
+  display: flex; gap: 8px; justify-content: flex-end; flex: 0 0 auto;
+}
+.lay-body p { margin: 0; font-size: var(--qm-fs-md); color: var(--qm-text-dim); line-height: 1.75; }
+.lay-body .dlg-lead { color: var(--qm-text); }
+.lay-body .kv { display: flex; gap: 8px; font-size: var(--qm-fs-md); }
+.lay-body .kv b { flex: 0 0 62px; color: var(--qm-text-dim); font-weight: 400; }
+.lay-body .kv code { word-break: break-all; }
+/* 服务弹窗「服务状态」的值（V0.0.51@r7）：与顶栏 #chipBackend / 更多浮层同惯例 ——
+   离线转危险色（由 JS 加 .is-offline）。取既有 token，零新增色值。 */
+.lay-body .svc-state { color: var(--qm-text); }
+.lay-body .svc-state.is-offline { color: var(--qm-danger); }
+
+@media (prefers-reduced-motion: reduce) {
+  #scrim, .layer { transition: none !important; }
+  .ic.is-spinning { animation: none !important; }   /* V0.0.53：保存中的旋转 */
+}
+
+/* ---------- 3. 浮层菜单项（语言 / 更多 共用） ---------- */
+#popLang { min-width: 148px; }
+#popMore { min-width: 208px; }
+.menu-item {
+  appearance: none; cursor: pointer; font: inherit; font-size: var(--qm-fs-md); width: 100%;
+  display: flex; align-items: center; gap: 8px; text-align: left;
+  padding: 6px 9px; border: 0; border-radius: var(--qm-r-sm);
+  background: transparent; color: var(--qm-text);
+}
+.menu-item:hover, .menu-item:focus-visible { background: var(--qm-accent-soft); color: var(--qm-accent-ink); outline: none; }
+.menu-item[aria-checked="true"] { color: var(--qm-accent-ink); font-weight: 700; }
+.menu-item .ic-check { visibility: hidden; flex: 0 0 auto; }
+.menu-item[aria-checked="true"] .ic-check { visibility: visible; }
+.pop-more-sep { height: 1px; background: var(--qm-line-soft); margin: 5px 2px; }
+.pop-more-status {
+  display: flex; align-items: center; gap: 7px; padding: 5px 9px;
+  font-size: var(--qm-fs-md); color: var(--qm-text-dim);
+}
+.pop-more-status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--qm-accent); flex: 0 0 auto; }
+/* 离线态与顶栏 #chipBackend 一致（由 JS 加 .is-offline）：文字与圆点转危险色。 */
+.pop-more-status.is-offline { color: var(--qm-danger); }
+.pop-more-status.is-offline .dot { background: var(--qm-danger); }
+
+/* ---------- 4. 帮助弹窗版式：左目录 + 右正文 ---------- */
+.help-2col { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 14px; }
+.help-toc { border-right: 1px solid var(--qm-line-soft); padding-right: 10px; }
+.help-toc a {
+  display: block; font-size: var(--qm-fs-md); padding: 4px 7px; border-radius: var(--qm-r-sm);
+  color: var(--qm-text-dim); text-decoration: none;
+}
+.help-toc a:hover { background: var(--qm-accent-soft); color: var(--qm-accent-ink); }
+.help-doc { max-height: 56vh; overflow: auto; padding-right: 4px; }
+.help-sec { margin-bottom: 16px; }
+.help-sec h4 { margin: 0 0 6px; font-size: var(--qm-fs-lg); color: var(--qm-accent-ink); }
+.help-sec ul, .help-sec ol { margin: 0; padding-left: 18px; }
+.help-sec li { font-size: var(--qm-fs-md); color: var(--qm-text-dim); line-height: 1.8; }
+.help-sec li b { color: var(--qm-text); }
+.help-sec .help-table { width: 100%; border-collapse: collapse; font-size: var(--qm-fs-md); }
+.help-sec .help-table th {
+  text-align: left; font-weight: 400; color: var(--qm-text-dim);
+  padding: 4px 8px 4px 0; white-space: nowrap; vertical-align: top;
+}
+.help-sec .help-table td { color: var(--qm-text); padding: 4px 0; }
+/* 快捷键表（kind: 'kbd'）：与帮助页卡片版同构，弹窗内边距更紧以省纵向空间 */
+.help-sec .help-kbd { width: 100%; border-collapse: collapse; font-size: var(--qm-fs-md); }
+.help-sec .help-kbd th {
+  text-align: left; font-weight: 400; vertical-align: top;
+  white-space: nowrap; width: 1%; padding: 3px 12px 3px 0;
+}
+.help-sec .help-kbd td { color: var(--qm-text-dim); vertical-align: top; padding: 3px 0; }
+.help-sec .help-kbd tr + tr th, .help-sec .help-kbd tr + tr td { border-top: 1px solid var(--qm-line-soft); }
+.help-sec .help-kbd kbd {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--qm-fs-xs); line-height: 1.6; padding: 1px 6px;
+  color: var(--qm-text);
+  background: var(--qm-surface-2);
+  border: 1px solid var(--qm-line);
+  border-radius: var(--qm-r-sm);
+  box-shadow: var(--qm-inset);
+  white-space: nowrap;
+}
+.help-sec .help-kbd-or { margin: 0 5px; font-size: var(--qm-fs-xs); color: var(--qm-text-dim); }
+.help-sec .help-kbd-note { margin: 8px 0 0; font-size: var(--qm-fs-sm); line-height: 1.7; color: var(--qm-text-dim); }
+.help-sec .help-about-note { margin: 8px 0 0; font-size: var(--qm-fs-sm); line-height: 1.7; color: var(--qm-text-dim); }
+@media (max-width: 640px) {
+  .help-2col { grid-template-columns: minmax(0, 1fr); }
+  .help-toc {
+    border-right: 0; border-bottom: 1px solid var(--qm-line-soft);
+    padding: 0 0 8px; display: flex; flex-wrap: wrap; gap: 4px;
+  }
+}
+
+/* ---------- 5. 支持弹窗：赞赏码居中 ---------- */
+.sup-qr { margin: 0 auto; width: min(300px, 100%); border: 0; background: transparent; overflow: visible; }
+.sup-qr-img {
+  display: block; width: 100%; height: auto; aspect-ratio: 1; object-fit: cover;
+  border: 1px solid var(--qm-line); border-radius: var(--qm-r-md);
+  background: var(--qm-surface-2);
+  box-shadow: 0 2px 8px var(--qm-shadow-dark);
+}
+.sup-note {
+  margin: 0; padding: 0 4px; text-align: center;
+  font-size: var(--qm-fs-md); line-height: 1.9; letter-spacing: .2px;
+  color: var(--qm-accent-ink);
+}
+
+/* ---------- 6. 皮肤色块网格（popover 内容 · 卡片本身就是配色缩影） ---------- */
+#popSkin { width: 344px; max-height: 420px; overflow: auto; }
+.sw-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sw-card {
+  appearance: none; cursor: pointer; font: inherit; text-align: left;
+  position: relative; padding: 0; overflow: hidden;
+  border: 1px solid var(--qm-line); border-radius: var(--qm-r-md);
+  background: var(--qm-surface);
+  box-shadow: 0 1px 2px var(--qm-shadow-dark);
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+.sw-card:hover { border-color: var(--qm-accent); transform: translateY(-1px); box-shadow: 0 3px 7px var(--qm-shadow-dark); }
+.sw-card:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: 1px; }
+/* 三色条：底色 44% / 面板色 32% / 强调色 24% —— 权重贴近真实用色比例。
+   高度 14px：344px 的 popover 三列布局下单卡约 104px，14px 仍能分辨三色比例，
+   同时把 15 款的总高压到一屏基本放得下。 */
+.sw-card .sw { display: flex; height: 14px; }
+.sw-card .sw i { display: block; }
+.sw-card .sw i:nth-child(1) { flex: 44 1 0; }
+.sw-card .sw i:nth-child(2) { flex: 32 1 0; }
+.sw-card .sw i:nth-child(3) { flex: 24 1 0; }
+.sw-card .nm {
+  display: block; font-size: var(--qm-fs-xs); line-height: 1.4; padding: 5px 7px 6px;
+  color: var(--qm-text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border-top: 1px solid var(--qm-line-soft);
+}
+.sw-card[aria-pressed="true"] { border-color: var(--qm-accent); box-shadow: 0 0 0 1px var(--qm-accent), 0 2px 6px var(--qm-shadow-dark); }
+.sw-card[aria-pressed="true"] .nm { color: var(--qm-accent-ink); font-weight: 700; }
+/* 选中角标：小圆 + 勾 —— 比「整卡描边」视觉噪声更小 */
+.sw-card[aria-pressed="true"]::after {
+  content: '\2713'; position: absolute; top: 2px; right: 2px;
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--qm-accent); color: var(--qm-on-accent);
+  font-size: var(--qm-fs-3xs); line-height: 13px; text-align: center; font-weight: 700;
+  box-shadow: 0 1px 2px var(--qm-shadow-dark);
+}
+
+/* ---------- 7. 窄窗顶栏：低频项折入「更多 ⋮」 ---------- */
+#btnMore { display: none; }
+@media (max-width: 920px) {
+  .tb-actions #btnSupport, .tb-actions #btnHelp { display: none; }
+  #btnMore { display: inline-flex; }
+  .tb-status #chipSave { display: none; }   /* 保存状态让位，窄窗优先保证操作区 */
+  #topbar { gap: 6px; }
+  /* V0.0.53：这里原有两条 —— `.chip-btn .btn-txt { display:none }`（服务 chip 收成圆点）
+     与 `.chip-btn { padding: 2px 6px }` —— 已删除：宽窗下服务 chip 现在**本来就是**圆圈
+     （无文字 + padding: 0），窄窗无须再「收」一次。
+     性质是「把早已跑通的窄窗形态提升为常态」，不是新写规则。 */
+}
+
+/* ---------- 8. 自绘悬停提示（V0.0.51@r4 · UI 改版第 7 条） ----------
+   配色取「皮肤正文色作底、页面底色作字」的反转对：浅色皮肤下是深底浅字，
+   深色皮肤下自动变浅底深字 —— 16 款皮肤实测对比度 10.63:1 ~ 16.65:1
+   （正文门槛 4.5:1），故零新增色值即可在两种明暗取向下都读得清，
+   不会像固定深底那样糊进深色皮肤的背景。
+   浮层不可命中（pointer-events:none），避免它挡住它自己要说明的按钮。 */
+.qm-tip {
+  position: fixed; left: 0; top: 0; z-index: 1600;
+  /* width:max-content 是必需的，不是装饰：fixed 元素若宽度自动，其可用宽度会被
+     「left 到视口右缘」挤掉 —— 宿主越靠右，提示越被压扁、折成数行（行为探针 t4 抓到）。
+     显式 max-content 后宽度只由内容与 max-width 决定，夹取再交给脚本。 */
+  width: max-content; max-width: 264px;
+  padding: 7px 11px; border-radius: 8px;
+  background: var(--qm-text); color: var(--qm-bg);
+  font-size: var(--qm-fs-md); line-height: 1.5; letter-spacing: .01em;
+  text-align: left; white-space: normal; overflow-wrap: anywhere;
+  box-shadow: 0 6px 18px var(--qm-shadow-dark), 0 2px 5px var(--qm-shadow-dark);
+  pointer-events: none;
+  opacity: 0; visibility: hidden;
+  transform: translate(-50%, 0) scale(.97);
+  transition: opacity .12s ease, transform .12s ease;
+}
+.qm-tip.is-on { opacity: 1; visibility: visible; transform: translate(-50%, 0) scale(1); }
+/* 小三角：方向随「浮层落在宿主下方还是上方」翻转 */
+.qm-tip::after {
+  content: ''; position: absolute; left: 50%; width: 8px; height: 8px;
+  background: inherit; transform: translateX(-50%) rotate(45deg);
+}
+.qm-tip.is-below::after { top: -4px; }
+.qm-tip:not(.is-below)::after { bottom: -4px; }
+
+
+</style>
+<!-- ↓ 原样内联自 src/web/css/soft.css（13261 B, sha256:546b80df21dd5c9b）—— 预览页必须自包含：
+     预览面板把单个 HTML 复制到静态目录后单独托管，任何相对路径都会 404（本次就因 ../src/web/css 全 404 而白屏）。 -->
+<style data-src="src/web/css/soft.css">
+/* 青蔓 QingMan · 软光设计层（Soft UI / Neomorphism）—— **基础层，默认生效**
+ * ---------------------------------------------------------------------------
+ * 来源：设计稿 prototype.html 的 `<style id="qmSoftSkin">`，2026-10-13/14 定稿并入。
+ *
+ * 定位（V0.0.45 起）—— 本层是**唯一的设计语言**（即用户裁定的「新默认」），不再是
+ *   一个可选的皮肤层。配色一律来自 tokens.css 的 :root 与 15 款皮肤；本层只统一「语法」：
+ *     ① 光源固定左上、两侧镜像对称；② 模糊 = 位移 × 2。
+ *   15 款皮肤**只提供配色与影色**，形态（位移 / 模糊 / 内陷 / 外凸）由本层唯一提供 ——
+ *   即「UI 设计风格统一，切换皮肤仅是切换配色」。皮肤中原本各自复制的形态表达式
+ *   （--qm-shadow-raise / --qm-inset）实测 15 份**取值完全一致**（纯冗余），已全部剥离，
+ *   其唯一来源上移到 tokens.css（引用皮肤影色变量，故仍随皮肤明暗自动适配）。
+ *
+ * 挂载（V0.0.45 变更）—— **无属性开关，直接生效**。
+ *   旧版靠 `<html data-soft>` 属性 + 本文件全部规则带 `html[data-soft]` 前缀，属「可整块
+ *   摘除的独立层」。现正式化为基础层：三页 `<html>` 上的 data-soft 已删除；选择器统一写
+ *   `html X`（**保留 html 元素选择器是刻意的** —— 它给本层 +1 元素级特异性，使去属性后
+ *   仍能压住 base / layout 中的同名**常态**规则）。
+ *   ⚠ 去属性会让本层特异性**整体降一档**（`html[data-soft] .x` (0,2,1) → `html .x` (0,1,1)），
+ *     故凡「其它文件里**带伪类**的高特异性规则」都可能反超本层。已用无头探针
+ *     （564 元素 × 静态 + hover/active/focus 三交互态，:hover 经「重写为等价类 + 全域施加」
+ *      逼出）**定位到且仅有**两处，均已在本文件显式修补：
+ *       ① `.tpl-item:hover`（layout.css）→ 见第 7 节的压制规则；
+ *       ② `input / select:focus`（base.css）→ 见第 9 节的显式描边规则。
+ *     改本层的选择器形态或样式表加载顺序时，务必重跑那套探针（方法见《错误笔记》第 67 条）。
+ *
+ * 变量 —— --qm-soft-dark / --qm-raise / --qm-raise-hi / --qm-sink / --qm-tap /
+ *         --qm-tap-hi / --qm-tap-in / --qm-scrim，以及 V0.0.45 新增的形态语法变量
+ *         （--qm-card-edge / --qm-topbar-shadow / --qm-layer-shadow / --qm-pop-shadow /
+ *          --qm-qr-shadow / --qm-btn-edge）均定义在 tokens.css 的 :root。
+ *
+ * 三条硬化规则（来自实测教训，不是审美偏好）：
+ *   ① 有底才有影 —— 透明底元素配 box-shadow 会投出一个方形影框。
+ *   ② 父子不能都浮起 —— 父层浅底+柔光、子按钮再浮起，两层影会叠成一圈白晕。
+ *   ③ 小控件的光影必须比大区块短 —— 偏移 2–4px、模糊 5–10px。
+ *
+ * ⚠ 本节选择器对应元素的实现状态（2026-10-14 实测，扫 `src/web/**` 的 `.html` + `.js`；
+ *    **2026-10-17 复核更新**，见 `.tpl-more` 一行）：
+ *   · **已实现、规则已命中**：
+ *       `.icon-btn` / `.tb-status`  —— 顶栏图标钮与状态组（V0.0.40）
+ *       `.layer.*`                  —— 应用内弹层 / 浮层（V0.0.40，`ui/layer.js`）
+ *       `.sup-qr-img`               —— 支持页赞赏码
+ *       `.tpl-badge`                —— 模板行格式徽标（`templates.js` 动态创建，非静态 HTML）
+ *       `.tpl-more`                 —— 模板行行尾 ⋮（V0.0.51@r11 装回；`templates.js`
+ *                                      动态创建）。⚠ 原记「⋮ 已于 V0.0.38 随右键菜单改造
+ *                                      移除、下方规则已成死码」系**史实错误**，据实更正：
+ *                                      V0.0.38 移除的是 `.tpl-ops` **文字**按钮，而 ⋮
+ *                                      **从未装过**（`git log --all -S "tpl-more"` 在
+ *                                      `src/web/js/` 命中 0）—— 故本节这两条规则自
+ *                                      V0.0.40 起一直是**无消费者的死码**，装回 ⋮ 后**当场生效**
+ *   · **未实现、规则暂不命中**：
+ *       `.ob-group`                 —— v4–v7 设计提案的按钮组，主界面未落地
+ */
+
+/* ---------- 1. 板块：三栏 / 顶栏 —— 结构线保留，投影换成柔性 ---------- */
+html #sidebar,
+html #center,
+html #inspector {
+  background: var(--qm-surface);
+  border-color: var(--qm-line);
+  box-shadow: var(--qm-raise), var(--qm-card-edge);
+}
+html #topbar {
+  background: var(--qm-surface);
+  border-bottom-color: transparent;
+  box-shadow: var(--qm-topbar-shadow);
+}
+html #statusBar { box-shadow: none; }
+html .opband { border-bottom-color: var(--qm-line-soft); }
+
+/* ---------- 2. 通用按钮：柔性凸起（全站统一语言） ---------- */
+html .btn {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-tap);
+}
+html .btn:hover:not(:disabled) { box-shadow: var(--qm-tap-hi); }
+html .btn:active:not(:disabled) { box-shadow: var(--qm-tap-in); }
+html .btn:disabled {
+  background: transparent; border-color: transparent; box-shadow: none;
+}
+
+/* ---------- 3. 图标钮族：浅底 + 淡边 + 短程柔光 ----------
+   ⚠ `:not(.tpl-more)` 必须要有：左栏模板行右端的 ⋮ 类名正是
+     `.btn.btn-ghost.btn-mini.btn-ic`，不加排除会被本组规则退回「外挂描边方块」。 */
+html .icon-btn,
+html .btn.btn-ghost.btn-ic:not(.tpl-more),
+html .btn.btn-ghost.btn-mini.btn-ic:not(.tpl-more) {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-tap);
+}
+html .icon-btn:hover:not(:disabled),
+html .btn.btn-ghost.btn-ic:not(.tpl-more):hover:not(:disabled),
+html .btn.btn-ghost.btn-mini.btn-ic:not(.tpl-more):hover:not(:disabled) {
+  box-shadow: var(--qm-tap-hi);
+}
+html .icon-btn:active:not(:disabled),
+html .btn.btn-ghost.btn-ic:not(.tpl-more):active:not(:disabled),
+html .btn.btn-ghost.btn-mini.btn-ic:not(.tpl-more):active:not(:disabled) {
+  box-shadow: var(--qm-tap-in);
+}
+html .icon-btn[aria-expanded="true"] {
+  background: var(--qm-accent-soft); color: var(--qm-accent-ink);
+  border-color: transparent; box-shadow: var(--qm-tap-in);
+}
+
+/* ---------- 4. 顶栏状态组：被动槽凹陷，组内可点 chip 反向凸起 ---------- */
+html .tb-status {
+  background: var(--qm-bg);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-sink);
+}
+html .tb-status .chip-btn {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-tap);
+}
+
+/* ---------- 5. 主操作「一键生成」：父层完全退场，主色块一次性塑形 ----------
+   （旧结构 = 父层浅底 + 大柔光 ⇒ 子块再浮起 ⇒ 两层影叠成一圈白晕） */
+html .ob-group.ob-gen {
+  background: transparent; border: 0; border-radius: 0; padding: 0; box-shadow: none;
+}
+html .ob-group.ob-gen .btn-ic { width: 38px; height: 36px; padding: 0; }   /* V0.0.51：随 .btn-ic 同批 34×32→38×36，保持「主操作更大」层级 */
+html .btn.btn-primary {
+  /* v14：底色交回 --qm-btn-bg（各皮肤自带主色，已按 WCAG 配 --qm-on-accent），
+     不再写死黄色渐变 —— 否则切任何皮肤它都是黄块，等于「切了没反应」。
+     立体感由「对称柔光 + 顶部内高光」承担，不依赖渐变。 */
+  background: var(--qm-btn-bg);
+  border-color: var(--qm-btn-bg);
+  color: var(--qm-on-accent);
+  border-radius: var(--qm-r-sm);
+  /* V0.0.45：位移 / 模糊收敛到语法变量（--qm-tap / --qm-tap-hi / --qm-sink），
+     与本文件其它按钮同源 —— 「形态」只有一处出口，改一处全站生效。 */
+  box-shadow: var(--qm-tap), var(--qm-btn-edge);
+}
+html .btn.btn-primary:hover:not(:disabled) {
+  background: var(--qm-btn-bg-hi);
+  border-color: var(--qm-btn-bg-hi);
+  box-shadow: var(--qm-tap-hi), var(--qm-btn-edge);
+}
+html .btn.btn-primary:active:not(:disabled) {
+  box-shadow: var(--qm-sink);
+}
+
+/* ---------- 6. 操作带分组：凹陷胶囊（分段控件语言） ---------- */
+html .ob-group {
+  background: transparent; border: 0;
+  box-shadow: var(--qm-sink);
+}
+html .ob-group.ob-edit { box-shadow: none; }
+html .obband-sep { background: var(--qm-line-soft); }
+
+/* ---------- 7. 左栏模板行（卡片已上移到 .tpl-row） ---------- */
+html .tpl-row {
+  background: var(--qm-surface);
+  border-color: var(--qm-line-soft);
+  box-shadow: var(--qm-tap);
+}
+html .tpl-row:hover { box-shadow: var(--qm-tap-hi); }
+html .tpl-row.is-active,
+html .tpl-row.is-checked {
+  background: var(--qm-accent-soft); border-color: var(--qm-accent);
+  box-shadow: var(--qm-tap-hi);
+}
+html .tpl-item { background: transparent; border-color: transparent; box-shadow: none; }
+html .tpl-row .tpl-item:active { box-shadow: var(--qm-tap-in); }
+/* V0.0.45「去属性 · 转基础层」的**实测补丁**：去掉 [data-soft] 后本节特异性由
+   (0,2,1) 降到 (0,1,1)，于是 layout.css 的 `.tpl-item:hover` (0,2,0) **反超** ——
+   无头实测表现为「hover 时旧设计的灰底高亮 + 强调描边泄漏」（34 处，**仅交互态**）。
+   soft 体系里模板行卡片由 `.tpl-row` 承担、行内容恒透明；且 hover 若也用 accent-soft
+   会与「选中态」(`.tpl-row.is-active`) 视觉混淆。故显式压制（(0,3,1) > (0,2,0)）。 */
+html .tpl-row .tpl-item:hover { background: transparent; border-color: transparent; }
+/* ⋮ 的**透明复位** —— 两处都得挡：本组 `:not(.tpl-more)` 排除不了第 2 节的
+   通用 `.btn` 规则（⋮ 本身是 `.btn.btn-ghost.btn-mini.btn-ic`），故此处再给一条
+   (0,3,1) 的复位，高于 `.btn` 的 (0,2,1)。
+   ⚠ 形态取**我方按钮族**（`.btn-mini.btn-ic` ⇒ 27×27、圆角 `--qm-r-sm` = 12px 的
+   **方块**），**不是**设计稿 v7.1 的 22×22 圆形 —— 本批（V0.0.51@r11）采纳的是
+   「丙-1」：与既有图标钮同形，不为此单独引入一套外观。半透明常驻与点亮见
+   `layout.css` 的 `.tpl-row` 节（那是**交互态**，不属本层的柔光职责）。 */
+html .tpl-row .tpl-more {
+  background: transparent; border-color: transparent; box-shadow: none;
+}
+html .tpl-row .tpl-more:hover:not(:disabled) {
+  background: var(--qm-surface-2); border-color: transparent; box-shadow: var(--qm-tap);
+}
+html .tpl-row .tpl-badge { background: var(--qm-surface-2); border-color: transparent; }
+
+/* ---------- 8. 目录树 ---------- */
+html .tree-row:hover { background: transparent; box-shadow: var(--qm-tap-in); }
+/* 选中态 = 强调底色（识别度）+ 向外凸起（触感）+ 强调描边（钉边界）。
+   实测：纯凸起在 ~24px 真实行高下光影铺不开、几乎看不出选中；纯内陷方向与
+   参考图相反（参考图里所有「激活」都是凸的）。 */
+html .tree-row.is-selected {
+  background: var(--qm-accent-soft); color: var(--qm-accent-ink);
+  border-color: var(--qm-accent); border-radius: 10px;
+  box-shadow: var(--qm-tap);
+}
+
+/* ---------- 9. 表单 / 文本域 ---------- */
+html input[type="text"],
+html select,
+html .prop-input {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line);
+  box-shadow: var(--qm-tap-in);
+}
+/* V0.0.45：输入类的 focus 描边**显式声明**，不再依赖 layout.css 的 `:focus` 反超 ——
+   去属性后那层反超不再发生，若不显式写会退回「focus 无色变」（实测 A/B 各 4 处差异）。
+   取色与下方 `.prop-note:focus` 一致（--qm-accent），符合 soft 的既有意图。 */
+html input[type="text"]:focus,
+html select:focus,
+html .prop-input:focus { border-color: var(--qm-accent); }
+html .prop-note {
+  background: var(--qm-surface-2);
+  border-color: var(--qm-line);
+  box-shadow: var(--qm-tap-in);
+}
+html .prop-note:focus { box-shadow: none; border-color: var(--qm-accent); }
+
+/* ---------- 10. 浮层：暗影 + 外圈 ring ----------
+   浮层不套白高光柔光 —— 实测：弱白高光就把弹窗左缘梯度从 84.8 打到 42.9，
+   完整对称双影只剩 20.0（并在遮罩上留 +68.9 外亮晕）。白高光属于「内嵌元素」的
+   语言（按钮/卡片），浮层与背景是**不同材质的分离关系**，靠暗影 + 描边区分。
+   影色引用皮肤 --qm-shadow-dark 并**叠层**以累积浓度（浅色皮肤 α.15 ×3 ≈ .386；
+   深色皮肤 α.62 ×3 ≈ .945）；ring 用皮肤描边色 --qm-line（深色皮肤下为白 α.14）。 */
+html #scrim { background: var(--qm-scrim); }
+html .layer.modal {
+  box-shadow: var(--qm-layer-shadow);
+}
+html .layer.popover,
+html #ctxMenu {
+  box-shadow: var(--qm-pop-shadow);
+}
+html .sup-qr-img { box-shadow: var(--qm-qr-shadow); }
+html .toast {
+  box-shadow: var(--qm-pop-shadow);
+}
+
+/* ---------- 11. 皮肤色块 ----------
+   皮肤色块**刻意不在此处写样式**：verify.py §P0-3 L5 规定组件 CSS 不得出现
+   `.skin-` 前缀的选择器（换肤只靠覆盖变量），故其外观由色块自身与其容器承担。 */
+
+</style>
 <style>
 /* ── 本页自用：16 款皮肤的真实变量，按 class 作用域注入（不改 :root，故可同页并列） ── */
 .sk-s01 {
@@ -451,88 +1990,90 @@ th { background: var(--qm-surface-2); font-weight: 600; }
       手册 §十三 #6 里那句「浅色 11 款未动」是 <b>V0.0.46 前的取值快照</b>，不是现状 —— 属文档陈旧，不是设计缺陷。
     </div>
     <p>16 张卡：左半 <span class="mono">--qm-surface</span>、右半 <span class="mono">--qm-surface-2</span>；
-    下方一颗真实 <span class="mono">.btn</span> 与一条真实 <span class="mono">.tpl-item</span>，
-    看这点落差在真实组件上是否**看得出来**（看得出来＝分工成立；看不出来＝这参数在浪费）。</p>
+    下方放一颗真实 <span class="mono">.btn</span> 与一枚真实 <span class="mono">.tpl-badge</span> ——
+    <b>这两个才是 <span class="mono">--qm-surface-2</span> 的真实消费者</b>，落差在它们身上看不看得见，才算数。<br>
+    ⚠ 模板行本体（<span class="mono">.tpl-item</span>）在软光层里是<b>透明无填充</b>
+    （<span class="mono">soft.css</span> L166），拿它根本看不出这个参数 —— 本页首版曾错用它当判据，已改。</p>
     <div class="grid">
       <figure class="skin-card sk-s01">
         <div class="skin-swatch"><i style="background:#fff5f8"></i><i style="background:#fff2f6"></i></div>
         <figcaption><b>奶白·樱粉</b><span class="mono">S01 · ΔL* -0.78</span></figcaption>
-        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-row"><span class="tpl-badge">MD</span><span class="tpl-name">模板行徽标</span></div></div>
       </figure>
       <figure class="skin-card sk-s02">
         <div class="skin-swatch"><i style="background:#faf6e9"></i><i style="background:#f6f4e6"></i></div>
         <figcaption><b>米白·松绿</b><span class="mono">S02 · ΔL* -0.87</span></figcaption>
-        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-row"><span class="tpl-badge">MD</span><span class="tpl-name">模板行徽标</span></div></div>
       </figure>
       <figure class="skin-card sk-s03">
         <div class="skin-swatch"><i style="background:#313d51"></i><i style="background:#334052"></i></div>
         <figcaption><b>柔暗·冰蓝</b><span class="mono">S03 · ΔL* +1.16</span></figcaption>
-        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-row"><span class="tpl-badge">MD</span><span class="tpl-name">模板行徽标</span></div></div>
       </figure>
       <figure class="skin-card sk-s04">
         <div class="skin-swatch"><i style="background:#fff7ee"></i><i style="background:#fff5ea"></i></div>
         <figcaption><b>暖白·暖橙</b><span class="mono">S04 · ΔL* -0.59</span></figcaption>
-        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-row"><span class="tpl-badge">MD</span><span class="tpl-name">模板行徽标</span></div></div>
       </figure>
       <figure class="skin-card sk-s05">
         <div class="skin-swatch"><i style="background:#fff8e5"></i><i style="background:#fff7e1"></i></div>
         <figcaption><b>奶黄·暖白</b><span class="mono">S05 · ΔL* -0.34</span></figcaption>
-        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-row"><span class="tpl-badge">MD</span><span class="tpl-name">模板行徽标</span></div></div>
       </figure>
       <figure class="skin-card sk-s06">
         <div class="skin-swatch"><i style="background:#ffffff"></i><i style="background:#fcfcfc"></i></div>
         <figcaption><b>月光序章·钢笔灰</b><span class="mono">S06 · ΔL* -1.04</span></figcaption>
-        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-row"><span class="tpl-badge">MD</span><span class="tpl-name">模板行徽标</span></div></div>
       </figure>
       <figure class="skin-card sk-s07">
         <div class="skin-swatch"><i style="background:#293b55"></i><i style="background:#2e3d53"></i></div>
         <figcaption><b>夜空墨蓝</b><span class="mono">S07 · ΔL* +0.89</span></figcaption>
-        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-row"><span class="tpl-badge">MD</span><span class="tpl-name">模板行徽标</span></div></div>
       </figure>
       <figure class="skin-card sk-s08">
         <div class="skin-swatch"><i style="background:#e4eef7"></i><i style="background:#dfebf6"></i></div>
         <figcaption><b>冬日暖阳</b><span class="mono">S08 · ΔL* -1.14</span></figcaption>
-        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-row"><span class="tpl-badge">MD</span><span class="tpl-name">模板行徽标</span></div></div>
       </figure>
       <figure class="skin-card sk-s09">
         <div class="skin-swatch"><i style="background:#eaecf8"></i><i style="background:#e5e9f7"></i></div>
         <figcaption><b>初雪</b><span class="mono">S09 · ΔL* -1.14</span></figcaption>
-        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-row"><span class="tpl-badge">MD</span><span class="tpl-name">模板行徽标</span></div></div>
       </figure>
       <figure class="skin-card sk-s10">
         <div class="skin-swatch"><i style="background:#e5f6fa"></i><i style="background:#e1f4f8"></i></div>
         <figcaption><b>白月光</b><span class="mono">S10 · ΔL* -0.83</span></figcaption>
-        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-row"><span class="tpl-badge">MD</span><span class="tpl-name">模板行徽标</span></div></div>
       </figure>
       <figure class="skin-card sk-s11">
         <div class="skin-swatch"><i style="background:#f0e6d5"></i><i style="background:#eee4d2"></i></div>
         <figcaption><b>旧书纸棕</b><span class="mono">S11 · ΔL* -0.73</span></figcaption>
-        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-row"><span class="tpl-badge">MD</span><span class="tpl-name">模板行徽标</span></div></div>
       </figure>
       <figure class="skin-card sk-s12">
         <div class="skin-swatch"><i style="background:#282828"></i><i style="background:#2a2a2a"></i></div>
         <figcaption><b>月岩写意</b><span class="mono">S12 · ΔL* +0.95</span></figcaption>
-        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-row"><span class="tpl-badge">MD</span><span class="tpl-name">模板行徽标</span></div></div>
       </figure>
       <figure class="skin-card sk-s13">
         <div class="skin-swatch"><i style="background:#eff0f2"></i><i style="background:#ebedf2"></i></div>
         <figcaption><b>苹果银·蓝</b><span class="mono">S13 · ΔL* -1.04</span></figcaption>
-        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-row"><span class="tpl-badge">MD</span><span class="tpl-name">模板行徽标</span></div></div>
       </figure>
       <figure class="skin-card sk-s14">
         <div class="skin-swatch"><i style="background:#2c2c2c"></i><i style="background:#2e2e2d"></i></div>
         <figcaption><b>黑金·寂海</b><span class="mono">S14 · ΔL* +0.90</span></figcaption>
-        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-row"><span class="tpl-badge">MD</span><span class="tpl-name">模板行徽标</span></div></div>
       </figure>
       <figure class="skin-card sk-s15">
         <div class="skin-swatch"><i style="background:#fff9e3"></i><i style="background:#fbf5e0"></i></div>
         <figcaption><b>奶黄·晨曦</b><span class="mono">S15 · ΔL* -1.37</span></figcaption>
-        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-row"><span class="tpl-badge">MD</span><span class="tpl-name">模板行徽标</span></div></div>
       </figure>
       <figure class="skin-card sk-s16">
         <div class="skin-swatch"><i style="background:#edece7"></i><i style="background:#eae9e3"></i></div>
         <figcaption><b>暖灰·琥珀</b><span class="mono">S16 · ΔL* -1.08</span></figcaption>
-        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-item"><span class="tpl-name">示例模板</span></div></div>
+        <div class="skin-demo"><button class="btn" type="button">按钮</button><div class="tpl-row"><span class="tpl-badge">MD</span><span class="tpl-name">模板行徽标</span></div></div>
       </figure>
     </div>
   </section>
@@ -606,7 +2147,7 @@ th { background: var(--qm-surface-2); font-weight: 600; }
     </div>
     <p class="note">取舍提示：<b>22px 低于常见触控目标下限（约 24px）</b>。本项目环境明确为
     「Windows 11 + 鼠标键盘」（§P0-2 环境约束，触屏不做），鼠标下 22px 可用；
-    但 ⋮ 是模板行**唯一**的操作入口（右键菜单的另一入口要用户先想到右键），点按目标别做得太小更稳。<br>
+    但 ⋮ 是模板行<b>唯一</b>的操作入口（右键菜单的另一入口要用户先想到右键），点按目标别做得太小更稳。<br>
     B / C 的尺寸是<b>内联样式</b>写在这页的两个按钮上，只影响本页展示，产品样式表未动。</p>
   </section>
 
@@ -627,7 +2168,7 @@ th { background: var(--qm-surface-2); font-weight: 600; }
     <p class="note">
       1. 浏览器打开，<b>100% 缩放</b>，窗口别太窄（窄了布局会折行，尺寸判断失真）。<br>
       2. 只回答两句：<b>② 选 A / B / C</b>、<b>③ 选 A / B / C</b>。<br>
-      3. 第 1 节不用选；除非你认为「次级比面板**略暗**」这个方向本身不对 —— 那属改契约（<span class="mono">skins/README.md</span> + 7d-8），另立项。<br>
+      3. 第 1 节不用选；除非你认为「次级比面板<b>略暗</b>」这个方向本身不对 —— 那属改契约（<span class="mono">skins/README.md</span> + 7d-8），另立项。<br>
       4. 你选定后我执行：改样式 → 四件套 → 截图自查 → 按 M9 判定升版 → 同步守卫口径。
     </p>
   </section>
