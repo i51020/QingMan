@@ -79,6 +79,56 @@ def budget(root: Path = ROOT, src_limit: int = SRC_LIMIT,
     return rows
 
 
+def budget_alert(remaining: int, limit: int) -> str:
+    """预算余量的预警级别：`ok` / `warn`（<5%）/ `crit`（<2%）。
+
+    为什么要分级：只在「越线」时才报错，等于**永远在最后一刻才发现** —— 本仓已经历过一次
+    「余 1,081 B 时被迫现场压注释」。预警线让「还能不能再加一个功能」在动手前就有答案。
+    """
+    if limit <= 0:
+        return "ok"
+    ratio = remaining / limit
+    if ratio < 0.02:
+        return "crit"
+    if ratio < 0.05:
+        return "warn"
+    return "ok"
+
+
+def budget_detail(root: Path = ROOT) -> "list[str]":
+    """预算明细：总量、Top 文件、按类别占比、注释占比。
+
+    它回答的不是「还剩多少」，而是「**下一次该从哪里省**」—— 没有明细时，
+    人只会想到"删注释"，而注释恰恰是本项目最贵的资产（每条都记着为什么）。
+    """
+    src = root / "src"
+    files = [p for p in src.rglob("*") if p.is_file() and "__pycache__" not in str(p)]
+    total = sum(p.stat().st_size for p in files)
+    rows = [f"总量 {total:,} B / {SRC_LIMIT:,} B（余 {SRC_LIMIT - total:,}，"
+            f"{(SRC_LIMIT - total) / SRC_LIMIT:.1%}）"]
+    rows.append("Top 文件：")
+    for p in sorted(files, key=lambda x: -x.stat().st_size)[:6]:
+        rows.append(f"  {p.stat().st_size:7,} B  {p.relative_to(src).as_posix()}")
+    by_ext: "dict[str, int]" = {}
+    for p in files:
+        by_ext[p.suffix.lower()] = by_ext.get(p.suffix.lower(), 0) + p.stat().st_size
+    rows.append("按类型：" + "  ".join(f"{k or '(无扩展名)'} {v:,}" for k, v in
+                                     sorted(by_ext.items(), key=lambda kv: -kv[1])[:6]))
+    comment = blank = 0
+    for p in files:
+        if p.suffix.lower() not in (".js", ".css", ".py"):
+            continue
+        for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+            st = line.strip()
+            if not st:
+                blank += len(line.encode("utf-8")) + 1
+            elif st.startswith(("//", "/*", "*", "#")):
+                comment += len(line.encode("utf-8")) + 1
+    rows.append(f"注释行 {comment:,} B（{comment/max(total,1):.1%}）/ 空行 {blank:,} B —— "
+                f"**注释是资产，不是垃圾**：要省先省「历史沿革」类长注释（搬 docs），别省不变式说明")
+    return rows
+
+
 def doc_claims(root: Path = ROOT, version: str = VERSION) -> "list[str]":
     """文档里「V<x> 实测」且版本不是当前的条目（只提示，供人核对）。"""
     hits: "list[str]" = []
@@ -97,6 +147,7 @@ def main(argv: "list[str] | None" = None) -> int:
     ap = argparse.ArgumentParser(description="青蔓交付门禁（一条命令跑全量）")
     ap.add_argument("--quick", action="store_true", help="跳过页面冒烟")
     ap.add_argument("--no-handoff", action="store_true", help="不刷新接续说明实况段")
+    ap.add_argument("--budget", action="store_true", help="打印预算明细（Top 文件 / 类型 / 注释占比）")
     ap.add_argument("--doc-claims", action="store_true",
                     help="扫描文档里与当前版本不符的「V<x> 实测」断言（默认关：历史记录会误报）")
     args = ap.parse_args(argv)
@@ -122,8 +173,19 @@ def main(argv: "list[str] | None" = None) -> int:
         print(f"  {'OK  ' if ok else 'FAIL'} {name:8s} {cost:5.1f}s  {detail}")
 
     print("  ── 预算（两条线）──")
-    for label, text in budget():
+    rows = budget()
+    for label, text in rows:
         print(f"     {label:8s} {text}")
+    src_total = int(rows[0][1].split("/")[0].replace(",", "").replace("B", "").strip())
+    level = budget_alert(SRC_LIMIT - src_total, SRC_LIMIT)
+    if level != "ok":
+        mark = "⚠ 预警" if level == "warn" else "⛔ 临界"
+        print(f"     {mark}：src 余量 {(SRC_LIMIT - src_total)/SRC_LIMIT:.1%} —— "
+              f"下一批请先做「减重或迁出内容」，不要再直接加功能")
+    if args.budget:
+        print("  ── 预算明细 ──")
+        for line in budget_detail():
+            print("     " + line)
 
     claims = doc_claims() if args.doc_claims else []
     if claims:

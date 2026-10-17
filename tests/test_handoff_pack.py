@@ -51,6 +51,26 @@ class HandoffPackTests(unittest.TestCase):
             self.assertIn(f"{hp.PREFIX}/发布包清单.json", names)
 
 
+class BudgetAlertTests(unittest.TestCase):
+    """预算预警分级（V0.2.3 起）：余量 <5% 预警、<2% 临界。
+
+    存在的理由：只在「越线」时报错，等于永远在最后一刻才发现 ——
+    本仓真经历过「余 1,081 B 时被迫现场压注释」。分级让"还能不能再加一个功能"提前有答案。
+    """
+
+    def test_levels(self):
+        self.assertEqual(gate.budget_alert(50_000, 655_360), "ok")
+        self.assertEqual(gate.budget_alert(20_000, 655_360), "warn")    # 3.05%
+        self.assertEqual(gate.budget_alert(8_634, 655_360), "crit")     # 1.32%
+
+    def test_boundaries(self):
+        self.assertEqual(gate.budget_alert(int(655_360 * 0.05), 655_360), "ok")   # 恰好 5% 不算预警
+        self.assertEqual(gate.budget_alert(int(655_360 * 0.019), 655_360), "crit")
+
+    def test_zero_limit_is_safe(self):
+        self.assertEqual(gate.budget_alert(100, 0), "ok")
+
+
 class GateTests(unittest.TestCase):
     def test_预算按字节求和并给出余量(self):
         with tempfile.TemporaryDirectory(prefix="qm_gate_") as d:
