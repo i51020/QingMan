@@ -141,7 +141,7 @@ export const dict = {
   'template.unavailable': '模板库不可用：未找到 templates/ 目录',
   'template.empty': '暂无模板',
   'template.stats': '{dirs} 目录 · {files} 文件',
-  'template.loadConfirm': '载入模板「{name}」？当前编辑的目录树将被替换（可用撤销恢复）。',
+  'template.loadConfirm': '载入模板「{name}」（文件 {file}）？当前编辑的目录树将被替换（可用撤销恢复）。',
   'template.loaded': '已载入模板「{name}」',
   'template.noteAdopted': '（说明取自 {file}）',
   'template.loadFailed': '模板载入失败：{message}',
@@ -169,12 +169,12 @@ export const dict = {
   'template.saveFailed': '模板保存失败：{message}',
   'template.rename': '重命名',
   'template.renameTip': '重命名这套模板（改文件名与显示名）',
-  'template.renamePrompt': '把「{name}」重命名为',
+  'template.renamePrompt': '把「{name}」（文件 {file}）重命名为',
   'template.renamed': '已重命名为「{name}」',
   'template.delete': '删除',
   'template.deleteTip': '删除这套模板（移入 templates/.trash，可人工找回）',
-  'template.deleteConfirm': '确认删除模板「{name}」？将移入回收站（templates/.trash）。',
-  'template.deleted': '已删除模板「{name}」',
+  'template.deleteConfirm': '确认删除模板「{name}」（文件 {file}）？将移入回收站（templates/.trash）。',
+  'template.deleted': '已删除模板「{name}」（{file}）',
   'template.opFailed': '模板操作失败：{message}',
 
   /* 模板目录绑定（V0.0.38 · 6E） */
@@ -480,7 +480,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.3.5',
+  'help.versionFallback': 'V0.3.6',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',

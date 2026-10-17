@@ -39,7 +39,10 @@
  *       `.icon-btn` / `.tb-status`  —— 顶栏图标钮与状态组（V0.0.40）
  *       `.layer.*`                  —— 应用内弹层 / 浮层（V0.0.40，`ui/layer.js`）
  *       `.sup-qr-img`               —— 支持页赞赏码
- *       `.tpl-badge`                —— 模板行格式徽标（`templates.js` 动态创建，非静态 HTML）
+ *       `.tpl-badge`                —— 模板行**来源层**徽标（内置 / 用户，`templates.js`
+ *                                      动态创建，非静态 HTML）。⚠ 原记「格式徽标」系史实
+ *                                      偏差，据实更正：格式（json / md）V0.3.6 起归 `.tpl-fmt`
+ *       `.tpl-fmt`                  —— 模板行**文件格式**徽标（V0.3.6，`templates.js` 动态创建）
  *       `.tpl-more`                 —— 模板行行尾 ⋮（V0.0.51@r11 装回；`templates.js`
  *                                      动态创建）。⚠ 原记「⋮ 已于 V0.0.38 随右键菜单改造
  *                                      移除、下方规则已成死码」系**史实错误**，据实更正：
@@ -185,6 +188,9 @@ html .tpl-row .tpl-more:hover:not(:disabled) {
   background: var(--qm-surface-2); border-color: transparent; box-shadow: var(--qm-tap);
 }
 html .tpl-row .tpl-badge { background: var(--qm-surface-2); border-color: transparent; }
+/* V0.3.6 新增：名称右侧的**文件格式**徽标。与 `.tpl-badge` 同族（都是有底无描边的
+   小方块），只改底色/描边以对齐柔光风格 —— 否则同一行两个徽标一个浮一个平，很扎眼。 */
+html .tpl-row .tpl-fmt { background: var(--qm-surface-2); border-color: transparent; }
 
 /* ---------- 8. 目录树 ---------- */
 html .tree-row:hover { background: transparent; box-shadow: var(--qm-tap-in); }

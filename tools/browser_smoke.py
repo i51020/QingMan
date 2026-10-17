@@ -365,6 +365,13 @@ frame('./index.html', function (doc) {
     }());
     m.tplDirBtns = doc
       ? doc.querySelectorAll('#btnPickDir, #btnRefreshTpl, #btnImportTemplate').length : -1;
+    /* V0.3.6：模板行必须显示**文件格式**。模板包 `.json` + `.md` 双格式并存且显示名
+       完全相同 —— 徽标一旦丢失，列表就退化成「两条一模一样的条目」，用户无法判断
+       该删 / 该载哪一条。读首行的 `.tpl-fmt` 文本即可（空串 = 徽标没渲染）。 */
+    m.tplFmt = (function () {
+      var n = doc ? doc.querySelector(TPL_ROW_SEL + ' .tpl-fmt') : null;
+      return n ? (n.textContent || '') : '';
+    }());
     /* 6E：模板行右键菜单项齐备 —— 在行上派发 contextmenu，读 #ctxMenu 的按钮数 / 文案。
        走真实监听器（li 上的 contextmenu → openTemplateContextMenu → ctx-menu.showAt），
        不做静态断言。 */
@@ -1142,6 +1149,16 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
         check(bind_ok, "主界面·模板目录绑定 UI（V0.0.38）",
               f"行 {dir_row} / 路径 {dir_path!r} / 入口按钮 {dir_btns} 个（应 3）"
               + ("" if bind_ok else "（6E 回归：绑定行或入口按钮缺失）"))
+
+        # V0.3.6：模板行的**文件格式**徽标。同名 `.json` / `.md` 只能靠它区分，
+        # 徽标丢失 = 用户面对两条一模一样的条目（删除/载入都无法判断目标）。
+        # 仅在有模板行时判：`tpl == 0` 已由上一条报出，此处不重复报同一根因。
+        if tpl >= 1:
+            fmt = (metrics.get("tplFmt") or "").strip()
+            fmt_ok = fmt in (".json", ".md")
+            check(fmt_ok, "主界面·模板行显示文件格式（V0.3.6）",
+                  f"格式徽标 {fmt!r}（应为 .json / .md）"
+                  + ("" if fmt_ok else "（V0.3.6 回归：同名 json/md 无法分辨）"))
 
         # V0.0.38 · 6E：模板行右键菜单项齐备。
         # V0.2.0：导出拆成两项（.json / .md）⇒ 5 → **6**；断言同时钉**两种格式都在**，

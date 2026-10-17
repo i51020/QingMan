@@ -463,6 +463,23 @@ async function loadTemplateList({ force = true } = {}) {
     const name = document.createElement('span');
     name.className = 'tpl-name';
     name.textContent = item.name;
+    /* V0.3.6：模板包是 `.json` + `.md` **双格式并存**，同源两套的显示名一模一样，
+     * 列表里会出现两条看不出差别的条目 —— 用户无法判断该删/该载哪一条。
+     * 故把**文件格式**摆到名称右侧（仅此一处能区分）。取扩展名而非写死格式：
+     * 未来若支持别的后缀，这里自动跟上。无扩展名（理论上不会）则不渲染徽标。
+     * 注：`prototype_20261014.html:1254` 的 `.tpl-badge` 本就是 json/md 语义；
+     * 现实现把它用作「内置/用户」层标签，两者都要，故格式另起 `.tpl-fmt`。 */
+    const extMatch = /\.([A-Za-z0-9]+)$/.exec(String(item.file || ''));
+    const nameRow = document.createElement('span');
+    nameRow.className = 'tpl-name-row';
+    nameRow.append(name);
+    if (extMatch) {
+      const fmt = document.createElement('span');
+      fmt.className = 'tpl-fmt';
+      fmt.textContent = `.${extMatch[1].toLowerCase()}`;
+      fmt.title = item.file;            // 悬停给全文件名，含重名时的完整依据
+      nameRow.append(fmt);
+    }
     const meta = document.createElement('span');
     meta.className = 'tpl-meta';
     const badge = document.createElement('span');
@@ -472,7 +489,7 @@ async function loadTemplateList({ force = true } = {}) {
     stats.className = 'tpl-stats';
     stats.textContent = t('template.stats', { dirs: item.dirs, files: item.files });
     meta.append(badge, stats);
-    btn.append(name, meta);
+    btn.append(nameRow, meta);
     btn.addEventListener('click', () => applyTemplate(item));
 
     // V0.0.51@r11：行尾**常驻 ⋮**（恢复可发现性）。两条硬约束：
@@ -721,7 +738,8 @@ function startTemplatePolling() {
 
 /** 重命名模板（V0.0.20）：改文件名 + 文件内 name，服务端拒绝重名。 */
 async function renameTemplateItem(item) {
-  const input = window.prompt(t('template.renamePrompt', { name: item.name }), item.name);
+  /* V0.3.6：改名同样按**文件**生效，同名两份要能分辨，故一并带上文件名。 */
+  const input = window.prompt(t('template.renamePrompt', { name: item.name, file: item.file }), item.name);
   if (input === null) return;
   const next = input.trim();
   if (!next || next === item.name) return;
@@ -736,10 +754,12 @@ async function renameTemplateItem(item) {
 
 /** 删除模板（V0.0.20）：二次确认 → 服务端软删除入 templates/.trash/。 */
 async function deleteTemplateItem(item) {
-  if (!window.confirm(t('template.deleteConfirm', { name: item.name }))) return;
+  /* V0.3.6：确认框必须带**文件名**。同名 `.json` / `.md` 的显示名完全相同，
+   * 只说「确认删除模板「X」」时用户根本不知道删的是哪一份 —— 这正是要修的坑。 */
+  if (!window.confirm(t('template.deleteConfirm', { name: item.name, file: item.file }))) return;
   try {
     await api.deleteTemplate(item.file);
-    toast(t('template.deleted', { name: item.name }), 'ok');
+    toast(t('template.deleted', { name: item.name, file: item.file }), 'ok');
     await loadTemplateList();
   } catch (err) {
     toast(localizeError(err) || t('template.opFailed'), 'warn', 6000);
@@ -747,7 +767,8 @@ async function deleteTemplateItem(item) {
 }
 
 async function applyTemplate(item) {
-  if (!window.confirm(t('template.loadConfirm', { name: item.name }))) return;
+  /* V0.3.6：同上 —— 载入的是**某一份文件**，同名两套内容可能不同，须先分清。 */
+  if (!window.confirm(t('template.loadConfirm', { name: item.name, file: item.file }))) return;
   try {
     const res = await api.loadTemplate(item.file);
     pushHistory();                       // 载入可撤销：与新建/重命名/删除同一套历史栈

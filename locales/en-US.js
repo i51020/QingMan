@@ -128,7 +128,7 @@ export const dict = {
   'template.unavailable': 'Template library unavailable: templates/ not found',
   'template.empty': 'No templates',
   'template.stats': '{dirs} dirs · {files} files',
-  'template.loadConfirm': 'Load template "{name}"? The tree you are editing will be replaced (undoable).',
+  'template.loadConfirm': 'Load template "{name}" (file {file})? The tree you are editing will be replaced (undoable).',
   'template.loaded': 'Loaded template "{name}"',
   'template.noteAdopted': ' (note adopted from {file})',
   'template.loadFailed': 'Failed to load template: {message}',
@@ -156,12 +156,12 @@ export const dict = {
   'template.saveFailed': 'Failed to save template: {message}',
   'template.rename': 'Rename',
   'template.renameTip': 'Rename this template (file name and display name)',
-  'template.renamePrompt': 'Rename "{name}" to',
+  'template.renamePrompt': 'Rename "{name}" (file {file}) to',
   'template.renamed': 'Renamed to "{name}"',
   'template.delete': 'Delete',
   'template.deleteTip': 'Delete this template (moved to templates/.trash, recoverable)',
-  'template.deleteConfirm': 'Delete template "{name}"? It will be moved to the recycle bin (templates/.trash).',
-  'template.deleted': 'Deleted template "{name}"',
+  'template.deleteConfirm': 'Delete template "{name}" (file {file})? It will be moved to the recycle bin (templates/.trash).',
+  'template.deleted': 'Deleted template "{name}" ({file})',
   'template.opFailed': 'Template operation failed: {message}',
 
   /* Template folder binding (V0.0.38 / 6E) */
@@ -472,7 +472,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.3.5',
+  'help.versionFallback': 'V0.3.6',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

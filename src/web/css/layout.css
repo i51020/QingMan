@@ -190,7 +190,22 @@
 .tpl-item:hover { background: var(--qm-accent-soft); border-color: var(--qm-accent); }
 .tpl-item:active { box-shadow: var(--qm-inset); }
 
+/* 名称行（V0.3.6）：模板名 + **文件格式**徽标。模板包是 `.json` + `.md` 双格式并存，
+   同源两套的显示名一模一样 —— 不把格式摆在名称同排，用户就无法判断删/载哪一条。
+   （设计原型 `prototype_20261014.html:1254` 即此形态；本实现另起 `.tpl-fmt` 是因为
+   `.tpl-badge` 已被「内置/用户」层标签占用，两者语义不同、需并存。）
+   `flex-wrap` 兜住超长模板名：宁可徽标掉到第二行，也不让它把按钮撑出可视区。 */
+.tpl-name-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; width: 100%; }
 .tpl-name { font-weight: 600; line-height: 1.3; }
+.tpl-fmt {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  border: 1px solid var(--qm-line-soft);
+  border-radius: var(--qm-r-sm);
+  color: var(--qm-text-dim);
+  font-size: var(--qm-fs-2xs);
+  line-height: 1.6;
+}
 /* 来源层徽标 + 统计同一行（V0.0.38 · 6E） */
 .tpl-meta { display: flex; align-items: center; gap: 6px; }
 .tpl-badge {

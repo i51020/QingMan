@@ -6,11 +6,13 @@
 **不验证判定逻辑本身是否正确**。本文件把「一次性反向验证」变成**常态回归网**。
 
 重点（复刻上一轮反向验证的逻辑，但固化为单测）：
-  * 喂「正常指标」→ 28 项全 PASS（V0.0.38 起含 6E 的绑定 UI / 右键菜单 / 轮询实证；
+  * 喂「正常指标」→ **全部** PASS（项数随版本增长，故此处不写死数字：
+    V0.0.38 起含 6E 的绑定 UI / 右键菜单 / 轮询实证；
     V0.0.40 起含目标位置「选择…」按钮的就位与取词刷新；
     V0.0.41 起含模板「新建」按钮 + 弹窗开合/起点填充的运行时实证；
     V0.0.42 起含根名方案 C 的两条；
     V0.0.43 起含 UI 定版差集 G（工具栏三分组）/ H（检视器属性⇄源码）/ F（多选手势 + 批量删除只作用于最外层祖先）四条）；
+    V0.3.6 起含模板行**文件格式徽标**（`tplFmt`：同名 `.json` / `.md` 的唯一区分手段）；
   * 喂「P1-1 回归指标（分节 7 → 14 → 21）」→ **恰好**「帮助页·分节渲染幂等」一项 FAIL；
   * 喂「P1-2 回归指标（示例含中文名 6 个）」→ **恰好**「主界面·默认示例随语言」一项 FAIL；
   * 喂「C-P3-5 回归指标（非法皮肤名被直接采用）」/「D-P3-2 回归指标（顶栏图标色仍是旧灰）」→ 各恰好一项 FAIL；
@@ -61,6 +63,8 @@ NORMAL = {
     "toastN": str(bs.toast_cap()),
     # V0.0.38 新增：6E（绑定 UI / 右键菜单项 / 轮询实证）
     "tplDirRow": "1", "tplDirPath": "D:/x/templates", "tplDirBtns": "3",
+    # V0.3.6：模板行文件格式徽标（同名 json/md 的唯一区分手段）
+    "tplFmt": ".json",
     # V0.2.0：导出拆成两项 ⇒ 6 项（夹具必须与 browser_smoke 的判据同步，否则基线整体失真）
     "tplMenuN": "6",
     "tplMenu": "Load/Rename/Duplicate/Export as .json/Export as .md/Delete",
@@ -272,10 +276,11 @@ class VerifyMetricsTests(unittest.TestCase):
     def test_normal_all_pass(self):
         results = run_metrics(NORMAL)
         self.assertEqual(failed_names(results), [], "正常指标不应有任何失败项")
-        self.assertEqual(len(results), 32,
-                         "verify_metrics 应产生 32 项判定"
-                         "（24 + V0.0.43 的 G/H/F 四条 + V0.0.51@r11 的 ⋮ 一条"
-                         " + V0.2.2 的「右键菜单可关闭」一条 + V0.2.3 的「提示不抢焦点」一条）")
+        # 项数随版本增长。原注释用「24 + 若干」累加，算术早已对不上实际值 ——
+        # 改为只钉数值 + 维护指引，免得下次改判据时又要在注释里重新凑账。
+        self.assertEqual(len(results), 33,
+                         "verify_metrics 应产生 33 项判定"
+                         "（新增判定须同步本断言与 NORMAL 夹具，否则基线整体失真）")
 
     def test_p1_1_regression_fails_exactly_section_idempotence(self):
         """P1-1 回归：帮助页切语言累积分节（7 → 14 → 21）→ 恰好那项 FAIL。"""
