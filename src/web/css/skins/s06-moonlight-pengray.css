@@ -12,7 +12,10 @@
   --qm-text-dim: #4f545a;
   --qm-accent: #65696f;
   --qm-accent-ink: #4a4e52;
-  --qm-accent-soft: #bfc4c8;
+  /* 2026-10-17：原 #bfc4c8 对 `--qm-text-dim`(#4f545a) 只有 4.35，选中行/悬停行的
+   * 次要文字（模板行的路径、树里的「不建根」）跌破 4.5。调浅两档到 #c8cdd1：
+   * dim 4.77 / ink 5.24 / text 9.15，与页面底色仍差 1.49（选中态仍看得出来）。 */
+  --qm-accent-soft: #c8cdd1;
   --qm-on-accent: #fafaf8;
   --qm-btn-bg: #55595e;
   --qm-btn-bg-hi: #4b4f53;

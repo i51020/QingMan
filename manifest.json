@@ -1,6 +1,6 @@
 {
   "schema": "qm-manifest/1",
-  "version": "V0.3.0",
+  "version": "V0.3.1",
   "builds": [
     {
       "version": "V0.0.53",

@@ -855,11 +855,15 @@
 }
 .sw-card[aria-pressed="true"] { border-color: var(--qm-accent); box-shadow: 0 0 0 1px var(--qm-accent), 0 2px 6px var(--qm-shadow-dark); }
 .sw-card[aria-pressed="true"] .nm { color: var(--qm-accent-ink); font-weight: 700; }
-/* 选中角标：小圆 + 勾 —— 比「整卡描边」视觉噪声更小 */
+/* 选中角标：小圆 + 勾 —— 比「整卡描边」视觉噪声更小。
+ * 底色取 `--qm-btn-bg` 而非 `--qm-accent`（2026-10-17）：白勾压 accent 时，
+ * s03 只有 **2.23**、s12 只有 **2.33**（门禁 3.0，非文本）—— 勾几乎看不见。
+ * `--qm-btn-bg` + `--qm-on-accent` 是各皮肤**专门钳制过**的一组（全部 ≥ 4.5），
+ * 且与主按钮同色系，视觉上仍属强调色。 */
 .sw-card[aria-pressed="true"]::after {
   content: '\2713'; position: absolute; top: 2px; right: 2px;
   width: 13px; height: 13px; border-radius: 50%;
-  background: var(--qm-accent); color: var(--qm-on-accent);
+  background: var(--qm-btn-bg); color: var(--qm-on-accent);
   font-size: var(--qm-fs-3xs); line-height: 13px; text-align: center; font-weight: 700;
   box-shadow: 0 1px 2px var(--qm-shadow-dark);
 }

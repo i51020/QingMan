@@ -1,0 +1,30 @@
+/* 青蔓 QingMan · 皮肤：月光序章·钢笔灰（Moonlight · Pen Gray）
+ * 只覆盖 --qm-* 变量的取值，不新增变量、不写组件选择器（§P0-3 L5）。
+ * 取色沿用参考项目同名皮肤，并按 WCAG AA 对文本类配对做过钳制。 */
+
+:root {
+  --qm-bg: #f7f7f5;
+  --qm-surface: #ffffff;
+  --qm-surface-2: #fcfcfc;
+  --qm-line: rgba(35, 41, 49, 0.16);
+  --qm-line-soft: rgba(35, 41, 49, 0.09);
+  --qm-text: #232931;
+  --qm-text-dim: #4f545a;
+  --qm-accent: #65696f;
+  --qm-accent-ink: #4a4e52;
+  /* 2026-10-17：原 #bfc4c8 对 `--qm-text-dim`(#4f545a) 只有 4.35，选中行/悬停行的
+   * 次要文字（模板行的路径、树里的「不建根」）跌破 4.5。调浅两档到 #c8cdd1：
+   * dim 4.77 / ink 5.24 / text 9.15，与页面底色仍差 1.49（选中态仍看得出来）。 */
+  --qm-accent-soft: #c8cdd1;
+  --qm-on-accent: #fafaf8;
+  --qm-btn-bg: #55595e;
+  --qm-btn-bg-hi: #4b4f53;
+  --qm-danger: #ba3a3a;
+  --qm-danger-soft: #f7e5e5;
+  --qm-warn: #996e17;
+  --qm-edge-hi: rgba(255, 255, 255, 0.62);
+  --qm-edge-lo: rgba(74, 74, 74, 0.12);
+  --qm-shadow-dark: rgba(99, 99, 98, 0.15);
+  --qm-shadow-light: rgba(255, 255, 255, 0.55);
+  --qm-shadow: 0 1px 2px rgba(99, 99, 98, 0.15);
+}
