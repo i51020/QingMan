@@ -2565,9 +2565,11 @@ def main() -> int:
     toast_js = _read("src/web/js/ui/toast.js")
     ui_bad: list[str] = []
     ui_anchors = (
-        ("C-P3-2", tv_js, "isSelfOrDescendant(draggingNode, node.id)",
-         "dragover 未预判「自身 / 自身子孙」（防环规则退化成只挡自身）"),
-        ("C-P3-2", tv_js, "let draggingNode = null;", "缺被拖节点对象缓存"),
+        # V0.0.55：预判改为**委托模型层 `canMove`**（一次覆盖 cycle / exists / notDir /
+        # missing / root 五类）。判据随之从「钉某个防环函数」升级为「钉**委托**这件事」，
+        # 且要求**正向条件**（只有 `=== true` 才放行）—— 比只拦自身/子孙更严，不是放宽。
+        ("C-P3-2", tv_js, "canMove(currentRoot, draggingId, node.id) !== true",
+         "dragover 未委托模型层 canMove 预判落点（只剩「能不能放」的假暗示）"),
         ("C-P3-3", tv_js, "function leftRow(", "缺「指针是否真离开本行」判定"),
         ("C-P3-3", tv_js, "if (leftRow(row, event))", "dragleave 未走离开判定（会再次闪烁）"),
         ("C-P3-4", toast_js, "const MAX_TOASTS = 4;", "缺提示条数上限常量"),
@@ -2579,6 +2581,8 @@ def main() -> int:
     # C-P3-2：旧的「只挡自身」写法必须已清除（防两套判据并存）
     if "draggingId !== node.id" in tv_js:
         ui_bad.append("C-P3-2 仍残留「只挡自身」的旧判据")
+    if "isSelfOrDescendant(draggingNode" in tv_js:
+        ui_bad.append("C-P3-2 仍残留视图层自写的防环判据（应与 canMove 单一来源，防两套漂移）")
     check(not ui_bad, "UI 防御批 V0.0.32",
           f"缺失：{', '.join(ui_bad)}" if ui_bad
           else "拖拽落点预判 / 含子元素语义的 dragleave / 提示条上限 齐备")

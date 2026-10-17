@@ -464,7 +464,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.0.54',
+  'help.versionFallback': 'V0.0.55',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

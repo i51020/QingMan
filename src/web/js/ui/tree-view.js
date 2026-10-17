@@ -5,7 +5,7 @@
  * V0.0.32：拖拽落点**预判**（C-P3-2）+ `dragleave` 不因划过子元素而摘高亮（C-P3-3）。
  */
 
-import { isDir, isSelfOrDescendant } from '../modules/tree-model.js';
+import { canMove, isDir } from '../modules/tree-model.js';
 import { t } from '../i18n/index.js';
 
 /**
@@ -40,8 +40,6 @@ export function createTreeView(container, { onSelect, onMove, onContext, onFold 
   let currentSelectedIds = [];
   /** 当前拖拽中的节点 id（dragover 时判定合法性用） */
   let draggingId = null;
-  /** 当前拖拽中的**节点对象**：C-P3-2 预判「落点是否在被拖子树内」时用（见 dragover） */
-  let draggingNode = null;
 
   function render(root, selectedId, selectedIds) {
     currentRoot = root;
@@ -128,25 +126,25 @@ export function createTreeView(container, { onSelect, onMove, onContext, onFold 
     /* ---------- 拖拽（V0.0.19）：根节点不可拖；目录可作落点 ---------- */
     row.addEventListener('dragstart', (event) => {
       draggingId = node.id;
-      draggingNode = node;
       event.dataTransfer.effectAllowed = 'move';
       event.dataTransfer.setData('text/qm-node-id', node.id);
     });
     row.addEventListener('dragend', () => {
       draggingId = null;
-      draggingNode = null;
       row.classList.remove('is-drop-target');
     });
     if (dir) {
       row.addEventListener('dragover', (event) => {
-        /* C-P3-2：**预判**「拖进自身 / 自身子孙」。
-           旧实现只挡了「自身」（仅比 id 是否相等），子孙落点照样
-           `preventDefault()` 并亮起 `is-drop-target` —— 给出「可放下」的假暗示，
-           直到 `drop` 才由模型层 `canMove` 判 `cycle` 报错。
-           此处复用模型层的**同一权威** `isSelfOrDescendant`，不另立第二份防环规则
-           （规则重复必然漂移，见《项目约定》§P2 第 28 项 A-P2-2 的同类裁决）。
-           注：其余判定（同名冲突等）仍留给 drop 时的模型层，本项只收「自身 / 子孙」。 */
-        if (!draggingNode || isSelfOrDescendant(draggingNode, node.id)) return;
+        /* 落点**预判**：只有模型层说「可以移动」才给「可放下」的视觉承诺。
+           V0.0.32（C-P3-2）起初只收「自身 / 自身子孙」两类；V0.0.55 改为直接问
+           `canMove` —— 它一次覆盖五类拒绝（自身/子孙 `cycle`、同级同名 `exists`、
+           目标不是目录 `notDir`、节点不存在 `missing`、根不可移 `root`）。
+           **为什么必须复用模型层**：预判若另写一套，规则必然与 `drop` 时的判定漂移，
+           于是又回到「高亮着却放不下」。同一权威只有一个出口。
+           **已知后果（有意）**：被判为非法的落点不给任何高亮，`dragover` 也不
+           `preventDefault` ⇒ 浏览器显示禁止光标、`drop` 不触发、**不会弹错误提示**
+           —— 这与「拖进自身子树」既有的静默行为一致，不新增一套提示语义。 */
+        if (!draggingId || canMove(currentRoot, draggingId, node.id) !== true) return;
         event.preventDefault();
         event.dataTransfer.dropEffect = 'move';
         row.classList.add('is-drop-target');
