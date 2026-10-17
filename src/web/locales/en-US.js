@@ -42,11 +42,12 @@ export const dict = {
   'popMore.help': 'Usage guide',
 
   'svc.title': 'Service settings',
-  'svc.intro': 'QingMan runs on a local service on this machine: tree validation, generation to disk and editor-state saving all go through it.',
+  'svc.intro': 'QingMan runs on this computer. It never connects to the internet.',
   'svc.status': 'Service status',
   'svc.state.connecting': 'Connecting…',
   'svc.state.ready': 'Connected',
   'svc.state.offline': 'Not connected',
+  'svc.advanced': 'Technical details',
   'svc.addr': 'Service address',
   'svc.version': 'Service version',
   'svc.dataDir': 'Data folder',
@@ -187,6 +188,8 @@ export const dict = {
   'template.copySuffix': '{name} copy',
   'template.duplicated': 'Duplicated as "{name}"',
   'template.export': 'Export',
+  'template.exportJson': 'Export as .json',
+  'template.exportMd': 'Export as .md',
   'template.exported': 'Exported "{name}"',
   'template.exportFailed': 'Export failed: {message}',
   'template.layerBuiltin': 'Built-in',
@@ -306,6 +309,8 @@ export const dict = {
   'tree.addChild': 'New child',
   'tree.rename': 'Rename',
   'tree.delete': 'Delete',
+  'tree.clearRoot': 'Clear…',
+  'tree.clearRootConfirm': 'Clear the whole tree (root name "{name}" is kept)? You can undo this.',
   'tree.undo': 'Undo',
   'tree.redo': 'Redo',
   'tree.expandAll': 'Expand all',
@@ -389,6 +394,7 @@ export const dict = {
   'status.addedDir': 'Added directory "{name}"',
   'status.renamed': 'Renamed to "{name}"',
   'status.deleted': 'Deleted "{name}"',
+  'status.clearedRoot': 'Tree cleared',
   'status.moved': 'Moved "{name}" into "{to}"',
   /* V0.0.43 · F group: batch operation receipts */
   'status.batchDeleted': 'Deleted {n} nodes',
@@ -464,7 +470,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.1.0',
+  'help.versionFallback': 'V0.2.0',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',
@@ -486,6 +492,11 @@ export const dict = {
 
   'help.lead': 'QingMan is an offline directory-structure design tool: edit a directory tree visually, then generate real folders on disk with one click.',
 
+  'help.templates.title': 'Templates',
+  'help.templates.1': 'The app ships with a single blank template. The 16 business templates live in a separate template-pack zip and are downloaded only when you need them.',
+  'help.templates.2': 'Unzip it into the template folder (by default the templates folder next to the app; open it from Service settings). Both .json and .md are accepted.',
+  'help.templates.3': 'Back in the main window the list refreshes within seconds. Importing a template with an existing name asks before overwriting; the old file goes to the recycle folder.',
+  'help.templates.4': 'Right-click a template to export: .json for re-import, .md for reading and version control. Both carry the same content.',
   'help.quickStart.title': 'Quick Start',
   'help.quickStart.1': 'Double-click start.bat in the project root to launch the local server',
   'help.quickStart.2': 'Browser opens automatically; a status dot in the ready colour at the top right means the service is up (click it for service status and settings)',
@@ -566,6 +577,9 @@ export const helpSections = [
   { id: 'tree', title: 'help.tree.title', kind: 'ul', items: [
     'help.tree.1', 'help.tree.2', 'help.tree.3', 'help.tree.4', 'help.tree.5',
     'help.tree.6', 'help.tree.7', 'help.tree.8',
+  ] },
+  { id: 'templates', title: 'help.templates.title', kind: 'ul', items: [
+    'help.templates.1', 'help.templates.2', 'help.templates.3', 'help.templates.4',
   ] },
   { id: 'kbd', title: 'help.kbd.title', kind: 'kbd', note: 'help.kbd.pending', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.delete', 'help.kbd.rename'] },
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [

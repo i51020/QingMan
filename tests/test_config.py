@@ -124,13 +124,25 @@ class TemplatesDirResolutionTests(unittest.TestCase):
             self.assertTrue(self._same(dir_, target))
 
     def test_settings_used_when_env_absent(self):
+        # V0.1.0：绑定目录**必须真实存在**才算数（悬空绑定会回落默认，见下一个用例）
         with tempfile.TemporaryDirectory(prefix="qm_cfg_") as d:
             settings = Path(d) / "settings.json"
             target = Path(d) / "bound"
+            target.mkdir()
             settings.write_text(json.dumps({"templatesDir": str(target)}), encoding="utf-8")
             dir_, source = self._probe_dir({"QM_SETTINGS": str(settings)})
             self.assertEqual(source, "settings")
             self.assertTrue(self._same(dir_, target))
+
+    def test_stale_binding_falls_back_to_default(self):
+        """绑定目录被移动 / 删除后不得让模板列表永久"不可用" —— 回落默认并报告来源。"""
+        with tempfile.TemporaryDirectory(prefix="qm_cfg_") as d:
+            settings = Path(d) / "settings.json"
+            gone = Path(d) / "moved-away"          # 故意不创建
+            settings.write_text(json.dumps({"templatesDir": str(gone)}), encoding="utf-8")
+            dir_, source = self._probe_dir({"QM_SETTINGS": str(settings)})
+            self.assertEqual(source, "default")
+            self.assertTrue(self._same(dir_, _SRC.parent / "templates"))
 
     def test_corrupt_settings_falls_back_to_default(self):
         with tempfile.TemporaryDirectory(prefix="qm_cfg_") as d:

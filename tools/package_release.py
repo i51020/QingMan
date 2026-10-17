@@ -52,7 +52,10 @@ PKG_DIRNAME = f"QingMan-{VERSION}"
 ZIP_NAME = f"{PKG_DIRNAME}-portable.zip"
 
 # 随包内容（**白名单**：只列该带的，避免把开发期资产带出去）
-INCLUDE_DIRS = ("src", "templates", "templates-pack")
+# V0.1.0 · 模板包**单独分发**（用户裁定）：内置只带 `templates/`（仅空模板），
+# 业务模板由 `templates-pack` 另外打 zip，用户按需下载后自行解压进 `templates/`。
+# 因此 `templates-pack` 不进发布包 —— 否则"与项目分离"就只剩口头。
+INCLUDE_DIRS = ("src", "templates")
 INCLUDE_FILES = ("VERSION", "start.bat", "README_使用说明.md")
 
 # 排除（**黑名单**：白名单内的脏东西）
@@ -222,7 +225,8 @@ def verify_package(zip_path: Path) -> int:
                      "README_使用说明.md"):
             if f"{PKG_DIRNAME}/{must}" not in names:
                 failures.append(f"缺 {must}")
-        for banned in ("data/", "store/", ".git/", "versions/", "tests/", "tools/", "docs/"):
+        for banned in ("data/", "store/", ".git/", "versions/", "tests/", "tools/", "docs/",
+                       "templates-pack/"):   # V0.2.0：模板包单独分发，进了发布包就是违约
             if any(f"/{banned}" in n for n in names):
                 failures.append(f"误带 {banned}")
         pkg = tmp / PKG_DIRNAME

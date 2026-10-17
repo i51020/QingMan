@@ -4,7 +4,7 @@
 
 - 中文名：**青蔓**
 - 英文名：**QingMan**
-- 当前版本：**V0.1.0**
+- 当前版本：**V0.2.0**
 - 运行环境：Windows 10/11 + Python 3.8+，完全离线，仅监听 `127.0.0.1`
 - 实测环境：**Windows 11**（鼠标 + 键盘）。触屏与其他操作系统**未验证**，故不做针对性适配
 
@@ -121,7 +121,8 @@ QingMan/
 | `.json` | `{name, description, updated, tree}` | 规范格式；**写出**必带 `schemaVersion`，**读取**容忍缺失 |
 | `.md` | `# 名称` + `> 描述` + `- 节点/`（每级 2 空格缩进；文件正文用围栏块） | **主分发格式** —— AI / Agent / Skill 可直接读取；与 `.json` **逐节点等价**、可成环（导出 → 再导入） |
 
-**交付形态（V0.0.37 起）**：工具**只内置 `P0_空白项目模板.json`**（唯一内置空案例）；16 套业务模板移入独立包 `templates-pack/`，`templates/` 不再是业务模板的落点。运行态模板库 = **内置层** ∪ **用户绑定目录**（`QM_TEMPLATES_DIR` / settings，见下表）。
+**交付形态（V0.0.37 起，V0.2.0 修订）**：工具**只内置 `P0_空白项目模板.json`**（唯一内置空案例）；16 套业务模板在 `templates-pack/` 里**单独打包**（`tools/pack_templates.py --zip <路径>`），**不随发布包分发**（`tools/package_release.py` 的白名单只含 `src/` + `templates/`）。用户拿到模板包后**自行解压进 `templates/`** 即可 —— 列表按扩展名识别，`.json` / `.md` 都认。
+**默认落点（V0.2.0）**：未绑定时恒为**程序目录的 `templates/`**；settings 里记录的绑定目录**若已不存在则视为未绑定**（防止移动目录后模板列表永久不可用）。运行态模板库 = **内置层** ∪ **用户绑定目录**（`QM_TEMPLATES_DIR` / settings，见下表）。
 **界面形态（V0.0.38 起）**：模板行**无常驻按钮**，全部操作收进**右键菜单** —— 载入 / 重命名 / 复制 / 导出 / 删除；行带**来源徽标**（内置层 / 用户层）；列表每 **2500ms** 轮询刷新（`file+mtime+size` 变化才重渲染）。
 
 | 操作 | 说明 |
@@ -132,7 +133,7 @@ QingMan/
 | 复制 | 右键菜单「复制」：以当前模板为蓝本另存一份（默认名加 `-copy` 后缀），不覆盖原模板 |
 | 删除 | `DELETE /api/templates/<名称>`：**软删除**，移入 `<模板目录>/.trash/<时间戳>/`，不真删 |
 | 导入 | `POST /api/templates/import`：`.md` / `.json` 文本 → 归一（**全量校验** + 保持原格式）→ 落用户库；同名默认拒写（界面同名时二次确认） |
-| 导出 | `GET /api/templates-export/<名称>`：**按原文件文本回传（保真，不再序列化）** → 浏览器下载；导出的文件可被再次导入（与导入成环） |
+| 导出 | `GET /api/templates-export/<名称>[?format=json\|md]`：**不带 `format` ＝ 原文件文本回传（保真，不再序列化）**；带 `format` 时由后端**等价转换**（同一 `render_md_template` / `parse_md_template`，转换前过全量校验）。界面右键给两项：「导出为 .json」「导出为 .md —— 导出的文件可被再次导入（与导入成环） |
 | 模板目录绑定 | `GET` / `PUT /api/templates-dir`：绑定「用户模板库」目录，解析优先级 **`QM_TEMPLATES_DIR` env > settings > 默认 `templates/`**；界面用 `POST /api/templates-dir/pick` 弹**原生目录框**（`QM_NO_GUI_PICK=1` 可关断，不可用降级为手动粘贴路径） |
 | 实时刷新 | 前端每 **2500ms** 轮询 `GET /api/templates`；签名（`file+mtime+size`）不变则**不碰 DOM**（保住滚动位置 / hover 态）；切后台（`visibilitychange`）暂停 |
 | 包校验 / 打包 | `python tools/pack_templates.py`：17 套逐套校验 + 清单（含 sha256）+ 确定性 zip；`--check` 只校验不写盘 |

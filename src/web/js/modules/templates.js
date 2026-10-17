@@ -238,7 +238,9 @@ function openTemplateContextMenu(item, x, y) {
     { label: t('template.load'), action: () => applyTemplate(item) },
     { label: t('template.rename'), action: () => renameTemplateItem(item) },
     { label: t('template.duplicate'), action: () => duplicateTemplateItem(item) },
-    { label: t('template.export'), action: () => exportTemplateItem(item) },
+    /* V0.2.0：导出分两种格式（模板默认存 `.json`，`.md` 便于人读/进版本库）。 */
+    { label: t('template.exportJson'), action: () => exportTemplateItem(item, 'json') },
+    { label: t('template.exportMd'), action: () => exportTemplateItem(item, 'md') },
     { label: t('template.delete'), danger: true, action: () => deleteTemplateItem(item) },
   ]);
 }
@@ -267,12 +269,12 @@ async function duplicateTemplateItem(item) {
 }
 
 /**
- * 导出模板（V0.0.38 · 6E）：取后端给的**原文**，按原扩展名触发下载。
- * 不在前端二次序列化 —— 后端那份才是真源，故「导出 → 再导入」与原件一致。
+ * 导出模板（V0.0.38 · 6E；V0.2.0 起可选格式）：取后端给的文本，按响应的 `file`
+ * 触发下载。**转换也由后端做**（`?format=`），前端不二次序列化 —— 否则两侧迟早漂移。
  */
-async function exportTemplateItem(item) {
+async function exportTemplateItem(item, fmt) {
   try {
-    const res = await api.exportTemplate(item.file);
+    const res = await api.exportTemplate(item.file, fmt);
     downloadText(res.file || item.file, res.text || '');
     toast(t('template.exported', { name: item.name }), 'ok');
   } catch (err) {

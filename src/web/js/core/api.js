@@ -200,8 +200,13 @@ export const api = {
    * （`file`）。由调用方按扩展名触发下载 —— 内容不在前端二次序列化，
    * 后端那份才是真源，故「导出 → 再导入」与原件一致。
    */
-  exportTemplate(name) {
-    return request('/api/templates-export/' + encodeURIComponent(name), { method: 'GET' });
+  /**
+   * 导出模板。`fmt` 缺省＝原样导出（旧行为）；传 `json` / `md` 时后端做等价转换。
+   * 转换由后端完成（与「另存为模板」同一渲染器）—— 前端不另写一套序列化。
+   */
+  exportTemplate(name, fmt) {
+    const query = fmt ? '?format=' + encodeURIComponent(fmt) : '';
+    return request('/api/templates-export/' + encodeURIComponent(name) + query, { method: 'GET' });
   },
 
   /**

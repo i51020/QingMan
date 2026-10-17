@@ -14,7 +14,7 @@ import {
 } from './i18n/index.js';
 import {
   createDir, createFile, findNode, findParent, addChild,
-  renameNode, removeNode, moveNode, canMove, countTree, treePayload,
+  renameNode, removeNode, clearNode, moveNode, canMove, countTree, treePayload,
   hasSiblingName, reserveIds, assertUniqueIds, validateSegment,
   toDocumentNode, fromDocumentNode, resetIdRegistry,
   normalizeNote, isDir, pathOf,
@@ -591,8 +591,11 @@ function openTreeContextMenu(id, x, y) {
 
   ctxMenu.showAt(x, y, [
     { label: t('tree.addChild'), disabled: !isDir(node), action: () => doAddChild(id) },
-    { label: t('tree.rename'), disabled: isRoot, action: () => doRename(id) },
-    { label: t('tree.delete'), danger: true, disabled: isRoot, action: () => doDelete(id) },
+    /* V0.1.0：根节点也支持重命名 / 删除。删除根＝**清空内容**（树必须有根），
+       确认文案明确写「内容清空、根名保留」，避免用户以为整个文档没了。 */
+    { label: t('tree.rename'), action: () => doRename(id) },
+    { label: isRoot ? t('tree.clearRoot') : t('tree.delete'), danger: true,
+      action: () => doDelete(id) },
     {
       label: t('tree.copyPath'),
       action: () => copyWithToast(pathOf(root, id) || node.name, 'toast.copied', 'toast.copyFailed'),
@@ -983,11 +986,19 @@ function doDelete(id = selectedId()) {
     batchDelete(set);
     return;
   }
+  const node = findNode(root, id);
   if (id === root.id) {
-    toast(t('toast.rootDeleteBlocked'), 'warn');
+    /* 根「删除」＝清空内容（V0.1.0）。仍走 pushHistory ⇒ 可撤销；
+       根名保留，因为落盘时必须有一个根文件夹名。 */
+    if (!window.confirm(t('tree.clearRootConfirm', { name: node ? node.name : '' }))) return;
+    pushHistory();
+    clearNode(root, id);
+    store.set({ selectedId: root.id });
+    renderGenBar();
+    setStatus(t('status.clearedRoot'));
+    markDirty();
     return;
   }
-  const node = findNode(root, id);
   if (!node) return;
   if (!window.confirm(t('tree.deleteConfirm', { name: node.name }))) return;
   pushHistory();

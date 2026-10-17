@@ -1141,6 +1141,36 @@ class TemplateExportTests(unittest.TestCase):
                 routes.export_template(bad)
             self.assertEqual(ctx.exception.code, "templateNotFound", repr(bad))
 
+    # ---------- V0.2.0：可选目标格式（json ↔ md） ----------
+    def test_json_to_md_conversion(self):
+        """默认存 `.json`，但用户要 `.md` 时必须能导 —— 且必须与「另存为」同一渲染器。"""
+        doc = {"name": "甲", "description": "", "schemaVersion": 1,
+               "tree": {"docs": {"readme.md": "hi"}}}
+        self._write("甲.json", json.dumps(doc, ensure_ascii=False))
+        res = routes.export_template("甲.json", "md")
+        self.assertEqual(res["file"], "甲.md")
+        self.assertEqual(res["source"], "md")
+        self.assertTrue(res["text"].startswith("# 甲"))
+        self.assertIn("- docs/", res["text"])
+        # 再解析回去：内容等价（成环）
+        back = __import__("server.dtree_core", fromlist=["x"]).parse_md_template(res["text"])
+        self.assertEqual(back["tree"], doc["tree"])
+
+    def test_md_to_json_conversion(self):
+        self._write("乙.md", "# 乙\n\n- 目录/\n  - 文件.md\n")
+        res = routes.export_template("乙.md", "json")
+        self.assertEqual(res["file"], "乙.json")
+        self.assertEqual(res["source"], "json")
+        doc = json.loads(res["text"])
+        self.assertEqual(doc["name"], "乙")
+        self.assertIn("目录", doc["tree"])
+
+    def test_same_format_and_unknown_format_stay_raw(self):
+        text = '{"name": "甲", "tree": {}}'
+        self._write("甲.json", text)
+        self.assertEqual(routes.export_template("甲.json", "json")["text"], text)
+        self.assertEqual(routes.export_template("甲.json", "toml")["text"], text)
+
     def test_export_missing_file(self):
         with self.assertRaises(TreeError) as ctx:
             routes.export_template("不存在.md")

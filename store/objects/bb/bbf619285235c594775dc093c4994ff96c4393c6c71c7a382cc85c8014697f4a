@@ -1,0 +1,344 @@
+/* 青蔓 QingMan · 基础元素样式（锐利新拟物） */
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--qm-bg);
+  color: var(--qm-text);
+  font-family: var(--qm-font);
+  font-size: var(--qm-fs-xl);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { margin: 0; font-weight: 600; }
+
+code, .prop-mono, .result {
+  font-family: var(--qm-mono);
+  font-size: var(--qm-fs-md);
+}
+
+code {
+  background: var(--qm-line-soft);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+/* ---------- 滚动条（V0.2.0） ----------
+ * 此前完全没写 ⇒ 用系统默认滚动条：深色皮肤下是一条亮灰槽，与面板配色打架。
+ * 取色只走**既有 token**（`--qm-line` / `--qm-text-dim`），故 16 款皮肤自动跟随，
+ * 不需要给每款皮肤加新变量（加变量就要改 16 个文件 + 守卫，收益不成比例）。
+ * `scrollbar-width/color` 是标准属性（Firefox / 新 Chromium），
+ * `::-webkit-*` 覆盖旧 Chromium —— 两套并存不会互相干扰。 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--qm-line) transparent;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--qm-line);
+  border: 2px solid transparent;   /* 用透明边框缩进，做出"悬浮细条" */
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--qm-text-dim); background-clip: padding-box; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* ---------- 按钮：锐利新拟物 ---------- */
+.btn {
+  appearance: none;
+  border: 1px solid var(--qm-line);
+  background: var(--qm-surface-2);
+  color: var(--qm-text);
+  border-radius: var(--qm-r-sm);
+  padding: 5px 12px;
+  font-family: inherit;
+  font-size: var(--qm-fs-xl);
+  cursor: pointer;
+  box-shadow:
+    1px 1px 2px var(--qm-shadow-dark),
+    -1px -1px 1px var(--qm-shadow-light),
+    inset .5px .5px 1px var(--qm-edge-hi);
+  transition: background .12s ease, border-color .12s ease, color .12s ease, box-shadow .12s ease;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--qm-accent);
+  color: var(--qm-accent-ink);
+  box-shadow:
+    1.5px 1.5px 3px var(--qm-shadow-dark),
+    -1px -1px 1px var(--qm-shadow-light),
+    inset .5px .5px 1px var(--qm-edge-hi);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: var(--qm-inset);
+}
+.btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-primary {
+  /* 用 --qm-btn-bg 而非 --qm-accent：白字在其上需 ≥4.5（§P2 第 13 项） */
+  background: var(--qm-btn-bg);
+  border-color: var(--qm-btn-bg);
+  color: var(--qm-on-accent);
+  box-shadow:
+    1px 1px 2px var(--qm-shadow-dark),
+    inset .5px .5px 1px var(--qm-btn-hi);
+}
+.btn-primary:hover:not(:disabled) {
+  /* hover 底色用专用 token --qm-btn-bg-hi，不用 --qm-accent-ink：
+     后者语义是「强调色的墨色」（暗色皮肤下为浅色），拿它当按钮底再配
+     --qm-on-accent 会与本皮肤的字色撞车 —— 详见《错误笔记》里「把墨色当
+     按钮底色」一条（对比度由 tools/verify.py 的皮肤 WCAG 守卫把关）。 */
+  background: var(--qm-btn-bg-hi);
+  border-color: var(--qm-btn-bg-hi);
+  color: var(--qm-on-accent);
+}
+.btn-primary:active:not(:disabled) { box-shadow: inset 1px 1px 3px var(--qm-btn-lo); }
+
+.btn-ghost {
+  background: transparent;
+  box-shadow: none;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--qm-line-soft);
+  box-shadow: inset 1px 1px 2px var(--qm-shadow-light), inset -1px -1px 2px var(--qm-shadow-dark);
+}
+.btn-danger { color: var(--qm-danger); border-color: var(--qm-line); }
+.btn-danger:hover:not(:disabled) { background: var(--qm-danger-soft); border-color: var(--qm-danger); color: var(--qm-danger); }
+
+/* ---------- 表单：下拉框 ---------- */
+select {
+  appearance: none;
+  border: 1px solid var(--qm-line);
+  background: var(--qm-surface-2);
+  color: var(--qm-text);
+  border-radius: var(--qm-r-sm);
+  padding: 4px 22px 4px 8px;
+  font-family: inherit;
+  font-size: var(--qm-fs-md);
+  cursor: pointer;
+  box-shadow:
+    1px 1px 2px var(--qm-shadow-dark),
+    -1px -1px 1px var(--qm-shadow-light),
+    inset .5px .5px 1px var(--qm-edge-hi);
+  /* 箭头不再由 select 自绘：改由包裹层 .topbar-select::after 用遮罩上色（D-P3-2）。
+     右侧 padding 仍为箭头预留位置。 */
+}
+select:focus { outline: 2px solid var(--qm-accent-soft); border-color: var(--qm-accent); }
+select option { background: var(--qm-surface-2); color: var(--qm-text); }
+
+.topbar-select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--qm-fs-md);
+  color: var(--qm-text-dim);
+}
+/* 通用下拉包裹层（V0.0.41）：顶栏之外的 <select> 用它包裹，与 .topbar-select 共用箭头。
+   加它的起因就是下面那条「新增 <select> 须另配箭头」的约定 —— 弹窗里的「起点」下拉
+   正是不在顶栏的一例，抽成共用选择器比再抄一遍箭头规则更不易漂移。 */
+.select-wrap { position: relative; display: block; }
+.select-wrap > select { width: 100%; }
+
+/* D-P3-2：下拉箭头用**遮罩**上色 —— 颜色取 --qm-text-dim，随皮肤 / 主题自动变化
+   （旧版把颜色烘死在 background-image 的 SVG 里，只随 light/dark，不随皮肤）。
+   <select> 由包裹层统一绘制箭头：顶栏用 .topbar-select，别处用 .select-wrap（V0.0.41）。 */
+.topbar-select::after,
+.select-wrap::after {
+  content: '';
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  width: 10px;
+  height: 6px;
+  transform: translateY(-50%);
+  background-color: var(--qm-text-dim);
+  -webkit-mask: var(--qm-select-arrow-mask) center / 10px 6px no-repeat;
+  mask: var(--qm-select-arrow-mask) center / 10px 6px no-repeat;
+  pointer-events: none;
+}
+.select-label { font-size: var(--qm-fs-xs); letter-spacing: .5px; }
+
+input[type="text"] {
+  width: 100%;
+  border: 1px solid var(--qm-line);
+  background: var(--qm-surface-2);
+  color: var(--qm-text);
+  border-radius: var(--qm-r-sm);
+  padding: 5px 8px;
+  font-family: inherit;
+  font-size: var(--qm-fs-xl);
+  box-shadow: var(--qm-inset);
+}
+input[type="text"]::placeholder { color: var(--qm-text-dim); opacity: .8; }
+input[type="text"]:focus { outline: 2px solid var(--qm-accent-soft); border-color: var(--qm-accent); }
+
+.chip {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--qm-accent-soft);
+  color: var(--qm-accent-ink);
+  font-size: var(--qm-fs-xs);
+  font-family: var(--qm-mono);
+}
+.chip-ghost { background: transparent; color: var(--qm-text-dim); border: 1px solid var(--qm-line); }
+/* V0.0.51 · 「已保存」改中性色（原为琥珀底 + 琥珀字）。
+ * 琥珀底色 `--qm-accent-soft` 与琥珀字 `--qm-accent-ink` 同色系相叠，而它左右
+ * 紧邻的正是偏暖的顶栏灰白底 —— 三个暖色挤在一条线上，观感"发闷、发脏"。
+ * 「已保存」是**只读状态提示**，不需要抢注意力，故改用中性浅底 + 次级灰字：
+ * 去彩色后顶栏右端层次变成「灰 chip（不可点）+ 白按钮（可点）」，
+ * 对比度由 5.15:1 升到 5.80:1（WCAG AA 正文 ≥4.5 仍达标）。
+ * 两色均取自皮肤既有变量，**不新增色值**（§P0-3 L4）。 */
+.chip-ok { background: var(--qm-surface-2); color: var(--qm-text-dim); }
+.chip-bad { background: var(--qm-danger-soft); color: var(--qm-danger); }
+
+.hint { color: var(--qm-text-dim); font-size: var(--qm-fs-md); margin: 6px 0 0; }
+.divider { width: 1px; align-self: stretch; background: var(--qm-line); margin: 0 2px; }
+.spacer { flex: 1; }
+
+/* 品牌区（主界面与帮助页共用，故置于 base.css 而非某一页的布局表）
+ *
+ * 标记走 CSS mask 而非 <img>/内联 SVG：
+ *   - <img> 引用的 SVG 是独立文档，currentColor 不继承，无法跟随主题与皮肤（违反 §P0-3 L4/L5）
+ *   - 跨文档 <use href="x.svg#id"> 在现代浏览器已不支持
+ *   - mask 只取形状，颜色由 background-color 给，色值仍单一来源于 --qm-*
+ */
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+  color: inherit;
+}
+.brand:hover { opacity: .85; }
+.brand-logo {
+  align-self: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  background-color: var(--qm-accent-ink);
+  -webkit-mask-image: url("../assets/logo.svg");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-image: url("../assets/logo.svg");
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}
+.brand-mark { font-size: var(--qm-fs-3xl); font-weight: 700; letter-spacing: 2px; color: var(--qm-accent-ink); }
+.brand-sub { font-size: var(--qm-fs-md); color: var(--qm-text-dim); font-family: var(--qm-mono); }
+
+/* ===================== V0.0.40 · 设计提案层（图标 / 图标按钮） =====================
+ * 来源：设计稿 prototype.html 的提案样式块第 1 / 2 节（顶栏三区分组）。
+ * 纪律不变（§P0-3 L4）：色值一律 var(--qm-*)，本节无任何裸色值。
+ * **本节**图标为 currentColor SVG mask（形状内联 data-URI，着色 `background-color: currentColor`），
+ * 禁用第三方图标字体（版权合规）。⚠️ **限定「本节」** —— 全项目的「图标」是**一条四径**
+ * （本节 mask ／ tokens 变量 mask ／ assets 文件 mask ／ 文字字形），权威清单见 §P0-3 L8（守卫 7aj）。
+ * 每个图标只声明 `--m`（局部变量，非 --qm-*），由 .ic 统一取用。
+ */
+
+/* ---------- 图标系统 ---------- */
+.ic {
+  display: inline-block; width: 18px; height: 18px; background-color: currentColor;
+  -webkit-mask: var(--m) center / 18px 18px no-repeat;
+          mask: var(--m) center / 18px 18px no-repeat;
+}
+.ic-sm { width: 14px; height: 14px; -webkit-mask-size: 14px 14px; mask-size: 14px 14px; }
+.ic-globe { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M3 12h18M12 3c2.4 2.5 3.7 5.6 3.7 9S14.4 18.5 12 21c-2.4-2.5-3.7-5.6-3.7-9S9.6 5.5 12 3z'/%3E%3C/svg%3E"); }
+.ic-heart { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20.2s-7.2-4.6-7.2-9.8A4.6 4.6 0 0 1 12 7.2a4.6 4.6 0 0 1 7.2 3.2c0 5.2-7.2 9.8-7.2 9.8z'/%3E%3C/svg%3E"); }
+.ic-help { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M9.6 9.4a2.5 2.5 0 0 1 4.6 1.4c0 1.7-2.2 2-2.2 3.4'/%3E%3Ccircle cx='12' cy='17.4' r='1'/%3E%3C/svg%3E"); }
+.ic-gear { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='3.2'/%3E%3Cpath d='M12 2.8v2.4M12 18.8v2.4M4.5 7.5l2.1 1.2M17.4 15.3l2.1 1.2M4.5 16.5l2.1-1.2M17.4 8.7l2.1-1.2'/%3E%3C/svg%3E"); }
+.ic-close { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round'%3E%3Cpath d='M6.5 6.5l11 11M17.5 6.5l-11 11'/%3E%3C/svg%3E"); }
+.ic-check { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+/* 「更多 ⋮」：窄窗顶栏折叠入口（非皮肤按钮，勿与 .sw-dots 混用） */
+.ic-more { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000'%3E%3Ccircle cx='12' cy='5.4' r='1.7'/%3E%3Ccircle cx='12' cy='12' r='1.7'/%3E%3Ccircle cx='12' cy='18.6' r='1.7'/%3E%3C/svg%3E"); }
+
+/* V0.0.50 · I 组「按钮图标化」：形状表逐字节复刻设计稿 `prototype.html` 的图标系统节
+   （该处头注释：「v5 新增：随「按钮去文字」一同补齐的线性图标（全部 currentColor mask，
+   无一第三方图标字体）」）。本轮新增 14 枚 → 定义域 7 → 21。
+   V0.0.52 再 +2（`.ic-folder` / `.ic-file`，树行图标归一）→ **定义域 23**。
+   设计稿另备 ic-checkbox / ic-export / ic-load 三枚，本项目无对应控件（多选靠手势、
+   批量条是「复制路径」而非导出 ZIP、模板区无载入按钮），故**不引入** —— 图标契约要求
+   定义与使用双向配对，引入即留死形状。占位色 %23000 只参与 mask 形状、不参与着色，
+   属 §P0-3 L4 的成文豁免。 */
+.ic-folder-plus { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h3.6l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3Cpath d='M12 11.6v4.2M9.9 13.7h4.2'/%3E%3C/svg%3E"); }
+.ic-folder-open { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h3.6l1.8 2H19a2 2 0 0 1 2 2v1.4H3z'/%3E%3Cpath d='M3 10.4h18l-1.7 6.7a2 2 0 0 1-1.9 1.4H5.6a2 2 0 0 1-1.9-1.4z'/%3E%3C/svg%3E"); }
+
+/* V0.0.52：树行图标由 emoji 归一为 mask —— 补「文件夹 / 文件」两枚形状。
+   笔画参数（viewBox 24 / stroke-width 1.8 / 圆头圆角）与同族 `.ic-folder-plus` /
+   `.ic-folder-open` 完全一致，故同一行里两族图标粗细相同。
+   消费者只有一个：`tree-view.js` 按节点类型给 `.tree-icon` 挂上其一（见该文件注释）。 */
+.ic-folder { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h3.6l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3C/svg%3E"); }
+.ic-file { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3.2h6.6L18 8.6v11.2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5.2a2 2 0 0 1 2-2z'/%3E%3Cpath d='M12.6 3.2v5.4H18'/%3E%3C/svg%3E"); }
+.ic-refresh { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.5 12a8.5 8.5 0 1 1-2.5-6'/%3E%3Cpath d='M20.8 4.2v4.3h-4.3'/%3E%3C/svg%3E"); }
+.ic-undo { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 8.6h9.4a5.4 5.4 0 0 1 0 10.8H8.2'/%3E%3Cpath d='M7.6 5.1 4 8.6l3.6 3.5'/%3E%3C/svg%3E"); }
+.ic-redo { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 8.6h-9.4a5.4 5.4 0 0 0 0 10.8h5.2'/%3E%3Cpath d='M16.4 5.1 20 8.6l-3.6 3.5'/%3E%3C/svg%3E"); }
+.ic-node-plus { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M4 6h11M4 12h11M4 18h5'/%3E%3Cpath d='M18 14.4v7.2M14.4 18h7.2'/%3E%3C/svg%3E"); }
+.ic-pencil { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.2 19.8l1-3.9L16.4 4.6a2 2 0 0 1 2.9 0l.1.1a2 2 0 0 1 0 2.9L8.1 18.8z'/%3E%3Cpath d='M14.7 6.3l3 3'/%3E%3C/svg%3E"); }
+.ic-trash { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7h16'/%3E%3Cpath d='M9.6 7V4.9h4.8V7'/%3E%3Cpath d='M6.4 7l1 12.1a1.8 1.8 0 0 0 1.8 1.6h5.6a1.8 1.8 0 0 0 1.8-1.6L17.6 7'/%3E%3Cpath d='M10.4 10.8v5.8M13.6 10.8v5.8'/%3E%3C/svg%3E"); }
+.ic-expand-all { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8.2 9.4 12 5.6l3.8 3.8'/%3E%3Cpath d='M8.2 14.6 12 18.4l3.8-3.8'/%3E%3C/svg%3E"); }
+.ic-collapse-all { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8.2 5.6 12 9.4l3.8-3.8'/%3E%3Cpath d='M8.2 18.4 12 14.6l3.8 3.8'/%3E%3C/svg%3E"); }
+.ic-copy { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='8.6' y='8.6' width='11.4' height='11.4' rx='2.2'/%3E%3Cpath d='M15.4 5.6H6.4a2 2 0 0 0-2 2v9'/%3E%3C/svg%3E"); }
+.ic-import { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.4v9.2'/%3E%3Cpath d='M8.6 9.2 12 12.6l3.4-3.4'/%3E%3Cpath d='M4 14.6v3.4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.4'/%3E%3C/svg%3E"); }
+.ic-save { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.8 3.4h10.4l4 4v13.2a1.8 1.8 0 0 1-1.8 1.8H4.8A1.8 1.8 0 0 1 3 20.6V5.2a1.8 1.8 0 0 1 1.8-1.8z'/%3E%3Cpath d='M7.8 3.4v6h8.4v-6'/%3E%3Cpath d='M7.4 14.6h9.2v7.6H7.4z'/%3E%3C/svg%3E"); }
+.ic-spark { --m: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13.4 2.6 5.8 13.4h5.2l-.8 8 7.6-10.8h-5.2z'/%3E%3C/svg%3E"); }
+
+/* ---------- 图标按钮：34×34，与 .btn 同高（顶栏成一条整齐基线） ----------
+ * V0.0.51 · 尺寸整体上调一档（见同批 `layout.css` 的 `.btn-ic` 节）。 */
+.icon-btn {
+  appearance: none; cursor: pointer; background: transparent; color: var(--qm-text-dim);
+  width: 34px; height: 34px; border-radius: var(--qm-r-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid transparent;
+  /* 必须重置 UA 对 button 的默认 padding(1px 6px)：否则内容盒只剩 18px，
+     19px 图标会被 flex 收缩回 18px，声明尺寸静默失效（设计稿实测缺陷）。 */
+  padding: 0;
+}
+.icon-btn:hover { color: var(--qm-accent-ink); background: var(--qm-surface-2); border-color: var(--qm-line-soft); }
+.icon-btn:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: 1px; }
+.icon-btn[aria-expanded="true"] { color: var(--qm-accent-ink); background: var(--qm-accent-soft); border-color: var(--qm-accent); }
+/* 顶栏图标比正文图标大半档（20px），flex:0 0 auto 保证「声明 20px = 实际 20px」 */
+.icon-btn .ic { width: 20px; height: 20px; flex: 0 0 auto; -webkit-mask-size: 20px 20px; mask-size: 20px 20px; }
+
+/* ---------- 状态按钮：可点的服务状态 chip（实线边框 + hover 抬升，34px 与按钮齐平） ----------
+   V0.0.53：由「圆点 + 文字 + 下三角」的**胶囊**压成 **34×34 圆圈**（用户裁定「只留颜色点
+   与下三角、不显示文字」）。padding 归零 + 内容居中即可 —— 这**不是新形态**：窄窗
+   (`@media (max-width: 920px)`) 早已用同一套规则把它收成这个样子，本批只是把它从
+   「窄窗应急形态」提升为**常态**（那两条窄窗规则随之删除）。
+   ⚠ 文字退场后，可见状态信号只剩「圆点颜色 + 下三角」；无障碍名由 `setServiceState()`
+   合成进 `aria-label`（默认名 + 状态词）。状态**原话**并没有消失 —— 它仍在「更多 ⋮」
+   浮层 `#popMoreStatus` 与服务弹窗里，只是不再占顶栏。 */
+.chip-btn {
+  appearance: none; font: inherit; font-size: var(--qm-fs-md); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  width: 34px; height: 34px; padding: 0; border-radius: 999px;
+  border: 1px solid var(--qm-line); background: var(--qm-surface); color: var(--qm-text-dim);
+}
+.chip-btn:hover { color: var(--qm-accent-ink); border-color: var(--qm-accent); }
+.chip-btn:focus-visible { outline: 2px solid var(--qm-accent-soft); outline-offset: 1px; }
+.chip-btn .caret { font-size: var(--qm-fs-3xs); }
+/* 状态点：就绪=强调色、离线=危险色（离线态由 JS 加 .is-offline） */
+.chip-btn .dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; background: var(--qm-accent); }
+.chip-btn.is-offline { color: var(--qm-danger); border-color: var(--qm-danger); }
+.chip-btn.is-offline .dot { background: var(--qm-danger); }
+

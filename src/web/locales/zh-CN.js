@@ -57,11 +57,12 @@ export const dict = {
   'popMore.help': '使用说明',
 
   'svc.title': '服务设置',
-  'svc.intro': '青蔓由本机的一个本地服务驱动：目录树校验、生成落盘、编辑态保存都经由它。',
+  'svc.intro': '青蔓在你这台电脑上运行，不联网、不上传。',
   'svc.status': '服务状态',
   'svc.state.connecting': '连接中…',
   'svc.state.ready': '已连接',
   'svc.state.offline': '未连接',
+  'svc.advanced': '技术信息',
   'svc.addr': '服务地址',
   'svc.version': '服务版本',
   'svc.dataDir': '数据目录',
@@ -76,7 +77,7 @@ export const dict = {
   'svc.openDisabled': '自动打开已被关断（QM_NO_GUI_OPEN），请手动前往：{dir}',
   'svc.openMissing': '目录尚不存在，服务运行后会自动创建：{dir}',
   'svc.openUnavailable': '系统无法自动打开，请手动前往：{dir}',
-  'svc.note': '服务只监听本机回环地址（127.0.0.1），局域网内其他设备无法访问。本页面也由这个服务提供 —— 服务停止后页面会一并打不开，此时请双击桌面上的「青蔓 QingMan」快捷方式重新启动。',
+  'svc.note': '如果页面突然打不开，说明后台已停止：双击桌面上的「青蔓 QingMan」快捷方式重新启动即可。',
   'svc.backups': '历史版本…',
 
   /* --- 历史版本（备份取回 · V0.0.51@r9）--- */
@@ -199,6 +200,8 @@ export const dict = {
   'template.copySuffix': '{name} 副本',
   'template.duplicated': '已复制为「{name}」',
   'template.export': '导出',
+  'template.exportJson': '导出为 .json',
+  'template.exportMd': '导出为 .md',
   'template.exported': '已导出「{name}」',
   'template.exportFailed': '导出失败：{message}',
   'template.layerBuiltin': '内置',
@@ -315,6 +318,8 @@ export const dict = {
   'tree.addChild': '新建子节点',
   'tree.rename': '重命名',
   'tree.delete': '删除',
+  'tree.clearRoot': '清空…',
+  'tree.clearRootConfirm': '清空整棵目录树的内容（根名「{name}」保留）？此操作可撤销。',
   'tree.undo': '撤销',
   'tree.redo': '重做',
   'tree.expandAll': '全部展开',
@@ -396,6 +401,7 @@ export const dict = {
   'status.addedDir': '已新建目录「{name}」',
   'status.renamed': '已重命名为「{name}」',
   'status.deleted': '已删除「{name}」',
+  'status.clearedRoot': '已清空目录树',
   'status.moved': '已移动「{name}」至「{to}」',
   /* V0.0.43 · F 组：批量操作回执 */
   'status.batchDeleted': '已删除 {n} 个节点',
@@ -471,7 +477,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.1.0',
+  'help.versionFallback': 'V0.2.0',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',
@@ -491,6 +497,11 @@ export const dict = {
 
   'help.lead': '青蔓 QingMan 是一个本地离线运行的目录结构设计工具：可视化编辑目录树，一键在磁盘上生成真实目录。',
 
+  'help.templates.title': '模板库',
+  'help.templates.1': '程序只自带一张空白模板。业务模板（16 套）放在单独的模板包压缩包里，按需下载，不随程序附带。',
+  'help.templates.2': '把压缩包解压到模板库目录即可（默认是程序目录下的 templates；可在「服务设置」里点图标打开该目录）。.json 与 .md 两种格式都认。',
+  'help.templates.3': '解压后回到主界面，模板列表会在几秒内自动出现；导入同名模板时会询问是否覆盖，旧模板移入回收站、可找回。',
+  'help.templates.4': '右键模板可导出：.json 便于再导入，.md 便于阅读与放进版本库，两种内容等价。',
   'help.quickStart.title': '快速开始',
   'help.quickStart.1': '双击项目根目录的 start.bat 启动本地服务',
   'help.quickStart.2': '浏览器自动打开；顶栏右侧那颗状态点呈就绪色即表示服务正常（点它可查看服务状态与设置）',
@@ -578,6 +589,9 @@ export const helpSections = [
   { id: 'tree', title: 'help.tree.title', kind: 'ul', items: [
     'help.tree.1', 'help.tree.2', 'help.tree.3', 'help.tree.4', 'help.tree.5',
     'help.tree.6', 'help.tree.7', 'help.tree.8',
+  ] },
+  { id: 'templates', title: 'help.templates.title', kind: 'ul', items: [
+    'help.templates.1', 'help.templates.2', 'help.templates.3', 'help.templates.4',
   ] },
   { id: 'kbd', title: 'help.kbd.title', kind: 'kbd', note: 'help.kbd.pending', items: ['help.kbd.save', 'help.kbd.undo', 'help.kbd.redo', 'help.kbd.delete', 'help.kbd.rename'] },
   { id: 'safety', title: 'help.safety.title', kind: 'ul', items: [

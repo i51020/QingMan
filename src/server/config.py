@@ -404,12 +404,26 @@ def default_runtime_templates_dir() -> Path:
     return dest
 
 
+def saved_templates_dir() -> "Path | None":
+    """settings 里记录的绑定目录；**目录已不存在则视为未绑定**。
+
+    为什么判存在：绑定值是绝对路径，程序目录被移动 / U 盘拔掉 / 解压到别处之后，
+    旧路径就悬空了。若不判，模板列表会永久显示"不可用"，而用户看到的设置里
+    仍是"已绑定"—— 无法自愈。回落默认目录后，界面至少能看到内置空白模板。
+    """
+    saved = load_settings().get("templatesDir")
+    if isinstance(saved, str) and saved.strip():
+        path = resolve_path(saved.strip())
+        if path.is_dir():
+            return path
+    return None
+
+
 def templates_dir_source() -> str:
     """当前运行态模板目录的来源：`env` / `settings` / `default`。"""
     if os.environ.get(TEMPLATES_DIR_ENV, "").strip():
         return "env"
-    saved = load_settings().get("templatesDir")
-    if isinstance(saved, str) and saved.strip():
+    if saved_templates_dir() is not None:
         return "settings"
     return "default"
 
@@ -423,9 +437,9 @@ def templates_dir() -> Path:
     raw = os.environ.get(TEMPLATES_DIR_ENV, "").strip()
     if raw:
         return resolve_path(raw)
-    saved = load_settings().get("templatesDir")
-    if isinstance(saved, str) and saved.strip():
-        return resolve_path(saved.strip())
+    saved = saved_templates_dir()
+    if saved is not None:
+        return saved
     return default_runtime_templates_dir()
 
 

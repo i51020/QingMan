@@ -210,6 +210,20 @@ export function renameNode(root, id, name) {
   return true;
 }
 
+/**
+ * 清空节点内容（V0.1.0 · 根节点「删除」的语义）。
+ *
+ * 树必须有根 —— 所以根的「删除」不是摘除节点，而是**清空它的全部子节点**（保留根名）。
+ * 与 `removeNode` 分开而不是重载：两者对撤销栈都是"一次操作"，但语义完全不同，
+ * 合成一个函数会让调用方靠 `id === root.id` 猜行为（正是 B-P3-3 那类不一致的来源）。
+ */
+export function clearNode(root, id) {
+  const node = findNode(root, id);
+  if (!node || !isDir(node)) return false;
+  node.children = [];
+  return true;
+}
+
 export function removeNode(root, id) {
   const parent = findParent(root, id);
   if (!parent) return false;

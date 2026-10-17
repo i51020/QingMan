@@ -29,6 +29,28 @@ code {
   padding: 1px 4px;
 }
 
+/* ---------- 滚动条（V0.2.0） ----------
+ * 此前完全没写 ⇒ 用系统默认滚动条：深色皮肤下是一条亮灰槽，与面板配色打架。
+ * 取色只走**既有 token**（`--qm-line` / `--qm-text-dim`），故 16 款皮肤自动跟随，
+ * 不需要给每款皮肤加新变量（加变量就要改 16 个文件 + 守卫，收益不成比例）。
+ * `scrollbar-width/color` 是标准属性（Firefox / 新 Chromium），
+ * `::-webkit-*` 覆盖旧 Chromium —— 两套并存不会互相干扰。 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--qm-line) transparent;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--qm-line);
+  border: 2px solid transparent;   /* 用透明边框缩进，做出"悬浮细条" */
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--qm-text-dim); background-clip: padding-box; }
+::-webkit-scrollbar-corner { background: transparent; }
+
 /* ---------- 按钮：锐利新拟物 ---------- */
 .btn {
   appearance: none;

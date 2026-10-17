@@ -34,8 +34,11 @@ class ProjectFilesTests(unittest.TestCase):
     def test_includes_user_facing_files(self):
         rels = {rel for _src, rel in pr.iter_project_files()}
         for must in ("VERSION", "start.bat", "README_使用说明.md",
-                     "src/server/app.py", "templates-pack/模板库来源说明.md"):
+                     "src/server/app.py", "templates/P0_空白项目模板.json"):
             self.assertIn(must, rels, f"发布包缺少 {must}")
+        # 业务模板包**单独分发**：随包只带空模板，否则"与项目分离"不成立
+        self.assertFalse(any(r.startswith("templates-pack/") for r in rels),
+                         "发布包不应包含 templates-pack/")
 
     def test_excludes_dev_assets(self):
         rels = {rel for _src, rel in pr.iter_project_files()}

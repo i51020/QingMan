@@ -14,7 +14,7 @@ import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse, urlsplit
+from urllib.parse import parse_qs, unquote, urlparse, urlsplit
 
 from server import backups, config, routes
 from server.dtree_core import TreeError, message
@@ -210,8 +210,10 @@ class Handler(BaseHTTPRequestHandler):
                 # 模板导出（V0.0.38 · 6E）：独立前缀 `templates-export`，与 `templates/`
                 # 不共享前缀，故无需像 import 那样先判具体路由。
                 name = unquote(path[len(routes.TEMPLATES_EXPORT_PATH) + 1:])
+                # V0.2.0：`?format=json|md` 可选（缺省＝原样导出，保持旧行为）
+                fmt = parse_qs(urlparse(self.path).query).get("format", [""])[0]
                 try:
-                    self._json(200, routes.export_template(name))
+                    self._json(200, routes.export_template(name, fmt))
                 except TreeError as exc:
                     self._fail(404, exc.code, **exc.detail)
                 except OSError as exc:

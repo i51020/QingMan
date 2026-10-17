@@ -61,12 +61,14 @@ NORMAL = {
     "toastN": str(bs.toast_cap()),
     # V0.0.38 新增：6E（绑定 UI / 右键菜单项 / 轮询实证）
     "tplDirRow": "1", "tplDirPath": "D:/x/templates", "tplDirBtns": "3",
-    "tplMenuN": "5", "tplMenu": "Load/Rename/Duplicate/Export/Delete",
+    # V0.2.0：导出拆成两项 ⇒ 6 项（夹具必须与 browser_smoke 的判据同步，否则基线整体失真）
+    "tplMenuN": "6",
+    "tplMenu": "Load/Rename/Duplicate/Export as .json/Export as .md/Delete",
     # V0.0.51@r11 新增：模板行 ⋮ 常驻入口 —— 7aj⑤b 的**运行期**对照。
     #   静态判据（verify 7aj⑤b）只能证「产出方源码里有这三样标记 + 调用点 ≥2 + 不另造菜单」，
     #   证不了「点了它**真的**开同一个 #ctxMenu」—— 只有本探针走真实监听器能证。
-    "tplMoreThere": "1", "tplMoreN": "5",
-    "tplMoreMenu": "Load/Rename/Duplicate/Export/Delete",
+    "tplMoreThere": "1", "tplMoreN": "6",
+    "tplMoreMenu": "Load/Rename/Duplicate/Export as .json/Export as .md/Delete",
     "pollBefore": "1", "pollAfter": "2",
     # V0.0.39 新增：皮肤 swatch 绑定（网格按 swatch[0] 背景明度亮 → 暗排序）
     #   期望序列由 tools/browser_smoke.py 的 expected_skin_order() 独立复算，

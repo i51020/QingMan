@@ -1106,22 +1106,25 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
               f"行 {dir_row} / 路径 {dir_path!r} / 入口按钮 {dir_btns} 个（应 3）"
               + ("" if bind_ok else "（6E 回归：绑定行或入口按钮缺失）"))
 
-        # V0.0.38 · 6E：模板行右键菜单项齐备（载入 / 重命名 / 复制 / 导出 / 删除 = 5 项）。
-        # 断言项数**加**文案，避免「挂了 5 个空壳按钮」也被判过。
+        # V0.0.38 · 6E：模板行右键菜单项齐备。
+        # V0.2.0：导出拆成两项（.json / .md）⇒ 5 → **6**；断言同时钉**两种格式都在**，
+        # 否则「拆了但漏一种」会被项数蒙过去。
         menu_n = as_int(metrics.get("tplMenuN"), -1)
         menu_text = metrics.get("tplMenu", "")
-        menu_ok = menu_n == 5 and "Export" in menu_text
+        menu_ok = (menu_n == 6 and "Export as .json" in menu_text
+                   and "Export as .md" in menu_text)
         check(menu_ok, "主界面·模板行右键菜单项齐备（V0.0.38）",
               f"{menu_n} 项：{menu_text or '(空)'}"
               + ("" if menu_ok else "（6E 回归：菜单项缺失或未挂到模板行）" + gate_hint))
 
-        # V0.0.51@r11：模板行 ⋮ 常驻入口 —— 点击后打开**同一个** #ctxMenu（5 项）。
+        # V0.0.51@r11：模板行 ⋮ 常驻入口 —— 点击后打开**同一个** #ctxMenu（V0.2.0 起 6 项）。
         # 与上一条同源（都走真实监听器），但多一层意义：证明入口**复用同一菜单**而非
         # 另造一套 —— 那正是本批采纳「丙-1」的核心不变量（设计稿「不另造一套」的落地）。
         more_there = as_int(metrics.get("tplMoreThere"), -1)
         more_n = as_int(metrics.get("tplMoreN"), -1)
         more_text = metrics.get("tplMoreMenu", "")
-        more_ok = more_there == 1 and more_n == 5 and "Export" in more_text
+        more_ok = (more_there == 1 and more_n == 6 and "Export as .json" in more_text
+                   and "Export as .md" in more_text)
         check(more_ok, "主界面·模板行 ⋮ 常驻入口（V0.0.51@r11）",
               f"入口 {more_there} 个 / 点击后菜单 {more_n} 项：{more_text or '(空)'}"
               + ("" if more_ok else "（⋮ 缺失、未接通，或绕开了同一菜单）" + gate_hint))

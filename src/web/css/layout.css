@@ -418,11 +418,47 @@
 .status-count { font-family: var(--qm-mono); }
 
 /* 右栏 */
-.prop-list { display: flex; flex-direction: column; gap: 2px; }
-.prop { display: flex; gap: 8px; align-items: baseline; }
-.prop-key { flex: 0 0 56px; color: var(--qm-text-dim); font-size: var(--qm-fs-md); }
-.prop-val { flex: 1 1 auto; word-break: break-all; }
-.prop-mono { font-size: var(--qm-fs-xs); color: var(--qm-text-dim); }
+/* 属性面板排版（V0.2.0 重排）
+ * 旧样式的问题（用户截图指出）：键与值同字号同色阶、行间只隔 2px，长路径 `word-break:break-all`
+ * 把 `D://Software//QingMan-V0.1.0//...` 断成几截，视觉上像一坨。改法：
+ *   · **三列网格**（键 64px / 值自适应 / 操作钮）—— 6 行的值左缘严格对齐，扫读靠一条竖线；
+ *   · **行分隔线**用 `--qm-line-soft`（皮肤自带），比拉开间距更省纵向空间；
+ *   · **键弱化**（`--qm-text-dim` + 小一号）、**值强化**（`--qm-text` + 正文字号）；
+ *   · **路径单行省略**：保留可读前缀，完整值可点右侧复制钮；
+ *   · 数字列用 `tabular-nums`，深度/子目录/文件三行不会因字宽跳动。 */
+.prop-list { display: flex; flex-direction: column; }
+.prop {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 2px;
+  border-bottom: 1px solid var(--qm-line-soft);
+}
+.prop:last-child { border-bottom: 0; }
+.prop-key {
+  color: var(--qm-text-dim);
+  font-size: var(--qm-fs-xs);
+  letter-spacing: .2px;
+}
+.prop-val {
+  color: var(--qm-text);
+  font-size: var(--qm-fs-md);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+#propDepth, #propDirs, #propFiles { font-variant-numeric: tabular-nums; }
+.prop-mono {
+  font-family: var(--qm-mono);
+  font-size: var(--qm-fs-xs);
+  color: var(--qm-text);
+  background: var(--qm-line-soft);
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* 检视器标题行（V0.0.43 · H 组）：标题左、模式分段控件右。
    复用 .panel-head 的 flex + space-between，只把基线对齐改为居中 ——
@@ -430,6 +466,21 @@
    V0.0.53：标题退场后本行**只剩一个子项**，而 space-between 会把独子**推到左缘**
    ⇒ 分段控件会从右上角滑到左上角。故补 `justify-content: flex-end` 把它**钉回原位**
    —— 「去掉标题」是对方要的，「按钮跑位」不是，两件事不能混为一谈。 */
+/* 服务弹窗「技术信息」折叠区（V0.2.0）：默认收起，只露一行小字。
+   summary 用 dim 色 + 小字号，避免与正文抢注意力；展开后行距与 .kv 一致。 */
+.svc-adv { margin: 10px 0 4px; }
+.svc-adv > summary {
+  cursor: pointer;
+  color: var(--qm-text-dim);
+  font-size: var(--qm-fs-xs);
+  padding: 2px 0;
+  user-select: none;
+}
+.svc-adv > summary:hover { color: var(--qm-text); }
+.svc-adv .kv { margin-top: 6px; }
+/* 图标化底栏：按钮靠右、间距均匀（与工具栏同族视觉） */
+.lay-foot-ic { justify-content: flex-end; gap: 6px; }
+
 .insp-head { align-items: center; justify-content: flex-end; }
 #inspPropPane, #inspSrcPane { margin-top: 8px; }
 /* 分段控件（属性 ⇄ 源码）：两个相邻 .seg-btn 共用一圈外框，中间一条缝。

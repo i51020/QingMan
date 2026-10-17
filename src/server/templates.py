@@ -173,23 +173,38 @@ def load_template(name: str) -> Dict[str, Any]:
     }
 
 
-def export_template(name: str) -> Dict[str, Any]:
-    """读取模板**原文件文本**（`GET /api/templates-export/<name>`，V0.0.38 · 6E）。
+def export_template(name: str, fmt: str = "") -> Dict[str, Any]:
+    """导出模板文本（`GET /api/templates-export/<name>[?format=json|md]`，V0.0.38 · 6E）。
 
-    导出＝把盘上那份文件**原样**交回，**不做任何再序列化** —— 「导出 → 再导入」因此
-    与原件内容一致（单一真源；若前端另写一套 `.md` 渲染器，两侧迟早漂移）。
-    前端据 `file` 的扩展名决定下载文件名（`.json` 进 `.json` 出、`.md` 进 `.md` 出）。
+    **不传 `format`（或与源格式相同）＝ 原样交回**，不做任何再序列化 ——
+    「导出 → 再导入」因此与原件一致（单一真源；前端另写一套渲染器必然漂移）。
 
-    路径校验与读取共用 `_template_path_or_raise`（白名单 + `is_within` + 必须是文件）；
-    读失败由上层转 `ioError`（`OSError`），不新增错误码。
+    **V0.2.0 起可选目标格式**（用户裁定：模板默认 `.json`，但导出时两种都该给）：
+      · `.json` 源要 `.md` → `render_md_template`（与「另存为模板」同一渲染器）
+      · `.md` 源要 `.json` → `parse_md_template` + `json.dumps`
+    转换前后都过 `validate_template`（全量校验），**坏模板不借导出洗白**。
+    未知格式值按原样返回，不新增错误码（调用方只可能是本前端）。
     """
     path = _template_path_or_raise(name)
+    raw = path.read_text(encoding="utf-8")
+    source = _template_source(name)
+    want = (fmt or "").strip().lower()
+    if want and want != source and want in ("json", "md"):
+        if want == "md":
+            doc = json.loads(raw)
+            dtree_core.validate_template(doc)
+            text, out_name = dtree_core.render_md_template(doc), path.stem + ".md"
+        else:
+            doc = dtree_core.parse_md_template(raw)
+            dtree_core.validate_template(doc)
+            text, out_name = json.dumps(doc, ensure_ascii=False, indent=2) + "\n", path.stem + ".json"
+        return {"ok": True, "file": out_name, "name": path.stem, "source": want, "text": text}
     return {
         "ok": True,
         "file": name,
         "name": path.stem,
-        "source": _template_source(name),
-        "text": path.read_text(encoding="utf-8"),
+        "source": source,
+        "text": raw,
     }
 
 
