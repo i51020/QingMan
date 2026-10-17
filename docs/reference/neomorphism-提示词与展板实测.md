@@ -11,7 +11,7 @@
 | 资产 | 路径 | 指纹 |
 |---|---|---|
 | 展板原图 | `docs/reference/neomorphism-board.jpg` | 1280×1920 · sha256 `723b078ec3d96008…` · 202,660 B |
-| 展板原图（设计稿侧副本） | `E:\qm_tmp\ui_design_20261012\assets\neomorphism-board.jpg` | 同上（双份 sha256 一致） |
+| 展板原图（设计稿侧副本） | `E:\临时\qm_tmp\ui_design_20261012\assets\neomorphism-board.jpg` | 同上（双份 sha256 一致） |
 | 第一张风格参考图 | `docs/reference/neomorphism-reference.jpg` | 1024×1536 · md5 `94d577a60143cf07…` · 97,873 B |
 | 风格规格（第一张图的参数化） | `docs/reference/neomorphism-风格规格.md` | — |
 

@@ -40,7 +40,7 @@
 |---|---|
 | `QingMan/docs/reference/neomorphism-reference.jpg` | **权威**（本文件引用它） |
 | `QingMan/docs/reference/soft-neomorph_20261012.jpg` | 首次提供的原始落点（保留） |
-| `E:\qm_tmp\ui_design_20261012\assets\reference-neomorphism.jpg` | 设计稿侧副本 |
+| `E:\临时\qm_tmp\ui_design_20261012\assets\reference-neomorphism.jpg` | 设计稿侧副本 |
 
 > 判定方法：`md5sum` 三份应同为 `94d577a60143cf0729c7b565fe2fb9aa`。若不一致，以本文件登记的这一份为准。
 
@@ -176,7 +176,7 @@ box-shadow:
 
 ---
 
-## 5. 相关产出索引（设计稿侧 `E:\qm_tmp\ui_design_20261012\`）
+## 5. 相关产出索引（设计稿侧 `E:\临时\qm_tmp\ui_design_20261012\`）
 
 | 文件 | 内容 |
 |---|---|
