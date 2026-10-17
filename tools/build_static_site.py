@@ -18,6 +18,12 @@
 **同步注入**首屏语言（走同步脚本是为了不闪烁）。静态托管没有后端，这两条会 404，
 于是这里生成同形的静态文件 —— 内容与 `routes.env_script()` / `routes.locales_script()` 对齐。
 
+**浏览器内演示后端**（`tools/web-demo/demo-backend.js`）：线上没有 Python，若 `/api/*`
+全 404，界面只能显示「后端未连接」，访客会以为站点坏了。故注入一个按**同一套 HTTP 契约**
+实现的演示后端：健康检查通过、编辑态存 `localStorage`（刷新不丢）、模板库给内置空白模板，
+**写盘类动作明确说明做不到**（浏览器本来也不该能写用户磁盘）。它只存在于静态产物里，
+`src/` 不感知 —— 生产代码一个字都不为演示让步。
+
 **用法**：`py -3 tools/build_static_site.py [--out dist/static-site]`
 """
 
@@ -28,13 +34,24 @@ import json
 import re
 import shutil
 import sys
+import time
 from pathlib import Path
 
 _HERE = Path(__file__).resolve()
 ROOT = _HERE.parents[1]
 WEB_DIR = ROOT / "src" / "web"
 LOCALES_DIR = ROOT / "locales"
+DEMO_BACKEND = _HERE.parent / "web-demo" / "demo-backend.js"
+SEED_TEMPLATE = ROOT / "templates" / "P0_空白项目模板.json"
+VERSION_FILE = ROOT / "VERSION"
 DEFAULT_OUT = ROOT / "dist" / "static-site"
+
+# 注入点在 module 脚本**之前**：演示后端必须在 main.js 发出第一个 /api 请求前就位。
+INJECT_ANCHOR = '<script type="module" src="./js/main.js"></script>'
+INJECT_SCRIPTS = (
+    '  <script src="./js/demo-data.js"></script>\n'
+    '  <script src="./js/demo-backend.js"></script>\n'
+)
 
 # 与 `routes._LOCALE_NAME_RE` 同形：只取语言包的自描述名，不执行语言包代码。
 NAME_RE = re.compile(r"export\s+const\s+NAME\s*=\s*['\"]([^'\"]+)['\"]")
@@ -53,9 +70,18 @@ def list_locales() -> "list[dict[str, str]]":
 
 
 def build(out: Path, os_locale: str = "zh-CN") -> dict:
-    """把 `src/web/` + `locales/` 装配成可直接托管的静态目录。"""
+    """把 `src/web/` + `locales/` 装配成可直接托管的静态目录。
+
+    ⚠ 产物目录已存在时**改名让路，不做删除**（与项目「只复制不删除」同一原则）：
+    `shutil.rmtree` 在本环境会撞上 WorkBuddy 的批量删除保护（`[safe-delete]` 直接抛
+    `OSError`），而这类失败的报错离真正原因很远、极易误判。改名的代价只是多占一点
+    磁盘，却让「重建」永远可重复 —— 旧产物留在旁边还能比对差异。
+    """
     if out.exists():
-        shutil.rmtree(out)
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        aside = out.with_name(f"{out.name}.old-{stamp}")
+        shutil.move(str(out), str(aside))
+        print(f"[静态] 旧产物已改名让路：{aside.name}")
     out.mkdir(parents=True)
 
     copied = 0
@@ -85,9 +111,50 @@ def build(out: Path, os_locale: str = "zh-CN") -> dict:
         "window.__QM_LOCALES__ = " + json.dumps(list_locales(), ensure_ascii=False) + ";\n",
         encoding="utf-8", newline="\n")
 
+    demo = install_demo(out)
+
     total = sum(p.stat().st_size for p in out.rglob("*") if p.is_file())
     files = sum(1 for p in out.rglob("*") if p.is_file())
-    return {"files": files, "bytes": total, "web": copied, "locales": locale_count}
+    return {"files": files, "bytes": total, "web": copied, "locales": locale_count,
+            "demo": demo}
+
+
+def install_demo(out: Path) -> bool:
+    """装入浏览器内演示后端 + 内置空白模板，并在 index.html 里挂上两条脚本。
+
+    返回 False 表示素材缺失（此时产物退回「纯静态」：界面仍是后端未连接）。
+    """
+    if not DEMO_BACKEND.is_file():
+        return False
+    version = VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.is_file() else ""
+    seed = {}
+    if SEED_TEMPLATE.is_file():
+        seed = json.loads(SEED_TEMPLATE.read_text(encoding="utf-8"))
+    data = {
+        "version": version,
+        "template": {
+            "file": SEED_TEMPLATE.name,
+            "name": seed.get("name") or "空白项目模板",
+            "description": seed.get("description") or "",
+            "tree": seed.get("tree") or {},
+        },
+    }
+
+    js = out / "js"
+    js.mkdir(exist_ok=True)
+    shutil.copy2(DEMO_BACKEND, js / "demo-backend.js")
+    (js / "demo-data.js").write_text(
+        "window.__QM_DEMO__ = " + json.dumps(data, ensure_ascii=False) + ";\n",
+        encoding="utf-8", newline="\n")
+
+    page = out / "index.html"
+    html = page.read_text(encoding="utf-8")
+    if INJECT_ANCHOR not in html:
+        raise SystemExit(f"[FAIL] index.html 里找不到注入锚点：{INJECT_ANCHOR}")
+    if "demo-backend.js" not in html:
+        html = html.replace(INJECT_ANCHOR, INJECT_SCRIPTS + INJECT_ANCHOR)
+        page.write_text(html, encoding="utf-8", newline="\n")
+    return True
 
 
 def main(argv: "list[str] | None" = None) -> int:
@@ -104,7 +171,8 @@ def main(argv: "list[str] | None" = None) -> int:
     print(f"[静态] {out}")
     print(f"  web {info['web']} 个 + locales {info['locales']} 个 → 共 {info['files']} 文件，"
           f"{info['bytes'] / 1024:.0f} KB")
-    print("  [注意] 线上版为静态预览：可看、可编辑（仅内存），不能生成目录 / 保存 / 用模板库")
+    print("  演示后端：" + ("已注入（编辑态存 localStorage，写盘类动作给明确说明）"
+                          if info["demo"] else "未注入（缺 tools/web-demo/demo-backend.js）"))
     return 0
 
 
