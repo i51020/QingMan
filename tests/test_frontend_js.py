@@ -75,6 +75,35 @@ const tm = await import(SRC + '/modules/tree-model.js');
   ok('B-P3-3/nonroot-blank-still-rejected', tm.renameNode(root, b.id, '') === false && b.name === 'c.txt');
 }
 
+/* ---------- V0.3.11 · clearNode：清空目录树时根名一并重置为空 ----------
+   用户裁定：删完整套目录后，根行还挂着旧名字与空态提示自相矛盾（读到的是
+   「没删干净」）。空名 = 不建根，是 V0.0.42 起的合法状态，不是坏废态。 */
+{
+  const root = tm.createDir('测试');
+  const a = tm.createDir('a');
+  tm.addChild(root, a);
+  ok('T4/clear-root-resets-name',
+     tm.clearNode(root, root.id) === true && root.children.length === 0 && root.name === '',
+     `name=${JSON.stringify(root.name)}`);
+  /* 非根目录清空**不动名** —— 目录还在，名是它的身份。
+     注意入参形状：`clearNode(树根, 目标id)`，目标是**非根**目录时才验这条。 */
+  const root2 = tm.createDir('r2');
+  const sub = tm.createDir('sub');
+  tm.addChild(root2, sub);
+  const x = tm.createDir('x');
+  tm.addChild(sub, x);
+  ok('T4/clear-nonroot-keeps-name',
+     tm.clearNode(root2, sub.id) === true && sub.children.length === 0 && sub.name === 'sub',
+     `name=${JSON.stringify(sub.name)}`);
+  /* 重置为空后根仍可改名 / 仍可收养子节点（空根是合法态） */
+  ok('T4/root-blank-still-usable',
+     tm.renameNode(root, root.id, '新根') === true && root.name === '新根',
+     root.name);
+  ok('T4/root-blank-accepts-child',
+     tm.addChild(root, tm.createDir('k')) === true && root.children.length === 1,
+     root.children.length);
+}
+
 /* ---------- B-P3-4 toPlainTree 同层重名告警 ---------- */
 {
   const root = tm.createDir('r');
@@ -556,6 +585,16 @@ class FrontendJsTests(unittest.TestCase):
         for n in ("B-P3-3/illegal", "B-P3-3/dup", "B-P3-3/ok",
                   "B-P3-3/root-renamable", "B-P3-3/root-blank-is-noroot",
                   "B-P3-3/root-illegal-still-rejected", "B-P3-3/nonroot-blank-still-rejected"):
+            self._ok(n)
+
+    def test_v0311_clear_root_resets_name(self):
+        """V0.3.11 · 清空目录树（根「删除」）时根名一并重置为空；非根目录清空不动名。
+
+        用户裁定：删完整套目录后根行还挂着旧名字，与空态提示自相矛盾。
+        空名 = 不建根（V0.0.42 起的合法状态）—— 重置后根仍可改名、可收养子节点。
+        """
+        for n in ("T4/clear-root-resets-name", "T4/clear-nonroot-keeps-name",
+                  "T4/root-blank-still-usable", "T4/root-blank-accepts-child"):
             self._ok(n)
 
     def test_b3_4_plain_tree_duplicate_warn(self):

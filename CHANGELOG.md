@@ -7,6 +7,45 @@
 
 ---
 
+## V0.3.11 — 2026-10-18
+
+**主题**：四项用户报障修复 + 门禁自身两处缺陷。按 §P0-6 M9（只改实现 ⇒ PATCH）升
+`V0.3.10` → **`V0.3.11`**。
+
+### 一 · 四项报障
+
+| # | 报障 | 根因 | 落地 |
+|---|---|---|---|
+| 1 | 模板目录带着此前的测试路径 | `%APPDATA%/QingMan/settings.json` 绑定 `E:\临时\templates` —— 该目录**真实存在**，悬空自愈（目录不存在才回落）不触发 | 备份后改写为 `{"schemaVersion": 1}`；真实服务验证 `/api/templates-dir` → `source=default` |
+| 2 | 「复制为副本」报「模板名不合法：测试 副本」 | 语言包 `copySuffix` 用**空格**后缀，被服务端白名单 `TEMPLATE_NAME`（唯一权威）拒；前端轻校验不拦空格，拦不住也报不准 | `zh-CN` / `en-US` 后缀空格 → 下划线；`tests/test_routes.py` 增端到端单测**正反两钉**（`甲_副本` 可落盘 / `测试 副本` 必拒 `templateNameInvalid`） |
+| 3 | 手动新建的模板应排最前 | **非缺陷** —— `freshSeq` 逻辑已成立；「被后续操作重算」是排序的正常形态，缺的只是实证与回归位 | 不改代码；端到端探针实证后并入 `browser_smoke` 永久判定 |
+| 4 | 删除目录树后根文件夹名应重置 | `clearNode` 清空子节点但**保留根名**（旧口径），与 V0.3.9 空态提示自相矛盾 | `tree-model.js` 根分支补 `node.name = ''`（空名 = 不建根，V0.0.42 起的合法态）；语言包确认 / 状态文案同步；前端单测 4 例（含「非根目录清空不动名」） |
+
+### 二 · 门禁自身两处缺陷（《错误笔记》§三.100）
+
+加判定后的**首跑**暴露的都不是功能问题，是 `browser_smoke.py` 自伤：
+
+- **键名冲突**：`emptyProbe` 与 `rootProbe` 同写 `m.rootNameAfter`，后跑的覆盖先跑的
+  ⇒ V0.0.42 判定假失败（树区根名变成 `'(no root folder)'`）。修法：新键带前缀
+  （`clearRootName` / `clearRootPh`）。签名：**判定失败，但失败说明里的值不属于该判定**。
+- **异步竞态**：`createOrderProbe` 全链在 `setTimeout` 里，调用方**同步**接 `phase2()`
+  ⇒ `phase3()` 在探针产出任何指标前就写掉 `RESULT` 行。修法：探针内幂等 `finish()`
+  收权（所有终止路径汇流），`prompt`/`confirm` 桩的恢复一并移入（同步 `finally`
+  早于异步链执行，等于不设防）；虚拟时间预算 30000 → 45000 ms。
+  签名：**指标全空且 `errNew` 为空** —— 有错会记 `errNew`，没错才空白。
+
+### 三 · 守卫与实测
+
+- `tools/browser_smoke.py`：**37 → 39 项**（清空后根名重置 / 新建置顶 + 复制默认名合法），
+  真机跑 **39 项 · 失败 0**；NORMAL 夹具回填实测值（`newOrder=乙,甲,探针轮询,空白项目模板`、
+  `copyDefault=甲_copy`、`copyOrder=甲_copy,乙,甲,探针轮询,空白项目模板`）。
+- `tests/test_browser_smoke.py`：计数基线 34 → 36、not-expected 25 → 27；
+  新增 4 条反向回归（`clearRootPh=0` / `newTopOk=0` / `copyHasSpace=1` / `copyTopOk=0`
+  各**恰好**击中对应判定）。
+- 全量：`unittest` **603 OK** ／ `smoke.py` 全过 ／ `manifest check` OK。
+
+---
+
 ## V0.3.10 — 2026-10-18
 
 **主题**：模板名的**排序口径**从「UTF-16 码位」改为「**语言感知**」—— 中文按拼音、

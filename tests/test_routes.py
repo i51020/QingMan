@@ -636,6 +636,26 @@ class TemplateTests(unittest.TestCase):
                           ("templateNameEmpty", "templateNameInvalid"), repr(bad))
         self.assertEqual(list(self.tmp.glob("*.json")), [])
 
+    def test_copy_suffix_default_name_is_legal(self):
+        """复制副本的 prompt 默认值必须直接可用（V0.3.11 用户报障）。
+
+        旧语言包 `template.copySuffix` 为「{name} 副本」—— 分隔符是**空格**，
+        而模板名走服务端白名单 `TEMPLATE_NAME`（仅中英文、数字、下划线、连字符），
+        用户在 prompt 里直接回车即报 `templateNameInvalid`（用户实测截图）。
+        改为 `_` 后默认值合法；本测试钉住「默认值能一路落盘」这一端到端事实。
+        """
+        for tag, sample in (("zh-CN", "测试"), ("en-US", "MyTpl")):
+            text = (_HERE.parents[1] / "locales" / f"{tag}.js").read_text(encoding="utf-8")
+            m = re.search(r"'template\.copySuffix':\s*'([^']*)'", text)
+            self.assertIsNotNone(m, f"{tag} 缺 template.copySuffix 键")
+            made = m.group(1).replace("{name}", sample)
+            res = routes.save_template({"name": made, "tree": {"a": {}}})
+            self.assertEqual(res["file"], made + ".json")
+        # 反向钉：空格分隔的旧值必须被拒（用户报障的原文场景）
+        with self.assertRaises(TreeError) as ctx:
+            routes.save_template({"name": "测试 副本", "tree": {"a": {}}})
+        self.assertEqual(ctx.exception.code, "templateNameInvalid")
+
     def test_save_rejects_too_long_name(self):
         long_name = "甲" * (config.TEMPLATE_NAME_MAX + 1)
         with self.assertRaises(TreeError) as ctx:

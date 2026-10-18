@@ -203,7 +203,7 @@ export const dict = {
   'template.load': '载入',
   'template.duplicate': '复制为副本',
   'template.duplicatePrompt': '为新模板命名（副本）',
-  'template.copySuffix': '{name} 副本',
+  'template.copySuffix': '{name}_副本',
   'template.duplicated': '已复制为「{name}」',
   'template.export': '导出',
   'template.exportJson': '导出为 .json',
@@ -327,7 +327,7 @@ export const dict = {
   'tree.rename': '重命名',
   'tree.delete': '删除',
   'tree.clearRoot': '清空…',
-  'tree.clearRootConfirm': '清空整棵目录树的内容（根名「{name}」保留）？此操作可撤销。',
+  'tree.clearRootConfirm': '清空整棵目录树的内容（根名「{name}」重置为空）？此操作可撤销。',
   'tree.undo': '撤销',
   'tree.redo': '重做',
   'tree.expandAll': '全部展开',
@@ -410,7 +410,7 @@ export const dict = {
   'status.addedDir': '已新建目录「{name}」',
   'status.renamed': '已重命名为「{name}」',
   'status.deleted': '已删除「{name}」',
-  'status.clearedRoot': '已清空目录树',
+  'status.clearedRoot': '已清空目录树 · 根名已重置为空',
   'status.moved': '已移动「{name}」至「{to}」',
   /* V0.0.43 · F 组：批量操作回执 */
   'status.batchDeleted': '已删除 {n} 个节点',
@@ -486,7 +486,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.3.10',
+  'help.versionFallback': 'V0.3.11',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',

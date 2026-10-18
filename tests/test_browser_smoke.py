@@ -85,6 +85,17 @@ NORMAL = {
     "ghostBefore": "0", "ghostN": "1", "ghostTextLen": "64",
     "emptyRowsAfter": "1",
     "ghostPE": "none", "ghostHasId": "0", "ghostAria": "true",
+    # V0.3.11 新增：清空后根名重置为空（用户裁定）。键名带 clear 前缀 —— rootProbe
+    #   （V0.0.42）已占用 rootNameAfter 且先跑，同名会被后跑的 emptyProbe 覆盖，
+    #   把 V0.0.42 判定打成假失败（键名冲突即基线失真，2026-10-18 实测过一轮）。
+    #   清理阶段语言已复位 en-US，故 clearRootName 是英文占位文案。
+    "clearRootName": "(no root folder)", "clearRootPh": "1",
+    # V0.3.11 新增：新建置顶 + 复制默认名合法（值取真机实测；沙盒 = 内置 P0
+    #   + 轮询导入的「探针轮询.md」+ 新建甲乙，故 newOrder 四行）。
+    #   复制默认值走英文语言包（清理阶段 en-US）：甲_copy 无空格；副本同段置顶。
+    "newTopOk": "1", "newOrder": "乙,甲,探针轮询,空白项目模板",
+    "copyDefault": "甲_copy", "copyHasSpace": "0", "copyTopOk": "1",
+    "copyOrder": "甲_copy,乙,甲,探针轮询,空白项目模板",
     # V0.0.39 新增：皮肤 swatch 绑定（网格按 swatch[0] 背景明度亮 → 暗排序）
     #   期望序列由 tools/browser_smoke.py 的 expected_skin_order() 独立复算，
     #   与 src/web/js/ui/skin-picker.js 的 luma() 同公式（改皮肤背景色须同步此处基线）。
@@ -161,6 +172,10 @@ FAIL_ROOTRENAME = "主界面·根名即树根：改名后摘要与树区同步�
 FAIL_ROOTBLANK = "主界面·根名即树根：清空即不建根（V0.0.42）"
 # V0.3.9：空树幽灵行（清空最后一个子节点后的空态提示）
 FAIL_EMPTY = "主界面·清空后显示空态幽灵行（V0.3.9）"
+# V0.3.11：清空后根名重置为空（用户裁定：删干净的树不得挂着旧根名）
+FAIL_ROOTRESET = "主界面·清空后根名重置为空（V0.3.11）"
+# V0.3.11：新建置顶 + 复制默认名合法（用户报障两项的端到端回归位）
+FAIL_ORDER = "主界面·新建模板置顶 + 复制默认名合法（V0.3.11）"
 # V0.0.43（UI 定版差集 G / H / F）：四条判定名
 FAIL_GROUP3 = "主界面·工具栏语义分组：按钮各归其组（V0.0.43 · G）"
 FAIL_INSPMODE = "主界面·检视器属性⇄源码：可切换且源码为同源 JSON（V0.0.43 · H）"
@@ -287,9 +302,9 @@ class VerifyMetricsTests(unittest.TestCase):
         self.assertEqual(failed_names(results), [], "正常指标不应有任何失败项")
         # 项数随版本增长。原注释用「24 + 若干」累加，算术早已对不上实际值 ——
         # 改为只钉数值 + 维护指引，免得下次改判据时又要在注释里重新凑账。
-        # V0.3.9：33 → 34（+空树幽灵行）。
-        self.assertEqual(len(results), 34,
-                         "verify_metrics 应产生 34 项判定"
+        # V0.3.9：33 → 34（+空树幽灵行）；V0.3.11：34 → 36（+清空后根名重置 / +新建置顶与复制默认名）。
+        self.assertEqual(len(results), 36,
+                         "verify_metrics 应产生 36 项判定"
                          "（新增判定须同步本断言与 NORMAL 夹具，否则基线整体失真）")
 
     def test_p1_1_regression_fails_exactly_section_idempotence(self):
@@ -324,8 +339,9 @@ class VerifyMetricsTests(unittest.TestCase):
 
     def test_templates_check_skipped_when_not_expected(self):
         results = run_metrics(NORMAL, expect_templates=False)
-        # V0.3.9：24 → 25（空树幽灵行与模板库无关，故 not expected 时仍在）
-        self.assertEqual(len(results), 25, "不期望模板时不应产生模板判定项（V0.0.41 / V0.0.42 / V0.0.43 / V0.3.9 的项与模板库无关，仍在）")
+        # V0.3.9：24 → 25（空树幽灵行与模板库无关，故 not expected 时仍在）；
+        # V0.3.11：25 → 27（根名重置 / 新建置顶两项同样与模板库有无无关，仍在）。
+        self.assertEqual(len(results), 27, "不期望模板时不应产生模板判定项（V0.0.41 / V0.0.42 / V0.0.43 / V0.3.9 / V0.3.11 的项与模板库无关，仍在）")
         self.assertNotIn(TPL_CHECK, [n for _o, n, _x in results])
 
     def test_empty_tree_ghost_regression_fails_exactly_once(self):
@@ -343,6 +359,37 @@ class VerifyMetricsTests(unittest.TestCase):
                     dict(NORMAL, ghostHasId="1")):
             with self.subTest(metrics=bad):
                 self.assertEqual(failed_names(run_metrics(bad)), [FAIL_EMPTY])
+
+    def test_v0311_clear_root_name_not_reset_fails_exactly(self):
+        """V0.3.11 回归：清空后根名未重置（is-placeholder 占位丢失）→ 恰好那项 FAIL。
+
+        用户报障原话：「删除目录树后根文件夹名称应该重置为空」—— 旧口径「保留根名」
+        会让删干净的树还挂着旧名字，与空态提示自相矛盾。
+        """
+        metrics = dict(NORMAL, clearRootPh="0")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_ROOTRESET])
+
+    def test_v0311_new_template_not_on_top_fails_exactly(self):
+        """V0.3.11 回归：新建模板未置顶（freshSeq 排序失效）→ 恰好那项 FAIL。
+
+        用户报障原话：「手动新建的模板应该排在最前」—— 后建的 乙 必须压过先建的 甲。
+        """
+        metrics = dict(NORMAL, newTopOk="0")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_ORDER])
+
+    def test_v0311_copy_default_with_space_fails_exactly(self):
+        """V0.3.11 回归：复制默认值含空格（旧语言包「{name} 副本」）→ 恰好那项 FAIL。
+
+        用户报障原话：复制为副本提示「模板名不合法：测试 副本」—— 空格被服务端
+        白名单拒。语言包已改下划线，此例钉住不再回退。
+        """
+        metrics = dict(NORMAL, copyHasSpace="1")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_ORDER])
+
+    def test_v0311_copy_not_on_top_fails_exactly(self):
+        """V0.3.11 回归：副本未置顶 → 恰好那项 FAIL。"""
+        metrics = dict(NORMAL, copyTopOk="0")
+        self.assertEqual(failed_names(run_metrics(metrics)), [FAIL_ORDER])
 
     def test_v042_root_rename_not_propagated_fails_exactly(self):
         """V0.0.42 回归：改名未贯通到摘要（摘要保持原样）→ 恰好那项 FAIL。"""

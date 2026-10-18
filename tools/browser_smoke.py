@@ -654,25 +654,31 @@ function pollProbe(doc) {
     setTimeout(function () {
       m.pollAfter = list.querySelectorAll('li.tpl-row').length;
       emptyProbe(doc);
-      phase2();
+      /* phase2 由 createOrderProbe 的 finish() 在异步链终止时调用（V0.3.11 回调契约：
+         同步接 phase2 会让 RESULT 行早于本探针指标落盘，曾致判定假红一轮）。 */
+      createOrderProbe(doc);
     }, 2600);
   }).catch(function (e) {
     m.pollErr = String(e && e.message ? e.message : e);
     emptyProbe(doc);
-    phase2();
+    createOrderProbe(doc);
   });
 }
 
 /* V0.3.9：空树幽灵行 —— 走**真实用户路径**，不直接调内部函数：
    选中根行（无修饰键 ⇒ 顺带清掉多选集合）→ 工具栏「删除」→ window.confirm 被换成受控 true。
-   根节点的「删除」在模型层就是 clearNode：清空内容、保留根名（落盘必须有根文件夹名）。
+   根节点的「删除」在模型层就是 clearNode：清空内容，**根名一并重置为空**
+   （空名 = 不建根，V0.0.42 起的合法状态；V0.3.11 用户裁定，旧口径「保留根名」在此改口）。
 
-   四个量必须一起看，只有一条都判不严：
+   五个量必须一起看，只有一条都判不严：
    ① ghostBefore = 0 —— 树里还有子节点时不能出现提示（否则每棵正常树都挂着一行假空态）；
    ② ghostN = 1 且 ghostTextLen > 0 —— 真的渲染了、且有话要说（不是空 div）；
    ③ rowsAfter = 1 —— 它**没有**被算成普通行（用 `.tree-row` 计数，正是 keyboard 多选 /
       页面冒烟行数统计的口径）；若为 2 就说明它挂错类名，会污染 visibleIds()；
-   ④ ghostPE = 'none' 且 ghostHasId = 0 —— 结构上不可点、不可拖、不进模型。
+   ④ ghostPE = 'none' 且 ghostHasId = 0 —— 结构上不可点、不可拖、不进模型；
+   ⑤ clearRootPh = 1 —— 根行名已重置为空，渲染出「（不建根）」占位（is-placeholder）；
+      若为 0，说明旧根名还挂在根行上，与空态提示自相矛盾。
+      （键名带 clear 前缀，避免覆盖 V0.0.42 rootProbe 的 rootNameAfter）
    探针跑在临时沙箱（mkdtemp），清空不污染下一次运行。 */
 function emptyProbe(doc) {
   var win = doc ? doc.defaultView : null;
@@ -693,10 +699,131 @@ function emptyProbe(doc) {
     m.ghostPE = (g && win.getComputedStyle) ? win.getComputedStyle(g).pointerEvents : '';
     m.ghostHasId = (g && g.dataset && g.dataset.id) ? 1 : 0;
     m.ghostAria = g ? (g.getAttribute('aria-disabled') || '') : '';
+    /* V0.3.11：清空后根名须重置为空 —— 根行渲染「（不建根）」占位（is-placeholder）。
+       取**清空后**的第一行（此时根行仍是第一行；幽灵行不挂 .tree-row）。
+       键名带 clear 前缀：rootProbe（V0.0.42）已占用 rootNameAfter 且先跑，
+       同名会被本探针覆盖，令 V0.0.42 判定假失败（键名冲突即基线失真）。 */
+    var rowAfter = doc.querySelectorAll('.tree-row')[0] || null;
+    var nm = rowAfter ? rowAfter.querySelector('.tree-name') : null;
+    m.clearRootName = nm ? (nm.textContent || '') : '';
+    m.clearRootPh = (nm && nm.classList.contains('is-placeholder')) ? 1 : 0;
   } catch (e) {
     m.errEmpty = String(e && e.message ? e.message : e);
   } finally {
     win.confirm = realConfirm;
+  }
+}
+
+/* V0.3.11：新建置顶 + 复制默认名合法 —— 用户报障两项的端到端回归位。
+   ① 依次新建 甲、乙（**名称序与操作序故意错开**：按名称 甲<乙，按操作 乙 晚）→
+      前两行必须是 乙,甲（后建的在前）。只对 ①② 段成立，判据正是 freshSeq。
+   ② 复制「甲」：prompt 桩**返回默认值**（= 用户直接回车）→ 默认值不得含空格
+      （旧语言包「{name} 副本」在此必被服务端白名单拒），且新副本同段置顶。
+   并入**同一个 iframe**（不新开页面）—— 多一个 iframe 会拉长虚拟时间（V0.0.29 教训）。
+   探针跑在临时沙箱（mkdtemp），落盘的模板随沙盒一起销毁。
+
+   **回调契约（V0.3.11 实测教训）**：本探针整条链都泡在 setTimeout 里，phase2 必须由
+   本函数在链终止时亲自调用。调用方若在 createOrderProbe() 返回后**同步**接 phase2()，
+   phase3 会在本探针产出任何指标之前就把 RESULT 行写掉 —— 形态是「newOrder/copyDefault
+   全空而 errNew 也为空」（链没跑完，结果行已落），曾让本项判定假红一轮。
+   finish() 带幂等哨兵：每条终止路径（无 window / 控件缺失 / 超时 / 异常 / 正常完成）
+   都必须且只能触发一次 phase2；prompt/confirm 桩也在 finish 里恢复（同步 finally 会早于
+   异步链执行，等于不设防）。 */
+function createOrderProbe(doc) {
+  var win = doc ? doc.defaultView : null;
+  var realConfirm = win ? win.confirm : null;
+  var realPrompt = win ? win.prompt : null;
+  var finished = false;
+  function finish() {
+    if (finished) { return; }
+    finished = true;
+    if (win && realConfirm) { win.confirm = realConfirm; }
+    if (win && realPrompt) { win.prompt = realPrompt; }
+    phase2();
+  }
+  if (!win) { m.errNew = 'no-window'; return finish(); }
+  win.confirm = function () { return true; };
+  try {
+    var plan = ['甲', '乙'];
+    var i = 0;
+    (function createNext() {
+      if (i >= plan.length) { return afterCreate(); }
+      var name = plan[i];
+      doc.getElementById('btnNewTemplate').click();
+      setTimeout(function () {
+        var nameEl = doc.getElementById('newTplName');
+        if (!nameEl) { m.errNew = 'no-newTplName'; return finish(); }
+        nameEl.value = name;
+        doc.getElementById('newTplConfirm').click();
+        var n = 120;
+        (function tick() {
+          var found = false;
+          var rows = doc.querySelectorAll('#templateList li.tpl-row');
+          for (var r = 0; r < rows.length; r += 1) {
+            var nm = rows[r].querySelector('.tpl-name');
+            if (nm && nm.textContent === name) { found = true; break; }
+          }
+          if (found) { i += 1; return createNext(); }
+          if (n <= 0) { m.errNew = 'create-timeout:' + name; return finish(); }
+          n -= 1;
+          setTimeout(tick, 25);
+        }());
+      }, 200);
+    }());
+
+    function namesNow() {
+      var arr = [];
+      var rows = doc.querySelectorAll('#templateList li.tpl-row .tpl-name');
+      for (var q = 0; q < rows.length; q += 1) arr.push(rows[q].textContent);
+      return arr;
+    }
+    function afterCreate() {
+      var order = namesNow();
+      m.newOrder = order.join(',');
+      m.newTopOk = (order[0] === '乙' && order[1] === '甲') ? 1 : 0;
+      return doCopy();
+    }
+    function doCopy() {
+      var rows = doc.querySelectorAll('#templateList li.tpl-row');
+      var row = null;
+      for (var r = 0; r < rows.length; r += 1) {
+        var nm = rows[r].querySelector('.tpl-name');
+        if (nm && nm.textContent === '甲') { row = rows[r]; break; }
+      }
+      if (!row) { m.errNew = 'no-row-jia'; return finish(); }
+      win.prompt = function (msg, def) {
+        m.copyDefault = String(def == null ? '' : def);
+        return def;
+      };
+      row.dispatchEvent(new win.MouseEvent('contextmenu', {
+        bubbles: true, cancelable: true, clientX: 40, clientY: 40,
+      }));
+      var menu = doc.getElementById('ctxMenu');
+      var items = menu ? menu.querySelectorAll('button') : [];
+      var dup = null;
+      for (var k = 0; k < items.length; k += 1) {
+        if (/复制|uplicate/i.test(items[k].textContent || '')) { dup = items[k]; break; }
+      }
+      if (!dup) { m.errNew = 'no-dup-item'; return finish(); }
+      dup.click();
+      var n = 120;
+      (function tick() {
+        var order = namesNow();
+        if (order.indexOf(m.copyDefault) >= 0) {
+          m.copyOk = 1;
+          m.copyHasSpace = String(m.copyDefault).indexOf(' ') >= 0 ? 1 : 0;
+          m.copyTopOk = order[0] === m.copyDefault ? 1 : 0;
+          m.copyOrder = order.join(',');
+          return finish();
+        }
+        if (n <= 0) { m.copyOk = 0; m.errNew = 'copy-timeout'; return finish(); }
+        n -= 1;
+        setTimeout(tick, 25);
+      }());
+    }
+  } catch (e) {
+    m.errNew = String(e && e.message ? e.message : e);
+    finish();
   }
 }
 
@@ -1292,6 +1419,29 @@ def verify_metrics(metrics: dict[str, str], expected_version: str, expect_templa
           f"data-id={ghost_id}（应 0）aria-disabled={ghost_aria or '(空)'}"
           + ("" if empty_ok else "（空态未出提示 / 提示混进了 .tree-row 统计 / 可被点选）"))
 
+    # V0.3.11：清空后根名重置为空（用户裁定）。根行渲染「（不建根）」占位 ——
+    # 旧口径「保留根名」会让删干净的树还挂着旧名字，与空态提示自相矛盾。
+    # 键名与 V0.0.42 的 rootNameAfter 区分（clearRootPh / clearRootName），
+    # 否则后跑的 emptyProbe 会覆盖 rootProbe 的值，把 V0.0.42 判定打成假失败。
+    root_ph = as_int(metrics.get("clearRootPh"), -1)
+    root_name = metrics.get("clearRootName", "")
+    root_reset_ok = root_ph == 1
+    check(root_reset_ok, "主界面·清空后根名重置为空（V0.3.11）",
+          f"清空后根行名 = {root_name or '(空)'}，占位类 is-placeholder={root_ph}（应 1）"
+          + ("" if root_reset_ok else "（根名未重置，旧名仍挂在根行上）"))
+
+    # V0.3.11：新建置顶 + 复制默认名合法（用户报障两项的端到端回归位）。
+    # createOrderProbe 与轮询/清空探针**共用同一个 iframe**（V0.0.29 教训：不多开页面）。
+    new_top = as_int(metrics.get("newTopOk"), -1)
+    copy_default = metrics.get("copyDefault", "")
+    copy_space = as_int(metrics.get("copyHasSpace"), -1)
+    copy_top = as_int(metrics.get("copyTopOk"), -1)
+    order_ok = (new_top == 1 and copy_space == 0 and copy_top == 1)
+    check(order_ok, "主界面·新建模板置顶 + 复制默认名合法（V0.3.11）",
+          f"依次新建甲乙后首两行 = {metrics.get('newOrder', '(空)')}（应 乙,甲 开头）；"
+          f"复制默认值 = {copy_default or '(空)'}（应无空格）；副本置顶 = {copy_top}"
+          + ("" if order_ok else f"；异常 {metrics.get('errNew') or '未知'}"))
+
     sec_before = as_int(metrics.get("secBefore"), 0)
     sec_en = as_int(metrics.get("secEn"), 0)
     sec_zh = as_int(metrics.get("secZh"), 0)
@@ -1325,7 +1475,7 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=0, help="0 = 自动挑一个空闲端口")
     parser.add_argument("--sandbox", default=None, help="沙盒目录（缺省用系统临时目录）")
     parser.add_argument("--keep", action="store_true", help="保留沙盒（默认测完即清）")
-    parser.add_argument("--budget", type=int, default=20000, help="浏览器虚拟时间预算（毫秒）")
+    parser.add_argument("--budget", type=int, default=45000, help="浏览器虚拟时间预算（毫秒）")
     parser.add_argument("--timeout", type=float, default=120.0, help="浏览器进程超时（秒）")
     parser.add_argument("--ready-timeout", type=float, default=15.0, help="等待服务就绪（秒）")
     args = parser.parse_args()

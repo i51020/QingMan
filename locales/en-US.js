@@ -189,7 +189,7 @@ export const dict = {
   'template.load': 'Load',
   'template.duplicate': 'Duplicate',
   'template.duplicatePrompt': 'Name for the duplicated template',
-  'template.copySuffix': '{name} copy',
+  'template.copySuffix': '{name}_copy',
   'template.duplicated': 'Duplicated as "{name}"',
   'template.export': 'Export',
   'template.exportJson': 'Export as .json',
@@ -316,7 +316,7 @@ export const dict = {
   'tree.rename': 'Rename',
   'tree.delete': 'Delete',
   'tree.clearRoot': 'Clear…',
-  'tree.clearRootConfirm': 'Clear the whole tree (root name "{name}" is kept)? You can undo this.',
+  'tree.clearRootConfirm': 'Clear the whole tree (root name "{name}" will be reset to empty)? You can undo this.',
   'tree.undo': 'Undo',
   'tree.redo': 'Redo',
   'tree.expandAll': 'Expand all',
@@ -401,7 +401,7 @@ export const dict = {
   'status.addedDir': 'Added directory "{name}"',
   'status.renamed': 'Renamed to "{name}"',
   'status.deleted': 'Deleted "{name}"',
-  'status.clearedRoot': 'Tree cleared',
+  'status.clearedRoot': 'Tree cleared (root name reset)',
   'status.moved': 'Moved "{name}" into "{to}"',
   /* V0.0.43 · F group: batch operation receipts */
   'status.batchDeleted': 'Deleted {n} nodes',
@@ -477,7 +477,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.3.10',
+  'help.versionFallback': 'V0.3.11',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

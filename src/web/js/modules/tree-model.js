@@ -213,7 +213,10 @@ export function renameNode(root, id, name) {
 /**
  * 清空节点内容（V0.1.0 · 根节点「删除」的语义）。
  *
- * 树必须有根 —— 所以根的「删除」不是摘除节点，而是**清空它的全部子节点**（保留根名）。
+ * 树必须有根 —— 所以根的「删除」不是摘除节点，而是**清空它的全部子节点**。
+ * **根的名字一并重置为空**（空名 = 不建根，V0.0.42 起的合法状态）：只清子节点、
+ * 留着旧根名，与随之出现的空态提示自相矛盾（用户裁定，记录见任务进度 V0.3.11）。
+ * 非根目录清空**不动名** —— 目录还在，名字是它的身份。
  * 与 `removeNode` 分开而不是重载：两者对撤销栈都是"一次操作"，但语义完全不同，
  * 合成一个函数会让调用方靠 `id === root.id` 猜行为（正是 B-P3-3 那类不一致的来源）。
  */
@@ -221,6 +224,7 @@ export function clearNode(root, id) {
   const node = findNode(root, id);
   if (!node || !isDir(node)) return false;
   node.children = [];
+  if (root.id === id) node.name = '';
   return true;
 }
 
