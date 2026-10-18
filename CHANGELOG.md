@@ -7,6 +7,39 @@
 
 ---
 
+## V0.3.12 — 2026-10-18
+
+**主题**：修复在线版「绑定模板目录后新建模板恒败」—— 绑定时只授了**只读**权限，
+写操作却要求读写（读写同源 `fe94be1` 遗留的口径断裂）。按 §P0-6 M9（只改实现 ⇒ PATCH）升
+`V0.3.11` → **`V0.3.12`**。
+
+### 一 · 报障与根因
+
+用户报障（在线版 V0.3.11）：新建模板弹「模板保存失败：模板目录没有写入授权，模板没保存。
+请点「选择目录」再授权一次，并在弹框里允许修改。」
+
+根因是**两处权限口径不一致**：
+
+| 环节 | 位置 | 授权口径 |
+|---|---|---|
+| 绑定模板目录 | `tools/web-demo/online-store.js` `pickDir()` | `showDirectoryPicker({ mode: 'read' })` —— **只读** |
+| 写模板（新建 / 改名 / 删除 / 导入） | `tools/web-demo/demo-backend.js` `templateSink()` | 要求 `dirPermission(handle, 'readwrite') === 'granted'`，否则 403 |
+
+File System Access 的权限**按 mode 记录**：read 授权不覆盖 readwrite，
+`queryPermission` 也不会升级。于是绑定目录后写操作恒 403，且按提示「再授权一次」
+走的还是只读 pick —— **死路**（再选多少次都没有写权限）。读写同源改动
+（`fe94be1`，2026-10-17）只改了写操作的落点，没改绑定时的授权模式。
+
+### 二 · 落地
+
+| 文件 | 改动 |
+|---|---|
+| `tools/web-demo/online-store.js` | `pickDir()` 授权模式 `read` → `readwrite`（readwrite 授权**隐含** read，列表只读查询不受影响）；新增 `requestDirPermission()` 导出 —— 权限升级，无手势 / 无此方法 / 抛错一律回落 `'denied'` |
+| `tools/web-demo/demo-backend.js` | `templateSink()` 写权限缺失时先就地 `requestDirPermission` 升级再放弃：该请求由「新建模板」对话框的确认点击发起，transient activation 窗口通常还在，老用户（只读授权的旧绑定）无需重选目录即可自愈；升级失败才回原提示 |
+| `tests/test_online_store.py` | 探针 +2 组：`pickDir` 必须请求 `mode: 'readwrite'`；`requestDirPermission` 升级成功 / 无方法 / 抛错 / 空句柄四路回落 |
+
+---
+
 ## V0.3.11 — 2026-10-18
 
 **主题**：四项用户报障修复 + 门禁自身两处缺陷。按 §P0-6 M9（只改实现 ⇒ PATCH）升

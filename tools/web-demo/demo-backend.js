@@ -359,8 +359,21 @@
     return STORE.getDir().then(function (handle) {
       if (!handle) return { local: true };
       return STORE.dirPermission(handle, 'readwrite').then(function (state) {
-        if (state !== 'granted') return { needPermission: true, name: handle.name };
-        return { dir: handle, name: handle.name };
+        if (state === 'granted') return { dir: handle, name: handle.name };
+        /* 2026-10-18：权限不在手时先**就地升级**再放弃。
+           `requestPermission` 需要用户手势，而这条请求本就由「新建模板」对话框的
+           确认点击发起，transient activation 窗口（约 5s）通常还在 —— 升级成功
+           浏览器会弹一次「允许修改」，用户点允许即可继续写，正是错误提示里
+           描述的那个框，只是不必再手动重走「选择目录」。
+           升级失败（无手势 / 用户拒绝 / 旧浏览器无此方法）才回 needPermission，
+           提示口径与修复前一致：重新选择目录并授权。 */
+        if (typeof STORE.requestDirPermission !== 'function') {
+          return { needPermission: true, name: handle.name };
+        }
+        return STORE.requestDirPermission(handle, 'readwrite').then(function (next) {
+          if (next === 'granted') return { dir: handle, name: handle.name };
+          return { needPermission: true, name: handle.name };
+        });
       });
     });
   }

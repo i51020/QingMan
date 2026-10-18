@@ -99,10 +99,11 @@ function fakeLocalStorage() {
 
 const handles = { tpl: { name: '旧模板目录' }, tgt: { name: '目标文件夹' } };
 let nextHandle = null;
+let pickOpts = null;   /* 捕获 showDirectoryPicker 入参：授权模式必须看得见、断言得了 */
 const win = {
   indexedDB: fakeIdb(),
   localStorage: fakeLocalStorage(),
-  showDirectoryPicker: () => Promise.resolve(nextHandle),
+  showDirectoryPicker: (opts) => { pickOpts = opts || null; return Promise.resolve(nextHandle); },
 };
 vm.runInNewContext(src, { window: win, console, setTimeout, Promise, JSON });
 const STORE = win.QMDemoStore;
@@ -257,6 +258,37 @@ const STORE = win.QMDemoStore;
   ok('删后目录里没有', (await STORE.dirFileExists(wdir, '新模板.json')) === false);
   ok('删不存在不报错', (await STORE.removeDirEntry(wdir, '根本没有.json')) === true);
 
+  /* ⑫ 绑定授权必须是**读写**（2026-10-18 报障「新建模板恒败」的根因）。
+     读写同源（fe94be1）之后，模板目录既是素材库也是写落地；File System Access
+     的权限按 mode 记录，只读授权满足不了 templateSink 的 readwrite 查询，
+     且「再授权一次」走的还是只读 pick —— 死路。
+     反方向安全：readwrite 授权隐含 read，列表的只读查询照常 granted。 */
+  nextHandle = { name: '读写目录' };
+  await STORE.pickDir();
+  ok('pickDir 请求读写授权', !!pickOpts && pickOpts.mode === 'readwrite',
+     pickOpts && pickOpts.mode);
+
+  /* ⑬ 权限自愈：只读授权的老目录当场升级；一切失败（无方法 / 抛错 / 空句柄）
+     一律回落 'denied'，由调用方回退到「重新选择目录」提示，绝不把成功当必然。 */
+  ok('导出含权限升级', typeof STORE.requestDirPermission === 'function');
+  const roHandle = {
+    name: '旧只读库',
+    queryPermission: function () { return Promise.resolve('prompt'); },
+    requestPermission: function () { return Promise.resolve('granted'); },
+  };
+  ok('升级后拿到读写', (await STORE.requestDirPermission(roHandle, 'readwrite')) === 'granted');
+  const noReq = { name: '无方法库', queryPermission: function () { return Promise.resolve('prompt'); } };
+  ok('无 requestPermission 回落 denied',
+     (await STORE.requestDirPermission(noReq, 'readwrite')) === 'denied');
+  const thrower = {
+    name: '会抛错的库',
+    queryPermission: function () { return Promise.resolve('prompt'); },
+    requestPermission: function () { return Promise.reject(new Error('no-gesture')); },
+  };
+  ok('requestPermission 抛错也回落 denied',
+     (await STORE.requestDirPermission(thrower, 'readwrite')) === 'denied');
+  ok('空句柄回落 denied', (await STORE.requestDirPermission(null, 'readwrite')) === 'denied');
+
   process.stdout.write('RESULT ' + JSON.stringify(results) + '\n');
 })().catch((err) => {
   ok('异常', false, err && (err.message || err.name));
@@ -352,6 +384,18 @@ class OnlineStoreTests(unittest.TestCase):
     def test_rebind_still_works(self):
         self._ok("另一个目录也可按名绑定")
         self._ok("改绑后为新的目录")
+
+    def test_pick_requests_readwrite(self):
+        """绑定授权必须是读写：只读授权下写操作必败（2026-10-18 报障的根因）。"""
+        self._ok("pickDir 请求读写授权")
+
+    def test_request_dir_permission(self):
+        """权限自愈：升级成功照常写；一切失败回落 denied，由调用方兜底提示。"""
+        self._ok("导出含权限升级")
+        self._ok("升级后拿到读写")
+        self._ok("无 requestPermission 回落 denied")
+        self._ok("requestPermission 抛错也回落 denied")
+        self._ok("空句柄回落 denied")
 
 
 if __name__ == "__main__":

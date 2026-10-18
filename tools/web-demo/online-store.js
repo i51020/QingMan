@@ -91,7 +91,14 @@
     }
     var picking;
     try {
-      picking = root.showDirectoryPicker({ mode: 'read', id: 'qm-templates' });
+      /* 2026-10-18 修：模式 `'read'` → `'readwrite'`。
+         读写同源（fe94be1）之后，绑定的目录**既是素材库也是写落地** ——
+         新建 / 改名 / 删除 / 导入全都落在这里。而 File System Access 的权限
+         **按 mode 记录**：只读授权永远满足不了 `templateSink` 的 readwrite
+         查询，表现为「新建模板必败」，且错误提示里的「在弹框里允许修改」
+         无从触发（再选一次还是只读）—— 是一条死路。
+         反方向成立：readwrite 授权**隐含** read，列表的只读查询照常 granted。 */
+      picking = root.showDirectoryPicker({ mode: 'readwrite', id: 'qm-templates' });
     } catch (err) {
       return Promise.reject({ code: 'demoFsUnsupported' });
     }
@@ -118,6 +125,22 @@
   function dirPermission(handle, mode) {
     if (!handle || typeof handle.queryPermission !== 'function') { return Promise.resolve('denied'); }
     return handle.queryPermission({ mode: mode || 'read' }).catch(function () { return 'denied'; });
+  }
+
+  /** 目录权限**升级**：把只读授权换成读写（2026-10-18 加，配合 `pickDir` 模式修正）。
+   *
+   *  `requestPermission` 会**消耗 transient activation**（用户手势），无手势时浏览器
+   *  直接回 `'denied'` 而不抛错 —— 所以这里把一切异常都收成 `'denied'`，让调用方
+   *  统一回退到「请重新选择目录」的提示，**不能把升级成功当成必然**。
+   *
+   * 用途：修复前（`mode: 'read'` 时代）绑定的老目录只有只读授权，写操作当场弹一次
+   * 「允许修改」即可自愈，不必逼用户重新走一遍「选择目录 + 确认绑定」。 */
+  function requestDirPermission(handle, mode) {
+    if (!handle || typeof handle.requestPermission !== 'function') {
+      return Promise.resolve('denied');
+    }
+    return handle.requestPermission({ mode: mode || 'readwrite' })
+      .catch(function () { return 'denied'; });
   }
 
   /* ---------- 生成目标位置（与模板库**分键**，互不影响） ----------
@@ -472,6 +495,7 @@
     pickDir: pickDir,
     commitDir: commitDir,
     dirPermission: dirPermission,
+    requestDirPermission: requestDirPermission,
     preloadTarget: preloadTarget,
     peekTarget: peekTarget,
     rememberTarget: rememberTarget,
