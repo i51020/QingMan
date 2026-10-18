@@ -28,3 +28,6 @@ Desktop.ini
 
 # ── 发布产物（可由 `tools/package_release.py` 确定性重建，不入库） ──
 dist/
+
+# ── EdgeOne Makers CLI 状态（项目链接 / 可能的 token，均非项目内容） ──
+.edgeone/
