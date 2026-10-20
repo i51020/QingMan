@@ -31,3 +31,6 @@ dist/
 
 # ── EdgeOne Makers CLI 状态（项目链接 / 可能的 token，均非项目内容） ──
 .edgeone/
+
+# ── Cloudflare Wrangler 状态（Pages 项目缓存 / 部署中间态，均非项目内容） ──
+.wrangler/
