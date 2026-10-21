@@ -622,28 +622,27 @@
       }
       return STORE.getDir().then(function (handle) {
         if (!handle) { return { bound: false }; }
-        return STORE.dirPermission(handle).then(function (state) {
+        /* **2026-10-21 修（第二版）**：这里原先查 `read`，而 `pickDir()` 绑定授的是
+           `readwrite`。File System Access 的权限**按 mode 分别记录**，两处口径不一致
+           就会出现「刚绑定成功、紧接着列表就 403」的怪象（用户实测反复
+           `demoNeedPermission`，重选目录也没用）。
+
+           统一为 **`readwrite`** —— 与绑定、与写入侧 `templateSink()` 完全同口径：
+             · 已授权 readwrite ⇒ 查 readwrite 得 granted（列表正常）
+             · 权限过期（prompt）⇒ 有手势则弹一次授权自愈；无手势则如实 403 */
+        return STORE.dirPermission(handle, 'readwrite').then(function (state) {
           if (state === 'granted') {
             return STORE.readDirTemplates(handle).then(function (items) {
               return { bound: true, items: items, name: handle.name };
             });
           }
-          /* **2026-10-21 修复**：绑定成功却列表空白 —— 提示「已绑定模板目录」，
-             但列表请求 403 `demoNeedPermission`，模板一个都不显示。
-
-             根因：File System Access 的权限**不随句柄持久化**。`pickDir()` 当下拿到的
-             读写授权只在**本次页面会话**内有效；句柄存进 IndexedDB 后，页面重载
-             （或重新 `getDir()` 取回）再 `queryPermission` 会回到 `prompt`。
-             而这里原先**只查不问**（`dirPermission` 是纯查询）⇒ 一刷新就恒 403。
-
-             修法对齐写入侧 `templateSink()` 的既有做法：先**就地请求**一次。
-             列表请求多由"打开页面/点刷新"触发，若此刻仍有 transient activation，
-             浏览器会弹一次「允许查看/修改」，点了即恢复；无手势则 `requestPermission`
-             直接回 denied（浏览器不抛错），仍回 403，由前端提示重选目录。 */
+          /* 权限不在手：先**就地请求**一次。列表请求多由"打开页面/点刷新"触发，
+             若此刻仍有 transient activation，浏览器会弹一次「允许查看/修改」，点了即恢复；
+             无手势则 `requestPermission` 直接回 denied（浏览器不抛错），仍回 403。 */
           if (typeof STORE.requestDirPermission !== 'function') {
             return { bound: true, needPermission: true, name: handle.name };
           }
-          return STORE.requestDirPermission(handle, 'read')
+          return STORE.requestDirPermission(handle, 'readwrite')
             .then(function (next) {
               if (next !== 'granted') {
                 return { bound: true, needPermission: true, name: handle.name };
@@ -715,7 +714,9 @@
       if (!STORE) return ok({ dir: tr('tplPath'), source: 'demo', available: true, reason: '' });
       return STORE.getDir().then(function (handle) {
         if (!handle) return ok({ dir: tr('tplPath'), source: 'demo', available: true, reason: '' });
-        return STORE.dirPermission(handle).then(function (state) {
+        /* 与列表用**同一 mode**（readwrite）判 available —— 否则会出现
+           「绑定行说可用、列表却 403」的口径分裂（2026-10-21 实测踩到）。 */
+        return STORE.dirPermission(handle, 'readwrite').then(function (state) {
           return ok({
             dir: handle.name, source: 'bound',
             available: state === 'granted',

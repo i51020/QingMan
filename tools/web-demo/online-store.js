@@ -104,7 +104,23 @@
     }
     return picking.then(function (handle) {
       pendingDir = handle;   /* 只暂存，不落库 */
-      return handle;
+      /* **2026-10-21 修**：`showDirectoryPicker({mode:'readwrite'})` 返回句柄后，
+         权限**不一定已是 granted** —— 部分浏览器/场景下它仍是 `prompt`，要到第一次
+         真正读/写时才谈授权。而后续绑定是异步的（PUT → commitDir），等列表再来查时
+         用户手势早已用完，`requestPermission` 必然回 denied ⇒ 表现为
+         「提示已绑定成功，但列表立刻 403 demoNeedPermission」，用户反复重选也没用。
+
+         所以**在这里**（手势仍在的同一个 then 里）就地确认一次：
+         已经是 granted 就跳过；否则立刻请求，把权限在此刻定下来。 */
+      var ensure = function () {
+        if (typeof handle.queryPermission !== 'function') { return Promise.resolve('granted'); }
+        return handle.queryPermission({ mode: 'readwrite' }).then(function (state) {
+          if (state === 'granted') { return 'granted'; }
+          if (typeof handle.requestPermission !== 'function') { return state; }
+          return handle.requestPermission({ mode: 'readwrite' }).catch(function () { return state; });
+        }).catch(function () { return 'granted'; });
+      };
+      return ensure().then(function () { return handle; });
     });
   }
 

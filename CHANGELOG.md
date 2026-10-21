@@ -7,6 +7,49 @@
 
 ---
 
+## V0.4.3 — 2026-10-21
+
+**主题**：修复**「绑定目录后列表仍报 `demoNeedPermission`、只剩空白模板」** ——
+权限查询与请求的 **mode 口径分裂**（绑定授 `readwrite`，列表却按 `read` 查/请），
+外加**权限确认时机太晚**（等异步链走完，用户手势已失效）。按 §P0-6 M9 升
+`V0.4.2` → **`V0.4.3`**。
+
+### 一 · 报障与根因（两个叠加的缺陷）
+
+用户实测：点「选择目录」→ 提示「已绑定模板目录」→ 路径框显示 `templates`，
+但**列表只有内置空白模板**，控制台反复 `request failed: demoNeedPermission`。
+
+**缺陷 1：mode 口径分裂。** `pickDir()` 用 `{mode:'readwrite'}` 取授权，而列表却查/请
+`'read'`。File System Access 的权限**按 mode 分别记录**，两处口径不一致就会反复失败
+——用户重选目录多少次都没用（这一点决定了「重试无效」这个反常现象）。
+
+**缺陷 2：确认时机太晚。** 即便 mode 统一，若 `showDirectoryPicker` 返回时权限仍是
+`prompt`，等「PUT → commitDir → 列表查询」这条异步链走完再 `requestPermission`，
+**用户手势早已用完**，浏览器直接回 `denied`（不抛错）。
+
+### 二 · 落地
+
+| 文件 | 改动 |
+|---|---|
+| `tools/web-demo/online-store.js` | `pickDir()` 在**同一个 `then` 里**（手势仍有效）就地确认权限：已 `granted` 则跳过（不重复弹框），否则当场 `requestPermission`；无权限 API 的句柄不阻断（旧内核兜底） |
+| `tools/web-demo/demo-backend.js` | 列表查询/请求 mode 统一为 **`readwrite`**（与绑定、与写入侧 `templateSink()` 同口径）；`GET /api/templates-dir` 的 `available` 判定同步改为 `readwrite`，消除「绑定行说可用、列表却 403」的口径分裂 |
+| `tests/test_online_store.py` | **+1 用例 / 5 断言**：pickDir 当场查询 / 当场请求 / 仍返回句柄 / **已授权时不重复请求**（防每次选目录多弹一个框）/ 无权限 API 不阻断 |
+
+### 三 · 验证
+
+| 项 | 结果 |
+|---|---|
+| 新测试 | 5 条断言全绿；`tests/test_online_store.py` 12 用例通过 |
+| `unittest` | **620 OK**（619 + 1） |
+| `verify.py` | 121 项 · 0 失败 |
+| `tests/test_template_dir_permission.py` | 4 用例仍全绿（V0.4.1 的契约未被破坏） |
+
+> **说明**：本版依据的是**用户实测的控制台证据**（`demoNeedPermission` 反复出现）与
+> 代码层面的 mode 对比，未再单独构造浏览器端复现 —— 前两轮已证明 Node 替身在权限
+> 语义上不可靠（`vm` 沙箱的 `window` 引用与控制台不一致）。真实效果需用户端确认。
+
+---
+
 ## V0.4.2 — 2026-10-21
 
 **主题**：修复**在线版把「目录已被删除」误报成「无法连接后端服务」** ——
