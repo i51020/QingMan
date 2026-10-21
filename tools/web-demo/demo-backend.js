@@ -622,35 +622,27 @@
       }
       return STORE.getDir().then(function (handle) {
         if (!handle) { return { bound: false }; }
-        /* **2026-10-21 修（第二版）**：这里原先查 `read`，而 `pickDir()` 绑定授的是
-           `readwrite`。File System Access 的权限**按 mode 分别记录**，两处口径不一致
-           就会出现「刚绑定成功、紧接着列表就 403」的怪象（用户实测反复
-           `demoNeedPermission`，重选目录也没用）。
+        /* **2026-10-21 修（第三版 · 以读为准）**
 
-           统一为 **`readwrite`** —— 与绑定、与写入侧 `templateSink()` 完全同口径：
-             · 已授权 readwrite ⇒ 查 readwrite 得 granted（列表正常）
-             · 权限过期（prompt）⇒ 有手势则弹一次授权自愈；无手势则如实 403 */
-        return STORE.dirPermission(handle, 'readwrite').then(function (state) {
-          if (state === 'granted') {
-            return STORE.readDirTemplates(handle).then(function (items) {
-              return { bound: true, items: items, name: handle.name };
-            });
-          }
-          /* 权限不在手：先**就地请求**一次。列表请求多由"打开页面/点刷新"触发，
-             若此刻仍有 transient activation，浏览器会弹一次「允许查看/修改」，点了即恢复；
-             无手势则 `requestPermission` 直接回 denied（浏览器不抛错），仍回 403。 */
-          if (typeof STORE.requestDirPermission !== 'function') {
+           前两版都栽在「先查权限再决定」这个套路上：
+             · 查不到就 `requestPermission` ⇒ 列表每 2500ms 轮询一次，**反复弹授权框**；
+               轮询无用户手势 ⇒ 必回 denied ⇒ **永远 403，模板永远载不进来**。
+             · 改成查 `readwrite` ⇒ 与绑定口径"统一"了，但查询结果本身并不总是可信
+               （句柄从 IndexedDB 取回后常报 `prompt`，而实际读取可能照样成功）。
+
+           现在**不再查权限**，直接**以读取结果为准**：
+             · 读成功 ⇒ 有模板就返回（哪怕 `queryPermission` 报 prompt）；
+             · 读失败且是权限类错误（`NotAllowedError` / `SecurityError`）⇒ 如实 403；
+             · 读失败且目录已不在（`NotFoundError`）⇒ 由下面 catch 转 `demoDirMissing`。
+           这样既不弹任何框，也不会因为一次不可靠的查询就把有权限的目录判死。 */
+        return STORE.readDirTemplates(handle).then(function (items) {
+          return { bound: true, items: items, name: handle.name };
+        }).catch(function (err) {
+          var name = (err && err.name) || '';
+          if (name === 'NotAllowedError' || name === 'SecurityError') {
             return { bound: true, needPermission: true, name: handle.name };
           }
-          return STORE.requestDirPermission(handle, 'readwrite')
-            .then(function (next) {
-              if (next !== 'granted') {
-                return { bound: true, needPermission: true, name: handle.name };
-              }
-              return STORE.readDirTemplates(handle).then(function (items) {
-                return { bound: true, items: items, name: handle.name, reGranted: true };
-              });
-            });
+          throw err;   /* 其它（含 NotFoundError）交给外层分类 */
         });
       }).catch(function (err) {
         /* **2026-10-21 补**：绑定的文件夹**被删除 / 改名 / 移动**时，句柄仍在 IndexedDB，
@@ -714,9 +706,9 @@
       if (!STORE) return ok({ dir: tr('tplPath'), source: 'demo', available: true, reason: '' });
       return STORE.getDir().then(function (handle) {
         if (!handle) return ok({ dir: tr('tplPath'), source: 'demo', available: true, reason: '' });
-        /* 与列表用**同一 mode**（readwrite）判 available —— 否则会出现
-           「绑定行说可用、列表却 403」的口径分裂（2026-10-21 实测踩到）。 */
-        return STORE.dirPermission(handle, 'readwrite').then(function (state) {
+        /* 与列表用**同一 mode**（默认 read）判 available —— 两处口径必须一致。
+           注：readwrite 授权隐含 read，故绑定后查 read 即为 granted。 */
+        return STORE.dirPermission(handle).then(function (state) {
           return ok({
             dir: handle.name, source: 'bound',
             available: state === 'granted',

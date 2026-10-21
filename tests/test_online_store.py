@@ -289,31 +289,22 @@ const STORE = win.QMDemoStore;
      (await STORE.requestDirPermission(thrower, 'readwrite')) === 'denied');
   ok('空句柄回落 denied', (await STORE.requestDirPermission(null, 'readwrite')) === 'denied');
 
-  /* ⑭ pickDir 必须**当场确认权限**（2026-10-21 用户实测「绑定后列表立刻 403」）。
-     `showDirectoryPicker` 返回的句柄权限不一定是 granted；若等到后续列表请求再查，
-     用户手势早已用完，`requestPermission` 必然 denied ⇒ 反复重选目录也没用。
-     故 pickDir 在**同一个 then 里**（手势仍有效）就确认一次。 */
+  /* ⑭ pickDir **不得**再做任何权限动作（2026-10-21 回退位）。
+     一度在这里加过「再查一次、必要时再请求一次」，实测帮倒忙：
+       · picker 成功返回时权限本就已授予，再请求会**多弹一个确认框**（用户报「操作繁琐」）；
+       · 该调用通常已无手势，浏览器可能记成 denied，反而把刚拿到的授权弄坏。
+     故断言：pickDir 只返回句柄，**不查、不求**。 */
   let pickQueryCalled = 0;
   let pickRequestCalled = 0;
   nextHandle = {
-    name: '需确认的库',
+    name: '不该多问的库',
     queryPermission: function () { pickQueryCalled += 1; return Promise.resolve('prompt'); },
     requestPermission: function () { pickRequestCalled += 1; return Promise.resolve('granted'); },
   };
-  const ensured = await STORE.pickDir();
-  ok('pickDir 当场查询权限', pickQueryCalled === 1, '查询次数=' + pickQueryCalled);
-  ok('pickDir 当场请求授权', pickRequestCalled === 1, '请求次数=' + pickRequestCalled);
-  ok('pickDir 仍返回句柄', !!ensured && ensured.name === '需确认的库', ensured && ensured.name);
-
-  /* 已 granted 时**不该**再弹一次授权（否则每次选目录都多一个框，骚扰用户） */
-  let noExtraRequest = 0;
-  nextHandle = {
-    name: '已授权库',
-    queryPermission: function () { return Promise.resolve('granted'); },
-    requestPermission: function () { noExtraRequest += 1; return Promise.resolve('granted'); },
-  };
-  await STORE.pickDir();
-  ok('已授权时不重复请求', noExtraRequest === 0, '多余请求=' + noExtraRequest);
+  const straight = await STORE.pickDir();
+  ok('pickDir 不多弹授权', pickRequestCalled === 0, 'requestPermission 次数=' + pickRequestCalled);
+  ok('pickDir 不额外查权限', pickQueryCalled === 0, 'queryPermission 次数=' + pickQueryCalled);
+  ok('pickDir 仍返回句柄', !!straight && straight.name === '不该多问的库', straight && straight.name);
 
   /* 没有权限 API 的句柄也不能把 pickDir 弄崩（旧内核 / 测试替身） */
   nextHandle = { name: '无权限API库' };
@@ -428,16 +419,15 @@ class OnlineStoreTests(unittest.TestCase):
         self._ok("requestPermission 抛错也回落 denied")
         self._ok("空句柄回落 denied")
 
-    def test_pick_dir_ensures_permission_immediately(self):
-        """`pickDir` 必须在**手势仍有效时**确认权限（2026-10-21 报障回归位）。
+    def test_pick_dir_does_not_ask_permission(self):
+        """`pickDir` 只返回句柄，**不查也不求**权限（2026-10-21 回退）。
 
-        用户实测：提示「已绑定模板目录」，但列表立刻 403 `demoNeedPermission`，
-        反复重选目录也没用。根因是权限确认被推迟到后续异步请求，那时手势已失效。
+        用户报「选择目录时多次弹出需要确认的窗口，操作繁琐」—— picker 成功返回时
+        权限本就已授予，再请求一次纯属多余，且无手势时可能把状态记成 denied。
         """
-        self._ok("pickDir 当场查询权限")
-        self._ok("pickDir 当场请求授权")
+        self._ok("pickDir 不多弹授权")
+        self._ok("pickDir 不额外查权限")
         self._ok("pickDir 仍返回句柄")
-        self._ok("已授权时不重复请求")
         self._ok("无权限 API 不阻断 pickDir")
 
 

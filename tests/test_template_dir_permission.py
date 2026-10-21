@@ -51,18 +51,29 @@ const FILES = [
     text: JSON.stringify({ name: '实拍短视频项目', tree: { 日志: {}, 项目管理: { 项目章程: {} } } }, null, 2) + '\n' },
 ];
 
-/* 权限状态**可变**：granted → prompt 用来模拟「刷新后失权」 */
+/* 权限状态**可变**：granted → prompt 用来模拟「刷新后失权」。
+   `calls.request` 统计 requestPermission 次数 —— 用它断言「列表不弹框」。 */
 function makeDir(stateRef, files) {
+  const denied = () => {
+    const e = new Error('The request is not allowed by the user agent or the platform.');
+    e.name = 'NotAllowedError';
+    return e;
+  };
+  /* 真实浏览器：未授权时**读取本身**就抛 NotAllowedError（不是靠 queryPermission 拦） */
+  const guard = () => (stateRef.value === 'granted' ? null : Promise.reject(denied()));
   return {
     name: '我的模板库', kind: 'directory',
     queryPermission: () => Promise.resolve(stateRef.value),
     requestPermission: () => {
+      stateRef.calls.request += 1;
       /* 真实浏览器：无手势时直接回 'denied'，**不抛错** */
       if (!stateRef.gesture) { return Promise.resolve('denied'); }
       stateRef.value = 'granted';
       return Promise.resolve('granted');
     },
     values() {
+      const blocked = guard();
+      if (blocked) { return { next: () => blocked }; }
       const arr = files.map((f) => ({
         kind: 'file', name: f.name,
         getFile: () => Promise.resolve({
@@ -169,7 +180,7 @@ const ok = (name, pass, extra) => out.push({ name, pass: !!pass, extra: String(e
 
 (async () => {
   const kv = {};
-  const perm = { value: 'granted', gesture: true };
+  const perm = { value: 'granted', gesture: true, calls: { request: 0 } };
   const files = FILES.map((f) => ({ ...f }));
 
   /* ---- A. 首次绑定 ---- */
@@ -182,26 +193,33 @@ const ok = (name, pass, extra) => out.push({ name, pass: !!pass, extra: String(e
   ok('首次列表正常', l1.status === 200 && (l1.body.items || []).length === 1,
      'status=' + l1.status + ' items=' + (l1.body.items || []).length);
 
+  /* 关键反向断言：刚绑定时列表**不该**再要一次授权（pick 已经给了） */
+  ok('绑定时不多弹授权', perm.calls.request === 0, 'requestPermission 次数=' + perm.calls.request);
+
   /* ---- B. 刷新：权限退回 prompt，且**无手势** ---- */
   perm.value = 'prompt';
   perm.gesture = false;
+  const before = perm.calls.request;
   call = newPage(perm, kv, files);        // 新页面，dirCache 为空，从 IndexedDB 取回句柄
   const l2 = await call('/api/templates', 'GET');
-  ok('无手势时如实 403（不假装成功）',
+  ok('失权时如实 403（不假装成功）',
      l2.status === 403 && l2.body.code === 'demoNeedPermission',
      'status=' + l2.status + ' code=' + l2.body.code);
 
-  /* ---- C. 有手势时列表自愈 ---- */
-  perm.value = 'prompt';
-  perm.gesture = true;
-  const l3 = await call('/api/templates', 'GET');
-  ok('有手势时列表自愈',
-     l3.status === 200 && (l3.body.items || []).length === 1,
-     'status=' + l3.status + ' items=' + (l3.body.items || []).length);
+  /* **本轮核心回归位**：列表**一次都不能**调 requestPermission —— 它在 2.5s 轮询里
+     反复触发，是用户报「多次弹出确认窗口」的直接原因；而且轮询无手势必然失败。 */
+  ok('列表轮询不触发授权弹窗', perm.calls.request === before,
+     '新增 requestPermission 次数=' + (perm.calls.request - before));
 
-  /* ---- D. 重新走一次「选择目录」 ---- */
-  perm.value = 'prompt';
+  /* ---- C. 重复轮询也不弹框（连查 3 次） ---- */
+  const before3 = perm.calls.request;
+  for (let i = 0; i < 3; i += 1) { await call('/api/templates', 'GET'); }
+  ok('连续轮询仍不弹框', perm.calls.request === before3,
+     '新增 requestPermission 次数=' + (perm.calls.request - before3));
+
+  /* ---- D. 重新走一次「选择目录」→ 恢复 ---- */
   perm.gesture = true;
+  perm.value = 'granted';                 // 用户在选择器里点了「允许」
   const pick2 = await call('/api/templates-dir/pick', 'POST', {});
   ok('重新授权 pick 可用',
      pick2.body.available === true && !!pick2.body.dir,
@@ -267,24 +285,34 @@ class TemplateDirPermissionTests(unittest.TestCase):
         self.assertTrue(item["pass"], f"{name} 不成立（extra={item['extra']}）")
 
     def test_bind_then_list(self):
-        """基线：绑定成功后列表立即可用。"""
+        """基线：绑定成功后列表立即可用，且**不再多要一次授权**。"""
         self._ok("首次绑定成功")
         self._ok("首次列表正常")
+        self._ok("绑定时不多弹授权")
 
     def test_expired_permission_reports_403(self):
-        """刷新后无手势：必须**如实 403**，不能假装成功返回空列表。
+        """失权时：必须**如实 403**，不能假装成功返回空列表。
 
-        这是本条最关键的反向约束 —— 若为了「让界面好看」而在无权限时返回
-        空 items + 200，用户会以为模板真的没了。
+        若为了「让界面好看」而在无权限时返回空 items + 200，
+        用户会以为模板真的没了。
         """
-        self._ok("无手势时如实 403（不假装成功）")
+        self._ok("失权时如实 403（不假装成功）")
 
-    def test_gesture_self_heals(self):
-        """有手势时后端就地请求授权，列表自愈，用户不必重选目录。"""
-        self._ok("有手势时列表自愈")
+    def test_list_never_requests_permission(self):
+        """**本轮核心回归位**：列表请求一次都不能触发授权弹窗。
+
+        2026-10-21 用户报「选择目录时多次弹出需要确认的窗口，操作繁琐」，
+        根因是列表分支（每 2500ms 轮询）里调了 `requestPermission`：
+          · 无手势时必然失败（浏览器回 denied，不抛错）⇒ 永远 403；
+          · 有手势时则真的弹框 ⇒ 用户被反复打扰。
+        故断言：绑定后、失权后、连续轮询后，`requestPermission` 调用次数都不增加。
+        """
+        self._ok("绑定时不多弹授权")
+        self._ok("列表轮询不触发授权弹窗")
+        self._ok("连续轮询仍不弹框")
 
     def test_reauth_restores_list(self):
-        """用户点「重新授权」重走选择器后，列表恢复。"""
+        """用户重新走一次「选择目录」后，列表恢复。"""
         self._ok("重新授权 pick 可用")
         self._ok("重新授权后列表恢复")
 

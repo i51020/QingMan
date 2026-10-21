@@ -104,23 +104,14 @@
     }
     return picking.then(function (handle) {
       pendingDir = handle;   /* 只暂存，不落库 */
-      /* **2026-10-21 修**：`showDirectoryPicker({mode:'readwrite'})` 返回句柄后，
-         权限**不一定已是 granted** —— 部分浏览器/场景下它仍是 `prompt`，要到第一次
-         真正读/写时才谈授权。而后续绑定是异步的（PUT → commitDir），等列表再来查时
-         用户手势早已用完，`requestPermission` 必然回 denied ⇒ 表现为
-         「提示已绑定成功，但列表立刻 403 demoNeedPermission」，用户反复重选也没用。
-
-         所以**在这里**（手势仍在的同一个 then 里）就地确认一次：
-         已经是 granted 就跳过；否则立刻请求，把权限在此刻定下来。 */
-      var ensure = function () {
-        if (typeof handle.queryPermission !== 'function') { return Promise.resolve('granted'); }
-        return handle.queryPermission({ mode: 'readwrite' }).then(function (state) {
-          if (state === 'granted') { return 'granted'; }
-          if (typeof handle.requestPermission !== 'function') { return state; }
-          return handle.requestPermission({ mode: 'readwrite' }).catch(function () { return state; });
-        }).catch(function () { return 'granted'; });
-      };
-      return ensure().then(function () { return handle; });
+      /* **2026-10-21 回退**：这里一度加过一段 `ensure()`（再查一次、必要时再请求一次）。
+         实测后果是**帮倒忙**：
+           · `showDirectoryPicker({mode:'readwrite'})` 成功返回时，权限本就已授予，
+             再调 `requestPermission` 会**多弹一个确认框**（用户报「操作繁琐」）；
+           · 该调用通常已无用户手势，浏览器可能把结果记成 `denied`，反而把刚拿到的
+             授权弄坏 ⇒ 绑定后列表仍 403。
+         故恢复 V0.3.12 的写法：picker 返回即视为已授权，此处不再做任何权限动作。 */
+      return handle;
     });
   }
 

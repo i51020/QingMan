@@ -7,6 +7,52 @@
 
 ---
 
+## V0.4.4 — 2026-10-21
+
+**主题**：**回退 V0.4.1 / V0.4.3 的错误做法** —— 移除列表轮询与 `pickDir` 中的权限请求，
+把「先查权限再决定」改为「**以读取结果为准**」。修复两个由我自己引入的问题：
+**反复弹授权框**与**绑定后仍 403**。按 §P0-6 M9 升 `V0.4.3` → **`V0.4.4`**。
+
+### 一 · 我改错了什么（如实记录）
+
+用户报障：「载入模板路径的功能在历史版本原本可用，改了几次后依旧不能用；选目录时还
+多次弹出确认窗口，操作繁琐，且依然没载入模板。」
+
+**根因是我这两轮加的「权限自愈」，方向错了**：
+
+| 版本 | 我加的 | 实际后果 |
+|---|---|---|
+| V0.4.1 | 列表分支在权限不足时调 `requestDirPermission` | 列表每 **2500ms** 轮询一次 ⇒ **反复弹「允许查看/修改」框**；轮询**无用户手势** ⇒ `requestPermission` 必回 `denied`（浏览器不抛错）⇒ **永远 403，模板永远载不进来** |
+| V0.4.3 | 把查询 mode 改成 `readwrite`，并在 `pickDir` 里加 `ensure()` 再请求一次 | `pickDir` 又**多弹一个框**；且该调用通常已无手势，可能把刚拿到的授权记成 `denied` —— **越修越坏** |
+
+**对照历史**：V0.3.12 的 `pickDir` 只返回句柄、列表**只查询不请求** —— 那才是可用的实现。
+
+### 二 · 落地（以读为准）
+
+| 文件 | 改动 |
+|---|---|
+| `tools/web-demo/online-store.js` | **删除** `pickDir` 里的 `ensure()`，恢复 V0.3.12 写法：picker 返回即视为已授权，不再做任何权限动作 |
+| `tools/web-demo/demo-backend.js` | 列表**不再查权限**，改为**直接尝试读取**：读成功就返回（哪怕 `queryPermission` 报 `prompt`）；读失败且 `NotAllowedError`/`SecurityError` → 如实 403；`NotFoundError` → `demoDirMissing`。`GET /api/templates-dir` 的 mode 也回退为默认 `read` |
+| `tests/test_template_dir_permission.py` | 新增**核心回归位**「列表轮询不触发授权弹窗」：断言绑定后、失权后、连续轮询 3 次后，`requestPermission` 调用次数**都不增加** |
+| `tests/test_online_store.py` | 把上一轮「pickDir 当场确认权限」的用例**改为反向断言**：`pickDir` 不查、不求 |
+| `tests/test_package_release.py` | 顺带修一个**既有 flaky 用例**：`_stage()` 未固定 `built_at`，两次构建跨秒即不一致（全量跑偶发、单跑通过）。按工具 docstring 的约定显式传固定时间 |
+
+**为什么「以读为准」比「查权限」可靠**：`queryPermission` 的返回值并不总是与实际可用性一致
+（句柄从 IndexedDB 取回后常报 `prompt`，而读取可能照样成功）。**读得动就是有权限**，
+这是唯一不会误判的判据，而且它**永远不会触发授权弹窗**。
+
+### 三 · 验证
+
+| 项 | 结果 |
+|---|---|
+| 权限契约测试 | 4 用例全绿（含「列表轮询不触发授权弹窗」） |
+| **反向验证** | 换回 V0.4.3 的 `demo-backend.js` → 「列表轮询不触发授权弹窗」**精确 FAIL**（新增 `requestPermission` 次数 = 1）—— 证明测试真能抓住弹窗来源 |
+| `unittest` | **620 OK** |
+| `verify.py` | 121 项 · 0 失败 |
+| `smoke.py` / `browser_smoke.py` | 35/0 · 39/0 |
+
+---
+
 ## V0.4.3 — 2026-10-21
 
 **主题**：修复**「绑定目录后列表仍报 `demoNeedPermission`、只剩空白模板」** ——

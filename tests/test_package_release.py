@@ -101,7 +101,10 @@ class ManifestAndZipTests(unittest.TestCase):
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_bytes(data)
             srcs.append((p, name))
-        manifest = pr.build_staging(staging, srcs, None)
+        # **固定构建时间**：`build_staging` 的默认值是「当前时间」，会让同输入的两次
+        # 构建跨秒后清单不同 ⇒ `test_zip_is_deterministic` 变成「看运气」的 flaky 用例
+        # （全量跑 20s 时偶发、单跑 0.1s 时通过）。工具 docstring 已写明单测须显式传值。
+        manifest = pr.build_staging(staging, srcs, None, built_at="2026-10-21T00:00:00+08:00")
         pr.write_manifest(staging, manifest)
         return staging, manifest
 
