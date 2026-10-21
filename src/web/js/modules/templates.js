@@ -444,8 +444,45 @@ function renderDirUnavailable(err) {
   host.textContent = '';
   const li = document.createElement('li');
   li.className = 'tpl-empty tpl-warn';
-  li.textContent = localizeError(err) || t('template.needReauthHint');
+  const code = err && err.code;
+  /* V0.4.5：**权限过期**这条要能一键恢复。
+     File System Access 的授权不随句柄持久化 —— 刷新页面后句柄仍是 `prompt`，
+     读取必然 `NotAllowedError`。以前这里只写一句话、让用户自己再点「选择目录」，
+     而 `showDirectoryPicker` 会重开文件夹选择器；真实恢复只需在**用户手势**里对
+     已存的句柄调一次 `requestPermission`。
+     ⚠ 只有在线版有这条通道（`/api/templates-dir/grant` 是内嵌演示后端提供的，
+     本机版由 Python 服务提供不了，也不会返回 `demoNeedPermission`）—— 用
+     `__QM_DEMO_ACTIVE__` 收口，本机版行为与此前完全一致。 */
+  if (code === 'demoNeedPermission' && window.__QM_DEMO_ACTIVE__) {
+    const text = document.createElement('span');
+    text.textContent = t('template.needReauthHint') + ' ';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-ghost btn-mini tpl-reauth';
+    btn.textContent = t('template.reauth');
+    btn.addEventListener('click', () => regrantTemplatesDir(btn));
+    li.append(text, btn);
+  } else {
+    li.textContent = localizeError(err) || t('template.needReauthHint');
+  }
   host.appendChild(li);
+}
+
+/**
+ * 就地重新授权（V0.4.5）。**必须在点击事件里同步发出** —— 浏览器只在用户手势内
+ * 允许 `requestPermission`；放到 await 之后或轮询里会静默回 `denied`。
+ * 成功即重读列表；失败则把原因说清楚，并提示退回「选择目录」。
+ */
+async function regrantTemplatesDir(btn) {
+  if (btn) { btn.disabled = true; }
+  try {
+    await api.grantTemplatesDir();
+    await loadTemplatesDir();
+    await loadTemplateList();
+  } catch (err) {
+    toast(t('template.reauthFailed', { message: localizeError(err) }), 'warn', 8000);
+    if (btn) { btn.disabled = false; }
+  }
 }
 
 /* ---------- 模板列表轮询（V0.0.38 · 6E · MVP 2500ms） ---------- */

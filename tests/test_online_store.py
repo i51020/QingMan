@@ -37,11 +37,15 @@ _HERE = Path(__file__).resolve()
 _ROOT = _HERE.parents[1]
 _TOOLS = _ROOT / "tools"
 _STORE_JS = _TOOLS / "web-demo" / "online-store.js"
+_MD_JS = _TOOLS / "web-demo" / "md-template.js"
 
 HARNESS = r"""
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync(process.env.QM_STORE_JS, 'utf8');
+/* 线上注入序里 `md-template.js` 在 `online-store.js` **之前**，`.md` 解析才有得用。
+   V0.4.5 起 `readDirTemplates` 会把解析失败的文件移出列表，没有它，`.md` 会被误判成坏件。 */
+const mdSrc = fs.readFileSync(process.env.QM_MD_JS, 'utf8');
 
 const results = [];
 const ok = (name, pass, extra = '') => results.push({ name, pass: !!pass, extra: String(extra) });
@@ -105,6 +109,7 @@ const win = {
   localStorage: fakeLocalStorage(),
   showDirectoryPicker: (opts) => { pickOpts = opts || null; return Promise.resolve(nextHandle); },
 };
+vm.runInNewContext(mdSrc, { window: win, console, setTimeout, Promise, JSON });
 vm.runInNewContext(src, { window: win, console, setTimeout, Promise, JSON });
 const STORE = win.QMDemoStore;
 
@@ -343,7 +348,7 @@ class OnlineStoreTests(unittest.TestCase):
         cls.addClassCleanup(tmp.cleanup)
         harness = Path(tmp.name) / "probe.cjs"
         harness.write_text(HARNESS, encoding="utf-8", newline="\n")
-        env = dict(os.environ, QM_STORE_JS=str(_STORE_JS))
+        env = dict(os.environ, QM_STORE_JS=str(_STORE_JS), QM_MD_JS=str(_MD_JS))
         proc = subprocess.run([node, str(harness)], capture_output=True, text=True,
                               env=env, timeout=120)
         cls.err = proc.stderr[-800:]

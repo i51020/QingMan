@@ -150,6 +150,19 @@ export const api = {
   },
 
   /**
+   * 就地重新授权已绑定的模板目录（V0.4.5，**仅在线版**）。
+   *
+   * 浏览器把句柄存进 IndexedDB 后，权限**不随之持久化**：刷新页面回到 `prompt`，
+   * 读取直接 `NotAllowedError`。恢复只需在**用户点击的手势**里对已存句柄调
+   * `requestPermission` —— 但那个调用只在浏览器内（演示后端）可用，本机版没有
+   * 这条通道（Python 侧目录权限就是文件系统权限，不存在"再授权"）。
+   * 故调用方必须先判 `window.__QM_DEMO_ACTIVE__`，本机版不会走到这里。
+   */
+  grantTemplatesDir() {
+    return request('/api/templates-dir/grant', { method: 'POST', body: '{}' });
+  },
+
+  /**
    * 绑定模板目录（V0.0.38 · 6E）。服务端会拒自绑 / 拒系统区 / 实测可写后才落盘；
    * 被 `QM_TEMPLATES_DIR` 环境变量覆盖时返回 `applied=false`，调用方据此提示。
    */

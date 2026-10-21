@@ -130,8 +130,21 @@ function makeEnv(bound) {
     requestDirPermission: () => Promise.resolve('granted'),
     readDirTemplates: () => Promise.resolve(bound ? FILES.map((f) => ({
       file: f.name, name: f.name.replace(/\.[^.]+$/, ''), description: '',
+      dirs: 0, files: 1,
       size: f.text.length, mtime: 0, source: /\.md$/.test(f.name) ? 'md' : 'json',
     })) : []),
+    /* V0.4.5：列表改走 `scanDirTemplates`（返回 items + skipped）；
+       导出测试只关心「列表能读到目录」，故给同形替身即可。 */
+    scanDirTemplates: () => Promise.resolve({
+      items: bound ? FILES.map((f) => ({
+        file: f.name, name: f.name.replace(/\.[^.]+$/, ''), description: '',
+        dirs: 0, files: 1,
+        size: f.text.length, mtime: 0, source: /\.md$/.test(f.name) ? 'md' : 'json',
+      })) : [],
+      skipped: [],
+    }),
+    /* 本替身没有「刚点选、待确认」的句柄：PUT 走原来的同名短路即可 */
+    hasPendingDir: () => false,
     readDirTemplateText: (h, file) => {
       const hit = FILES.find((f) => f.name === file);
       if (!hit || !bound) { const e = new Error('missing'); e.name = 'NotFoundError'; return Promise.reject(e); }

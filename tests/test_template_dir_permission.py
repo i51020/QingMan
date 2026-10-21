@@ -129,8 +129,10 @@ function fakeIdb(kv) {
   } };
 }
 
-/* 每次「新建页面」都重建 window / localStorage，但 IndexedDB 的 kv 可跨页复用 */
-function newPage(stateRef, kv, files) {
+/* 每次「新建页面」都重建 window / localStorage，但 IndexedDB 的 kv 可跨页复用。
+   `env.pickState` 决定**这一次点选**拿到的句柄绑在哪个权限状态上 —— 场景 E 要的正是
+   「库里那份已失权、而这次点选拿到的是**另一个**已授权的新句柄」。 */
+function newPage(stateRef, kv, files, env) {
   const MEM = new Map();
   const localStorage = {
     getItem: (k) => (MEM.has(k) ? MEM.get(k) : null),
@@ -140,10 +142,16 @@ function newPage(stateRef, kv, files) {
   const noop = () => {};
   const doc = { readyState: 'complete', querySelector: () => null, addEventListener: noop };
   const dir = makeDir(stateRef, files);
+  /* 点选拿到的句柄可以**不是**库里那份（同名）：场景 E —— 用户重选同一个文件夹，
+     选择器返回的是**新**句柄，权限已授予。若实现把「同名」当成「同一个句柄」，
+     新句柄会被丢弃，旧句柄的 403 就永远修不好。 */
+  const pickDir = env && env.pickState
+    ? makeDir({ value: env.pickState, gesture: true, calls: { request: 0 } }, files)
+    : dir;
   const win = {
     location: { href: 'https://qingman.pages.dev/', origin: 'https://qingman.pages.dev' },
     localStorage, indexedDB: fakeIdb(kv),
-    showDirectoryPicker: () => Promise.resolve(dir),
+    showDirectoryPicker: () => Promise.resolve(pickDir),
     fetch: () => Promise.resolve(new Response('{}', { status: 404 })),
     navigator: { language: 'zh-CN', storage: null },
     document: doc, addEventListener: noop,
@@ -228,6 +236,73 @@ const ok = (name, pass, extra) => out.push({ name, pass: !!pass, extra: String(e
   ok('重新授权后列表恢复',
      l4.status === 200 && (l4.body.items || []).length === 1,
      'status=' + l4.status + ' items=' + (l4.body.items || []).length);
+
+  /* ---- E. 真机最常踩的那条：**重选同一个文件夹** ----
+     2026-10-21 用户实测「选择一个目录作为模板库后，模板文件没有载入」。
+     真机时序：上次绑过 → 刷新页面 → 句柄回到 prompt（读取抛 NotAllowedError，403）→
+     用户点「选择目录」选**同一个**文件夹 → picker 返回**同名的新句柄**（权限已授予）。
+     缺陷：PUT 分支写着 `if (handle && wantDir === handle.name) return applied:true`，
+     只比**名字**就认定「已经是这个目录」，于是把新句柄丢掉、继续用失权的旧句柄 ——
+     403 永不恢复，重选多少次都一样。 */
+  perm.value = 'prompt';                  // 库里那份失权
+  perm.gesture = false;
+  const staleCall = newPage(perm, kv, files, { pickState: 'granted' });
+  const l5 = await staleCall('/api/templates', 'GET');
+  ok('重选前如实 403', l5.status === 403 && l5.body.code === 'demoNeedPermission',
+     'status=' + l5.status + ' code=' + l5.body.code);
+
+  const pick3 = await staleCall('/api/templates-dir/pick', 'POST', {});
+  const put3 = await staleCall('/api/templates-dir', 'PUT', { dir: pick3.body.dir, create: false });
+  ok('重选同名目录应采纳新句柄', put3.body.applied === true,
+     'applied=' + put3.body.applied + ' dir=' + put3.body.dir);
+
+  const l6 = await staleCall('/api/templates', 'GET');
+  ok('重选同名目录后列表恢复',
+     l6.status === 200 && (l6.body.items || []).length === 1,
+     'status=' + l6.status + ' items=' + (l6.body.items || []).length);
+
+  /* ---- F. 列表条目要带 dirs / files ----
+     真机实测：绑定目录后每个模板行显示「undefined 目录 · undefined 文件」——
+     目录分支的列表项漏了这两个字段（本机版有）。这属于「列表没载入成功」的观感来源之一。 */
+  ok('目录列表项带 dirs/files',
+     (l6.body.items || []).every((it) => Number.isFinite(it.dirs) && Number.isFinite(it.files)),
+     JSON.stringify((l6.body.items || []).map((it) => [it.dirs, it.files])));
+
+  /* ---- G. 坏文件要进 `skipped`，不能混在可载入条目里 ----
+     真机实测：一个 JSON 解析失败的文件照样列成模板（名字取文件名），点它才报错。
+     本机版 V0.4.0 已改为回传 skipped 清单，在线版没跟上。 */
+  const badFiles = files.concat([{ name: '坏文件.json', text: '{"tree": ' }]);
+  const badCall = newPage({ value: 'granted', gesture: true, calls: { request: 0 } }, {}, badFiles);
+  const badPick = await badCall('/api/templates-dir/pick', 'POST', {});
+  await badCall('/api/templates-dir', 'PUT', { dir: badPick.body.dir, create: false });
+  const l7 = await badCall('/api/templates', 'GET');
+  ok('坏文件不进可载入列表',
+     (l7.body.items || []).every((it) => it.file !== '坏文件.json'),
+     JSON.stringify((l7.body.items || []).map((it) => it.file)));
+  ok('坏文件进 skipped 清单',
+     Array.isArray(l7.body.skipped) && l7.body.skipped.some((s) => s.file === '坏文件.json' && !!s.code),
+     JSON.stringify(l7.body.skipped || null));
+
+  /* ---- H. 一键重新授权（V0.4.5 新增端点 POST /api/templates-dir/grant） ----
+     失权后用户不必重走文件夹选择器：点列表里那颗按钮 → 浏览器在手势里弹一次「允许」
+     → 复用 IndexedDB 里那份句柄。断言：① 无手势时如实 403；② 有手势时 granted 且列表恢复。 */
+  const gPerm = { value: 'prompt', gesture: false, calls: { request: 0 } };
+  const gCall = newPage(gPerm, {}, files);
+  await gCall('/api/templates-dir/pick', 'POST', {});
+  await gCall('/api/templates-dir', 'PUT', { dir: '我的模板库', create: false });
+  gPerm.value = 'prompt';
+  const g1 = await gCall('/api/templates-dir/grant', 'POST', {});
+  ok('无手势授权如实 403', g1.status === 403 && g1.body.code === 'demoNeedPermission',
+     'status=' + g1.status + ' code=' + g1.body.code);
+
+  gPerm.gesture = true;
+  const g2 = await gCall('/api/templates-dir/grant', 'POST', {});
+  ok('有手势授权成功', g2.status === 200 && g2.body.granted === true,
+     'status=' + g2.status + ' granted=' + g2.body.granted);
+  const g3 = await gCall('/api/templates', 'GET');
+  const gItems = g3.body.items || [];
+  ok('一键授权后列表恢复', g3.status === 200 && gItems.length === files.length,
+     'status=' + g3.status + ' items=' + gItems.length);
 
   process.stdout.write('RESULT ' + JSON.stringify(out) + '\n');
 })().catch((err) => {
@@ -315,6 +390,32 @@ class TemplateDirPermissionTests(unittest.TestCase):
         """用户重新走一次「选择目录」后，列表恢复。"""
         self._ok("重新授权 pick 可用")
         self._ok("重新授权后列表恢复")
+
+    def test_repick_same_folder_restores_list(self):
+        """**2026-10-21 用户实测缺陷的回归位**：重选**同一个**文件夹必须能恢复列表。
+
+        真机时序：上次绑过 → 刷新 → 句柄失权（403）→ 点「选择目录」选同一个文件夹
+        → picker 返回**同名的新句柄**。旧实现只比名字就短路返回 `applied:true`，
+        新句柄被丢弃 ⇒ 永远 403、重选多少次都没用（这正是用户说的「改了多次仍不能载入」）。
+        """
+        self._ok("重选前如实 403")
+        self._ok("重选同名目录应采纳新句柄")
+        self._ok("重选同名目录后列表恢复")
+
+    def test_list_items_carry_stats(self):
+        """列表项必须带 `dirs` / `files` —— 否则界面显示「undefined 目录 · undefined 文件」。"""
+        self._ok("目录列表项带 dirs/files")
+
+    def test_broken_file_goes_to_skipped(self):
+        """解析失败的模板文件**不进**可载入列表，而是进 `skipped` 清单（与本机版同口径）。"""
+        self._ok("坏文件不进可载入列表")
+        self._ok("坏文件进 skipped 清单")
+
+    def test_grant_endpoint_requires_gesture(self):
+        """一键重新授权：无手势时如实 403（浏览器不会弹框），有手势时成功并恢复列表。"""
+        self._ok("无手势授权如实 403")
+        self._ok("有手势授权成功")
+        self._ok("一键授权后列表恢复")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 {
   "$comment": "青蔓 QingMan · 前后端共享数据契约。前端、后端、CLI 均以本文件为准。",
-  "version": "V0.4.4",
+  "version": "V0.4.5",
   "template": {
     "$comment": "模板文件格式，与 templates/*.json 一致。schemaVersion 自 V0.0.13「另存为模板」起写入；既有 17 套模板无该字段，读取时一律视为 1（§P2 第 7 项）",
     "schemaVersion": 1,
@@ -32,7 +32,7 @@
     "overwritten": "布尔。true 表示本次覆盖了同名既有模板（旧文件已入回收站）"
   },
   "templateListResponse": {
-    "$comment": "GET /api/templates 响应。templates/ 不在版本交付清单内，预览副本缺失时 available=false 且 items 为空（不报错）；单套损坏只跳过该套。V0.4.0 起被跳过的文件列入 skipped（兼容新增，此前为静默丢弃）",
+    "$comment": "GET /api/templates 响应。templates/ 不在版本交付清单内，预览副本缺失时 available=false 且 items 为空（不报错）；单套损坏只跳过该套。V0.4.0 起被跳过的文件列入 skipped（兼容新增，此前为静默丢弃）。V0.4.5 起**在线版的目录分支也回传同一组字段**（此前缺 dirs/files，界面显示 undefined；坏件还混进 items）",
     "ok": true,
     "available": true,
     "items": [
@@ -43,6 +43,13 @@
     ],
     "path": "templates 目录绝对路径",
     "schemaVersion": 1
+  },
+  "templatesDirGrantResponse": {
+    "$comment": "POST /api/templates-dir/grant 响应（**仅在线版**，V0.4.5）。浏览器把目录句柄存进 IndexedDB 后权限不随之持久化，刷新即回 prompt、读取必 NotAllowedError；用户点「重新授权」时在**点击手势**里对已存句柄调 requestPermission。本机版没有这条通道（文件系统权限不靠浏览器授权），故该端点只存在于内嵌演示后端",
+    "ok": true,
+    "granted": "布尔。true 表示已重新拿到 readwrite 授权（此刻列表可读）",
+    "dir": "目录名（浏览器不披露绝对路径）",
+    "source": "bound 表示来自已绑定的句柄"
   },
   "templateRenameRequest": {
     "$comment": "POST /api/templates/<name> 请求体（V0.0.20 重命名）。同时改文件名与文件内 name 字段；新旧同名时以 unchanged=true 短路返回",

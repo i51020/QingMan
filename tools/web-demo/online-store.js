@@ -128,6 +128,15 @@
       .catch(function () { return true; });
   }
 
+  /** 是否有一个**刚点选、尚未落库**的句柄在等确认。
+   *
+   *  2026-10-21 加：PUT 分支原先只比目录名就认定「已经是这个目录」并直接回 applied，
+   *  于是「重选同一个文件夹」时**新句柄被丢弃**，继续用库里那份已过期的旧句柄 ——
+   *  授权永远修不好。判据必须是「有没有待定句柄」，不是「名字一不一样」。 */
+  function hasPendingDir() {
+    return !!pendingDir;
+  }
+
   /** 目录权限查询。`mode` 默认 `'read'`（模板库只读进来用），写盘前要传 `'readwrite'`。 */
   function dirPermission(handle, mode) {
     if (!handle || typeof handle.queryPermission !== 'function') { return Promise.resolve('denied'); }
@@ -295,31 +304,75 @@
     return items.slice().sort(byFile);
   }
 
-  function readDirTemplates(dirHandle) {
+  /** 统计模板树：目录数 / 文件数（与本机版 `dtree_core.count_tree` 同口径）。
+   *
+   *  2026-10-21 补：目录分支此前**没回传** `dirs` / `files`，界面于是显示
+   *  「undefined 目录 · undefined 文件」—— 用户第一眼就会觉得列表没载入成功。 */
+  function countTree(tree) {
+    var dirs = 0;
+    var files = 0;
+    (function walk(node) {
+      Object.keys(node || {}).forEach(function (key) {
+        var value = node[key];
+        if (value && typeof value === 'object') { dirs += 1; walk(value); }
+        else { files += 1; }
+      });
+    })(tree);
+    return { dirs: dirs, files: files };
+  }
+
+  /**
+   * 扫描目录里的模板文件。
+   *
+   * 返回 `{items, skipped}`：**解析失败的文件不进 items**，而是进 `skipped`
+   * （`{file, code, reason}`，与本机版 `templates.list_templates` 同形）——
+   * 否则用户会在列表里看到一个点了就报错的「模板」，而真正原因（`.md` 围栏未闭合 /
+   * JSON 坏了）一个字都看不到。空 `skipped` = 全部解析正常。
+   */
+  function scanDirTemplates(dirHandle) {
     return entriesOf(dirHandle).then(function (entries) {
       var picked = entries.filter(function (h) {
         return h.kind === 'file' && TPL_EXT.test(h.name);
       });
+      var items = [];
+      var skipped = [];
       return Promise.all(picked.map(function (h) {
         /* 名字取**句柄**的 `h.name`，不取 `File.name` —— 两者恒等，但少一层隐含依赖：
            任何实现（含测试替身）只要能列出条目，就该能读。 */
         return h.getFile().then(function (file) {
           return file.text().then(function (text) {
             var doc = null;
-            try { doc = parseTemplateText(text, h.name); } catch (err) { doc = null; }
-            return {
+            try { doc = parseTemplateText(text, h.name); } catch (err) {
+              /* 单套坏了不拖垮整个列表，但**必须留痕** */
+              skipped.push({
+                file: h.name,
+                code: (err && err.code) || (/\.md$/i.test(h.name) ? 'templateBadMarkdown' : 'templateBadJson'),
+                reason: String((err && err.detail && err.detail.reason) || ''),
+              });
+              return;
+            }
+            var stat = countTree((doc && doc.tree) || {});
+            items.push({
               file: h.name,
               name: (doc && doc.name) || h.name.replace(/\.[^.]+$/, ''),
               description: (doc && doc.description) || '',
+              dirs: stat.dirs,
+              files: stat.files,
               size: file.size,
               mtime: file.lastModified / 1000,
               source: /\.md$/i.test(h.name) ? 'md' : 'json',
-              broken: !doc,
-            };
+            });
           });
         });
-      })).then(sortByFile);   /* 顺序由 byFile 显式规定，不交给文件系统 */
+      })).then(function () {
+        return { items: sortByFile(items), skipped: skipped };
+      });
     });
+  }
+
+  /** 只要列表（旧调用方与单测沿用的形态）：丢弃 `skipped`。 */
+  function readDirTemplates(dirHandle) {
+    return scanDirTemplates(dirHandle).then(function (res) { return res.items; });
   }
 
   /** 读目录里模板文件的**原文**（导出用：不传 format 时要原样交回，不能再序列化）。
@@ -513,6 +566,7 @@
     getDir: getDir,
     pickDir: pickDir,
     commitDir: commitDir,
+    hasPendingDir: hasPendingDir,
     dirPermission: dirPermission,
     requestDirPermission: requestDirPermission,
     preloadTarget: preloadTarget,
@@ -521,6 +575,8 @@
     pickTarget: pickTarget,
     targetPermission: targetPermission,
     readDirTemplates: readDirTemplates,
+    scanDirTemplates: scanDirTemplates,
+    countTree: countTree,
     readDirTemplate: readDirTemplate,
     readDirTemplateText: readDirTemplateText,
     dirFileExists: dirFileExists,

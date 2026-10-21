@@ -7,6 +7,67 @@
 
 ---
 
+## V0.4.5 — 2026-10-21
+
+**主题**：**在线版「选完目录后模板没载入」的真机复现与修复** —— 两个缺陷叠加：
+① 绑定接口按**目录名**短路，把「重选同一个文件夹」拿到的新句柄丢掉，继续用已经失权的旧句柄
+（于是重选多少次都恢复不了）；② 目录分支的列表项**缺 `dirs`/`files`**、解析失败的文件
+**混进可载入列表**（界面显示「undefined 目录」+ 点了就报错的坏条目）。
+按 §P0-6 M9（只改实现与呈现、既有契约不破坏）升 `V0.4.4` → **`V0.4.5`**。
+
+### 一 · 怎么定位的（这次不靠猜）
+
+前四轮（V0.4.1 → V0.4.4）都是读代码推权限语义，结果三次改错方向。本轮先建**真机复现链**：
+
+| 步骤 | 做法 |
+|---|---|
+| 1 | `tools/build_static_site.py` 产出在线版到 `dist/_probe/site`（与发布同一构建器） |
+| 2 | 注入一个 `probe.js`：伪造 `showDirectoryPicker`，返回带 `.json` / `.md` / 坏件的目录句柄 |
+| 3 | **无头 Edge + CDP**（`--remote-debugging-port`）驱动真实页面：点 `#btnPickDir` → 读 DOM 与全部 `/api/templates*` 往返 |
+| 4 | 造两个场景：A「首次绑定」；B「句柄已失权 → 重选**同名**目录」 |
+
+> **为什么不用 `--virtual-time-budget`**：实测该模式下 **IndexedDB 永不回调**（连 `onerror`
+> 都不触发），会把「探针没等够」误诊成产品缺陷 —— 与《错误笔记》§三「替身不可靠」同源。
+> 真机驱动必须给它真实时间。
+
+**复现结果**：场景 A 正常（说明「首次绑定」这条路本来就是好的）；**场景 B 红** ——
+`PUT /api/templates-dir` 回 `applied:true`，但随后 `GET /api/templates` 依旧 403，
+列表停在「读取权限已失效」。根因锁定为下面第一处。
+
+### 二 · 改了什么
+
+| 文件 | 改动 |
+|---|---|
+| `tools/web-demo/demo-backend.js` | **① PUT 判据改为「有无待定句柄」**：`hasPendingDir()` 为真就 `commitDir`（同名目录也换成**新**句柄）；只有「没有新句柄、名字又对得上」才短路。手填路径仍换不出句柄，故「选择目标位置」不会改绑模板库（V0.3.12 的分离语义不变）。**② 列表改走 `scanDirTemplates`** 并回传 `skipped`。**③ 新增 `POST /api/templates-dir/grant`**（仅在线版）：在**点击手势**里对已存句柄 `requestPermission`，成功即复用，不必重走文件夹选择器。 |
+| `tools/web-demo/online-store.js` | 新增 `scanDirTemplates()`（返回 `{items, skipped}`）：列表项补 `dirs`/`files`（`countTree`，与本机版同口径）；**解析失败的文件移出 items、进 skipped**（`{file, code, reason}`，与本机版 `templates.list_templates` 同形）。新增 `hasPendingDir()`；`readDirTemplates()` 保留为「只要 items」的薄封装。 |
+| `src/web/js/modules/templates.js` | 授权过期那一行改为「说明 + **重新授权**按钮」，**仅在在线版渲染**（`window.__QM_DEMO_ACTIVE__` 收口）—— 本机版从不返回 `demoNeedPermission`，行为一字未变。 |
+| `src/web/js/core/api.js` | 新增 `grantTemplatesDir()`。 |
+| `src/web/css/layout.css` | `.tpl-empty.tpl-warn .tpl-reauth`：按钮与说明同行，不换行错位。 |
+| `locales/zh-CN.js` / `en-US.js` | 各 +2 键：`template.reauth` / `template.reauthFailed`（两包键集仍零差异）。 |
+| `src/shared/schema.json` | 版本戳同步；新增 `templatesDirGrantResponse`；`templateListResponse` 补注「在线版目录分支同形」。 |
+| `tests/test_template_dir_permission.py` | **7 → 8 用例**：新增「重选同名目录必须恢复」「列表项带 dirs/files」「坏文件进 skipped」「grant 端点需手势」。 |
+
+### 三 · 验证
+
+| 项 | 结果 |
+|---|---|
+| 真机复现链（场景 A） | 首绑后 3 行：`个人知识库.json · 1 目录 · 1 文件` / `实拍短视频项目.json · 2 目录 · 1 文件` / `有 1 个模板文件未能读取：坏文件.json（templateBadJson）` |
+| 真机复现链（场景 B） | **修复前**：PUT `applied:true` 但列表仍 403、只剩一句「权限已失效」；**修复后**：PUT 后 `available:true`，列表恢复为 2 行 |
+| 单测（先行红） | 新增 4 处断言在旧实现上**精确 FAIL**（`重选同名目录后列表恢复` extra=`status=403 items=0`；`坏文件不进可载入列表`）；改实现后全绿 |
+| `unittest` | **623 OK** |
+| `verify.py` | **121 项 · 0 失败** |
+| `smoke.py` / `browser_smoke.py` | **35/0 · 39/0** |
+
+### 四 · 对我自己前几轮的更正
+
+- 「以读为准」（V0.4.4）方向是对的，但**只对了一半**：它解决了「不该弹框」，却没解决
+  「重选同名目录后仍用旧句柄」。判断「是不是同一个目录」不能只看名字 —— 名字相同、
+  句柄不同（权限不同）正是浏览器恢复授权时的常态。
+- V0.4.1 把 `requestPermission` 放进 2500ms 轮询是错的（无手势必 denied + 反复弹框）；
+  但**不能因此认为「请求授权」本身有害** —— 正确位置是**用户的点击手势**里，即本版新增的按钮。
+
+---
+
 ## V0.4.4 — 2026-10-21
 
 **主题**：**回退 V0.4.1 / V0.4.3 的错误做法** —— 移除列表轮询与 `pickDir` 中的权限请求，

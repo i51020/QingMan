@@ -220,6 +220,8 @@
 
 .tpl-empty { color: var(--qm-text-dim); font-size: var(--qm-fs-md); padding: 4px 0; }
 .tpl-empty.tpl-warn { color: var(--qm-warn); }
+/* V0.4.5：权限过期时那一行带「重新授权」按钮 —— 与说明文字同行、不换行错位 */
+.tpl-empty.tpl-warn .tpl-reauth { margin-left: 4px; vertical-align: middle; }
 
 /* 历史版本列表（V0.0.51@r9）。外观与 .tpl-list 一致，但每行**左右两栏**：
    左＝时间 + 根名（可能带「已归档」徽标），右＝大小 + 「恢复这一版」按钮。

@@ -97,15 +97,19 @@
 
   function templateList() {
     var map = userTemplates();
+    var p0stat = countTree(P0.tree || {});
     var items = [{
       file: P0.file, name: P0.name, description: P0.description || '',
+      dirs: p0stat.dirs, files: p0stat.files,
       size: JSON.stringify(P0.tree || {}).length, mtime: 0, source: 'json',
     }];
     Object.keys(map).forEach(function (file) {
       var tpl = map[file] || {};
+      var stat = countTree(tpl.tree || {});
       items.push({
         file: file, name: tpl.name || file.replace(/\.[^.]+$/, ''),
         description: tpl.description || '',
+        dirs: stat.dirs, files: stat.files,
         size: JSON.stringify(tpl.tree || {}).length, mtime: tpl.mtime || 0, source: 'json',
       });
     });
@@ -635,8 +639,8 @@
              · 读失败且是权限类错误（`NotAllowedError` / `SecurityError`）⇒ 如实 403；
              · 读失败且目录已不在（`NotFoundError`）⇒ 由下面 catch 转 `demoDirMissing`。
            这样既不弹任何框，也不会因为一次不可靠的查询就把有权限的目录判死。 */
-        return STORE.readDirTemplates(handle).then(function (items) {
-          return { bound: true, items: items, name: handle.name };
+        return STORE.scanDirTemplates(handle).then(function (scan) {
+          return { bound: true, items: scan.items, skipped: scan.skipped, name: handle.name };
         }).catch(function (err) {
           var name = (err && err.name) || '';
           if (name === 'NotAllowedError' || name === 'SecurityError') {
@@ -660,9 +664,15 @@
           return fail('demoNeedPermission', tr('needPermission'), 403);
         }
         if (res && res.bound) {
-          return ok({ available: true, items: res.items, path: res.name, reason: '', source: 'bound' });
+          return ok({
+            available: true, items: res.items, skipped: res.skipped || [],
+            path: res.name, reason: '', source: 'bound',
+          });
         }
-        return ok({ available: true, items: templateList(), path: 'localStorage://' + LS_TPL, reason: '' });
+        return ok({
+          available: true, items: templateList(), skipped: [],
+          path: 'localStorage://' + LS_TPL, reason: '',
+        });
       });
     }
     if (path === '/api/templates' && method === 'POST') {
@@ -722,24 +732,52 @@
       if (!STORE) return ok({ applied: false, dir: tr('tplPath'), reason: 'demo' });
       var wantDir = String(dirPayload.dir || '');
       return STORE.getDir().then(function (handle) {
+        /* **2026-10-21 修（真机复现）**：这里原先写着
+             `if (handle && wantDir === handle.name) return ok({applied:true,…})`
+           —— 只比**目录名**就认定「已经是这个目录」，连 `commitDir` 都不调。
+           于是「刷新后授权过期 → 用户点『选择目录』重选**同一个**文件夹」这条最常见的
+           恢复路径上，选择器返回的**新句柄**（权限已授予）被直接丢弃，继续用库里那份
+           读取必抛 `NotAllowedError` 的旧句柄 ⇒ 列表永远 403，重选多少次都一样。
+           判据改成「**有没有待定句柄**」：有就落库（哪怕是同名目录，也要换成新句柄）。
+           ⚠ 注意与「目标位置」的分离：只有 pick 暂存过 pendingDir 才会命中，手填路径
+           仍然换不出句柄，故不会把模板库改绑到目标文件夹（见 online-store.pickDir）。 */
+        if (STORE.hasPendingDir && STORE.hasPendingDir()) {
+          return STORE.commitDir(wantDir).then(function (committed) {
+            if (committed) return ok({ applied: true, dir: wantDir, source: 'bound' });
+            return ok({
+              applied: false,
+              dir: handle ? handle.name : tr('tplPath'),
+              reason: 'demoPickOnly',
+            });
+          });
+        }
         if (handle && wantDir === handle.name) {
           return ok({ applied: true, dir: handle.name, source: 'bound' });
         }
-        /* 只有「刚点选过、且名字对得上」的待定句柄才允许落库 —— 手填任意路径一律不认，
-           因为浏览器解析不了路径、也换不出句柄。这是 pick 与 bind 两步分离的另一半：
-           pick 不写库，PUT 才写（否则「选择目标位置」会改掉模板库，见 online-store.pickDir）。 */
-        return STORE.commitDir(wantDir).then(function (committed) {
-          if (committed) return ok({ applied: true, dir: wantDir, source: 'bound' });
-          return ok({
-            applied: false,
-            dir: handle ? handle.name : tr('tplPath'),
-            reason: 'demoPickOnly',
-          });
+        return ok({
+          applied: false,
+          dir: handle ? handle.name : tr('tplPath'),
+          reason: 'demoPickOnly',
         });
       });
     }
-    if (path === '/api/templates-dir/pick') {
-      if (!STORE) return ok({ available: false, reason: 'demo' });
+    /* 就地重新授权（2026-10-21）：列表报 403 时，前端给一颗「重新授权」按钮 ——
+       `requestPermission` **必须**在用户点击的手势里调用，浏览器才会弹「允许」；
+       放进 2500ms 轮询里正是 V0.4.1「反复弹框、且永远 denied」的根因。
+       成功 ⇒ 直接复用 IndexedDB 里那份句柄，不必让用户重走一遍文件夹选择器。 */
+    if (path === '/api/templates-dir/grant' && method === 'POST') {
+      if (!STORE) return fail('demoUnsupported', tr('noExport'));
+      return STORE.getDir().then(function (handle) {
+        if (!handle) return fail('demoNeedPermission', tr('needPermission'), 403);
+        return STORE.requestDirPermission(handle, 'readwrite').then(function (state) {
+          if (state !== 'granted') return fail('demoNeedPermission', tr('needPermission'), 403);
+          return ok({ granted: true, dir: handle.name, source: 'bound' });
+        });
+      }).catch(function () {
+        return fail('demoNeedPermission', tr('needPermission'), 403);
+      });
+    }
+    if (path === '/api/templates-dir/pick') {      if (!STORE) return ok({ available: false, reason: 'demo' });
       /* 同一个端点被两个按钮共用（「模板目录 · 选择…」与「目标位置 · 选择…」），
          而这两个动作的落点完全不同：前者是只读素材库（要 PUT 确认才绑定），
          后者是写入目标（记住后生成时直接用）。用途由注入层在点击时打标识别 ——

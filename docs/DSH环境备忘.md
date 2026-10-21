@@ -131,6 +131,32 @@ curl.exe -sS -o live.js https://qingman.pages.dev/js/demo-backend.js
 
 ---
 
+## 六点五、真机复现（浏览器行为类缺陷）：别用 `--virtual-time-budget`
+
+**现象**：`browser_smoke.py` 那套 `--headless=new --virtual-time-budget=N --dump-dom`
+可以驱动页面点击与定时器，但**IndexedDB 的请求回调永远不会触发**（`onsuccess` / `onerror`
+都不来）—— 因为 virtual time 毫秒级烧完整段预算，真实 I/O 没有墙钟时间。
+
+**后果**：2026-10-21 复现「选目录后模板没载入」时，探针把「IDB 没走完」表现成了
+「列表卡在『正在读取模板库…』」，差点被误判成产品死锁（与《错误笔记》§三「替身不可靠」同源）。
+
+**解法**（实测可行）：真机复现改用 **CDP**，给足真实时间：
+
+```powershell
+msedge --headless=new --remote-debugging-port=9333 --user-data-dir=<临时> about:blank
+# 然后用 Node（v22+ 自带 global WebSocket）：
+#   PUT /json/new?<url> → 连 webSocketDebuggerUrl → Runtime.evaluate 点击 / 读 DOM
+```
+
+配套做法：把待测站用 `tools/build_static_site.py` 产出到 `dist/_probe/site`，
+再注入一个伪造 `showDirectoryPicker` 的探针脚本（真实 `window`、真实 `fetch` 拦截、
+真实 `templates.js`，只有文件系统是替身）。这条链能复现「首次绑定 / 失权重选」等状态。
+
+**清理**：探针会往 `dist/_probe/` 写 Edge profile（含 CR 字节），跑完必删 ——
+否则 `verify.py` 的「换行一致性」会把它们逐一点名（`dist/` 虽在 `.gitignore` 里，
+但换行守卫扫的是**工作树**，不看 git 忽略）。
+
+---
 ## 七、其它
 
 - **`sw.js` 缓存名由 `VERSION` 派生**（`qm-static-<VERSION>`）。版本不升，已安装用户的
