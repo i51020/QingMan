@@ -13,12 +13,19 @@
 | **在线版完整项目包**（本工具） | **只负责在线版的人** | **能**（含构建脚本与注入资源，不含仓库历史） |
 
 **用法**：`py -3 tools/pack_online.py [--out-dir dist] [--built-at 固定时间] [--verify 包路径]`
+
+**`--with-download`（2026-10-21 加）**：默认不带本机版便携包（包小、纯在线托管场景够用）。
+带上它有两个后果：① `site/index.html` 里会出现「下载本机版」按钮 —— 这一行**只在真的
+找得到便携包时**才注入，所以不带的包与线上不是同一份字节；② 包体积从几百 KB 涨到约 18 MB。
+要一份「解压即等于线上」的副本就用它，并用 `--expect-site` 把等价性**机器核对**一遍。
+
 产物：`dist/QingMan-在线版-完整包-<版本>.zip`
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import shutil
 import sys
 import tempfile
@@ -67,8 +74,7 @@ DEPLOY_README = """青蔓 QingMan · 在线版完整项目包
 --------
   · 预览域名必须带 ?eo_token=...&eo_time=... 访问，否则任何路径都 401（含静态资源）。
   · 生成目录需要 Edge / Chrome：浏览器要向用户申请文件夹写权限。
-  · site/ 里没有本机版下载包（打包时用 --no-download 跳过）；若需要，请在
-    `site/downloads/` 放 QingMan-<版本>-portable.zip，帮助页的下载按钮会自动可用。
+{download_note}
   · 发布目录请保持干净：EdgeOne 构建器会清理上一轮 .edgeone/assets，脏目录容易失败。
 
 四、想改行为怎么办
@@ -105,17 +111,28 @@ def collect(site_dir: Path) -> "list[tuple[Path, str]]":
     return files
 
 
-def build(out_dir: Path, built_at: "str | None" = None) -> Path:
+def build(out_dir: Path, built_at: "str | None" = None, with_download: bool = False) -> Path:
     staging = Path(tempfile.mkdtemp(prefix="qm_online_"))
     site_root = Path(tempfile.mkdtemp(prefix="qm_site_"))
     site_tmp = site_root / "site"     # 传给 build() 的路径必须**还不存在**，否则它会改名让路
     try:
-        info = bss.build(site_tmp, "zh-CN", with_download=False)
+        # with_download=True 时，构建器会在 dist/ 里找到便携包并注入下载按钮 + 拷进 site/downloads/。
+        # 找不到包时它只跳过按钮（不报错）—— 那正好会让本包与线上**静默不等价**，
+        # 故下面 verify() 里用 --expect-site 做字节级核对，不靠"看起来对"。
+        info = bss.build(site_tmp, "zh-CN", with_download=with_download)
         files = collect(site_tmp)
         manifest = pr.build_staging(staging, files, None, built_at)
         manifest["package"] = "online"
+        manifest["withDownload"] = bool(with_download)
+        if with_download and info["download"]["included"]:
+            download_note = ("  · 已内置本机版下载包：site/downloads/" + info["download"]["name"]
+                             + "（帮助页的「下载本机版」按钮指向它）")
+        else:
+            download_note = ("  · site/ 里没有本机版下载包（打包时用 --no-download 跳过）；若需要，请在\n"
+                             "    `site/downloads/` 放 QingMan-<版本>-portable.zip，帮助页的下载按钮会自动可用。")
         (staging / "README_部署说明.txt").write_text(
-            DEPLOY_README.format(version=VERSION, date=time.strftime("%Y-%m-%d")),
+            DEPLOY_README.format(version=VERSION, date=time.strftime("%Y-%m-%d"),
+                                 download_note=download_note),
             encoding="utf-8", newline="\n")
         manifest["files"]["README_部署说明.txt"] = {
             "size": (staging / "README_部署说明.txt").stat().st_size,
@@ -131,7 +148,49 @@ def build(out_dir: Path, built_at: "str | None" = None) -> Path:
     return out
 
 
-def verify(zip_path: Path) -> int:
+def compare_site(zip_path: Path, expect_site: Path) -> int:
+    """把包内 `site/` 与一份**参照站点目录**逐文件逐字节比对。
+
+    为什么需要它：本包要当「线上那份的副本」用时，任何一处差异都必须被机器点名 ——
+    `index.html` 的「下载本机版」按钮就是**只在找得到便携包时**才注入的，靠眼睛看不出来。
+    返回 0 = 完全一致。
+    """
+    problems: "list[str]" = []
+    with zipfile.ZipFile(zip_path) as zf:
+        names = zf.namelist()
+        prefix = names[0].split("/")[0] if names else ""
+        inside = {}
+        for name in names:
+            rel = name[len(prefix) + 1:]
+            if not rel.startswith("site/") or rel.endswith("/"):
+                continue
+            inside[rel[len("site/"):]] = zf.read(name)
+    outside = {}
+    for path in sorted(expect_site.rglob("*")):
+        if path.is_file():
+            outside[path.relative_to(expect_site).as_posix()] = path.read_bytes()
+
+    for rel in sorted(set(inside) - set(outside)):
+        problems.append(f"包内多出：{rel}")
+    for rel in sorted(set(outside) - set(inside)):
+        problems.append(f"包内缺少：{rel}")
+    for rel in sorted(set(inside) & set(outside)):
+        a, b = hashlib.sha256(inside[rel]).hexdigest(), hashlib.sha256(outside[rel]).hexdigest()
+        if a != b:
+            problems.append(f"内容不一致：{rel}（包内 {a[:12]}… vs 参照 {b[:12]}…）")
+
+    print(f"[比对] 包内 site/ {len(inside)} 文件 vs 参照 {len(outside)} 文件（{expect_site}）")
+    if problems:
+        for item in problems[:20]:
+            print(f"  [FAIL] {item}")
+        if len(problems) > 20:
+            print(f"  …另有 {len(problems) - 20} 处")
+        return 1
+    print("  [OK] 逐文件逐字节一致")
+    return 0
+
+
+def verify(zip_path: Path, expect_site: "Path | None" = None) -> int:
     problems: "list[str]" = []
     with zipfile.ZipFile(zip_path) as zf:
         names = zf.namelist()
@@ -152,12 +211,19 @@ def verify(zip_path: Path) -> int:
     for token in ("demo-backend.js", "manifest.webmanifest", "qmOnlineNotice"):
         if token not in html:
             problems.append(f"index.html 未注入 {token}")
+    # 带了下载包就必须**真的指向存在的文件**，否则按钮是死链（绝不挂 404 链接）
+    has_dl = any(n.startswith(f"{prefix}/site/downloads/") for n in names)
+    if "qm-online-dl" in html and not has_dl:
+        problems.append("index.html 有下载按钮但包里没有 site/downloads/")
     print(f"[在线版包] {zip_path.name}  {zip_path.stat().st_size / 1024:.0f} KB  文件 {len(names)} 个")
     if problems:
         for item in problems:
             print(f"  [FAIL] {item}")
         return 1
-    print("  [OK] 手册 / 构建源码 / 可托管产物 齐备；页面注入痕迹齐全")
+    print("  [OK] 手册 / 构建源码 / 可托管产物 齐备；页面注入痕迹齐全"
+          + ("；下载包已内置" if has_dl else ""))
+    if expect_site is not None:
+        return compare_site(zip_path, expect_site)
     return 0
 
 
@@ -165,13 +231,18 @@ def main(argv: "list[str] | None" = None) -> int:
     ap = argparse.ArgumentParser(description="构建青蔓在线版完整项目包")
     ap.add_argument("--out-dir", default=str(ROOT / "dist"))
     ap.add_argument("--built-at", help="固定构建时间（复算用）")
+    ap.add_argument("--with-download", action="store_true",
+                    help="把 dist/QingMan-<版本>-portable.zip 一并内置（使 site/ 与线上同字节）")
+    ap.add_argument("--expect-site", metavar="DIR",
+                    help="自检时另与参照站点目录逐文件逐字节比对（如 dist/makers-live-v045）")
     ap.add_argument("--verify", metavar="ZIP", help="只自检已构建的包")
     args = ap.parse_args(argv)
+    expect = Path(args.expect_site) if args.expect_site else None
     if args.verify:
-        return verify(Path(args.verify))
-    out = build(Path(args.out_dir), args.built_at)
+        return verify(Path(args.verify), expect)
+    out = build(Path(args.out_dir), args.built_at, with_download=args.with_download)
     print(f"[构建] {out}")
-    return verify(out)
+    return verify(out, expect)
 
 
 if __name__ == "__main__":
