@@ -439,11 +439,16 @@ const TPL_POLL_MS = 2500;
 let tplSignature = '';
 let tplPollTimer = null;
 
-/** 模板列表渲染签名（V0.0.38 · 6E）：`available` + 每条 `file + mtime + size`。 */
+/** 模板列表渲染签名（V0.0.38 · 6E）：`available` + 每条 `file + mtime + size`。
+ *
+ * V0.4.0：**并入 skipped 签名** —— 否则「修好了 / 又坏了一个文件」时列表不重绘，
+ * 那条说明行会停在旧状态（用户会以为还是坏的）。 */
 function templateSignature(res) {
   const items = (res && res.items) || [];
+  const skip = (res && Array.isArray(res.skipped)) ? res.skipped : [];
   const avail = res && res.available === false ? '0' : '1';
-  return avail + '\n' + items.map((i) => `${i.file}|${i.mtime}|${i.size}`).join('\n');
+  return avail + '\n' + items.map((i) => `${i.file}|${i.mtime}|${i.size}`).join('\n')
+    + '\n#skip\n' + skip.map((s) => `${s.file}|${s.code || ''}`).join('\n');
 }
 
 /**
@@ -491,7 +496,10 @@ async function loadTemplateList({ force = true } = {}) {
     return;
   }
   if (!items.length) {
+    /* V0.4.0：**只有坏文件**时不能只说「暂无模板」—— 那会让人以为目录是空的。
+       先铺空态，再把 skipped 说明追加在后面，两个事实都摆出来。 */
     renderTemplateState(t('template.empty'));
+    renderSkipped(res && res.skipped);
     return;
   }
 
@@ -574,6 +582,41 @@ async function loadTemplateList({ force = true } = {}) {
     li.append(btn, more);
     host.appendChild(li);
   }
+
+  /* V0.4.0：**把被跳过的文件说出来**。此前解析失败的模板被后端静默 `continue`，
+     用户只看到「文件在目录里、列表里却没有」，无从判断是没扫到还是格式不对。
+     这里在列表末尾追加一条说明行（不是可点条目 —— 它代表的文件本来就不可用）。 */
+  renderSkipped(res && res.skipped);
+}
+
+/**
+ * 渲染「被跳过的模板文件」说明行（V0.4.0）。
+ * 单条给文件名 + 原因；多条给数量 + 文件名清单；完整原因放 `title` 悬停查看。
+ * 空 / 未提供时**不渲染任何东西** —— 正常情况不该多出一条噪音。
+ */
+function renderSkipped(skipped) {
+  const list = Array.isArray(skipped) ? skipped.filter((s) => s && s.file) : [];
+  if (!list.length) return;
+  const host = el('templateList');
+  if (!host) return;
+  const li = document.createElement('li');
+  li.className = 'tpl-empty tpl-warn tpl-skipped';
+  if (list.length === 1) {
+    li.textContent = t('template.skippedOne', {
+      file: list[0].file,
+      reason: list[0].reason || list[0].code || '',
+    });
+  } else {
+    li.textContent = t('template.skippedMany', {
+      count: list.length,
+      files: list.map((s) => s.file).join('、'),
+    });
+  }
+  // 悬停给出**逐条**完整原因（含解析器原话），列表本身只放得下一句概括
+  li.title = t('template.skippedTip') + '\n' + list
+    .map((s) => `${s.file} — ${s.code || ''}${s.reason ? '：' + s.reason : ''}`)
+    .join('\n');
+  host.appendChild(li);
 }
 
 /**

@@ -106,10 +106,15 @@ def list_templates() -> Dict[str, Any]:
     # 用**运行态**判据：默认 `templates/` 是合法运行目录，故 `_templates_dir_reason`。
     blocked = _templates_dir_reason(d)
     if blocked or not d.is_dir():
-        return {"ok": True, "available": False, "items": [], "path": str(d),
-                "reason": blocked}
+        return {"ok": True, "available": False, "items": [], "skipped": [],
+                "path": str(d), "reason": blocked}
 
     items: list[Dict[str, Any]] = []
+    # **被跳过的条目要留痕**（V0.4.0）：此前解析失败的模板被静默 `continue` ——
+    # 用户看到的是「文件明明在目录里，列表里却没有」，且**完全没有任何提示**，
+    # 只能靠人肉猜测（2026-10-21 实证：一份围栏未闭合的 `.md` 就这样消失了）。
+    # 现在把「跳过了谁、为什么」一并回传，由前端提示；判据仍是「单套坏了不拖垮整个列表」。
+    skipped: list[Dict[str, Any]] = []
     # 两个 glob 合并后统一排序（按小写名 + 原名，跨平台确定性；`.trash/` 是子目录，扫不到）。
     found = sorted(list(d.glob("*.json")) + list(d.glob("*.md")),
                    key=lambda q: (q.name.lower(), q.name))
@@ -118,8 +123,17 @@ def list_templates() -> Dict[str, Any]:
             continue
         try:
             doc = _read_template_doc(p, name=p.name)
-        except (TreeError, OSError, ValueError):
-            continue   # 单套损坏只跳过该套（含 `.md` 解析失败）
+        except (TreeError, OSError, ValueError) as exc:
+            # 单套损坏只跳过该套（含 `.md` 解析失败）—— 但**必须记进 skipped**
+            code = getattr(exc, "code", "") or ("ioError" if isinstance(exc, OSError) else "templateBadJson")
+            detail = getattr(exc, "detail", None) or {}
+            skipped.append({
+                "file": p.name,
+                "code": code,
+                # `reason` 取解析器给的机器可读原因（如 `unclosed fence`），缺则留空
+                "reason": str(detail.get("reason", "") or ""),
+            })
+            continue
         try:
             st = p.stat()
         except OSError:
@@ -141,6 +155,9 @@ def list_templates() -> Dict[str, Any]:
         "available": True,
         "reason": "",
         "items": items,
+        # V0.4.0：被跳过的条目（文件名 + 错误码 + 原因）。前端据此提示，
+        # 让「目录里有、列表里没有」不再无从解释。空列表 = 全部解析正常。
+        "skipped": skipped,
         "path": str(d),
         "schemaVersion": config.TEMPLATE_SCHEMA_VERSION,
     }

@@ -135,8 +135,13 @@
       status: 200, headers: { 'Content-Type': 'application/json' },
     });
   }
-  function fail(code, message, status) {
-    return new Response(JSON.stringify({ ok: false, code: code, message: message || tr('noExport') }), {
+  function fail(code, message, status, detail) {
+    var body = { ok: false, code: code, message: message || tr('noExport') };
+    /* **必须带 detail**：前端 `localizeError()` 只认 `code` + `detail`，用取词表的
+       `err.<code>` 重新成句。缺 `detail` 时占位符不会被替换，用户会看到字面量
+       「模板不存在：{name}」—— 2026-10-21 用户报障里那句正是这么来的。 */
+    if (detail) { body.detail = detail; }
+    return new Response(JSON.stringify(body), {
       status: status || 400, headers: { 'Content-Type': 'application/json' },
     });
   }
@@ -204,7 +209,9 @@
     }
     var stats = countTree(tree);
     if (stats.dirs + stats.files > 500) {
-      return Promise.resolve(fail('tooManyNodes', tr('tooMany')));
+      return Promise.resolve(fail('tooManyNodes', tr('tooMany'), 400, {
+        dirs: stats.dirs, files: stats.files, total: stats.dirs + stats.files, limit: 500,
+      }));
     }
     var rootName = String(payload.root || '').trim();
 
@@ -273,16 +280,88 @@
       if (name === 'NotAllowedError' || name === 'SecurityError') {
         return fail('demoNoPermission', tr('noPermission'));
       }
-      return fail('ioError', (err && err.message) || tr('noDisk'));
+      return fail('ioError', (err && err.message) || tr('noDisk'), 500, { message: (err && err.message) || tr('noDisk') });
     });
   }
 
-  function templateDoc(name) {
-    if (name === P0.file) {
-      return { name: P0.name, description: P0.description || '', tree: P0.tree || {} };
+  /* 读一套模板的**源文本**（导出专用）：绑了真实目录就先读目录原文，
+     没有目录 / 未授权 / 目录里没有该文件，才回落到浏览器内存储。
+
+     **2026-10-21 修复**：此前导出走 `templateDoc()`，只读 `localStorage` 与内置 P0，
+     **完全不知道已绑定的目录**；而列表（`GET /api/templates`）在绑定后只读目录。
+     于是「列表里有、导出却 404 templateNotFound」—— 绑定真实模板目录后导出必失败。
+     导出必须与列表**同源**，否则两条路径迟早各说各话。 */
+  function localTemplateText(file) {
+    if (file === P0.file) {
+      return JSON.stringify({
+        schemaVersion: 1, name: P0.name, description: P0.description || '', tree: P0.tree || {},
+      }, null, 2) + '\n';
     }
-    var tpl = userTemplates()[name];
-    return tpl ? { name: tpl.name, description: tpl.description || '', tree: tpl.tree || {} } : null;
+    var tpl = userTemplates()[file];
+    if (!tpl) { return null; }
+    return JSON.stringify({
+      schemaVersion: 1, name: tpl.name, description: tpl.description || '', tree: tpl.tree || {},
+    }, null, 2) + '\n';
+  }
+
+  function readTemplateSource(file) {
+    var fallback = function () {
+      var text = localTemplateText(file);
+      return text === null ? null : { text: text, source: 'json' };
+    };
+    if (!STORE || typeof STORE.readDirTemplateText !== 'function') {
+      return Promise.resolve(fallback());
+    }
+    return STORE.getDir().then(function (handle) {
+      if (!handle) { return fallback(); }
+      return STORE.dirPermission(handle).then(function (state) {
+        if (state !== 'granted') { return fallback(); }
+        /* 原文直读：不传 format 时后端语义是**原样交回**，再序列化就不再是原件 */
+        return STORE.readDirTemplateText(handle, file).then(function (text) {
+          return { text: text, source: /\.md$/i.test(file) ? 'md' : 'json' };
+        }).catch(function () { return fallback(); });
+      });
+    }).catch(function () { return fallback(); });
+  }
+
+  /** 导出：原样（缺省 / 同格式）或等价转换（`?format=json|md`）。
+   *  转换口径对齐 `src/server/templates.py::export_template` —— 转换前后都校验，
+   *  坏模板不借导出洗白。 */
+  function exportTemplate(expName, want) {
+    if (!expName) {
+      return Promise.resolve(fail('templateNotFound', tr('noExport'), 404, { name: '' }));
+    }
+    return readTemplateSource(expName).then(function (src) {
+      if (!src) {
+        return fail('templateNotFound', tr('noExport'), 404, { name: expName });
+      }
+      var source = src.source;
+      var text = src.text;
+      var stem = stemOf(expName);
+      if (!want || want === source || (want !== 'json' && want !== 'md')) {
+        return ok({ file: expName, name: stem, source: source, text: text });
+      }
+      if (!MD) { return fail('demoReadonly', tr('noExport')); }
+      if (want === 'md') {
+        var doc;
+        try { doc = JSON.parse(text); } catch (err) { return fail('templateBadJson', tr('noExport'), 400, { name: expName }); }
+        if (!doc || typeof doc !== 'object') { return fail('templateBadJson', tr('noExport'), 400, { name: expName }); }
+        var badJson = validateTree(doc.tree, true);
+        if (badJson) { return fail(badJson, tr('noExport')); }
+        try { text = MD.render(doc); } catch (err) { return fail('templateBadJson', tr('noExport'), 400, { name: expName }); }
+        return ok({ file: stem + '.md', name: stem, source: 'md', text: text });
+      }
+      var mdDoc;
+      try { mdDoc = MD.parse(text); } catch (err) {
+        return fail((err && err.code) || 'templateBadMarkdown', tr('noExport'));
+      }
+      var badMd = validateTree(mdDoc && mdDoc.tree, true);
+      if (badMd) { return fail(badMd, tr('noExport')); }
+      return ok({
+        file: stem + '.json', name: stem, source: 'json',
+        text: JSON.stringify(mdDoc, null, 2) + '\n',
+      });
+    });
   }
 
   function extOf(name) {
@@ -322,7 +401,7 @@
       });
     }
     var got = userTemplates()[rawName];
-    if (!got) { return fail('templateNotFound', tr('noExport'), 404); }
+    if (!got) { return fail('templateNotFound', tr('noExport'), 404, { name: rawName }); }
     return ok({
       file: rawName, name: got.name, description: got.description || '',
       tree: got.tree || {}, stats: countTree(got.tree || {}), source: 'json',
@@ -403,13 +482,13 @@
       if (sink.needPermission) return fail('demoNeedPermission', tr('tplNeedWrite'), 403);
       if (sink.local) {
         var map = userTemplates();
-        if (map[file] && !overwrite) return fail('templateExists', tr('tplExists'));
+        if (map[file] && !overwrite) return fail('templateExists', tr('tplExists'), 400, { name: file });
         map[file] = doc;
         writeJson(LS_TPL, map);
         return ok({ file: file, name: doc.name, sink: 'local' });
       }
       return STORE.dirFileExists(sink.dir, file).then(function (exists) {
-        if (exists && !overwrite) return fail('templateExists', tr('tplExists'));
+        if (exists && !overwrite) return fail('templateExists', tr('tplExists'), 400, { name: file });
         /* 落盘时**不写 mtime** —— 真实文件自带 lastModified，多一个字段只是噪音 */
         var text = serializeTemplateDoc(file, doc);
         return STORE.writeDirFile(sink.dir, file, text).then(function () {
@@ -418,7 +497,7 @@
           if (err && (err.name === 'NotAllowedError' || err.name === 'SecurityError')) {
             return fail('demoNoPermission', tr('tplNeedWrite'), 403);
           }
-          return fail('ioError', tr('tplWriteFail').replace('{msg}', (err && err.message) || ''), 500);
+          return fail('ioError', tr('tplWriteFail').replace('{msg}', (err && err.message) || ''), 500, { message: (err && err.message) || '' });
         });
       });
     });
@@ -430,17 +509,17 @@
       if (sink.needPermission) return fail('demoNeedPermission', tr('tplNeedWrite'), 403);
       if (sink.local) {
         var map = userTemplates();
-        if (!map[file]) return fail('templateNotFound', tr('noExport'), 404);
+        if (!map[file]) return fail('templateNotFound', tr('noExport'), 404, { name: file });
         delete map[file];
         writeJson(LS_TPL, map);
         return ok({ file: file, sink: 'local' });
       }
       return STORE.dirFileExists(sink.dir, file).then(function (exists) {
-        if (!exists) return fail('templateNotFound', tr('noExport'), 404);
+        if (!exists) return fail('templateNotFound', tr('noExport'), 404, { name: file });
         return STORE.removeDirEntry(sink.dir, file).then(function () {
           return ok({ file: file, sink: 'dir', dir: sink.name });
         }).catch(function (err) {
-          return fail('ioError', tr('tplWriteFail').replace('{msg}', (err && err.message) || ''), 500);
+          return fail('ioError', tr('tplWriteFail').replace('{msg}', (err && err.message) || ''), 500, { message: (err && err.message) || '' });
         });
       });
     });
@@ -455,9 +534,9 @@
     var stem = stemOf(String(toRaw || '').trim());
     var ext = extOf(from) === 'md' ? '.md' : '.json';
     var to = safeTemplateFile(stem + ext);
-    if (!to) return Promise.resolve(fail('templateNameInvalid', tr('tplNameInvalid')));
+    if (!to) return Promise.resolve(fail('templateNameInvalid', tr('tplNameInvalid'), 400, { name: String(toRaw || '') }));
     return readTemplateDoc(from).then(function (doc) {
-      if (!doc) return fail('templateNotFound', tr('noExport'), 404);
+      if (!doc) return fail('templateNotFound', tr('noExport'), 404, { name: from });
       var next = {
         name: displayName || doc.name,
         description: doc.description || '',
@@ -528,7 +607,9 @@
           },
         });
       }).catch(function (err) {
-        return fail((err && err.code) || 'editorBackupCorrupt', tr('noRestore'), 404);
+        /* 两个码都带占位符（`{name}` / `{id}`）：不传 detail 会原样露给用户 */
+        var code = (err && err.code) || 'editorBackupCorrupt';
+        return fail(code, tr('noRestore'), 404, { name: restorePayload.id, id: restorePayload.id });
       });
     }
 
@@ -559,7 +640,7 @@
       var tplPayload = bodyOf(init);
       if (!tplPayload) return fail('badJson', tr('badJson'));
       var fileName = safeTemplateFile(tplPayload.name);
-      if (!fileName) return fail('templateNameInvalid', tr('tplNameInvalid'));
+      if (!fileName) return fail('templateNameInvalid', tr('tplNameInvalid'), 400, { name: String(tplPayload.name || '') });
       return saveTemplateDoc(fileName, {
         name: String(tplPayload.name || '').trim().replace(/\.[^.]+$/, '') || stemOf(fileName),
         description: tplPayload.description || '',
@@ -580,7 +661,7 @@
       }
       if (method === 'DELETE') {
         /* 内置示例是页面自带的，不在任何目录里 —— 删不掉（沿用既有取舍） */
-        if (rawName === P0.file) return fail('templateNotFound', tr('noExport'), 404);
+        if (rawName === P0.file) return fail('templateNotFound', tr('noExport'), 404, { name: rawName });
         return removeTemplateDoc(rawName);
       }
       if (method === 'POST') {
@@ -691,23 +772,13 @@
 
     /* 快捷方式 / 导入导出：浏览器做不到，明确说明而不是假装成功 */
     if (path === '/api/shortcut') return fail('demoUsePwa', tr('usePwa'));
-    /* 导出：把模板转成文本交回前端 —— 前端本来就拿 response.text 触发 Blob 下载，
-       故这里只要把文本生成对，浏览器侧无需任何改动 */
+    /* 导出：把模板原文（或等价转换后的文本）交回前端 —— 前端本来就按响应的 `file`
+       触发 Blob 下载，故浏览器侧无需任何改动。
+       2026-10-21：读取**与列表同源**（目录优先），此前只读 localStorage，绑定目录后必 404。 */
     if (path.indexOf('/api/templates-export/') === 0 && method === 'GET') {
       var expName = decodeURIComponent(path.slice('/api/templates-export/'.length));
-      var expDoc = templateDoc(expName);
-      if (!expDoc) return fail('templateNotFound', tr('noExport'), 404);
       var want = String((search && search.get('format')) || '').trim().toLowerCase();
-      var expText = JSON.stringify({
-        schemaVersion: 1, name: expDoc.name, description: expDoc.description, tree: expDoc.tree,
-      }, null, 2) + '\n';
-      var outFile = expName;
-      if (want === 'md') {
-        if (!MD) return fail('demoReadonly', tr('noExport'));
-        try { expText = MD.render(expDoc); } catch (err) { return fail('templateBadJson', tr('noExport')); }
-        outFile = stemOf(expName) + '.md';
-      }
-      return ok({ file: outFile, name: stemOf(expName), source: want === 'md' ? 'md' : 'json', text: expText });
+      return exportTemplate(expName, want);
     }
 
     /* 导入：收原文 → 解析（.md 走移植的同一份文法）→ 校验 → 存为规范 .json */
@@ -730,11 +801,11 @@
       } catch (err) {
         return fail((err && err.code) || 'templateBadMarkdown', tr('noExport'));
       }
-      if (!impDoc || typeof impDoc !== 'object') return fail('templateBadJson', tr('noExport'));
+      if (!impDoc || typeof impDoc !== 'object') return fail('templateBadJson', tr('noExport'), 400, { name: impName });
       var treeBad = validateTree(impDoc.tree, true);
       if (treeBad) return fail(treeBad, tr('noExport'));
       var storeName = safeTemplateFile(stemOf(impName) + '.json');
-      if (!storeName) return fail('templateNameInvalid', tr('tplNameInvalid'));
+      if (!storeName) return fail('templateNameInvalid', tr('tplNameInvalid'), 400, { name: impName });
       var docName = impDoc.name || stemOf(impName);
       return saveTemplateDoc(storeName, {
         name: docName, description: impDoc.description || '',

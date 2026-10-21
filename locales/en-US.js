@@ -127,6 +127,10 @@ export const dict = {
   'template.loading': 'Reading template library…',
   'template.unavailable': 'Template library unavailable: templates/ not found',
   'template.empty': 'No templates',
+  /* V0.4.0: unreadable template files are reported instead of silently vanishing. */
+  'template.skippedOne': '1 template file could not be read: {file} ({reason})',
+  'template.skippedMany': '{count} template files could not be read: {files} (hover for details)',
+  'template.skippedTip': 'These files are skipped. Common causes: an unclosed code fence in a .md template, indentation that is not a multiple of 2 spaces, or invalid JSON.',
   'template.stats': '{dirs} dirs · {files} files',
   'template.loadConfirm': 'Load template "{name}" (file {file})? The tree you are editing will be replaced (undoable).',
   'template.loaded': 'Loaded template "{name}"',
@@ -477,7 +481,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.3.12',
+  'help.versionFallback': 'V0.4.0',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

@@ -3525,7 +3525,7 @@ def main() -> int:
             "tests/test_browser_smoke.py", "tests/test_handoff.py",
             "tests/test_verify.py", "tests/test_promote.py",
             "tests/test_smoke.py", "tests/test_frontend_js.py",
-            "tests/test_pack_templates.py",
+            "tests/test_pack_templates.py", "tests/test_demo_export.py",
             "tools/smoke.py", "tools/browser_smoke.py",
             "tools/pack_templates.py",
         ) if not (root / rel).is_file()]

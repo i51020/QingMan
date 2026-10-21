@@ -7,6 +7,138 @@
 
 ---
 
+## V0.4.0 — 2026-10-21
+
+**主题**：模板解析失败**不再静默跳过** —— 列表接口回传 `skipped` 清单（文件名 / 错误码 /
+具体原因），前端在模板区显示一条说明行，并同步修正三处文档陈旧计数与一条过期待办。
+
+按 §P0-6 M9：`templateListResponse` **兼容新增** `skipped` 字段（既有字段一个没动）⇒
+属「兼容新增」⇒ 升 **MINOR**（`V0.3.13` → **`V0.4.0`**）。
+
+### 一 · 报障与根因
+
+用户报障：「文件明明在模板目录里，列表里却没有，而且**完全没有提示**」。
+
+根因在 `templates.py::list_templates()`：
+
+```python
+try:
+    doc = _read_template_doc(p, name=p.name)
+except (TreeError, OSError, ValueError):
+    continue   # ← 静默跳过，连原因都不留给调用方
+```
+
+「单套损坏不拖垮整个列表」这个取舍本身是对的，**但它把「为什么坏」也一起丢掉了**。
+用户只能靠人肉猜：是没扫到这个后缀？是路径不对？还是内容有问题？
+
+**2026-10-21 的真实触发**：一份 `.md` 模板的代码围栏没闭合（` ```md ` 开了没关），
+解析器报 `unclosed fence`，而界面毫无反应 —— 用户以为文件根本没被读到，实际是**被判定为
+格式错误后丢弃了**。
+
+### 二 · 落地
+
+| 文件 | 改动 |
+|---|---|
+| `src/server/templates.py` | `list_templates()` 新增 `skipped` 收集：每项 `{file, code, reason}`。`reason` 取解析器给的**机器可读原因**（如 `unclosed fence`）。`available=false` 分支同样返回 `skipped: []`，保持响应形态一致 |
+| `src/shared/schema.json` | `templateListResponse` 补 `skipped` 字段与说明（**兼容新增**） |
+| `src/web/js/modules/templates.js` | 新增 `renderSkipped()`：列表末尾追加一条 `.tpl-warn` 说明行（单条给文件名+原因，多条给数量+清单，逐条完整原因放 `title` 悬停）。**签名并入 `skipped`** —— 否则修好/又坏时列表不重绘。另修边界：目录里**只有坏文件**时不再只说「暂无模板」 |
+| `locales/zh-CN.js` / `en-US.js` | 各 +3 键：`template.skippedOne` / `skippedMany` / `skippedTip`（两包键集零差异，483 : 483） |
+| `tests/test_routes.py` | +3 用例：坏文件被如实报告（含 `.md` 的 `reason` 透出）/ 全好时 `skipped` 为空 / `available=false` 也带 `skipped` |
+
+### 三 · 同批处理的三件文档债
+
+| 项 | 处理 |
+|---|---|
+| `docs/项目手册.md` 陈旧计数 | 体积 `572,793 → 655,945 B`（余 30.1% → **19.9%**）、最大文件 `58,537 → 58,749 B`、`61 → 62` 文件、版本目录 `61 → 74`、工具 `13 → 17` 脚本、测试 `576 → 612 用例 / 17 → 19 模块`、完整开发包 `1051 → 1701 文件 / 10.9 → 32.2 MB`。**全部现场实测**，非照抄 |
+| `docs/接续说明.md` §3.1 过期待办 | 「拆分 `src/server/routes.py`」原标 ⏳「下一会话的第一件事」，实际 **V0.0.54 已完成**（`templates.py` + `common.py` 已抽出，`routes.py` 62,374 → 44,810 B）。已改为结案记录并写明结果，避免误导后来者重复施工 |
+| 接续文件与 H1 冲突 | `docs/20261021_接续文件_DSH_V0.3.13.md` 与 §P1-6 **H1「单一入口」**存在冲突（见该文件 §五），**保留待用户裁定**，本版不处理 |
+
+### 四 · 验证
+
+| 项 | 结果 |
+|---|---|
+| 新增测试 | `test_skipped_reports_bad_files` / `test_skipped_empty_when_all_good` / `test_available_false_also_carries_skipped` 全绿 |
+| 实机验证 | 造坏文件（坏 JSON + 围栏未闭合 `.md`）→ `skipped` 如实回传两项，含 `reason: "unclosed fence"`；正常条目不受影响 |
+| `verify.py` | 121 项 · 0 失败 |
+| 语言包 | 483 : 483 键集零差异 |
+
+---
+
+## V0.3.13 — 2026-10-21
+
+**主题**：修复**在线版导出模板失败** —— 列表在绑定真实目录后只读目录，而导出仍只读
+`localStorage`，两条路径不同源，于是「列表里看得见、一导出就 404」。按 §P0-6 M9
+（只改实现、契约不动 ⇒ PATCH）升 `V0.3.12` → **`V0.3.13`**。
+
+### 一 · 报障与根因
+
+用户报障：在线版 `https://qingman.pages.dev` 的**导出功能异常**。
+
+实测（本地 Node 探针复现，非推断）：**绑定真实模板目录后，模板行右键 →「导出为 .json /
+.md」一律失败**，返回 `404 templateNotFound`，提示文案还是「在线版不支持该操作，请在本机
+运行 start.bat」—— 与事实不符（导出是在线版明确支持的能力，见《在线版手册》§二 能力矩阵）。
+
+根因是**读写同源之后漏改的一处读路径**：
+
+| 环节 | 位置 | 读取来源 |
+|---|---|---|
+| 模板列表 `GET /api/templates` | `demo-backend.js` | 已绑定 → **目录**；未绑定 → `localStorage` |
+| 模板导出 `GET /api/templates-export/<name>` | `demo-backend.js` `templateDoc()` | **恒为 `localStorage` + 内置 P0**，完全不认已绑定目录 |
+
+对照本机版 `src/server/templates.py::export_template()` —— 它按 `_template_path_or_raise(name)`
+从模板库取，天然同源。在线版等于把「列表」和「导出」写成了两套数据源。
+
+`fe94be1`（2026-10-17「读写同源」）修正了**写**的落点（新建 / 改名 / 删除 / 导入），
+**导出属于读**，那一轮没覆盖到 —— 这是同一根因的最后一处残留。
+
+### 二 · 落地
+
+| 文件 | 改动 |
+|---|---|
+| `tools/web-demo/online-store.js` | 新增 `readDirTemplateText(dirHandle, file)` 并导出：读目录里模板文件**原文**（导出不传 `format` 时必须原样交回，不能再序列化） |
+| `tools/web-demo/demo-backend.js` | 新增 `readTemplateSource()` + `exportTemplate()`，替换原 `templateDoc()` 分支。**目录优先、浏览器内兜底**：已绑定且已授权 → 读目录原文；未绑定 / 未授权 / 目录里没有 → 回落 `localStorage` 与内置 P0（与列表判定同序）。`?format=` 双向转换补齐，转换前后都过 `validateTree` —— 对齐本机版「坏模板不借导出洗白」 |
+| `tests/test_demo_export.py` | **新增 6 用例**（Node 驱动 16 条断言）：已绑定目录导出 `.json`/`.md` 且**逐字节等于目录原文** / 未绑定回归位 / `format` 双向转换 / 目标不存在仍 404（防「假成功」）/ 备份导出不受影响。探针加载顺序刻意对齐线上注入序 `md → store → backend`，否则 `MD` 为 null，转换分支测不出来 |
+
+**顺带修正的两处语义偏差**：
+
+1. 转换判据：原实现只对 `format=md` 分支处理，`format=json` 落到「原样」分支却把 `source`
+   写成 `want`，与实际内容不符 —— 现按 `want != source` 分流（与本机版同判据）。
+2. 原实现对命中的结果**一律重新序列化**，于是「导出 → 再导入」与原件不再逐字节一致。
+   现直读原文，保住「单一真源」。
+
+### 三 · 验证
+
+| 项 | 结果 |
+|---|---|
+|---|---|
+| 新测试反向验证 | 换回修复前的 `demo-backend.js` → **恰好 3 个用例失败**（已绑定目录的导出 / 原样交回 / md 原样），未绑定与备份用例仍绿 —— 抓得住，且不乱报 |
+| `verify.py` | **121 项 · 0 失败** |
+| `unittest` | **612 用例 OK**（605 + 7） |
+| `smoke.py` / `browser_smoke.py` | 35/0 · 39/0 |
+
+### 四 · 同批修掉的错误文案占位符缺陷
+
+用户第二次反馈的原话是「导出失败：**模板不存在：{name}**」—— 占位符原样露在界面上。
+这是**与导出逻辑无关的第二个缺陷**，单独记在这里：
+
+| 项 | 内容 |
+|---|---|
+| 根因 | 在线版 `fail(code, message, status)` **从不传 `detail`**；而前端 `localizeError()` 只认 `code` + `detail`，用取词表 `err.<code>` 重新成句，`t()` 遇到没有对应值的占位符会**原样保留** ⇒ 用户看到字面量 `{name}` |
+| 波及面 | 所有**带占位符**的错误码：`templateNotFound` / `templateExists` / `templateNameInvalid` / `templateBadJson` / `ioError` / `tooManyNodes` / `editorBackupNotFound` / `editorBackupCorrupt` |
+| 落地 | `fail()` 增加第 4 参 `detail` 并写入响应体；上述 8 个码的**全部调用点**补齐上下文（模板名 / 备份 id / 目录与文件计数等） |
+| 为何之前没被发现 | 探针直接读响应的 `message` 字段（后端已渲染好的整句），而界面走的是 `code` + `detail` 重新成句这条**另一条路径**。单测因此新增"按前端逻辑渲染"的断言，并断言最终文案里**不得出现 `{`** |
+
+> 教训（已记入《错误笔记》思路）：**验证必须走用户实际经过的那条路径**。读 `message`
+> 复现不出 `{name}`，因为缺陷恰在另一条渲染链上。
+
+**线上版本核对**（2026-10-21）：`https://qingman.pages.dev/js/demo-backend.js` 与仓库同名文件
+**SHA256 逐字节一致**（`3aa33e90…b94a`），即线上确有该缺陷，修复后须重新构建部署才生效。
+
+> ⚠ **`sw.js` 缓存名由 `VERSION` 派生**（`qm-static-<VERSION>`）—— 版本不升则已安装用户的
+> service worker 仍可能交付旧 JS。本次升 PATCH 后重建即自动换缓存名，无需手工清缓存。
+
+---
+
 ## V0.3.12 — 2026-10-18
 
 **主题**：修复在线版「绑定模板目录后新建模板恒败」—— 绑定时只授了**只读**权限，

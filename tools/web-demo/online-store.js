@@ -315,6 +315,18 @@
     });
   }
 
+  /** 读目录里模板文件的**原文**（导出用：不传 format 时要原样交回，不能再序列化）。
+   *
+   * 2026-10-21 补：此前只暴露 `readDirTemplate`（解析后的文档），导出端因此拿不到
+   * 原文，只好回落到浏览器内存储 —— 于是「列表读目录、导出读 localStorage」，
+   * 绑定真实目录后导出必然 404。
+   */
+  function readDirTemplateText(dirHandle, file) {
+    return dirHandle.getFileHandle(file).then(function (fh) {
+      return fh.getFile().then(function (f) { return f.text(); });
+    });
+  }
+
   function readDirTemplate(dirHandle, file) {
     return dirHandle.getFileHandle(file).then(function (fh) {
       return fh.getFile().then(function (f) {
@@ -503,6 +515,7 @@
     targetPermission: targetPermission,
     readDirTemplates: readDirTemplates,
     readDirTemplate: readDirTemplate,
+    readDirTemplateText: readDirTemplateText,
     dirFileExists: dirFileExists,
     writeDirFile: writeDirFile,
     removeDirEntry: removeDirEntry,

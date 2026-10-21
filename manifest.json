@@ -1,6 +1,6 @@
 {
   "schema": "qm-manifest/1",
-  "version": "V0.3.12",
+  "version": "V0.4.0",
   "builds": [
     {
       "version": "V0.0.53",
@@ -526,6 +526,48 @@
         "os": "Windows-11-10.0.26300-SP0"
       },
       "note": "在线版模板目录读写授权修复：pickDir read→readwrite；templateSink 缺写权限时就地升级自愈"
+    },
+    {
+      "version": "V0.3.13",
+      "revision": 1,
+      "createdAt": "2026-10-21T11:10:07+08:00",
+      "timezone": {
+        "name": "中国标准时间",
+        "offset": "+08:00"
+      },
+      "model": {
+        "name": "unknown",
+        "vendor": "unknown",
+        "agent": "unknown"
+      },
+      "tools": {
+        "python": "3.14.8",
+        "node": "24.21.0",
+        "zlib": "1.3.1.zlib-ng",
+        "os": "Windows-11-10.0.26300-SP0"
+      },
+      "note": "V0.3.13 在线版导出模板失败修复（导出读取改为与列表同源）"
+    },
+    {
+      "version": "V0.4.0",
+      "revision": 1,
+      "createdAt": "2026-10-21T12:18:28+08:00",
+      "timezone": {
+        "name": "中国标准时间",
+        "offset": "+08:00"
+      },
+      "model": {
+        "name": "unknown",
+        "vendor": "unknown",
+        "agent": "unknown"
+      },
+      "tools": {
+        "python": "3.14.8",
+        "node": "24.21.0",
+        "zlib": "1.3.1.zlib-ng",
+        "os": "Windows-11-10.0.26300-SP0"
+      },
+      "note": "V0.4.0 模板解析失败不再静默跳过（列表回传 skipped）+ 文档陈旧计数清理"
     }
   ]
 }

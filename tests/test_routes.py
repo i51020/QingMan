@@ -559,6 +559,41 @@ class TemplateTests(unittest.TestCase):
         res = routes.list_templates()
         self.assertEqual([i["name"] for i in res["items"]], ["好"])
 
+    def test_skipped_reports_bad_files(self):
+        """V0.4.0：被跳过的文件必须**如实报告**，不能静默消失。
+
+        起因（2026-10-21 实测）：一份围栏未闭合的 `.md` 模板在目录里，
+        列表里却没有，且界面**零提示** —— 用户只能靠猜「是没扫到还是格式不对」。
+        契约：`skipped` 每项含 `file` / `code` / `reason`，且**不影响正常条目**。
+        """
+        self._write("bad.json", "{不是合法 json")
+        self._write("bad-md.md", "# 坏\n> d\n\n- a.md\n  ```md\n  正文\n")   # 围栏未闭合
+        self._write("ok.json", json.dumps({"name": "好", "tree": {"a": {}}}, ensure_ascii=False))
+        res = routes.list_templates()
+        self.assertEqual([i["name"] for i in res["items"]], ["好"])
+
+        skipped = {s["file"]: s for s in res["skipped"]}
+        self.assertIn("bad.json", skipped)
+        self.assertIn("bad-md.md", skipped)
+        self.assertEqual(skipped["bad.json"]["code"], "templateBadJson")
+        self.assertEqual(skipped["bad-md.md"]["code"], "templateBadMarkdown")
+        # `.md` 的具体原因要能传出来（前端悬停就靠它）
+        self.assertEqual(skipped["bad-md.md"]["reason"], "unclosed fence")
+
+    def test_skipped_empty_when_all_good(self):
+        """全部解析正常时 `skipped` 为空列表 —— 不能让前端凭空多出一条提示。"""
+        self._write("ok.json", json.dumps({"name": "好", "tree": {"a": {}}}, ensure_ascii=False))
+        self.assertEqual(routes.list_templates()["skipped"], [])
+
+    def test_available_false_also_carries_skipped(self):
+        """`available=False` 分支也要带 `skipped` 空列表，保持响应形态一致。"""
+        import unittest.mock as mock
+        from server import config
+        with mock.patch.object(config, "templates_dir", return_value="Z:\\不存在的目录\\x"):
+            res = routes.list_templates()
+        self.assertFalse(res["available"])
+        self.assertEqual(res["skipped"], [])
+
     def test_non_json_suffix_ignored(self):
         self._write("readme.md", "不是模板")
         self.assertEqual(routes.list_templates()["items"], [])

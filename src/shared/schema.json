@@ -1,6 +1,6 @@
 {
   "$comment": "青蔓 QingMan · 前后端共享数据契约。前端、后端、CLI 均以本文件为准。",
-  "version": "V0.3.12",
+  "version": "V0.4.0",
   "template": {
     "$comment": "模板文件格式，与 templates/*.json 一致。schemaVersion 自 V0.0.13「另存为模板」起写入；既有 17 套模板无该字段，读取时一律视为 1（§P2 第 7 项）",
     "schemaVersion": 1,
@@ -32,11 +32,14 @@
     "overwritten": "布尔。true 表示本次覆盖了同名既有模板（旧文件已入回收站）"
   },
   "templateListResponse": {
-    "$comment": "GET /api/templates 响应。templates/ 不在版本交付清单内，预览副本缺失时 available=false 且 items 为空（不报错）；单套损坏只跳过该套",
+    "$comment": "GET /api/templates 响应。templates/ 不在版本交付清单内，预览副本缺失时 available=false 且 items 为空（不报错）；单套损坏只跳过该套。V0.4.0 起被跳过的文件列入 skipped（兼容新增，此前为静默丢弃）",
     "ok": true,
     "available": true,
     "items": [
       { "file": "名称.json", "name": "模板名", "description": "中文说明", "dirs": 0, "files": 0 }
+    ],
+    "skipped": [
+      { "file": "坏文件.md", "code": "templateBadMarkdown", "reason": "unclosed fence" }
     ],
     "path": "templates 目录绝对路径",
     "schemaVersion": 1
