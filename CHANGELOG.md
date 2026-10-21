@@ -7,6 +7,63 @@
 
 ---
 
+## V0.4.1 — 2026-10-21
+
+**主题**：修复**在线版「提示已绑定模板目录，但模板列表一片空白」** —— File System Access 的
+授权不随句柄持久化，刷新后权限退回 `prompt`，而列表接口**只查不问**，恒返回 403。
+按 §P0-6 M9（只改实现、契约不动 ⇒ PATCH）升 `V0.4.0` → **`V0.4.1`**。
+
+### 一 · 报障与根因
+
+用户报障：在线版绑定本地模板目录后，界面提示「已绑定模板目录：templates」，
+**但模板列表没有任何模板**，也没有任何说明。控制台两条：
+
+```
+[QingMan] request failed: demoNeedPermission   {status: 403}
+```
+
+**根因**：权限**不随句柄持久化**。`pickDir()` 当场拿到的读写授权只在**当前页面会话**内有效；
+句柄存进 IndexedDB 后，刷新再 `queryPermission` 会退回 `prompt`。
+
+而 `GET /api/templates` 原先：
+
+```javascript
+return STORE.dirPermission(handle).then(function (state) {
+  if (state !== 'granted') { return { bound: true, needPermission: true, ... }; }  // ← 只查不问
+  ...
+});
+```
+
+`dirPermission()` 是**纯查询**，从不尝试请求授权 ⇒ 一刷新就恒 403。
+**叠加**前端对轮询失败一律静默（`if (!force) return`）⇒ 用户既看不到模板，也看不到原因。
+
+> 这是「读写同源」系列（`fe94be1` → V0.3.13 → V0.4.0）的**第三处**同源问题：
+> 前两次修的是「读哪里」「写哪里」，这次是「**权限在哪一刻还有效**」。
+
+### 二 · 落地
+
+| 文件 | 改动 |
+|---|---|
+| `tools/web-demo/demo-backend.js` | 列表分支在权限不足时**先就地请求一次**（`STORE.requestDirPermission`）：有手势则自愈并照常返回列表；无手势则 `requestPermission` 回 `denied`，**仍如实 403**（绝不假装成功返回空列表） |
+| `src/web/js/modules/templates.js` | ① `demoNeedPermission` **不再静默**，改走新的 `renderPermissionState()`：显示说明 + 一颗可点的「重新授权」按钮（点击重走 `chooseTemplatesDir()`，因为只有用户手势能拿到授权）。② 其它错误仍按原样（轮询静默，避免网络抖动把界面打成红色） |
+| `src/web/css/layout.css` | `.tpl-empty.tpl-needperm`：说明与按钮同行、窄时折行。**只用既有 token**，零新增色值（§P0-3 L4） |
+| `locales/zh-CN.js` / `en-US.js` | 各 +2 键：`template.needReauthHint` / `template.reauth`（485 : 485 零差异） |
+| `tests/test_template_dir_permission.py` | **新增 4 用例**（Node 驱动）：绑定后立即可用 / 无手势如实 403 / 有手势自愈 / 重新授权后恢复 |
+
+**为什么后端「请求一次」而不是直接返回空列表**：无权限时返回 `200 + items: []` 会让用户
+以为**模板真的没了**（可能去删文件、重装）。403 是诚实的，且前端现在会解释原因。
+
+### 三 · 验证
+
+| 项 | 结果 |
+|---|---|
+| 新测试 | 4 用例全绿；**反向验证**：换回修复前的 `demo-backend.js` → **恰好 2 例失败**（无手势 403 / 重新授权后恢复） |
+| `unittest` | **619 OK**（615 + 4） |
+| `verify.py` | 121 项 · 0 失败 |
+| 语言包 | 485 : 485 键集零差异 |
+
+---
+
 ## V0.4.0 — 2026-10-21
 
 **主题**：模板解析失败**不再静默跳过** —— 列表接口回传 `skipped` 清单（文件名 / 错误码 /
