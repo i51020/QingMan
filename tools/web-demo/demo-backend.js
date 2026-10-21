@@ -42,6 +42,7 @@
       fsUnsupported: '当前浏览器不支持直接写入文件夹（请用 Edge / Chrome）。可以改用本机 start.bat。',
       usePwa: '在线版没有桌面快捷方式 —— 浏览器菜单里选「安装此应用 / 安装青蔓」，就会在桌面与开始菜单得到图标（还能离线使用）。',
       needPermission: '模板目录的读取权限已失效（浏览器在重启后常要求重新确认）。请点「选择目录」再授权一次。',
+      dirMissing: '绑定的模板目录已不存在（可能被删除、改名或移动）。请点「选择目录」重新指定，或用「刷新」重试。',
       tplNeedWrite: '模板目录没有写入授权，模板没保存。请点「选择目录」再授权一次，并在弹框里允许修改。',
       tplWriteFail: '写入模板目录失败：{msg}',
       tplNameInvalid: '这个模板名不能当文件名（含 / \\ : * ? " < > | ，或以 .. 开头），请换一个。',
@@ -65,6 +66,7 @@
       fsUnsupported: 'This browser cannot write to folders directly (use Edge / Chrome), or run start.bat locally.',
       usePwa: 'The online version has no desktop shortcut — use your browser menu "Install app" to get an icon on the desktop and Start menu (it also works offline).',
       needPermission: 'Read access to the template folder expired (browsers usually re-ask after a restart). Click "Choose folder" and grant it again.',
+      dirMissing: 'The bound template folder no longer exists (deleted, renamed or moved). Click "Choose folder" to pick it again, or press Refresh to retry.',
       tplNeedWrite: 'The template folder has no write permission, so nothing was saved. Click "Choose folder" again and allow editing.',
       tplWriteFail: 'Failed to write into the template folder: {msg}',
       tplNameInvalid: 'That name cannot be used as a file name (it contains / \\ : * ? " < > | or starts with ..). Pick another.',
@@ -651,11 +653,22 @@
               });
             });
         });
+      }).catch(function (err) {
+        /* **2026-10-21 补**：绑定的文件夹**被删除 / 改名 / 移动**时，句柄仍在 IndexedDB，
+           但底层读不到，抛 File System 的 `NotFoundError`。此前它**没人接**，一路冒泡到
+           `api.js` 的 `catch`，被归成 `networkError`，界面显示「无法连接后端服务，请确认
+           服务仍在运行」—— **归因完全错误**：在线版根本没有网络请求，服务从来不在。
+
+           现就地识别，给出准确错误码；其它异常仍按原样上抛，不掩盖真问题。 */
+        if (err && err.name === 'NotFoundError') {
+          return fail('demoDirMissing', tr('dirMissing'), 404);
+        }
+        throw err;
       }).then(function (res) {
-        if (res.bound && res.needPermission) {
+        if (res && res.bound && res.needPermission) {
           return fail('demoNeedPermission', tr('needPermission'), 403);
         }
-        if (res.bound) {
+        if (res && res.bound) {
           return ok({ available: true, items: res.items, path: res.name, reason: '', source: 'bound' });
         }
         return ok({ available: true, items: templateList(), path: 'localStorage://' + LS_TPL, reason: '' });

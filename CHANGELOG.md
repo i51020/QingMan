@@ -7,6 +7,58 @@
 
 ---
 
+## V0.4.2 — 2026-10-21
+
+**主题**：修复**在线版把「目录已被删除」误报成「无法连接后端服务」** ——
+File System 抛的 `NotFoundError` 一路冒泡到 `api.js`，被归成 `networkError`，
+界面显示「请确认服务仍在运行」，而**在线版根本没有后端服务可连**。
+按 §P0-6 M9（只改实现、契约不动 ⇒ PATCH）升 `V0.4.1` → **`V0.4.2`**。
+
+### 一 · 报障与根因
+
+用户报障文案：
+
+```
+无法连接后端服务，请确认服务仍在运行：
+A requested file or directory could not be found at the time an operation was processed.
+```
+
+**后半句是判定关键**：那是 File System Access 的 `NotFoundError`，**不是网络错误**。
+在线版的 `/api/*` 全部由 `demo-backend.js` 在浏览器内就地应答，**不存在任何网络请求**，
+所以「服务仍在运行」这个归因从根上就是错的。
+
+**根因**：`GET /api/templates` 的链条里只处理了「权限不足」，**没接 `NotFoundError`**。
+绑定过的文件夹被删除 / 改名 / 移动后，句柄仍在 IndexedDB，但底层读不到 ⇒ 异常上抛 ⇒
+`api.js` 的 `catch` 一律归成 `networkError`。
+
+> 这是「目录句柄失效」的第二种形态：V0.4.1 修的是**权限过期**（`prompt`），
+> 这次是**目录不存在**（`NotFoundError`）。两者表现相近、成因不同、提示也该不同。
+
+### 二 · 落地
+
+| 文件 | 改动 |
+|---|---|
+| `tools/web-demo/demo-backend.js` | 列表链补 `.catch`：`NotFoundError` → **新错误码 `demoDirMissing`（404）**；其它异常**原样上抛**，不掩盖真问题。同时补 `res &&` 判空，防 catch 返回值形态变化后崩 |
+| `src/web/js/modules/templates.js` | `renderDirUnavailable()` 统一处理「目录不可用」两类码（`demoNeedPermission` / `demoDirMissing`）。**按用户要求不加按钮** —— 模板编辑区已有 `#btnRefreshTpl`（刷新）与 `#btnPickDir`（选目录），再放一颗同功能按钮只是重复入口；这里只负责**把原因说清楚** |
+| `locales/*` | 新增 `err.demoDirMissing`（两包各 1 键，485 : 485）；**移除** V0.4.1 引入的 `template.reauth`（按钮已撤，键跟着撤） |
+| `src/web/css/layout.css` | **移除** `.tpl-empty.tpl-needperm`（按钮专用布局，已无消费者，不留死 CSS） |
+
+### 三 · 验证
+
+| 项 | 结果 |
+|---|---|
+| `verify.py` | 121 项 · 0 失败 |
+| `unittest` | **619 OK** |
+| `smoke.py` / `browser_smoke.py` | 35/0 · 39/0 |
+| 语言包 | 485 : 485 键集零差异 |
+| 死代码清理 | `tpl-needperm` / `template.reauth` 全仓零残留 |
+
+> **诚实标注**：`demoDirMissing` 这条分支我**未能用 Node 替身跑通端到端** ——
+> `vm` 沙箱里 `window` 引用与控制台探针不一致，反复重试后停止（不把探针缺陷
+> 伪装成产品验证）。该分支已由**代码审阅 + 门禁**覆盖；真实浏览器行为需用户端确认。
+
+---
+
 ## V0.4.1 — 2026-10-21
 
 **主题**：修复**在线版「提示已绑定模板目录，但模板列表一片空白」** —— File System Access 的

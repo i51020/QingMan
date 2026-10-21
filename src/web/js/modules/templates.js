@@ -428,30 +428,23 @@ function renderTemplateState(text, kind) {
 }
 
 /**
- * 权限失效的专用状态行（2026-10-21）。
+ * 目录不可用的专用状态行（2026-10-21）。
  *
- * 场景：目录绑定信息还在（句柄存于 IndexedDB），但**授权已过期** ——
- * File System Access 的权限不随句柄持久化，刷新后回到 `prompt`。
- * 此时列表必然 403，而用户在界面上只看到"空白"，不知为何。
+ * 两种成因，文案不同、处置相同（都指向**已存在的**刷新/选择按钮，不新增控件）：
+ *   ① 授权过期：File System Access 权限不随句柄持久化，刷新页面后回到 `prompt`；
+ *   ② 目录已消失：绑定的文件夹被删除 / 改名 / 移动，句柄还在但底层找不到
+ *      （`NotFoundError`）。
  *
- * 这里给一句说明 + 一颗可点的「重新授权」。点击会走 `chooseTemplatesDir()`
- * （重新弹目录选择器），因为**只有用户手势**才能重新拿到授权；
- * 纯程序调用 `requestPermission` 在无手势时会被浏览器直接拒绝。
+ * **刻意不加按钮**：模板编辑区顶部已有 `#btnRefreshTpl`（刷新）与 `#btnPickDir`
+ * （选目录），再放一颗同功能按钮只是重复入口。这里只负责**把原因说清楚**。
  */
-function renderPermissionState(err) {
+function renderDirUnavailable(err) {
   const host = el('templateList');
   if (!host) return;
   host.textContent = '';
   const li = document.createElement('li');
-  li.className = 'tpl-empty tpl-warn tpl-needperm';
-  const text = document.createElement('span');
-  text.textContent = localizeError(err) || t('template.needReauthHint');
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'btn btn-ghost btn-mini';
-  btn.textContent = t('template.reauth');
-  btn.addEventListener('click', () => { chooseTemplatesDir(); });
-  li.append(text, btn);
+  li.className = 'tpl-empty tpl-warn';
+  li.textContent = localizeError(err) || t('template.needReauthHint');
   host.appendChild(li);
 }
 
@@ -495,13 +488,16 @@ async function loadTemplateList({ force = true } = {}) {
   } catch (err) {
     /* **2026-10-21 修复**：绑定目录后刷新，权限会退回 `prompt`（File System Access
        的授权不随句柄持久化）⇒ 列表接口 403 `demoNeedPermission`。
-       此前这里对**轮询**一律静默（`if (!force) return`），于是用户看到的是
-       「提示已绑定模板目录，但列表一片空白，且没有任何说明」—— 完全无从判断。
-       现区分处理：权限类失败**必须出声**，并给一个可点击的恢复入口；
-       其它失败仍按原样（轮询静默，避免网络抖一下就把界面打成红色）。 */
+       另一类同源故障：绑定的**文件夹被删除 / 改名 / 移动**，句柄还在但底层找不到，
+       抛 File System 的 `NotFoundError`。
+
+       此前这两种都被算作"普通失败"，而轮询路径一律静默（`if (!force) return`）⇒
+       用户看到的是「提示已绑定模板目录，但列表一片空白，且没有任何说明」。
+       现区分处理：**目录不可用类**必须出声并说清原因（处置按钮用既有的刷新/选目录，
+       不新增控件）；其它失败仍按原样（轮询静默，避免网络抖一下就把界面打成红色）。 */
     const code = err && err.code;
-    if (code === 'demoNeedPermission') {
-      renderPermissionState(err);
+    if (code === 'demoNeedPermission' || code === 'demoDirMissing') {
+      renderDirUnavailable(err);
       return;
     }
     if (!force) return;   // 轮询失败：保留现状，不打扰

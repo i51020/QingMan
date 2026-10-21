@@ -131,7 +131,6 @@ export const dict = {
   'template.skippedOne': '1 template file could not be read: {file} ({reason})',
   'template.skippedMany': '{count} template files could not be read: {files} (hover for details)',
   'template.needReauthHint': 'Read access to the template folder expired (common after a browser restart or reload). Re-authorize to see your templates again.',
-  'template.reauth': 'Re-authorize',
   'template.skippedTip': 'These files are skipped. Common causes: an unclosed code fence in a .md template, indentation that is not a multiple of 2 spaces, or invalid JSON.',
   'template.stats': '{dirs} dirs · {files} files',
   'template.loadConfirm': 'Load template "{name}" (file {file})? The tree you are editing will be replaced (undoable).',
@@ -272,6 +271,7 @@ export const dict = {
   'err.iconTooLarge': 'Icon too large, limit {limit} bytes (current {actual})',
   'err.iconWriteFailed': 'Failed to write icon (disk not writable or file in use)',
   'err.templateNotFound': 'Template not found: {name}',
+  'err.demoDirMissing': 'The bound template folder no longer exists (deleted, renamed or moved). Click "Choose folder" to pick it again, or press Refresh to retry.',
   'err.templateBadJson': 'Malformed template file: {name}',
   'err.templateReadFailed': 'Failed to read template: {name} ({message})',
   'err.templateNameEmpty': 'Template name cannot be empty',
@@ -483,7 +483,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.4.1',
+  'help.versionFallback': 'V0.4.2',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

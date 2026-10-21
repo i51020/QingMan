@@ -145,7 +145,6 @@ export const dict = {
   'template.skippedOne': '有 1 个模板文件未能读取：{file}（{reason}）',
   'template.skippedMany': '有 {count} 个模板文件未能读取：{files}（详见悬停提示）',
   'template.needReauthHint': '模板目录的读取授权已过期（浏览器重启或刷新后常会这样），请重新授权后即可看到模板。',
-  'template.reauth': '重新授权',
   'template.skippedTip': '这些文件不会被载入。常见原因：.md 模板的代码围栏未闭合、缩进不是每级 2 个空格、或 .json 不是合法 JSON。',
   'template.stats': '{dirs} 目录 · {files} 文件',
   'template.loadConfirm': '载入模板「{name}」（文件 {file}）？当前编辑的目录树将被替换（可用撤销恢复）。',
@@ -284,6 +283,7 @@ export const dict = {
   'err.iconTooLarge': '图标过大，上限 {limit} 字节（当前 {actual}）',
   'err.iconWriteFailed': '图标写入失败（磁盘不可写或文件被占用）',
   'err.templateNotFound': '模板不存在：{name}',
+  'err.demoDirMissing': '绑定的模板目录已不存在（可能被删除、改名或移动）。请点「选择目录」重新指定，或用「刷新」重试。',
   'err.templateBadJson': '模板文件结构非法：{name}',
   'err.templateReadFailed': '读取模板失败：{name}（{message}）',
   'err.templateNameEmpty': '模板名不能为空',
@@ -493,7 +493,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.4.1',
+  'help.versionFallback': 'V0.4.2',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',

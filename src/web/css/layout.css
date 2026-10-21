@@ -220,15 +220,6 @@
 
 .tpl-empty { color: var(--qm-text-dim); font-size: var(--qm-fs-md); padding: 4px 0; }
 .tpl-empty.tpl-warn { color: var(--qm-warn); }
-/* 权限失效提示行（V0.4.1）：说明 + 一颗「重新授权」按钮，同一行排布，窄时自动折行。
-   只用既有 token，不引入新色值（§P0-3 L4）。 */
-.tpl-empty.tpl-needperm {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  line-height: 1.6;
-}
 
 /* 历史版本列表（V0.0.51@r9）。外观与 .tpl-list 一致，但每行**左右两栏**：
    左＝时间 + 根名（可能带「已归档」徽标），右＝大小 + 「恢复这一版」按钮。
