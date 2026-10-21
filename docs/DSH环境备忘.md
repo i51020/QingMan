@@ -90,6 +90,12 @@ node .\.wrangler-tool\node_modules\wrangler\wrangler-dist\cli.js `
   --commit-dirty=true --no-bundle
 ```
 
+> **⚠ 2026-10-21 实测补充**：本机 `wrangler@4.151.3` 走 Direct Upload 时，**上传全部 200、创建部署恒 401**
+> （`Authentication error [code: 10000]`）。同一个令牌用 `wrangler@3` **一次部署成功** ——
+> 令牌权限没问题（`/user/tokens/verify` 为 active、`GET pages/projects/qingman` 为 200）。
+> **别把它误判成「令牌缺 Pages:Edit」**：先用 `wrangler@3` 复测，再怀疑权限。
+> 另外：`wrangler whoami` 报「Failed to automatically retrieve account IDs」是**最小权限令牌的正常现象**，
+> 只要显式传了 `CLOUDFLARE_ACCOUNT_ID` 就不影响部署。
 **三个要点**：
 - `--no-bundle` 吃掉 esbuild 那一步（纯静态站不需要打包 `_worker.js`）
 - **必须**直接指向 `wrangler-dist/cli.js`，**不能**用 `.bin\wrangler.cmd`

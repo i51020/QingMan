@@ -51,16 +51,18 @@
 
 #### 三 · 未做完 / 下一步
 
-1. ⏳ **V0.4.5 尚未部署**。产物已构建并真机验证：`dist/makers-live-v045`（66 文件 /
-   18.2 MB，内置便携包）。部署属**对外动作**，且本机**没有** Cloudflare 令牌
-   （上一枚已在对话中明文出现、建议吊销）。需要用户：① 明确授权部署；② 提供新令牌。
-   命令见 `docs/DSH环境备忘.md` §四（`wrangler-dist/cli.js pages deploy … --no-bundle`）。
-   部署后按 §六 核对：`js/demo-data.js` 的 version、`sw.js` 的 `CACHE`、以及
-   `js/demo-backend.js` **SHA256 与 `dist/makers-live-v045` 同名文件逐字节一致**。
+1. ✅ **V0.4.5 已部署并线上验证（2026-10-21 15:52，部署 ID `73ec0e8b`）**。
+   线上 `https://qingman.pages.dev` = V0.4.5；7 个关键文件 SHA256 与 `dist/makers-live-v045`
+   **逐字节一致**；并用无头 Edge + CDP 对**线上站点**做了功能验证：首绑出条目、失权显示
+   「重新授权」且不自动弹框、**重选同名目录恢复**、点「重新授权」恢复。
+   ⚠ 部署踩坑：`wrangler@4.151.3` 创建部署恒 401（上传全 200），换 `wrangler@3` 一次成功。
+2. **用户侧确认**：若装着 PWA / 开着旧标签页，先 Ctrl+Shift+R 强刷（SW 是网络优先，
+   正常会自愈；`CACHE` 已变 `qm-static-V0.4.5`）。仍有异常时看控制台 `request failed:` 的 code。
+3. ⚠ **令牌处置**：本次部署用的令牌已在对话中明文出现，**请到 Cloudflare 面板吊销**
+   （该令牌 `expires_on` 为 2026-10-21 15:59:59Z，本就当日到期）。令牌全程只经进程环境变量，
+   **未写入任何文件**（已全工作区扫描确认无残留）。
 2. **用户侧确认口径**：装过 PWA 的浏览器可能仍加载旧缓存（SW 是网络优先，正常会自愈）；
    若仍异常，先 Ctrl+Shift+R 强刷，再看控制台 `request failed:` 的具体 code。
-3. `HANDOVER.md` 是 `dsh-context-guard` 插件生成物，**仍未纳入 git**。
-   是否入库 / 加 `.gitignore` 依旧待定（本会话沿用「不入库」的现状）。
-4. 令牌：本会话**没有**使用任何 Cloudflare 令牌（全程未联网部署）。
+4. `HANDOVER.md` 是 `dsh-context-guard` 插件生成物，**仍未纳入 git**（沿用现状）。
 
 <!-- dsh-context-guard:end -->
