@@ -1,0 +1,70 @@
+name: pages
+
+# 把 `src/web` 构建成在线版并发布到 GitHub Pages。
+#
+# 为什么用 Actions 而不是「提交一个 docs/ 目录」：`docs/` 已被项目文档占用；
+# 也不该把构建产物提交进仓库（产物可由 `build_static_site.py` 确定性重建）。
+#
+# 下载按钮指向 **Releases** 的 `latest/download` 长期地址 —— 站点里不放 17 MB 便携包，
+# 这样 Pages 仓库保持几百 KB，便携包走 Release 附件。
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: 检出
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 读取版本号
+        shell: pwsh
+        run: |
+          $v = (Get-Content VERSION -Raw).Trim()
+          "QM_VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: 构建在线版（下载按钮指向 Releases）
+        shell: pwsh
+        env:
+          PYTHONUTF8: "1"
+          PYTHONIOENCODING: "utf-8"
+        run: |
+          $url = "https://github.com/${{ github.repository }}/releases/latest/download/QingMan-$env:QM_VERSION-portable.zip"
+          Write-Host "下载按钮 → $url"
+          python tools/build_static_site.py --out _site --download-url $url
+
+      - name: 装配 Pages
+        uses: actions/configure-pages@v5
+
+      - name: 上传产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 部署到 Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
