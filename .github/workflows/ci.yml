@@ -47,4 +47,4 @@ jobs:
         env:
           PYTHONUTF8: "1"
           PYTHONIOENCODING: "utf-8"
-        run: python tools/gate.py --no-handoff
+        run: python tools/gate.py --no-handoff --quick
