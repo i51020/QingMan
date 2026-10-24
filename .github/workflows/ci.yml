@@ -47,7 +47,15 @@ jobs:
         run: python tools/verify.py .
 
       - name: 单元测试 unittest
-        run: python -m unittest discover -s tests
+        shell: pwsh
+        run: |
+          # 把失败用例名同时写成 **GitHub 注解**：Actions 的原始日志需要登录才能读，
+          # 而注解可经 `check-runs/{id}/annotations` 匿名读取 —— 排障时省一轮往返。
+          $out = python -m unittest discover -s tests 2>&1 | Out-String
+          Write-Host $out
+          $bad = ($out -split "`n") | Where-Object { $_ -match '^(FAIL|ERROR):\s' }
+          foreach ($line in $bad) { Write-Host "::error::$($line.Trim())" }
+          if ($bad) { exit 1 }
 
       - name: 端到端冒烟 smoke
         run: python tools/smoke.py
