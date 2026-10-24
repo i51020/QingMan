@@ -93,7 +93,8 @@ def list_locales() -> "list[dict[str, str]]":
     return out
 
 
-def build(out: Path, os_locale: str = "zh-CN", with_download: bool = True) -> dict:
+def build(out: Path, os_locale: str = "zh-CN", with_download: bool = True,
+          download_url: "str | None" = None) -> dict:
     """把 `src/web/` + `locales/` 装配成可直接托管的静态目录。
 
     ⚠ 产物目录已存在时**改名让路，不做删除**（与项目「只复制不删除」同一原则）：
@@ -137,7 +138,7 @@ def build(out: Path, os_locale: str = "zh-CN", with_download: bool = True) -> di
 
     demo = install_demo(out)
     pwa = install_pwa(out)
-    download = install_notice(out, with_download)
+    download = install_notice(out, with_download, download_url)
 
     total = sum(p.stat().st_size for p in out.rglob("*") if p.is_file())
     files = sum(1 for p in out.rglob("*") if p.is_file())
@@ -200,6 +201,12 @@ self.addEventListener('fetch', (event) => {
 
 NOTICE_ACTION = """    <p class="qm-online-act"><a class="qm-online-dl" href="./downloads/__PKG__" download><span class="qm-online-zh">下载本机版</span><span class="qm-online-en">Download desktop build</span></a><span class="qm-online-meta">__VERSION__ · __SIZE__ MB · Windows</span></p>"""
 
+# 外链版（`--download-url`）：不把 17 MB 便携包塞进站点，按钮直接指向 GitHub Releases 之类的
+# 长期地址。两处差别都是**有意**的：
+#   ① 不带 `download` 属性 —— 跨源时它本就无效，而且会把用户留在当前页看着"什么都没发生"；
+#   ② 不显示体积 —— 远程资产体积在构建期不可知，写上去就是编造。
+NOTICE_ACTION_URL = """    <p class="qm-online-act"><a class="qm-online-dl" href="__URL__" rel="noopener"><span class="qm-online-zh">下载本机版</span><span class="qm-online-en">Download desktop build</span></a><span class="qm-online-meta">__VERSION__ · Windows</span></p>"""
+
 NOTICE_HTML = """  <div class="qm-online" id="qmOnlineNotice">
     <div class="qm-online-hd"><span class="qm-online-tag">ONLINE</span><span class="qm-online-zh">你正在使用在线版</span><span class="qm-online-en">You are using the online version</span></div>
     <p class="qm-online-zh">草稿存在浏览器本地存储；点「生成」后由你点选文件夹，才会写到你本机磁盘。需要完全离线、双击即用的版本，请下载本机版。</p>
@@ -247,20 +254,31 @@ __ACTION__
 """
 
 
-def install_notice(out: Path, with_download: bool = True) -> dict:
-    """在两处帮助页注入「在线版提示」，并按需内置本机版下载包。
+def install_notice(out: Path, with_download: bool = True,
+                   download_url: "str | None" = None) -> dict:
+    """在两处帮助页注入「在线版提示」，并按需给出本机版下载入口。
 
-    提示块**总是**注入（它解释的是"你在用在线版、写盘要授权"，与有没有下载包无关）；
-    下载按钮只在真找到便携包时才出现 —— 绝不挂一个指向 404 的链接。
+    提示块**总是**注入（它解释的是"你在用在线版、写盘要授权"，与有没有下载包无关）。
+    下载按钮有三种形态，**绝不挂一个指向 404 的链接**：
 
-    返回 `{"included": bool, "name": str, "bytes": int}`。
+    | 条件 | 按钮指向 | 是否把包拷进 site/ |
+    |---|---|---|
+    | `download_url` 给了 | 该外链（GitHub Releases 等） | ❌ 不拷（站内不必背 17 MB） |
+    | 本地 `dist/` 有便携包 | `./downloads/<包名>` | ✅ 拷贝 |
+    | 都没有 | 不渲染按钮 | — |
+
+    返回 `{"included": bool, "external": bool, "name": str, "bytes": int}`。
     """
     version = VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.is_file() else ""
     name = DOWNLOAD_NAME.format(version=version)
     package = DOWNLOAD_DIR / name
 
     included = bool(with_download and package.is_file())
-    if included:
+    external = bool(download_url)
+    if external:
+        action = (NOTICE_ACTION_URL.replace("__URL__", str(download_url))
+                  .replace("__VERSION__", version))
+    elif included:
         dest_dir = out / "downloads"
         dest_dir.mkdir(exist_ok=True)
         shutil.copy2(package, dest_dir / name)
@@ -282,7 +300,7 @@ def install_notice(out: Path, with_download: bool = True) -> dict:
         else:
             raise SystemExit(f"[FAIL] {page_name} 里找不到提示注入锚点")
         page.write_text(html, encoding="utf-8", newline="\n")
-    return {"included": included, "name": name,
+    return {"included": included, "external": external, "name": name,
             "bytes": package.stat().st_size if included else 0}
 
 
@@ -380,13 +398,17 @@ def main(argv: "list[str] | None" = None) -> int:
     ap.add_argument("--os-locale", default="zh-CN", help="首屏语言（静态版无法探测 OS 语言）")
     ap.add_argument("--no-download", action="store_true",
                     help="不内置本机版便携包（打「完整项目包」时用，避免套娃 18 MB）")
+    ap.add_argument("--download-url", metavar="URL",
+                    help="下载按钮改指外链（如 GitHub Releases），且**不**把便携包拷进站点 —— "
+                         "GitHub Pages / 静态托管推荐用它，站内不必背 17 MB")
     args = ap.parse_args(argv)
 
     out = Path(args.out).resolve()
     if not (WEB_DIR / "index.html").is_file():
         print(f"[FAIL] 找不到 {WEB_DIR / 'index.html'}")
         return 1
-    info = build(out, args.os_locale, with_download=not args.no_download)
+    info = build(out, args.os_locale, with_download=not args.no_download,
+                 download_url=args.download_url)
     print(f"[静态] {out}")
     print(f"  web {info['web']} 个 + locales {info['locales']} 个 → 共 {info['files']} 文件，"
           f"{info['bytes'] / 1024:.0f} KB")
@@ -395,7 +417,9 @@ def main(argv: "list[str] | None" = None) -> int:
     print("  可安装（PWA）：" + ("manifest + service worker + 图标 已生成"
                               if info["pwa"] else "未生成"))
     dl = info["download"]
-    if dl["included"]:
+    if dl.get("external"):
+        print(f"  本机版下载：指向外链 {args.download_url}（未拷贝便携包）")
+    elif dl["included"]:
         print(f"  本机版下载：已内置 {dl['name']}（{dl['bytes'] / 1048576:.1f} MB）")
     elif args.no_download:
         print("  本机版下载：按要求跳过（--no-download）")

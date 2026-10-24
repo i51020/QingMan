@@ -23,13 +23,30 @@
 
 | 文件 | 内容 |
 |---|---|
-| `LICENSE`（新增） | MIT 全文，`Copyright (c) 2026 QingMan contributors` |
+| `LICENSE`（新增） | MIT 全文，版权人定为 **`i51020 (QingMan)`**（GitHub 网名；真名留待需要强维权时再改） |
 | `THIRD-PARTY-NOTICES.md`（新增） | 据实登记便携包**随附**的第三方许可：CPython 3.14.8（PSF-2.0，包内 `runtime/LICENSE.txt`）、Tcl/Tk 9.0（包内 `runtime/tcl/tk9.0/demos/license.terms`）。已核对便携包**确实带有**这两个许可文件，无需额外补齐 |
 | `README.md` | 新增「许可证」小节：MIT 要点 + 第三方声明指针 + 明确「许可证不含名称与商标权」 |
 
 **两处需要知情的事实**：① MIT **不可撤销** —— 一旦按 MIT 发布某个版本，已取得该版本的人永久可用，
-后续换许可只影响新版本；② 版权人暂写 `QingMan contributors`，若要用真名/组织名，改 `LICENSE`
-第一行即可（发布前改，避免版本间版权人不一致）。
+后续换许可只影响新版本；② 版权人一经发布即固化，故发布前先定人（本版定为 GitHub 网名
+`i51020 (QingMan)`：长期稳定、可与你账号对应、隐私可控；将来若商业化，再改为真名或
+「真名 + 网名」并列）。
+
+### 〇-2 · 追加（2026-10-24，不升版）：GitHub 发布准备
+
+同属「发布准备」，**不改运行行为**，故与上条同口径**不升版**（纯工具/文档；回退点＝ git commit）。
+
+| 文件 | 改动 | 为什么 |
+|---|---|---|
+| `.github/workflows/ci.yml`（新增） | `windows-latest` + Python 3.12，跑 `tools/gate.py --no-handoff` | 本项目只支持 Windows，ubuntu 上跑不出真结论；CI 不刷实况段（会改文档且产物被丢弃） |
+| `tools/build_static_site.py` | 新增 `--download-url`：下载按钮改指外链，且**不把便携包拷进站点** | 上 GitHub Pages 时站内不必背 17 MB；重定向到 Releases 的 `latest/download` 长期地址 |
+| `README.md` | 顶部三个入口：Pages 在线试用 / Releases 下载 / 现有云端体验 | 让访客一眼看到「先试→再下载」两条路 |
+
+**`--download-url` 的两个有意取舍**（写进代码注释）：外链版**不带** `download` 属性（跨源无效，
+还会把用户留在当前页）、**不显示体积**（远程资产体积构建期不可知，写了就是编造）。
+
+产物：`dist/pages`（65 文件 / 679 KB，外链指向 Releases，无 `downloads/` 目录）。
+
 
 
 ### 一 · 怎么定位的（这次不靠猜）

@@ -1,0 +1,43 @@
+name: gate
+
+# 青蔓 QingMan · 交付门禁（与本地 `py -3 tools/gate.py` 同一套判据）
+#
+# 为什么是 windows-latest：本项目**只支持 Windows**（start.bat / PowerShell / WScript.Shell
+# / 桌面快捷方式 / 本地目录选择器），在 ubuntu 上跑不出真实结论，只会给出假绿或假红。
+#
+# 为什么带 `--no-handoff`：`tools/handoff.py` 会**改写** docs/接续说明.md 的实况段。
+# CI 里刷它没有意义（产物会被丢弃），还会让工作树变脏、干扰后续检查。实况段由本地
+# 提交前的 gate 负责刷新并一并提交。
+#
+# 页面冒烟（browser_smoke）依赖本机 Edge。托管 runner 自带 Edge；若某天它在 runner 上
+# 不可驱动，把最后一行换成 `python tools/gate.py --no-handoff --quick`（跳过页面冒烟），
+# 并在提交信息里写明「CI 跳过页面冒烟、本地已跑」—— 不要静默降级。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: 检出
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 四件套门禁（verify / unittest / smoke / browser_smoke）
+        env:
+          PYTHONUTF8: "1"
+          PYTHONIOENCODING: "utf-8"
+        run: python tools/gate.py --no-handoff
