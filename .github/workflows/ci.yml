@@ -5,12 +5,16 @@ name: gate
 # 为什么是 windows-latest：本项目**只支持 Windows**（start.bat / PowerShell / WScript.Shell
 # / 桌面快捷方式 / 本地目录选择器），在 ubuntu 上跑不出真实结论，只会给出假绿或假红。
 #
-# 为什么把四件套拆成四个 step：合在 `gate.py` 里跑时，失败只报「四件套门禁 = failure」，
-# 从日志外看不出是哪一环（2026-10-24 排查时被迫逐次删减来试）。拆开后**步骤名即结论**。
+# 为什么四件套拆成四个 step：合在 `gate.py` 里跑时，失败只报「四件套门禁 = failure」，
+# 不看日志分不出是哪一环（2026-10-24 排查时被迫逐次删减去试）。拆开后**步骤名即结论**。
 # 顺序与 gate.py 一致：verify → unittest → smoke → browser_smoke → manifest。
 #
 # 为什么不跑 handoff：`tools/handoff.py` 会改写 docs/接续说明.md（产物会被丢弃），
 # 且其实况段含本机路径。实况段由本地提交前的 gate 负责刷新并一并提交。
+#
+# 诊断通道：Actions 的原始日志需登录才能读，而 git 分支不需要。unittest / smoke 用
+# `continue-on-error` 捕获输出并在失败时把 `*-full.txt` 推到 `ci-report` 分支，
+# 任何持有仓库读权限的会话都能 `git fetch` 取到真实断言原文。
 
 on:
   push:
@@ -19,7 +23,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # 失败摘要要推到 ci-report 分支（排障用）
+  contents: write   # 诊断上报要推到 ci-report 分支
 
 concurrency:
   group: gate-${{ github.ref }}
@@ -61,27 +65,43 @@ jobs:
           $out | Out-File -FilePath unittest-full.txt -Encoding utf8
           if ($out -match '(?m)^FAILED') { exit 1 }
 
-      # 排障用：Actions 原始日志需登录才能读，而 git 分支不需要 —— 失败时把摘要推上
-      # `ci-report` 分支，任何持有仓库读权限的会话（含本地）都能 `git fetch` 取到。
-      - name: 失败摘要推到 ci-report 分支
-        if: steps.unittest.outcome == 'failure'
+      - name: 端到端冒烟 smoke
+        id: smoke
+        continue-on-error: true
         shell: pwsh
         run: |
-          git config user.email ci@local
-          git config user.name  ci
-          git checkout -B ci-report
-          git add -f unittest-summary.txt unittest-full.txt
-          git commit -m "ci: unittest failure summary"
-          git push -f origin ci-report
-
-      - name: 单元测试结论
-        if: steps.unittest.outcome == 'failure'
-        run: exit 1
-      - name: 端到端冒烟 smoke
-        run: python tools/smoke.py
+          $out = python tools/smoke.py 2>&1 | Out-String
+          Write-Host $out
+          $out | Out-File -FilePath smoke-full.txt -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: 页面冒烟 browser_smoke
-        run: python tools/browser_smoke.py
+        id: browser
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $out = python tools/browser_smoke.py 2>&1 | Out-String
+          Write-Host $out
+          $out | Out-File -FilePath browser-full.txt -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: 两层清单 manifest
         run: python tools/manifest.py check
+
+      - name: 失败诊断上报（ci-report 分支）
+        if: always()
+        shell: pwsh
+        run: |
+          $files = @('unittest-summary.txt', 'unittest-full.txt', 'smoke-full.txt', 'browser-full.txt') |
+            Where-Object { Test-Path $_ }
+          if (-not $files) { Write-Host '各环节均无诊断文件（全绿或未产生）'; exit 0 }
+          git config user.email ci@local
+          git config user.name  ci
+          git checkout -B ci-report
+          git add -f @files
+          git commit -m "ci: 诊断输出（${{ github.sha }}）"
+          git push -f origin ci-report
+
+      - name: 结论
+        if: steps.unittest.outcome == 'failure' || steps.smoke.outcome == 'failure' || steps.browser.outcome == 'failure'
+        run: exit 1
