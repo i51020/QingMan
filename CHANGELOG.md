@@ -47,6 +47,25 @@
 
 产物：`dist/pages`（65 文件 / 679 KB，外链指向 Releases，无 `downloads/` 目录）。
 
+### 〇-3 · 追加（2026-10-24，不升版）：仓库上 GitHub + CI 首次跑绿
+
+仓库已发布：<https://github.com/i51020/QingMan>（public，`main`，367 个提交 + 108 个 tag）。
+SSH 走 `ssh.github.com:443`（本机实测 `github.com:443` 时通时断，443 端口稳定）。
+
+**CI 首次跑绿踩了 5 个坑**，逐条记下来（前 4 条都是"本地绿、CI 红"，且**都不是产品缺陷**）：
+
+| # | 现象 | 根因 | 处置 |
+|---|---|---|---|
+| 1 | `gate` 报「四件套门禁 = failure」，不知道哪一环 | 四件套全塞在一个 step 里，步骤名不含环节 | 拆成 verify / unittest / smoke / browser_smoke / manifest **五个 step**，步骤名即结论 |
+| 2 | `verify` 报「接续说明实况段 已过期」 | 实况段含**本机绝对路径**、`git 跟踪 N 项`、工作树状态 —— 换机器必不同 | verify 比对前抹平这三处（`_mask_live_environment`），其余字段仍严格比对 |
+| 3 | check-run 里只有「成功/失败」，日志要登录才能读 | Actions 原始日志需鉴权 | 失败时把 `*-full.txt` 推到 `ci-report` 分支，用 git 读（已用完即删该分支；仅失败时触发） |
+| 4 | 6 个单测在 CI 红、本地绿 | **Windows 8.3 短名**：CI 的 `TMP` 是 `C:\Users\RUNNER~1\…`，服务端返回 `resolve()` 后的 `C:\Users\runneradmin\…`；`normcase` 比不出这件事 | 三处路径比较统一加 `os.path.realpath`（test_config / test_routes）；`smoke.py` 同一问题一并修 |
+| 5 | Pages 工作流卡在「装配 Pages」 | 仓库没启用 Pages；`GITHUB_TOKEN` **没有**启用 Pages 的权限（`enablement: true` 也开不了） | 需在仓库 Settings → Pages 手动选 Source = GitHub Actions（**一次性**） |
+
+**一条可复用的排障方法**：本地把仓库 clone 到 `D:\a\QingMan\QingMan`（Actions 的真实检出路径）
+并用 **Python 3.12**（与 `setup-python` 同版本）跑 —— 路径类假红能一次复现；剩下的
+runner 特有问题（8.3 短名、日志鉴权）再靠 `ci-report` 分支取证。
+
 
 
 ### 一 · 怎么定位的（这次不靠猜）
