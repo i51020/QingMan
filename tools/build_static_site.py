@@ -82,6 +82,11 @@ NAME_RE = re.compile(r"export\s+const\s+NAME\s*=\s*['\"]([^'\"]+)['\"]")
 # Windows 上非法、且会被静态托管当成路径的那些文件，不进构建产物。
 SKIP_SUFFIXES = {".pyc", ".pyo", ".log"}
 
+# 语言包相对导入的两种深度（理由见 build() 内的长注释）：
+#   仓库布局 `src/web/js/i18n/` → 上跳 4 级到项目根；构建产物 `js/i18n/` → 上跳 2 级到站点根。
+LOCALE_IMPORT_REPO = "../../../../locales/"
+LOCALE_IMPORT_SITE = "../../locales/"
+
 
 def list_locales() -> "list[dict[str, str]]":
     """`[{code, name}]`，按文件名排序 —— 与后端 `/api/locales.js` 的顺序口径一致。"""
@@ -110,11 +115,26 @@ def build(out: Path, os_locale: str = "zh-CN", with_download: bool = True,
     out.mkdir(parents=True)
 
     copied = 0
+    locale_relinked = 0
     for src in sorted(WEB_DIR.rglob("*")):
         if not src.is_file() or src.suffix.lower() in SKIP_SUFFIXES:
             continue
         dest = out / src.relative_to(WEB_DIR)
         dest.parent.mkdir(parents=True, exist_ok=True)
+        if src.suffix.lower() == ".js":
+            text = src.read_text(encoding="utf-8")
+            if LOCALE_IMPORT_REPO in text:
+                # **2026-10-24 修（GitHub Pages 子路径）**：源码里语言包用 `../../../../locales/`
+                # 是**仓库布局**下正确的（`src/web/js/i18n/` 上跳 4 级才到项目根）；
+                # 而构建产物里 `js/i18n/` 只比站点根深 2 级，上跳 4 级会「越过站点根、夹到域根」——
+                # 在根域部署（`/`）靠夹取侥幸成立，在**子路径部署**（`…/QingMan/`）就
+                # 变成请求 `/locales/xx.js` ⇒ 404 ⇒ 语言包加载失败 ⇒ 整页白屏。
+                # 故构建期把这一处字面量改成 2 级；src 保持不动，Node 单测仍按仓库布局导入。
+                dest.write_text(text.replace(LOCALE_IMPORT_REPO, LOCALE_IMPORT_SITE),
+                                encoding="utf-8", newline="\n")
+                locale_relinked += 1
+                copied += 1
+                continue
         shutil.copy2(src, dest)
         copied += 1
 
