@@ -5,13 +5,12 @@ name: gate
 # 为什么是 windows-latest：本项目**只支持 Windows**（start.bat / PowerShell / WScript.Shell
 # / 桌面快捷方式 / 本地目录选择器），在 ubuntu 上跑不出真实结论，只会给出假绿或假红。
 #
-# 为什么带 `--no-handoff`：`tools/handoff.py` 会**改写** docs/接续说明.md 的实况段。
-# CI 里刷它没有意义（产物会被丢弃），还会让工作树变脏、干扰后续检查。实况段由本地
-# 提交前的 gate 负责刷新并一并提交。
+# 为什么把四件套拆成四个 step：合在 `gate.py` 里跑时，失败只报「四件套门禁 = failure」，
+# 从日志外看不出是哪一环（2026-10-24 排查时被迫逐次删减来试）。拆开后**步骤名即结论**。
+# 顺序与 gate.py 一致：verify → unittest → smoke → browser_smoke → manifest。
 #
-# 页面冒烟（browser_smoke）依赖本机 Edge。托管 runner 自带 Edge；若某天它在 runner 上
-# 不可驱动，把最后一行换成 `python tools/gate.py --no-handoff --quick`（跳过页面冒烟），
-# 并在提交信息里写明「CI 跳过页面冒烟、本地已跑」—— 不要静默降级。
+# 为什么不跑 handoff：`tools/handoff.py` 会改写 docs/接续说明.md（产物会被丢弃），
+# 且其实况段含本机路径。实况段由本地提交前的 gate 负责刷新并一并提交。
 
 on:
   push:
@@ -27,14 +26,15 @@ jobs:
   gate:
     runs-on: windows-latest
     timeout-minutes: 20
+    env:
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
     steps:
       - name: 检出
         uses: actions/checkout@v4
         with:
-          # **必须带全历史与标签**：`tools/verify.py` 的「接续说明实况段」会把
-          # `tools/handoff.py` 现算的实况块与仓库里那份逐字比对，而实况块里有
-          # 「版本 tag：最近 5 个 … 共 N 个」这一行。checkout 默认只取单个提交、
-          # **不取标签** ⇒ CI 里 N=0，与提交里的 N=89 不符 ⇒ 假红（2026-10-24 实测）。
+          # **必须带全历史与标签**：`verify.py` 的「接续说明实况段 / 版本 tag 行」要用 tag。
+          # checkout 默认只取单个提交且不取标签 ⇒ 实况段比对与 tag 断言都会假红。
           fetch-depth: 0
           fetch-tags: true
 
@@ -43,8 +43,17 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: 四件套门禁（verify / unittest / smoke / browser_smoke）
-        env:
-          PYTHONUTF8: "1"
-          PYTHONIOENCODING: "utf-8"
-        run: python tools/gate.py --no-handoff --quick
+      - name: 交付校验 verify
+        run: python tools/verify.py .
+
+      - name: 单元测试 unittest
+        run: python -m unittest discover -s tests
+
+      - name: 端到端冒烟 smoke
+        run: python tools/smoke.py
+
+      - name: 页面冒烟 browser_smoke
+        run: python tools/browser_smoke.py
+
+      - name: 两层清单 manifest
+        run: python tools/manifest.py check
