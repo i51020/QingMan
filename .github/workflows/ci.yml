@@ -18,6 +18,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write   # 失败摘要要推到 ci-report 分支（排障用）
+
 concurrency:
   group: gate-${{ github.ref }}
   cancel-in-progress: true
@@ -47,16 +50,32 @@ jobs:
         run: python tools/verify.py .
 
       - name: 单元测试 unittest
+        id: unittest
+        continue-on-error: true
         shell: pwsh
         run: |
-          # 把失败用例名同时写成 **GitHub 注解**：Actions 的原始日志需要登录才能读，
-          # 而注解可经 `check-runs/{id}/annotations` 匿名读取 —— 排障时省一轮往返。
           $out = python -m unittest discover -s tests 2>&1 | Out-String
           Write-Host $out
-          $bad = ($out -split "`n") | Where-Object { $_ -match '^(FAIL|ERROR):\s' }
-          foreach ($line in $bad) { Write-Host "::error::$($line.Trim())" }
-          if ($bad) { exit 1 }
+          ($out -split "`n" | Where-Object { $_ -match '^(FAIL|ERROR):|^Ran |^(OK|FAILED)' }) |
+            Out-File -FilePath unittest-summary.txt -Encoding utf8
+          if ($out -match '(?m)^FAILED') { exit 1 }
 
+      # 排障用：Actions 原始日志需登录才能读，而 git 分支不需要 —— 失败时把摘要推上
+      # `ci-report` 分支，任何持有仓库读权限的会话（含本地）都能 `git fetch` 取到。
+      - name: 失败摘要推到 ci-report 分支
+        if: steps.unittest.outcome == 'failure'
+        shell: pwsh
+        run: |
+          git config user.email ci@local
+          git config user.name  ci
+          git checkout -B ci-report
+          git add -f unittest-summary.txt
+          git commit -m "ci: unittest failure summary"
+          git push -f origin ci-report
+
+      - name: 单元测试结论
+        if: steps.unittest.outcome == 'failure'
+        run: exit 1
       - name: 端到端冒烟 smoke
         run: python tools/smoke.py
 
