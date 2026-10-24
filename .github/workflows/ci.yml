@@ -89,12 +89,12 @@ jobs:
         run: python tools/manifest.py check
 
       - name: 失败诊断上报（ci-report 分支）
-        if: always()
+        # 只在真失败时才推：全绿时这几个文件虽被写出，但没有理由每天往仓库里塞提交。
+        if: steps.unittest.outcome == 'failure' || steps.smoke.outcome == 'failure' || steps.browser.outcome == 'failure'
         shell: pwsh
         run: |
           $files = @('unittest-summary.txt', 'unittest-full.txt', 'smoke-full.txt', 'browser-full.txt') |
             Where-Object { Test-Path $_ }
-          if (-not $files) { Write-Host '各环节均无诊断文件（全绿或未产生）'; exit 0 }
           git config user.email ci@local
           git config user.name  ci
           git checkout -B ci-report
