@@ -30,6 +30,13 @@ jobs:
     steps:
       - name: 检出
         uses: actions/checkout@v4
+        with:
+          # **必须带全历史与标签**：`tools/verify.py` 的「接续说明实况段」会把
+          # `tools/handoff.py` 现算的实况块与仓库里那份逐字比对，而实况块里有
+          # 「版本 tag：最近 5 个 … 共 N 个」这一行。checkout 默认只取单个提交、
+          # **不取标签** ⇒ CI 里 N=0，与提交里的 N=89 不符 ⇒ 假红（2026-10-24 实测）。
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: 安装 Python
         uses: actions/setup-python@v5

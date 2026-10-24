@@ -52,6 +52,11 @@ jobs:
 
       - name: 装配 Pages
         uses: actions/configure-pages@v5
+        with:
+          # `enablement: true`：仓库还没启用 Pages 时，让它用 GITHUB_TOKEN 自动开成
+          # 「GitHub Actions」为源。否则本步直接失败（2026-10-24 首次部署实证），
+          # 而「去设置页手点一下」对不熟 GitHub 的人是额外门槛。
+          enablement: true
 
       - name: 上传产物
         uses: actions/upload-pages-artifact@v3
