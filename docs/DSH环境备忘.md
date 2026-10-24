@@ -167,6 +167,10 @@ msedge --headless=new --remote-debugging-port=9333 --user-data-dir=<临时> abou
 
 - **`sw.js` 缓存名由 `VERSION` 派生**（`qm-static-<VERSION>`）。版本不升，已安装用户的
   service worker 可能继续交付旧 JS —— 所以**行为变更一定要升版**。
+- **发布顺序：先打 tag，再刷 `handoff.py`，最后推 main**（2026-10-24 实证）。实况段里有一行
+  「版本 tag：最近 5 个…共 N 个」；若 tag 在刷实况段**之后**才创建，提交里的 N 就少一个，
+  而 GitHub Actions 会 `fetch-tags: true` 拿全标签 ⇒ CI 的 verify 判「实况段已过期」**假红**。
+  正确顺序：`release.py bump` → `store.py commit` → **`git tag`** → `handoff.py` → `gate.py` → 推 main + tag。
 - **发布属对外动作**：即使手上有令牌，也要先取得用户明确授权再部署。
 - **原始项目目录对 DSH 是只读的**，不能直接把它当 workspace 用。
 
