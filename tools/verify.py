@@ -828,6 +828,25 @@ def collect_src_refs(root: Path) -> dict[str, list[str]]:
     return found
 
 
+# 实况段里**随机器/检出位置变化**的三处：比对前抹平（2026-10-24，为 GitHub Actions 而加）。
+# 为什么必须抹：这三处的值在任何别的机器上都不可能与本机一致 —— 不抹就是「只能在我电脑上绿」。
+# 为什么只抹这三处：其余字段（版本、修订链、回退点、时间线日期、版本 tag、指纹）**不会**
+# 随环境变化，抹掉它们才会真正削弱「实况段过期」这条守卫。
+_LIVE_VOLATILE = (
+    (re.compile(r"\*\*项目根\*\*：`[^`]*`"), "**项目根**：`<本机路径>`"),
+    (re.compile(r"git 跟踪 \*\*\d+\*\* 项"), "git 跟踪 **N** 项"),
+    (re.compile(r"\*\*过程历史（git）\*\*：[^\n]*"),
+     "**过程历史（git）**：<工作树状态>"),
+)
+
+
+def _mask_live_environment(text: str) -> str:
+    """把实况段里环境相关的三处抹成占位符，供「是否过期」的比对使用。"""
+    for pattern, repl in _LIVE_VOLATILE:
+        text = pattern.sub(repl, text)
+    return text
+
+
 def main() -> int:
     argv = list(sys.argv[1:])
     against = ""
@@ -3373,7 +3392,14 @@ def main() -> int:
             from handoff import git as hgit, render_live, replace_block, split_tags
             raw = handoff_file.read_text(encoding="utf-8")
             body = render_live(root)
-            same = replace_block(raw, body) == raw
+            # **2026-10-24**：比对前先抹掉三处**必然随机器/检出位置变化**的片段，否则
+            # 这条检查等于要求「在任何机器上都与作者本机逐字一致」—— 换机器、换目录
+            # （例如 GitHub Actions 的 `D:\a\QingMan\QingMan`）就必红，CI 永远绿不了。
+            # 抹掉：① 项目根绝对路径；② git 跟踪项数（加一个文件就变）；③ 工作树是否干净
+            # （提交前后必然翻转）。其余（版本号 / 修订链 / 回退点 / 时间线日期 / 版本 tag
+            # 行 / 指纹）**照旧严格比对**，过期仍会被抓到。
+            same = replace_block(raw, body) == raw or (
+                _mask_live_environment(replace_block(raw, body)) == _mask_live_environment(raw))
             check(same, "接续说明实况段", "与盘上一致" if same else "已过期，运行 python tools/handoff.py")
 
             # 8c. 实况段两处渲染失真守卫（不升版，2026-10-10；源自《审查报告_工具链_20261010》§P1-3）
