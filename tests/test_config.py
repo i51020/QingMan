@@ -104,7 +104,11 @@ class TemplatesDirResolutionTests(unittest.TestCase):
 
     @staticmethod
     def _same(a: Path, b: Path) -> bool:
-        return os.path.normcase(str(a)) == os.path.normcase(str(b))
+        # **必须 realpath**：GitHub Actions 的 `TMP` 是 8.3 短名（`C:\Users\RUNNER~1\...`），
+        # 而 `config` 返回的是 `resolve()` 后的长名（`runneradmin`）。只 normcase 会把同一个
+        # 目录判成两个 ⇒ CI 假红（2026-10-24 实证 3 例）。
+        return (os.path.normcase(os.path.realpath(str(a)))
+                == os.path.normcase(os.path.realpath(str(b))))
 
     def test_default_when_nothing_set(self):
         with tempfile.TemporaryDirectory(prefix="qm_cfg_") as d:

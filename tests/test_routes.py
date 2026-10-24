@@ -86,7 +86,9 @@ class GenerateWriteTests(unittest.TestCase):
         result = routes.generate({"tree": SIMPLE_TREE, "target": str(self.base),
                                   "root": "我的项目", "dryRun": False})
         self.assertTrue(result["ok"])
-        self.assertEqual(result["target"], str(self.base / "我的项目"))
+        # 同 `_same` 的理由：CI 的 TMP 是 8.3 短名，服务端返回的是长名，直接比字符串会假红
+        self.assertEqual(os.path.normcase(os.path.realpath(result["target"])),
+                         os.path.normcase(os.path.realpath(str(self.base / "我的项目"))))
         self.assertTrue((self.base / "我的项目" / "素材" / "原图").is_dir())
         self.assertTrue((self.base / "我的项目" / "说明.md").is_file())
 
@@ -903,7 +905,10 @@ class TemplatesDirRouteTests(unittest.TestCase):
 
     @staticmethod
     def _same(a, b) -> bool:
-        return os.path.normcase(str(a)) == os.path.normcase(str(b))
+        # **必须 realpath**：GitHub Actions 的 `TMP` 是 8.3 短名（`C:\Users\RUNNER~1\...`），
+        # 而服务端 `resolve()` 返回长名（`runneradmin`）。只做 normcase 会把同一个目录判成
+        # 两个 ⇒ CI 假红（2026-10-24 实证 6 例）。realpath 在 Windows 上会展开短名。
+        return os.path.normcase(os.path.realpath(str(a))) == os.path.normcase(os.path.realpath(str(b)))
 
     def test_default_dir_is_valid_not_blocked(self):
         """未绑定时运行态目录＝内置 `templates/`，必须**可用** ——
