@@ -226,7 +226,12 @@ def run_checks(client: Client, sandbox: Path) -> None:
           "PUT /api/templates-dir → 200 且生效",
           f"{status} applied={data.get('applied') if data else '?'}")
     status, data, _ = client.request("GET", "/api/templates")
-    check(status == 200 and data and Path(data.get("path", "")) == bind_dir,
+    # **不能用 `Path(...) == bind_dir`**：Windows 上服务端返回 `resolve()` 后的长名，而
+    # 沙盒目录可能来自 8.3 短名（GitHub Actions 的 `TMP` 即 `C:\Users\RUNNER~1\...`），
+    # 直接比较会把同一个目录判成两个 ⇒ CI 假红（2026-10-24 实证）。
+    got_path = os.path.normcase(os.path.realpath(str(data.get("path", "")))) if data else ""
+    want_path = os.path.normcase(os.path.realpath(str(bind_dir)))
+    check(status == 200 and data and got_path == want_path,
           "设定后 /api/templates 指向新目录", f"{status} path={data.get('path') if data else '?'}")
     check(bind_dir.is_dir(), "绑定目录已创建（可写实测）", str(bind_dir))
 
