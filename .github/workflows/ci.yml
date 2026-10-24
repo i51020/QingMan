@@ -58,6 +58,7 @@ jobs:
           Write-Host $out
           ($out -split "`n" | Where-Object { $_ -match '^(FAIL|ERROR):|^Ran |^(OK|FAILED)' }) |
             Out-File -FilePath unittest-summary.txt -Encoding utf8
+          $out | Out-File -FilePath unittest-full.txt -Encoding utf8
           if ($out -match '(?m)^FAILED') { exit 1 }
 
       # 排障用：Actions 原始日志需登录才能读，而 git 分支不需要 —— 失败时把摘要推上
@@ -69,7 +70,7 @@ jobs:
           git config user.email ci@local
           git config user.name  ci
           git checkout -B ci-report
-          git add -f unittest-summary.txt
+          git add -f unittest-summary.txt unittest-full.txt
           git commit -m "ci: unittest failure summary"
           git push -f origin ci-report
 
