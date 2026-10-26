@@ -65,6 +65,33 @@
 > 说明：`test_r2_drive_root_allowed_when_root_name_given` 只断言「不再报 `targetTooShallow`」，
 > **不**断言「一定通过」——盘根也可能是项目自身的上级（R5），那是另一条独立规则（《错误笔记》§三.8 同族）。
 
+### 五 · r2（同日追加，不升版）：模板目录「选自己」不再报错
+
+**用户报障**（截图）：便携包 `D:\Software\QingMan-V0.4.7` 里点「选择目录」，选中的正是包内
+`templates\`，界面报 **「模板目录绑定失败：模板目录不被允许：…\templates（内置模板目录不可作为用户库）」**。
+
+**根因**：`PUT /api/templates-dir` 先跑 `_templates_dir_blocked`，其中一条是「拒自绑内置层」。
+但用户选的是**当前正在用的目录**（未绑定时运行态目录就是内置 `templates/`）—— 拦下来是误伤，
+而且**一旦误绑到别处就没有回到内置层的路**。
+
+**改法**（`routes.set_templates_dir`，在拒自绑判据**之前**加两个分支）：
+
+| 情形 | 现在 | 行为 |
+|---|---|---|
+| 选中的 == **当前生效**目录 | `unchanged: true`，`applied: true` | 幂等成功；**不写 settings**（避免把默认路径钉死，换版本解压到新目录后悬空） |
+| 选中的 == **内置** `templates/`，而当前绑在别处 | `reset: true` | 视为「恢复默认库」：清空 settings 里的 `templatesDir`；env 覆盖时如实 `applied:false` |
+
+前端据 `unchanged` / `reset` 给不同提示（`template.dirAlreadyInUse` / `template.dirResetToBuiltin`，
+两语言包各 +2 键）。真正的「拒自绑」仍然保留给**其它**非法目标（项目根、系统区、用户关键目录）。
+
+**测试**：原 `test_put_rejects_builtin_templates_dir` 按新契约改写为两条
+（`..._is_noop_when_already_default` / `..._resets_when_bound_elsewhere`）；`tests/test_routes.py` **158 项 OK**。
+真机模拟确认：未绑定 → `unchanged=True` 且 settings 未被创建；绑到别处 → `settings`；再选内置 →
+`reset=True`、生效目录回到 `templates`。
+
+> 归为 `V0.4.7@r2` 而非再升一版：同日、同主题（都是「别把正常操作拦掉」），且 `V0.4.7` 尚未发布
+> Release 附件；再升一版会让待上传的资产名再变一次。
+
 ---
 
 ## V0.4.6 — 2026-10-24

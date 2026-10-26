@@ -955,10 +955,33 @@ class TemplatesDirRouteTests(unittest.TestCase):
             self.assertEqual(ctx.exception.code, "templateDirBlocked", bad)
         self.assertFalse(self.settings.exists())
 
-    def test_put_rejects_builtin_templates_dir(self):
-        with self.assertRaises(TreeError) as ctx:
-            routes.set_templates_dir({"dir": str(config.DEFAULT_TEMPLATES_DIR)})
-        self.assertEqual(ctx.exception.code, "templateDirBlocked")
+    def test_put_builtin_dir_is_noop_when_already_default(self):
+        """（2026-10-26 契约变更）未绑定任何目录时，选中内置 `templates/` 是**幂等成功**。
+
+        用户报障原话：「模板目录选择失败：内置模板目录不可作为用户库」——
+        他选的就是当前生效的目录，拦下来纯属误伤。现在返回 `unchanged=true`，
+        且**不写 settings**（避免把默认路径钉死，换版本解压到新目录后悬空）。
+        """
+        res = routes.set_templates_dir({"dir": str(config.DEFAULT_TEMPLATES_DIR)})
+        self.assertTrue(res["ok"])
+        self.assertTrue(res["applied"])
+        self.assertTrue(res.get("unchanged"))
+        self.assertEqual(res["source"], "default")
+        self.assertFalse(self.settings.exists(), "无需改动时不应写 settings")
+
+    def test_put_builtin_dir_resets_when_bound_elsewhere(self):
+        """已绑到别处时，选内置 `templates/` = **恢复默认库**（清空绑定），不是报错。"""
+        routes.set_templates_dir({"dir": str(self.bind)})
+        self.assertEqual(config.templates_dir_source(), "settings")
+
+        res = routes.set_templates_dir({"dir": str(config.DEFAULT_TEMPLATES_DIR)})
+        self.assertTrue(res["ok"])
+        self.assertTrue(res.get("reset"))
+        self.assertTrue(res["applied"])
+        self.assertEqual(res["source"], "default")
+        self.assertTrue(self._same(config.templates_dir(), config.DEFAULT_TEMPLATES_DIR))
+        doc = json.loads(self.settings.read_text(encoding="utf-8"))
+        self.assertEqual(doc.get("templatesDir", ""), "", "绑定应被清空")
 
     def test_put_rejects_system_subtree(self):
         root, _label = config.BLOCKED_SUBTREES[0]

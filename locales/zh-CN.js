@@ -200,6 +200,8 @@ export const dict = {
   'template.dirPickerDisabled': '系统选择框已被环境变量 QM_NO_GUI_PICK 关断：请在「模板目录」框里直接输入路径，按回车生效。',
   'template.dirReasonUnknown': '原因未知',
   'template.dirBound': '已绑定模板目录：{dir}',
+  'template.dirAlreadyInUse': '当前已在用这个模板目录，无需更改：{dir}',
+  'template.dirResetToBuiltin': '已切回内置模板库（包内 templates/），原来的绑定已取消',
   'template.dirEnvShadow': '环境变量已覆盖目录绑定，实际使用：{dir}',
   'template.dirBindFailed': '模板目录绑定失败：{message}',
   'template.refresh': '刷新',

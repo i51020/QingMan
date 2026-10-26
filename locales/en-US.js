@@ -184,6 +184,8 @@ export const dict = {
   'template.dirPickerDisabled': 'The system folder picker is disabled by the QM_NO_GUI_PICK environment variable. Type the path into the "Template folder" field and press Enter.',
   'template.dirReasonUnknown': 'reason unknown',
   'template.dirBound': 'Template folder bound: {dir}',
+  'template.dirAlreadyInUse': 'This template folder is already in use; nothing to change: {dir}',
+  'template.dirResetToBuiltin': 'Switched back to the built-in template library (templates/); the previous binding was cleared',
   'template.dirEnvShadow': 'An environment variable overrides the binding; using: {dir}',
   'template.dirBindFailed': 'Failed to bind template folder: {message}',
   'template.refresh': 'Refresh',

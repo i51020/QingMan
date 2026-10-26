@@ -39,6 +39,7 @@ from server.dtree_core import TreeError
 # ③ 共同助手 `_tmp_sibling` 单独进 `common.py` —— 否则本模块与 `templates` 会互相 import。
 from server.common import _tmp_sibling
 from server.templates import (  # noqa: F401  （端点经 app.py 调 routes.<名字>，此处为再导出）
+    _same_path,
     _template_trash_dir,
     _templates_dir_blocked,
     _templates_dir_reason,
@@ -740,6 +741,42 @@ def set_templates_dir(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not text:
         raise TreeError("templateDirBlocked", dir="", reason="目录不能为空")
     d = config.resolve_path(text)
+
+    # **2026-10-26**：选中的就是**当前生效**目录 → 幂等成功，不写 settings。
+    # 场景（用户实际报障）：便携包解开后点「选择目录」，选中的正是包内 `templates`
+    # —— 那本来就是默认层；旧实现按「拒自绑」直接报「内置模板目录不可作为用户库」，
+    # 用户看到的是「我明明选的就是这个目录，却不让我用」。这里先判「无需改动」，
+    # 也顺带避免把默认路径**钉死**进 settings（换版本解压到新目录后就会悬空）。
+    effective_now = config.resolve_path(config.templates_dir())
+    if _same_path(d, effective_now):
+        return {
+            "ok": True,
+            "dir": str(d),
+            "effectiveDir": str(effective_now),
+            "applied": True,
+            "unchanged": True,
+            "source": config.templates_dir_source(),
+            "writable": True,
+            "settingsPath": str(config.settings_path()),
+        }
+
+    # 选的是**内置** `templates/`，但当前绑的是别处 → 视为「恢复默认库」（清空绑定）。
+    # 否则用户一旦绑错，就没有回到内置层的路（旧实现会一直拒）。
+    if _same_path(d, config.resolve_path(config.DEFAULT_TEMPLATES_DIR)):
+        path = _settings_write(templatesDir="")
+        eff = config.resolve_path(config.templates_dir())
+        return {
+            "ok": True,
+            "dir": str(d),
+            "effectiveDir": str(eff),
+            # env 覆盖时清空 settings 不会立刻生效 —— 如实回报 applied
+            "applied": _same_path(eff, d),
+            "reset": True,
+            "source": config.templates_dir_source(),
+            "writable": True,
+            "settingsPath": str(path),
+        }
+
     reason = _templates_dir_blocked(d)
     if reason:
         raise TreeError("templateDirBlocked", dir=str(d), reason=reason)

@@ -320,7 +320,13 @@ async function bindTemplatesDirNow(dir, seq) {
   try {
     const res = await api.setTemplatesDir(dir, { create: false });
     if (seq === dirBindSeq) {
-      if (res.applied === false) {
+      /* 2026-10-26：选中「当前已在用的目录」= 幂等成功，不该报「已绑定」的假动作；
+         选内置 templates/ 而当前绑在别处 = 恢复默认库（reset）。两种都要说清楚。 */
+      if (res.unchanged) {
+        toast(t('template.dirAlreadyInUse', { dir: res.dir || dir }), 'info');
+      } else if (res.reset) {
+        toast(t('template.dirResetToBuiltin'), 'ok');
+      } else if (res.applied === false) {
         toast(t('template.dirEnvShadow', { dir: res.effectiveDir || '' }), 'warn', 6000);
       } else {
         toast(t('template.dirBound', { dir: res.dir || dir }), 'ok');
