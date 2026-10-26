@@ -8,9 +8,9 @@
 - 运行环境：Windows 10/11 + Python 3.8+，完全离线，仅监听 `127.0.0.1`
 - 实测环境：**Windows 11**（鼠标 + 键盘）。触屏与其他操作系统**未验证**，故不做针对性适配
 
-> **在线试用** → <https://i51020.github.io/QingMan/>（静态托管，浏览器里直接点开，无需安装）
-> **下载 Windows 版** → <https://github.com/i51020/QingMan/releases/latest>（便携包，解压即用）
-> **云端体验（现有）** → <https://qingman.pages.dev>
+> **在线试用（官方）** → <https://i51020.github.io/QingMan/>　·　**下载 Windows 版** → <https://github.com/i51020/QingMan/releases/latest>
+>
+> <sub>备用地址 `qingman.pages.dev`（Cloudflare Pages）同样维护，两条线发布同一版本。</sub>
 
 
 ## 快速开始

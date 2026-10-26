@@ -155,6 +155,38 @@
 **验证**：真机本地连跑三次 → `我的项目` / `我的项目_001` / `我的项目_002`，且首个目录内文件内容未变；
 `unittest` **636 OK** · `verify` 121/0 · `smoke` 35/0 · `browser_smoke` 39/0。
 
+### 八 · 在线入口：两线同步（2026-10-26，文档决定 + 待执行部署）
+
+**背景**：在线版有两条线 —— **GitHub Pages**（推送自动部署）与 **Cloudflare Pages**（手动直传）。
+检查时发现前者已到 **V0.4.7**、后者停在 **V0.4.5**，差两个版本（缺 V0.4.6 子路径 i18n、
+V0.4.7 E 盘与重名判定）。同一产品两个域名跑不同版本，会让排障基于旧行为得出结论 ——
+本轮多次误判正是这么来的。
+
+**决定（用户裁定）**：**两条线都保留、发布同一版本**，不再保留“旧版分流地址”。
+
+**当前状态**：
+
+| 线 | 版本 | 状态 |
+|---|---|---|
+| GitHub Pages `i51020.github.io/QingMan/` | V0.4.7 | ✅ 已上线（6/6 文件与本地 `dist/pages` 逐字节一致） |
+| Cloudflare Pages `qingman.pages.dev` | V0.4.5 | ⏳ 产物已备（`dist/makers-live-v047`），待令牌直传 |
+
+**同步 Cloudflare 的命令**（与旧版同一条路；令牌只走环境变量）：
+
+```powershell
+$env:CLOUDFLARE_API_TOKEN='<Pages:Edit 令牌>'
+$env:CLOUDFLARE_ACCOUNT_ID='9b8748b981bb35f5a86ae23842b50305'
+node <wrangler-dist>\cli.js pages deploy dist/makers-live-v047 --project-name=qingman --branch=main --commit-dirty=true --no-bundle
+```
+
+> ⚠ 实测注意：`wrangler@4` 在本机创建部署恒报 `401`（上传全 200），**换 `wrangler@3` 一次成功**；
+> 详见 `docs/DSH环境备忘.md` §四。
+
+**发布后核对（两条线都要）**：`js/demo-data.js` 的 `version`、`sw.js` 的 `CACHE`、
+以及 `js/demo-backend.js` 与本地产物 **SHA256 逐字节一致**。
+
+
+
 
 
 ---
