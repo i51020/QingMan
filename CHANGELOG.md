@@ -169,7 +169,13 @@ V0.4.7 E 盘与重名判定）。同一产品两个域名跑不同版本，会�
 | 线 | 版本 | 状态 |
 |---|---|---|
 | GitHub Pages `i51020.github.io/QingMan/` | V0.4.7 | ✅ 已上线（6/6 文件与本地 `dist/pages` 逐字节一致） |
-| Cloudflare Pages `qingman.pages.dev` | V0.4.5 | ⏳ 产物已备（`dist/makers-live-v047`），待令牌直传 |
+| Cloudflare Pages `qingman.pages.dev` | V0.4.7 | ✅ **已同步**（2026-10-26，部署 ID `832fe31c`；6/6 与 `dist/makers-live-v047` 一致） |
+
+> **同步 Cloudflare 时的两个实测坑**（下次直接照做，别重蹈）：
+> ① `wrangler@4` 创建部署恒报 `401`（上传全 200），必须用 **`wrangler@3`**；
+> ② 即使 3.x，若令牌带**出口 IP 白名单**，首次调用可能 `401` —— 同一请求时好时坏说明
+>    出口地址在漂移，**直接重试 1–5 次**即可通过（本次第 1 次成功）。
+
 
 **同步 Cloudflare 的命令**（与旧版同一条路；令牌只走环境变量）：
 
