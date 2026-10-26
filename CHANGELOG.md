@@ -7,6 +7,66 @@
 
 ---
 
+## V0.4.7 — 2026-10-26
+
+**主题**：两条用户诉求一起收口 ——
+① **本地版在 E 盘生成被拒**（盘根被 `targetTooShallow` 拦，而用户只是把 E 盘当**父目录**、
+项目名在「根名」里）；
+② **两版重名判定口径不统一**：在线版会**覆盖同名既有文件**，本地版对「同层仅大小写不同」
+会**静默合并**。按 §P0-6 M9（只改实现、契约不破坏）升 `V0.4.6` → **`V0.4.7`**。
+
+### 一 · 「E 盘被禁」的真实原因
+
+`check_target` 的 R2 规则是「盘根一律拒」，因为**根名为空**时整棵树会直接铺到 `E:\`。
+但用户填的是「目标位置 `E:\` + 根名 `项目名`」，真实写入点其实是 `E:\项目名` ——
+**盘根本身从未被写入**，这条拦截属于误伤。
+
+改法：`check_target(raw, allow_drive_root=False)` 新增参数，`routes.generate` 在
+**根名非空**时传 `True`；根名为空仍然拒绝（那才是真的往整盘写）。R5「项目自身及其上级」
+不受影响 —— 若把项目所在盘当目标、根名又指向项目，仍会被 `targetReserved` 拦下。
+
+实测（真写 E 盘后清理）：`E:\` + 根名 → **生成成功**；`E:\` + 空根名 → 仍 `targetTooShallow`。
+
+### 二 · 重名判定的审计结果与修正
+
+| 场景 | 本机版（修前） | 在线版（修前） | 现在（两版一致） |
+|---|---|---|---|
+| 同名**目录**已存在 | 复用，计入 `existed` | 复用，但**谎报**为新建 | 复用，计入 `existed` |
+| 同名**文件**已存在 | 跳过、不覆盖 | **直接覆盖内容**，且谎报新建 | 跳过、不覆盖，计入 `existed` |
+| 树要目录、磁盘是文件 | `pathConflict` | 抛原生 `TypeMismatchError` → 笼统 500 | `pathConflict`（409） |
+| 树要文件、磁盘是目录 | `pathConflictDir` | 同上 → 笼统 500 | `pathConflictDir`（409） |
+| 同层仅**大小写不同** | **静默合并成同一个目录** | 同左 | `treeSiblingDuplicated` 拒绝 |
+| 中途发现非法名字 | 已建出一部分（半棵树） | 同左 | **写盘前预检**，磁盘一字未动 |
+| 根名与同名**文件**冲突 | `NotADirectoryError`（500） | — | `pathConflict`（400） |
+
+三条判据都收敛到「**不误删、不覆盖、不静默合并**」：目录复用、文件跳过、类型冲突报错、
+大小写重复拒绝、失败不留痕。
+
+### 三 · 落地
+
+| 文件 | 改动 |
+|---|---|
+| `src/server/dtree_core.py` | `check_target` 增 `allow_drive_root`；新增 `_preflight_tree`（写盘前整树校验）；`build_tree` 先预检再写、根名撞文件时报 `pathConflict` |
+| `src/server/routes.py` | 根名先解析，再以 `allow_drive_root=bool(root)` 调 `check_target`（错误优先级不变：先 target 后 root） |
+| `tools/web-demo/demo-backend.js` | `dirEntryKind()` 区分「文件/目录/不存在」；`writeTree` 改为**目录复用、文件跳过、冲突报错**，回传真实 `existed`；新增 `preflightTree()`；三个冲突错误码映射为 409 |
+| `src/shared/error-codes.json`、`locales/{zh-CN,en-US}.js` | 新错误码 `treeSiblingDuplicated`（三方齐备，两包键集仍对齐） |
+| `tests/test_dtree_core.py` | +3 用例：盘根放行（仅断言不再 `targetTooShallow`，因为盘根还可能是项目上级）、大小写重复且**不留半棵树**、根名撞文件 |
+| `tests/test_online_generate.py`（新增） | 4 用例 / 12 断言：新建、**既有文件不被覆盖**、两种类型冲突、大小写重复且不留半棵树 |
+
+### 四 · 验证
+
+| 项 | 结果 |
+|---|---|
+| 真机（E 盘） | `E:\` + 根名 → 生成成功；二次生成 `existed=2`、**原文件内容未被改动**、只新增缺失文件 |
+| `unittest` | **631 OK**（624 + 3 + 4） |
+| `verify` / `smoke` / `browser_smoke` | 121/0 · 35/0 · 39/0 |
+| 反向验证 | 在线版 `writeTree` 换回旧实现 → 「B 既有文件未被覆盖」**精确失败** |
+
+> 说明：`test_r2_drive_root_allowed_when_root_name_given` 只断言「不再报 `targetTooShallow`」，
+> **不**断言「一定通过」——盘根也可能是项目自身的上级（R5），那是另一条独立规则（《错误笔记》§三.8 同族）。
+
+---
+
 ## V0.4.6 — 2026-10-24
 
 **主题**：**修在线版在「子路径部署」下白屏** —— 页面能打开、资源也都在，但**整页空白**。

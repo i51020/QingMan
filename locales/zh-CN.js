@@ -252,6 +252,7 @@ export const dict = {
   'err.tooManyNodes': '目录规模超限：目录 {dirs} + 文件 {files} = {total}，上限 {limit}',
   'err.pathConflict': '目标路径已存在同名文件，无法建为目录：{path}',
   'err.pathConflictDir': '目标路径已存在同名目录，无法建为文件：{path}',
+  'err.treeSiblingDuplicated': '同层存在仅大小写不同的节点：{name} 与 {first}（{path}）—— 大小写不敏感的文件系统会把它们合并成同一个，已拒绝以免污染同名目录',
   'err.badJson': '请求体不是合法 JSON 对象',
   'err.badPath': '访问路径不合法',
   'err.notFound': '接口不存在：{path}',
@@ -496,7 +497,7 @@ export const dict = {
   'help.footer': '青蔓 QingMan · 本地离线运行 · 版本号仅在本页展示',
 
   /* 后端离线时的兜底版本号。必须与项目根 VERSION 一致（由 verify.py 守卫，禁止写死后漂移）。 */
-  'help.versionFallback': 'V0.4.6',
+  'help.versionFallback': 'V0.4.7',
   'help.versionStale': '【后端未连接，此为本机记录值】',
 
   'about.version': '版本号',

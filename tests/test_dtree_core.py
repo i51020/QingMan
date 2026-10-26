@@ -26,10 +26,10 @@ from server import config, dtree_core  # noqa: E402
 from server.dtree_core import TreeError  # noqa: E402
 
 
-def code_of(raw) -> str | None:
-    """调 check_target；放行返回 None，拒绝返回错误码。"""
+def code_of(raw, **kwargs) -> str | None:
+    """调 check_target；放行返回 None，拒绝返回错误码（`**kwargs` 透传给 check_target）。"""
     try:
-        dtree_core.check_target(raw)
+        dtree_core.check_target(raw, **kwargs)
         return None
     except TreeError as exc:
         return exc.code
@@ -286,6 +286,38 @@ class BuildTreeTests(unittest.TestCase):
             dtree_core.build_tree(tree, self.base, dry_run=True)
         self.assertEqual(ctx.exception.code, "tooManyNodes")
         self.assertFalse(self.base.exists(), "超限必须在写盘前被拒")
+
+    def test_r2_drive_root_allowed_when_root_name_given(self):
+        """2026-10-26 用户报障：在 E 盘生成项目被拦。
+
+        盘根本身没有「被写入」——真实写入点是「盘根/根名」，故**根名非空时不应以
+        `targetTooShallow` 拒绝**。根名为空（树直接铺到盘根）仍拒绝，由
+        `test_r2_rejects_drive_root` 锁定。
+
+        ⚠ 不能断言「带 flag 就一定通过」：盘根还可能是**项目自身的上级**（R5），
+        那样仍会被 `targetReserved` 拒绝 —— 这是**另一条**独立规则，与本次无关。
+        故此处只断言「不再是 targetTooShallow」。
+        """
+        anchor = Path.cwd().anchor                      # 例 'D:\\'
+        self.assertEqual(code_of(anchor), "targetTooShallow", "根名为空时仍须拒绝")
+        self.assertNotEqual(code_of(anchor, allow_drive_root=True), "targetTooShallow")
+
+    def test_sibling_case_duplicates_rejected_before_writing(self):
+        """同层仅大小写不同 → 拒绝，且**磁盘不留任何东西**（预检先于写盘）。"""
+        with self.assertRaises(TreeError) as ctx:
+            dtree_core.build_tree({"Alpha": {"x.txt": "1"}, "alpha": {"y.txt": "2"}},
+                                  self.base, dry_run=False)
+        self.assertEqual(ctx.exception.code, "treeSiblingDuplicated")
+        self.assertFalse(self.base.exists(), "被拒绝时不得留下半棵树")
+
+    def test_root_name_collides_with_existing_file(self):
+        """根名与磁盘同名**文件**冲突 → 明确 pathConflict，而不是 500 的 NotADirectoryError。"""
+        self.base.parent.mkdir(parents=True, exist_ok=True)
+        self.base.write_text("我是文件不是目录", encoding="utf-8")
+        with self.assertRaises(TreeError) as ctx:
+            dtree_core.build_tree({"x.txt": "1"}, self.base, dry_run=False)
+        self.assertEqual(ctx.exception.code, "pathConflict")
+        self.assertEqual(self.base.read_text(encoding="utf-8"), "我是文件不是目录", "既有文件不得被改")
 
     def test_r6_boundary_at_limit_passes(self):
         tree = {f"d{i}": {} for i in range(config.MAX_NODES)}

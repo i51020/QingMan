@@ -199,12 +199,15 @@ def generate(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(tree, dict):
         raise TreeError("treeMissing")
 
-    # 落盘安全边界（§P0-1 R1–R5）：规范化 + 黑名单校验，全在服务端完成。
-    # 命中即抛 TreeError（明确的 4xx 错误码），绝不进入写盘流程。
-    base = dtree_core.check_target(payload.get("target"))
-
     root = payload.get("root")
     root = root.strip() if isinstance(root, str) else ""
+
+    # 落盘安全边界（§P0-1 R1–R5）：规范化 + 黑名单校验，全在服务端完成。
+    # 命中即抛 TreeError（明确的 4xx 错误码），绝不进入写盘流程。
+    # `allow_drive_root=bool(root)`：根名非空时真实写入点是 `盘根/根名`，
+    # 盘根本身作为「父目录」是合法的（2026-10-26：用户要在 E 盘生成项目被误拦）。
+    base = dtree_core.check_target(payload.get("target"), allow_drive_root=bool(root))
+
     if root:
         ok, reason = dtree_core.validate_segment(root)
         if not ok:

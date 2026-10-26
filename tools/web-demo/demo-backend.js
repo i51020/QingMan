@@ -46,6 +46,9 @@
       tplNeedWrite: '模板目录没有写入授权，模板没保存。请点「选择目录」再授权一次，并在弹框里允许修改。',
       tplWriteFail: '写入模板目录失败：{msg}',
       tplNameInvalid: '这个模板名不能当文件名（含 / \\ : * ? " < > | ，或以 .. 开头），请换一个。',
+      tplConflict: '目标位置已存在同名文件，无法建为目录。已中止，未改动任何既有文件。',
+      tplConflictDir: '目标位置已存在同名目录，无法建为文件。已中止，未改动任何既有文件。',
+      tplSiblingDup: '同层存在仅大小写不同的名字（如 A 与 a）。不区分大小写的文件系统会把它们合并，已中止以免污染。',
     },
     en: {
       nameZh: 'QingMan',
@@ -70,6 +73,9 @@
       tplNeedWrite: 'The template folder has no write permission, so nothing was saved. Click "Choose folder" again and allow editing.',
       tplWriteFail: 'Failed to write into the template folder: {msg}',
       tplNameInvalid: 'That name cannot be used as a file name (it contains / \\ : * ? " < > | or starts with ..). Pick another.',
+      tplConflict: 'A file with that name already exists at the target, so the directory cannot be created. Aborted; nothing was modified.',
+      tplConflictDir: 'A directory with that name already exists at the target, so the file cannot be created. Aborted; nothing was modified.',
+      tplSiblingDup: 'Two sibling names differ only by letter case (e.g. A and a). A case-insensitive filesystem would merge them, so this was aborted to avoid polluting.',
     },
   };
   function tr(key) { return (ZH ? TEXT.zh : TEXT.en)[key] || key; }
@@ -184,24 +190,75 @@
    *   先 await 任何东西再弹，浏览器会以 NotAllowedError 直接拒绝 —— 这是本 API 最常见的坑。
    */
 
-  function writeTree(dirHandle, node, prefix, createdDirs, createdFiles) {
+  /** 目录里是否已有同名项：`'file'` / `'dir'` / `''`（不存在）。
+   *
+   *  `getFileHandle` 不带 `create` 时：命中文件→resolve；命中**目录**→`TypeMismatchError`；
+   *  不存在→`NotFoundError`。靠这三种结果区分，不需要再探测第二次。 */
+  function dirEntryKind(dirHandle, name) {
+    return dirHandle.getFileHandle(name).then(function () { return 'file'; })
+      .catch(function (err) {
+        var n = (err && err.name) || '';
+        if (n === 'TypeMismatchError') { return 'dir'; }
+        if (n === 'NotFoundError') { return ''; }
+        throw err;
+      });
+  }
+
+  /**
+   * 按树写盘（V0.4.7 对齐本机版的三条不变量）。
+   *
+   * **2026-10-26 修**：此前文件一律 `getFileHandle(create:true)` + `createWritable()`，
+   * 于是**同名已存在文件会被直接覆盖**（内容被悄悄改掉），且仍计入 `createdFiles` ——
+   * 既污染用户数据，又谎报「新建」。现改为与本机版逐条同口径：
+   *
+   *   R7 目录已存在 → **复用**（计入 existed）；文件已存在 → **跳过、绝不覆盖**（计入 existed）。
+   *   R8 全程只新建，**绝不删除**任何既有条目。
+   *   P3-13 同名但类型相反 → 明确报错（`pathConflict` / `pathConflictDir`），不静默跳过。
+   *   同层仅大小写不同的两个节点 → 直接拒绝（`treeSiblingDuplicated`）：Windows/macOS 的
+   *   文件系统会把它们合并成同一个，静默合并＝污染。
+   */
+  /** 写盘**之前**整树预检：同层仅大小写不同 → 直接拒绝。
+   *
+   *  为什么必须先查：`writeTree` 是「边遍历边写」，若等到第二项才发现重名，
+   *  第一项已经落到磁盘上了 —— 用户看到「失败」，却已多出半棵树（污染）。
+   *  与本机版 `dtree_core._preflight_tree` 同一判据。 */
+  function preflightTree(node) {
+    var folded = {};
+    Object.keys(node).forEach(function (key) {
+      var f = String(key).toLowerCase();
+      if (folded[f]) {
+        throw { code: 'treeSiblingDuplicated', detail: { name: key, first: folded[f], path: key } };
+      }
+      folded[f] = key;
+      if (node[key] && typeof node[key] === 'object') { preflightTree(node[key]); }
+    });
+  }
+
+  function writeTree(dirHandle, node, prefix, out) {
     return Object.keys(node).reduce(function (chain, key) {
       return chain.then(function () {
         var value = node[key];
         var path = prefix ? prefix + '/' + key : key;
-        if (value && typeof value === 'object') {
-          return dirHandle.getDirectoryHandle(key, { create: true }).then(function (sub) {
-            createdDirs.push(path);
-            return writeTree(sub, value, path, createdDirs, createdFiles);
-          });
-        }
-        return dirHandle.getFileHandle(key, { create: true })
-          .then(function (fh) { return fh.createWritable(); })
-          .then(function (w) {
-            return w.write(String(value === null || value === undefined ? '' : value))
-              .then(function () { return w.close(); });
-          })
-          .then(function () { createdFiles.push(path); });
+        var isDir = value && typeof value === 'object';
+
+        return dirEntryKind(dirHandle, key).then(function (kind) {
+          if (isDir) {
+            if (kind === 'file') { throw { code: 'pathConflict', detail: { path: path } }; }
+            if (kind === 'dir') { out.existed.push(path); } else { out.createdDirs.push(path); }
+            return dirHandle.getDirectoryHandle(key, { create: true }).then(function (sub) {
+              return writeTree(sub, value, path, out);
+            });
+          }
+          if (kind === 'dir') { throw { code: 'pathConflictDir', detail: { path: path } }; }
+          if (kind === 'file') { out.existed.push(path); return; }   // **不覆盖既有文件**
+          return dirHandle.getFileHandle(key, { create: true })
+            .then(function (fh) { return fh.createWritable(); })
+            .then(function (w) {
+              return w.write(String(value === null || value === undefined ? '' : value))
+                .then(function () { return w.close(); });
+            })
+            .then(function () { out.createdFiles.push(path); });
+        });
       });
     }, Promise.resolve());
   }
@@ -220,6 +277,13 @@
       }));
     }
     var rootName = String(payload.root || '').trim();
+
+    /* 写盘前预检（演练也查）：同层仅大小写不同 → 拒绝，且**磁盘一字未动** */
+    try {
+      preflightTree(tree);
+    } catch (err) {
+      return Promise.resolve(fail('treeSiblingDuplicated', tr('tplSiblingDup'), 409, err.detail || {}));
+    }
 
     /* 演练：只回清单，不碰磁盘 —— 与本地版语义一致（主界面按 createdDirs 等算数量） */
     if (payload.dryRun) {
@@ -271,17 +335,26 @@
         ? parent.getDirectoryHandle(rootName, { create: true })
         : Promise.resolve(parent);
       return base.then(function (dir) {
-        var createdDirs = [];
-        var createdFiles = [];
-        return writeTree(dir, tree, rootName, createdDirs, createdFiles).then(function () {
+        var out = { createdDirs: [], createdFiles: [], existed: [] };
+        return writeTree(dir, tree, rootName, out).then(function () {
           return ok({
-            root: rootName, createdDirs: createdDirs, createdFiles: createdFiles,
-            existed: [], stats: stats,
+            root: rootName, createdDirs: out.createdDirs, createdFiles: out.createdFiles,
+            existed: out.existed, stats: stats,
           });
         });
       });
     }).catch(function (err) {
       var name = (err && err.name) || '';
+      /* 重名/类型冲突与同层大小写重复：**如实报错**，绝不静默跳过或覆盖 */
+      if (err && err.code === 'pathConflict') {
+        return fail('pathConflict', tr('tplConflict'), 409, err.detail || {});
+      }
+      if (err && err.code === 'pathConflictDir') {
+        return fail('pathConflictDir', tr('tplConflictDir'), 409, err.detail || {});
+      }
+      if (err && err.code === 'treeSiblingDuplicated') {
+        return fail('treeSiblingDuplicated', tr('tplSiblingDup'), 409, err.detail || {});
+      }
       if (name === 'AbortError') return fail('demoCancelled', tr('cancelled'));
       if (name === 'NotAllowedError' || name === 'SecurityError') {
         return fail('demoNoPermission', tr('noPermission'));

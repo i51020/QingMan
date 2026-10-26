@@ -239,6 +239,7 @@ export const dict = {
   'err.tooManyNodes': 'Tree too large: {dirs} directories + {files} files = {total}, limit {limit}',
   'err.pathConflict': 'A file with the same name already exists at the target path; cannot create a directory: {path}',
   'err.pathConflictDir': 'A directory with the same name already exists at the target path; cannot create a file: {path}',
+  'err.treeSiblingDuplicated': 'Two sibling entries differ only by letter case: {name} and {first} ({path}) — a case-insensitive filesystem would merge them, so this was rejected to avoid polluting a same-named directory',
   'err.badJson': 'Request body is not a valid JSON object',
   'err.badPath': 'Invalid access path',
   'err.notFound': 'Endpoint does not exist: {path}',
@@ -485,7 +486,7 @@ export const dict = {
   'help.footer': 'QingMan · Offline local app · version shown only on this page',
 
   /* Fallback version shown when the backend is offline. Must match project VERSION (enforced by verify.py). */
-  'help.versionFallback': 'V0.4.6',
+  'help.versionFallback': 'V0.4.7',
   'help.versionStale': '[Backend offline; value cached locally]',
 
   'about.version': 'Version',

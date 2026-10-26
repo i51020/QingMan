@@ -188,11 +188,16 @@ def validate_document(root: Any) -> Dict[str, int]:
     return {"dirs": dirs - 1, "files": files}
 
 
-def check_target(raw: Any) -> Path:
+def check_target(raw: Any, allow_drive_root: bool = False) -> Path:
     """落盘安全边界（§P0-1 R1–R5）：规范化 target 并逐条比对黑名单。
 
     返回规范化后的**绝对路径**；任一规则命中即抛 TreeError，错误码明确
     （由上层映射为 4xx，而非笼统 500）。本函数**不产生任何 IO**。
+
+    `allow_drive_root`（2026-10-26 加）：调用方**已经确认根名非空**时传 True ——
+    此时真实写入点是「盘根/根名」（一个普通子目录），把盘根拦下来属于误伤
+    （用户诉求：在 E 盘生成项目，目标位置填 `E:\\`、根名填项目名）。根名为空时
+    仍然拒绝：那才是「把整棵树直接铺到盘根」。
     """
     if not isinstance(raw, str) or not raw.strip():
         raise TreeError("targetMissing")
@@ -203,8 +208,12 @@ def check_target(raw: Any) -> Path:
     except (OSError, RuntimeError, ValueError) as exc:
         raise TreeError("targetInvalid", target=text, reason=str(exc))
 
-    # R2 盘根：至少两级（C:\ / D:\ / / 一律拒），否则等于「往整个盘写」
-    if path.parent == path or len(path.parts) < 2:
+    # R2 盘根：至少两级（C:\ / D:\ / / 一律拒），否则等于「往整个盘写」。
+    # 例外：根名非空（见 docstring）—— 那时只写 `盘根/根名` 这一棵子树。
+    at_root = path.parent == path
+    if at_root and allow_drive_root:
+        pass
+    elif at_root or len(path.parts) < 2:
         raise TreeError("targetTooShallow", target=str(path))
 
     # R5 项目自身及其上级目录：防止工具改到自己（或改到项目所在的工作区）
@@ -223,6 +232,30 @@ def check_target(raw: Any) -> Path:
             raise TreeError("targetBlocked", target=str(path), reason=f"{label}根目录")
 
     return path
+
+
+def _preflight_tree(tree: Dict[str, Any], base: Path) -> None:
+    """写盘**之前**把整棵树的名字检查一遍：不合法段名、同层仅大小写不同。
+
+    为什么要预检而不是边走边报（2026-10-26）：边走边报会在中途抛错，**前面已经建出来的
+    目录留在磁盘上** —— 用户看到「生成失败」，却已多出半棵树，属于污染。预检不写任何东西，
+    失败时磁盘保持原样；代价是一次额外的纯内存遍历。
+    """
+    def walk(node: Dict[str, Any], current: Path) -> None:
+        seen: Dict[str, str] = {}
+        for name, value in node.items():
+            ok, reason = validate_segment(name)
+            if not ok:
+                raise TreeError("segmentInvalid", name=name, reason=message(reason, name=name))
+            folded = name.casefold()
+            if folded in seen:
+                raise TreeError("treeSiblingDuplicated", name=name,
+                                first=seen[folded], path=str(current / name))
+            seen[folded] = name
+            if isinstance(value, dict):
+                walk(value, current / name)
+
+    walk(tree, base)
 
 
 def build_tree(tree: Any, base: Path, dry_run: bool = False) -> Dict[str, Any]:
@@ -246,15 +279,30 @@ def build_tree(tree: Any, base: Path, dry_run: bool = False) -> Dict[str, Any]:
                         total=total, limit=config.MAX_NODES)
 
     base = Path(base).expanduser()
+    # 先整树预检（名字合法性 + 同层大小写重复），**再**动磁盘：失败时不留半棵树
+    _preflight_tree(tree, base)
+    # 根名与磁盘上的**同名文件**冲突：不能让后续 `mkdir` 撞 NotADirectoryError（那是 500）
+    if base.exists() and not base.is_dir():
+        raise TreeError("pathConflict", path=str(base))
     created_dirs: List[str] = []
     created_files: List[str] = []
     existed: List[str] = []
 
     def walk(node: Dict[str, Any], current: Path) -> None:
+        # **同层子项不得仅大小写不同**（2026-10-26）：Windows 文件系统不区分大小写，
+        # `A/` 与 `a/` 会落到**同一个**目录 —— 旧实现第一个建出来、第二个「已存在 → 复用」，
+        # 于是两份本意不同的内容被悄悄合并进一个目录（污染且无提示）。
+        # 判据与编辑态契约的「同级重名大小写不敏感」同一口径。
+        seen: Dict[str, str] = {}
         for name, value in node.items():
             ok, reason = validate_segment(name)
             if not ok:
                 raise TreeError("segmentInvalid", name=name, reason=message(reason, name=name))
+            folded = name.casefold()
+            if folded in seen:
+                raise TreeError("treeSiblingDuplicated", name=name,
+                                first=seen[folded], path=str(current / name))
+            seen[folded] = name
             target = current / name
             if isinstance(value, dict):
                 if target.exists():
