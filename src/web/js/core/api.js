@@ -63,14 +63,13 @@ export const api = {
   },
 
   /**
-   * 按树生成。`merge`（V0.4.7@r3）：目标下已存在**同名非空文件夹**时，后端默认拒绝
-   * （`targetDirExists`），避免把种子文件灌进用户已有的同名目录。用户在确认框里选择
-   * 「继续合并」后才带 `merge:true` 重发 —— 合并仍只补建缺失项，不覆盖、不删除。
+   * 按树生成。返回的 `root` 是**实际使用**的根名 —— 目标下已有同名文件夹时，后端会自动
+   * 加 `_001` 起始后缀新建（V0.4.7@r4，用户裁决），既有同名目录不会被改动。
    */
-  generate(tree, { target, root, dryRun, merge }) {
+  generate(tree, { target, root, dryRun }) {
     return request('/api/generate', {
       method: 'POST',
-      body: JSON.stringify({ tree, target, root, dryRun, merge: merge === true }),
+      body: JSON.stringify({ tree, target, root, dryRun }),
     });
   },
 

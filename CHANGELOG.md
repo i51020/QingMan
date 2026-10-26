@@ -123,6 +123,39 @@
 > 为什么不是「直接拒绝、不给合并」：给已有项目补建骨架是真实需求（模板演进后重跑）。
 > 用「先拒 + 一次显式确认」兼顾两边 —— 默认不污染，需要时一步放行。
 
+### 七 · r4（同日追加·**取代 r3 的合并确认**）：根文件夹同名 → 自动加 `_001` 起始后缀
+
+**用户裁决**（覆盖 r3 的做法）：「如果有同名则在目录树根文件夹名称后加 `_NNN` 后缀，
+重名后缀数字从 `001` 开始」。即：**不问、不合并**，直接换名新建。
+
+| 情形 | 现在的行为 |
+|---|---|
+| `target\根名` 不存在 | 用原名 |
+| `target\根名` 已存在（**目录或文件**都算占用） | 用 `根名_001`；再冲突用 `根名_002`…直到 999 |
+| 999 个都被占用 | `rootSuffixExhausted`（提示换根名或换目标位置） |
+| 既有同名目录 | **一个字都不碰**（不合并、不写入、不删除） |
+| 根名为空 | 不参与改名（直接写进用户选的目录） |
+
+**回报**：`POST /api/generate` 的响应新增 `root` 字段 = **实际使用的**根名；前端在改名时
+提示「目标下已有同名文件夹，已改用「X_001」新建（原「X」未做任何改动）」（`toast.rootRenamed`）。
+
+**r3 的处置**：`targetDirExists` + `merge:true` 的确认流程**整段移除**（后端判据、`api.generate`
+的 `merge` 参数、`main.js` 的重试循环、`toast.mergeConfirm` 文案）。保留 `targetDirExists`
+错误码本身（历史版本兼容，且不再被触发）。
+
+| 文件 | 改动 |
+|---|---|
+| `src/server/routes.py` | 新增 `_unique_root()`（`_001` 起递增、文件也算占用、999 上限）；`generate` 用它改写根名并回报 `root`；移除 r3 的确认判据 |
+| `src/web/js/core/api.js` / `main.js` | 移除 `merge` 与确认重试；新增「改名后提示实际根名」 |
+| `tools/web-demo/demo-backend.js` | 新增 `uniqueRootName()`（同判据，用 `dirEntryKind` 探测）；生成回执带实际 `root` |
+| `src/shared/error-codes.json`、两语言包 | 新增 `rootSuffixExhausted`；`toast.mergeConfirm` → `toast.rootRenamed` |
+| `tests/test_routes.py` | r3 的两条确认用例改写为三条：`_001/_002` 递增且原目录不变、同名文件也算占用、空目录同样加后缀 |
+| `tests/test_online_generate.py` | 用例 F 改写为「自动加后缀 + 原目录不变 + 后缀递增」；B/C/D 改为 `root:''`（冲突落在目标目录本身，避免被后缀改写干扰） |
+
+**验证**：真机本地连跑三次 → `我的项目` / `我的项目_001` / `我的项目_002`，且首个目录内文件内容未变；
+`unittest` **636 OK** · `verify` 121/0 · `smoke` 35/0 · `browser_smoke` 39/0。
+
+
 
 ---
 

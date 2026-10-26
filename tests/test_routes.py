@@ -82,44 +82,44 @@ class GenerateWriteTests(unittest.TestCase):
         self.assertTrue(result["dryRun"])
         self.assertFalse(self.base.exists())
 
-    def test_root_exists_non_empty_requires_merge(self):
-        """**2026-10-26 用户诉求**：目标下已有同名**非空**根文件夹时不得直接合并（污染）。
+    def test_root_duplicate_gets_suffix(self):
+        """**2026-10-26 用户裁决**：根文件夹同名 → 加 `_001` 起始后缀**新建**。
 
-        先拒（`targetDirExists`，带 dir/count）；带 `merge: true` 才放行，
-        且放行时仍「只补缺失、不覆盖、不删除」。
+        既有同名目录**一个字都不碰**（不合并、不删除、不覆盖）；后缀从 001 起递增。
         """
         first = routes.generate({"tree": SIMPLE_TREE, "target": str(self.base),
                                  "root": "我的项目", "dryRun": False})
-        self.assertTrue(first["ok"])
-        with self.assertRaises(TreeError) as ctx:
-            routes.generate({"tree": SIMPLE_TREE, "target": str(self.base),
-                             "root": "我的项目", "dryRun": False})
-        self.assertEqual(ctx.exception.code, "targetDirExists")
-        self.assertGreater(ctx.exception.detail.get("count", 0), 0)
-
-        # 演练不拦（预览无害），且回执里能看出「已存在哪些」
-        dry = routes.generate({"tree": SIMPLE_TREE, "target": str(self.base),
-                               "root": "我的项目", "dryRun": True})
-        self.assertTrue(dry["ok"])
-        self.assertGreater(len(dry["existed"]), 0)
-
-        # 显式合并：放行，且既有文件内容不变
+        self.assertEqual(first["root"], "我的项目")
         marker = self.base / "我的项目" / "说明.md"
         before = marker.read_text(encoding="utf-8") if marker.is_file() else None
-        merged = routes.generate({"tree": SIMPLE_TREE, "target": str(self.base),
-                                  "root": "我的项目", "dryRun": False, "merge": True})
-        self.assertTrue(merged["ok"])
-        self.assertGreater(len(merged["existed"]), 0)
-        if before is not None:
-            self.assertEqual(marker.read_text(encoding="utf-8"), before, "合并不得覆盖既有文件")
 
-    def test_root_exists_empty_no_prompt(self):
-        """同名根文件夹**存在但为空**：不算污染，无需确认即可写。"""
-        empty = self.base / "空项目"
-        empty.mkdir(parents=True)
-        result = routes.generate({"tree": SIMPLE_TREE, "target": str(self.base),
-                                  "root": "空项目", "dryRun": False})
-        self.assertTrue(result["ok"])
+        second = routes.generate({"tree": SIMPLE_TREE, "target": str(self.base),
+                                  "root": "我的项目", "dryRun": False})
+        self.assertEqual(second["root"], "我的项目_001")
+        self.assertTrue((self.base / "我的项目_001").is_dir())
+        if before is not None:
+            self.assertEqual(marker.read_text(encoding="utf-8"), before, "原目录内容不得被改动")
+
+        third = routes.generate({"tree": SIMPLE_TREE, "target": str(self.base),
+                                 "root": "我的项目", "dryRun": False})
+        self.assertEqual(third["root"], "我的项目_002")
+
+    def test_root_suffix_counts_existing_file_as_taken(self):
+        """同名位置上是**文件**也算占用（否则建目录会失败）—— 直接跳到 _001。"""
+        self.base.mkdir(parents=True, exist_ok=True)
+        (self.base / "我的项目").write_text("我是文件", encoding="utf-8")
+        res = routes.generate({"tree": SIMPLE_TREE, "target": str(self.base),
+                               "root": "我的项目", "dryRun": False})
+        self.assertEqual(res["root"], "我的项目_001")
+        self.assertEqual((self.base / "我的项目").read_text(encoding="utf-8"), "我是文件",
+                         "既有同名文件不得被改动")
+
+    def test_root_duplicate_empty_dir_also_gets_suffix(self):
+        """空目录同样占用该名字（用户规则是「有同名就加后缀」，不看空不空）。"""
+        (self.base / "空项目").mkdir(parents=True)
+        res = routes.generate({"tree": SIMPLE_TREE, "target": str(self.base),
+                               "root": "空项目", "dryRun": False})
+        self.assertEqual(res["root"], "空项目_001")
 
     def test_real_write_and_root_folder(self):
         result = routes.generate({"tree": SIMPLE_TREE, "target": str(self.base),

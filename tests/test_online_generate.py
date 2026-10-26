@@ -140,14 +140,14 @@ async function call(win, body) {
 
   /* B. 同名文件已存在：**不得覆盖**，计入 existed，不报 createdFiles */
   {
+    /* 注意：root 传空串（不建根），冲突直接落在目标目录本身 —— 否则根名会先被加 _001。
+       这也是真实用法：用户选的目录里已有同名条目。 */
     const root = newRoot();
-    root.children['项目'] = { type: 'dir', children: {
-      '素材': { type: 'dir', children: { 'a.txt': { type: 'file', content: '原始内容' } } },
-    } };
+    root.children['素材'] = { type: 'dir', children: { 'a.txt': { type: 'file', content: '原始内容' } } };
     const win = makeEnv(root);
-    const r = await call(win, { tree: { 素材: { 'a.txt': '覆盖尝试', 'b.txt': '新' } }, root: '项目', dryRun: false, merge: true });
+    const r = await call(win, { tree: { 素材: { 'a.txt': '覆盖尝试', 'b.txt': '新' } }, root: '', dryRun: false });
     ok('B 生成成功', r.status === 200 && r.payload.ok === true, 'status=' + r.status);
-    const kept = root.children['项目'].children['素材'].children['a.txt'].content;
+    const kept = root.children['素材'].children['a.txt'].content;
     ok('B 既有文件未被覆盖', kept === '原始内容', 'content=' + kept);
     ok('B 既有项计入 existed', r.payload.existed.some((x) => x.endsWith('a.txt')),
        JSON.stringify(r.payload.existed));
@@ -160,9 +160,9 @@ async function call(win, body) {
   /* C. 树要目录、磁盘是文件 → 409 pathConflict */
   {
     const root = newRoot();
-    root.children['项目'] = { type: 'dir', children: { '素材': { type: 'file', content: 'x' } } };
+    root.children['素材'] = { type: 'file', content: 'x' };
     const win = makeEnv(root);
-    const r = await call(win, { tree: { 素材: {} }, root: '项目', dryRun: false, merge: true });
+    const r = await call(win, { tree: { 素材: {} }, root: '', dryRun: false });
     ok('C 文件占名时拒绝建目录', r.status === 409 && r.payload.code === 'pathConflict',
        'status=' + r.status + ' code=' + r.payload.code);
   }
@@ -170,9 +170,9 @@ async function call(win, body) {
   /* D. 树要文件、磁盘是目录 → 409 pathConflictDir（与本机版对称） */
   {
     const root = newRoot();
-    root.children['项目'] = { type: 'dir', children: { '素材': { type: 'dir', children: {} } } };
+    root.children['素材'] = { type: 'dir', children: {} };
     const win = makeEnv(root);
-    const r = await call(win, { tree: { 素材: '内容' }, root: '项目', dryRun: false, merge: true });
+    const r = await call(win, { tree: { 素材: '内容' }, root: '', dryRun: false });
     ok('D 目录占名时拒绝建文件', r.status === 409 && r.payload.code === 'pathConflictDir',
        'status=' + r.status + ' code=' + r.payload.code);
   }
@@ -195,19 +195,19 @@ async function call(win, body) {
     } };
     const win = makeEnv(root);
     const r1 = await call(win, { tree: { 素材: { 'a.txt': '覆盖尝试' } }, root: '项目', dryRun: false });
-    ok('F 同名非空根目录先拒', r1.status === 409 && r1.payload.code === 'targetDirExists',
-       'status=' + r1.status + ' code=' + r1.payload.code);
-    ok('F 拒绝时未写入', root.children['项目'].children['素材'].children['a.txt'].content === '原始内容',
-       root.children['项目'].children['素材'].children['a.txt'].content);
-
-    const r2 = await call(win, { tree: { 素材: { 'a.txt': '覆盖尝试', 'b.txt': '新' } },
-                                 root: '项目', dryRun: false, merge: true });
-    ok('F 确认合并后放行', r2.status === 200 && r2.payload.ok === true, 'status=' + r2.status);
-    ok('F 合并仍不覆盖既有文件',
+    ok('F 同名根目录自动加后缀', r1.status === 200 && r1.payload.root === '项目_001',
+       'status=' + r1.status + ' root=' + r1.payload.root);
+    ok('F 原同名目录未被改动',
        root.children['项目'].children['素材'].children['a.txt'].content === '原始内容',
        root.children['项目'].children['素材'].children['a.txt'].content);
-    ok('F 合并只补缺失文件', r2.payload.createdFiles.some((x) => x.endsWith('b.txt')),
-       JSON.stringify(r2.payload.createdFiles));
+    ok('F 新目录内容独立',
+       !!root.children['项目_001'] &&
+       root.children['项目_001'].children['素材'].children['a.txt'].content === '覆盖尝试',
+       JSON.stringify(root.children['项目_001'] || null));
+
+    const r2 = await call(win, { tree: { 素材: {} }, root: '项目', dryRun: false });
+    ok('F 后缀递增到 _002', r2.status === 200 && r2.payload.root === '项目_002',
+       'status=' + r2.status + ' root=' + r2.payload.root);
   }
 
   process.stdout.write('RESULT ' + JSON.stringify(out) + '\n');
@@ -281,13 +281,12 @@ class OnlineGenerateCollisionTests(unittest.TestCase):
         self._ok("E 大小写重复被拒")
         self._ok("E 拒绝时不留半棵树")
 
-    def test_existing_nonempty_root_requires_merge(self):
-        """目标下已有同名**非空**根文件夹：先拒；确认合并后仍不覆盖既有文件。"""
-        self._ok("F 同名非空根目录先拒")
-        self._ok("F 拒绝时未写入")
-        self._ok("F 确认合并后放行")
-        self._ok("F 合并仍不覆盖既有文件")
-        self._ok("F 合并只补缺失文件")
+    def test_existing_root_gets_suffix(self):
+        """根文件夹同名 → `_001` 起始后缀新建；既有同名目录一个字都不碰。"""
+        self._ok("F 同名根目录自动加后缀")
+        self._ok("F 原同名目录未被改动")
+        self._ok("F 新目录内容独立")
+        self._ok("F 后缀递增到 _002")
 
 
 if __name__ == "__main__":

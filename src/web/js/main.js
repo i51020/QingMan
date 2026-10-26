@@ -1047,35 +1047,21 @@ el('btnGenerate').addEventListener('click', async () => {
   setStatus(t(dryRun ? 'status.dryRunning' : 'status.writing'));
 
   try {
-    /* 目标下已有同名非空文件夹 → 后端先拒（`targetDirExists`），这里问一句再带 merge 重发。
-       为什么不在后端自动合并：那等于把「树」灌进用户已有的同名目录，属于污染；
-       为什么允许重发：用户可能就是想给已有项目补建缺失的骨架。 */
-    let merge = false;
-    let result;
-    for (;;) {
-      try {
-        result = await api.generate(treePayload(root), { target, root: rootName, dryRun, merge });
-        break;
-      } catch (err) {
-        if (err && err.code === 'targetDirExists' && !merge) {
-          const d = err.detail || {};
-          if (!window.confirm(t('toast.mergeConfirm', { dir: d.dir || '', count: d.count || 0 }))) {
-            setStatus(t('status.genCancelled'));
-            return;
-          }
-          merge = true;
-          continue;
-        }
-        throw err;
-      }
-    }
+    const result = await api.generate(treePayload(root), { target, root: rootName, dryRun });
     inspector.showResult(result);
     setStatus(t(dryRun ? 'status.dryDone' : 'status.genDone', {
       dirs: result.createdDirs.length,
       files: result.createdFiles.length,
       existed: result.existed.length,
     }));
-    toast(dryRun ? t('toast.dryDone') : t('toast.generatedTo', { root: result.root }), 'info');
+    /* 重名时后端会改用带 `_001` 后缀的根名（既有同名目录不碰）—— 必须告诉用户实际落了哪个。
+       判据用「请求的根名 ≠ 实际根名」，只在根名非空时有意义。 */
+    const renamed = !dryRun && !!rootName && !!result.root && result.root !== rootName;
+    if (renamed) {
+      toast(t('toast.rootRenamed', { from: rootName, to: result.root }), 'info', 6000);
+    } else {
+      toast(dryRun ? t('toast.dryDone') : t('toast.generatedTo', { root: result.root }), 'info');
+    }
   } catch (err) {
     inspector.showError(err);
     setStatus(t('status.genFailed', { message: localizeError(err) }));
