@@ -18,6 +18,7 @@
   "pathConflict": "目标路径已存在同名文件，无法建为目录：{path}",
   "pathConflictDir": "目标路径已存在同名目录，无法建为文件：{path}",
   "treeSiblingDuplicated": "同层存在仅大小写不同的节点：{name} 与 {first}（{path}）—— 大小写不敏感的文件系统会把它们合并成同一个，已拒绝以免污染同名目录",
+  "targetDirExists": "目标位置下已存在同名文件夹：{dir}（其中有 {count} 项）。为避免污染，已停止；确认要合并时可再次生成并选择「继续合并」——合并只会补建缺失的目录与文件，不覆盖、不删除任何既有内容",
   "badJson": "请求体不是合法 JSON 对象",
   "badPath": "访问路径不合法",
   "notFound": "接口不存在：{path}",

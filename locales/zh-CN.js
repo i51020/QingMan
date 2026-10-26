@@ -254,6 +254,7 @@ export const dict = {
   'err.tooManyNodes': '目录规模超限：目录 {dirs} + 文件 {files} = {total}，上限 {limit}',
   'err.pathConflict': '目标路径已存在同名文件，无法建为目录：{path}',
   'err.pathConflictDir': '目标路径已存在同名目录，无法建为文件：{path}',
+  'err.targetDirExists': '目标位置下已存在同名文件夹：{dir}（其中有 {count} 项）。为避免污染已停止；确认要合并时可再次生成并选择「继续合并」——合并只会补建缺失的目录与文件，不覆盖、不删除任何既有内容',
   'err.treeSiblingDuplicated': '同层存在仅大小写不同的节点：{name} 与 {first}（{path}）—— 大小写不敏感的文件系统会把它们合并成同一个，已拒绝以免污染同名目录',
   'err.badJson': '请求体不是合法 JSON 对象',
   'err.badPath': '访问路径不合法',
@@ -434,6 +435,7 @@ export const dict = {
   'status.genDone': '生成完成：目录 {dirs} · 文件 {files} · 已存在 {existed}',
   'status.noteUpdated': '已更新「{name}」的说明',
   'status.genFailed': '生成失败：{message}',
+  'status.genCancelled': '已取消（目标位置下已有同名文件夹，未写入任何内容）',
   'status.backendOffHint': '后端未连接，请通过 start.bat 启动',
 
   /* ---------- 撤销 / 重做 ---------- */
@@ -462,6 +464,7 @@ export const dict = {
   'toast.targetRequired': '请先填写目标位置',
   'toast.dryDone': '演练完成，未写入磁盘',
   'toast.generatedTo': '已生成到 {root}',
+  'toast.mergeConfirm': '目标位置下已存在同名文件夹：\n{dir}\n（其中有 {count} 项）\n\n继续只会在其中「补建缺失」的目录与文件，不会覆盖、不会删除任何既有内容。\n确认要继续合并吗？',
   'toast.copied': '已复制到剪贴板',
   'toast.copyFailed': '复制失败（浏览器未授权剪贴板）',
   'toast.batchCopied': '已复制 {n} 条路径',

@@ -49,6 +49,7 @@
       tplConflict: '目标位置已存在同名文件，无法建为目录。已中止，未改动任何既有文件。',
       tplConflictDir: '目标位置已存在同名目录，无法建为文件。已中止，未改动任何既有文件。',
       tplSiblingDup: '同层存在仅大小写不同的名字（如 A 与 a）。不区分大小写的文件系统会把它们合并，已中止以免污染。',
+      targetDirExists: '目标位置下已存在同名文件夹（{dir}，{count} 项）。为避免污染已停止；确认要合并时可再次生成并选择「继续」——只补建缺失项，不覆盖、不删除。',
     },
     en: {
       nameZh: 'QingMan',
@@ -76,6 +77,7 @@
       tplConflict: 'A file with that name already exists at the target, so the directory cannot be created. Aborted; nothing was modified.',
       tplConflictDir: 'A directory with that name already exists at the target, so the file cannot be created. Aborted; nothing was modified.',
       tplSiblingDup: 'Two sibling names differ only by letter case (e.g. A and a). A case-insensitive filesystem would merge them, so this was aborted to avoid polluting.',
+      targetDirExists: 'A folder with that name already exists at the target ({dir}, {count} entries). Stopped to avoid polluting it; to merge on purpose, generate again and confirm — merging only adds missing items and never overwrites or deletes.',
     },
   };
   function tr(key) { return (ZH ? TEXT.zh : TEXT.en)[key] || key; }
@@ -189,6 +191,20 @@
    * ⚠ 调用顺序不可改：`showDirectoryPicker()` 必须在**用户激活窗口内同步发起**。
    *   先 await 任何东西再弹，浏览器会以 NotAllowedError 直接拒绝 —— 这是本 API 最常见的坑。
    */
+
+  /** 目录里有几项（只数，不读内容）—— 判断「同名根文件夹是否已是非空」用。 */
+  function countEntries(dirHandle) {
+    var n = 0;
+    var it = dirHandle.values();
+    function step() {
+      return it.next().then(function (res) {
+        if (res.done) { return n; }
+        n += 1;
+        return step();
+      });
+    }
+    return step();
+  }
 
   /** 目录里是否已有同名项：`'file'` / `'dir'` / `''`（不存在）。
    *
@@ -331,9 +347,29 @@
         if (STORE && STORE.rememberTarget) { STORE.rememberTarget(parent); }
         syncTargetInput(parent.name);
       }
-      var base = rootName
-        ? parent.getDirectoryHandle(rootName, { create: true })
-        : Promise.resolve(parent);
+      /* **2026-10-26**：目标下已有**同名根文件夹且非空** → 先拒绝（与本机版同一判据）。
+         必须先「不带 create」探测：带 create 会顺手把空目录建出来，那样即使随后报错，
+         磁盘上也多了一个空壳（违背「失败不留痕」）。用户确认后带 `merge:true` 重发。 */
+      var base;
+      if (rootName && payload.merge !== true) {
+        base = parent.getDirectoryHandle(rootName).then(function (existing) {
+          return countEntries(existing).then(function (n) {
+            if (n > 0) {
+              throw { code: 'targetDirExists', detail: { dir: rootName, count: n } };
+            }
+            return existing;
+          });
+        }).catch(function (err) {
+          if (err && (err.name === 'NotFoundError')) {
+            return parent.getDirectoryHandle(rootName, { create: true });
+          }
+          throw err;
+        });
+      } else {
+        base = rootName
+          ? parent.getDirectoryHandle(rootName, { create: true })
+          : Promise.resolve(parent);
+      }
       return base.then(function (dir) {
         var out = { createdDirs: [], createdFiles: [], existed: [] };
         return writeTree(dir, tree, rootName, out).then(function () {
@@ -354,6 +390,9 @@
       }
       if (err && err.code === 'treeSiblingDuplicated') {
         return fail('treeSiblingDuplicated', tr('tplSiblingDup'), 409, err.detail || {});
+      }
+      if (err && err.code === 'targetDirExists') {
+        return fail('targetDirExists', tr('targetDirExists'), 409, err.detail || {});
       }
       if (name === 'AbortError') return fail('demoCancelled', tr('cancelled'));
       if (name === 'NotAllowedError' || name === 'SecurityError') {

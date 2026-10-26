@@ -82,6 +82,45 @@ class GenerateWriteTests(unittest.TestCase):
         self.assertTrue(result["dryRun"])
         self.assertFalse(self.base.exists())
 
+    def test_root_exists_non_empty_requires_merge(self):
+        """**2026-10-26 用户诉求**：目标下已有同名**非空**根文件夹时不得直接合并（污染）。
+
+        先拒（`targetDirExists`，带 dir/count）；带 `merge: true` 才放行，
+        且放行时仍「只补缺失、不覆盖、不删除」。
+        """
+        first = routes.generate({"tree": SIMPLE_TREE, "target": str(self.base),
+                                 "root": "我的项目", "dryRun": False})
+        self.assertTrue(first["ok"])
+        with self.assertRaises(TreeError) as ctx:
+            routes.generate({"tree": SIMPLE_TREE, "target": str(self.base),
+                             "root": "我的项目", "dryRun": False})
+        self.assertEqual(ctx.exception.code, "targetDirExists")
+        self.assertGreater(ctx.exception.detail.get("count", 0), 0)
+
+        # 演练不拦（预览无害），且回执里能看出「已存在哪些」
+        dry = routes.generate({"tree": SIMPLE_TREE, "target": str(self.base),
+                               "root": "我的项目", "dryRun": True})
+        self.assertTrue(dry["ok"])
+        self.assertGreater(len(dry["existed"]), 0)
+
+        # 显式合并：放行，且既有文件内容不变
+        marker = self.base / "我的项目" / "说明.md"
+        before = marker.read_text(encoding="utf-8") if marker.is_file() else None
+        merged = routes.generate({"tree": SIMPLE_TREE, "target": str(self.base),
+                                  "root": "我的项目", "dryRun": False, "merge": True})
+        self.assertTrue(merged["ok"])
+        self.assertGreater(len(merged["existed"]), 0)
+        if before is not None:
+            self.assertEqual(marker.read_text(encoding="utf-8"), before, "合并不得覆盖既有文件")
+
+    def test_root_exists_empty_no_prompt(self):
+        """同名根文件夹**存在但为空**：不算污染，无需确认即可写。"""
+        empty = self.base / "空项目"
+        empty.mkdir(parents=True)
+        result = routes.generate({"tree": SIMPLE_TREE, "target": str(self.base),
+                                  "root": "空项目", "dryRun": False})
+        self.assertTrue(result["ok"])
+
     def test_real_write_and_root_folder(self):
         result = routes.generate({"tree": SIMPLE_TREE, "target": str(self.base),
                                   "root": "我的项目", "dryRun": False})

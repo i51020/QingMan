@@ -62,10 +62,15 @@ export const api = {
     return request('/api/health', { method: 'GET' });
   },
 
-  generate(tree, { target, root, dryRun }) {
+  /**
+   * 按树生成。`merge`（V0.4.7@r3）：目标下已存在**同名非空文件夹**时，后端默认拒绝
+   * （`targetDirExists`），避免把种子文件灌进用户已有的同名目录。用户在确认框里选择
+   * 「继续合并」后才带 `merge:true` 重发 —— 合并仍只补建缺失项，不覆盖、不删除。
+   */
+  generate(tree, { target, root, dryRun, merge }) {
     return request('/api/generate', {
       method: 'POST',
-      body: JSON.stringify({ tree, target, root, dryRun }),
+      body: JSON.stringify({ tree, target, root, dryRun, merge: merge === true }),
     });
   },
 

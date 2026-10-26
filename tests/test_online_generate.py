@@ -52,6 +52,11 @@ function fileHandle(node, name) {
 function dirHandle(node, name) {
   return {
     kind: 'directory', name,
+    values: async function* () {
+      for (const n of Object.keys(node.children)) {
+        yield node.children[n].type === 'dir' ? dirHandle(node.children[n], n) : fileHandle(node, n);
+      }
+    },
     getFileHandle: (n, opt) => {
       const e = node.children[n];
       if (e) {
@@ -140,7 +145,7 @@ async function call(win, body) {
       '素材': { type: 'dir', children: { 'a.txt': { type: 'file', content: '原始内容' } } },
     } };
     const win = makeEnv(root);
-    const r = await call(win, { tree: { 素材: { 'a.txt': '覆盖尝试', 'b.txt': '新' } }, root: '项目', dryRun: false });
+    const r = await call(win, { tree: { 素材: { 'a.txt': '覆盖尝试', 'b.txt': '新' } }, root: '项目', dryRun: false, merge: true });
     ok('B 生成成功', r.status === 200 && r.payload.ok === true, 'status=' + r.status);
     const kept = root.children['项目'].children['素材'].children['a.txt'].content;
     ok('B 既有文件未被覆盖', kept === '原始内容', 'content=' + kept);
@@ -157,7 +162,7 @@ async function call(win, body) {
     const root = newRoot();
     root.children['项目'] = { type: 'dir', children: { '素材': { type: 'file', content: 'x' } } };
     const win = makeEnv(root);
-    const r = await call(win, { tree: { 素材: {} }, root: '项目', dryRun: false });
+    const r = await call(win, { tree: { 素材: {} }, root: '项目', dryRun: false, merge: true });
     ok('C 文件占名时拒绝建目录', r.status === 409 && r.payload.code === 'pathConflict',
        'status=' + r.status + ' code=' + r.payload.code);
   }
@@ -167,7 +172,7 @@ async function call(win, body) {
     const root = newRoot();
     root.children['项目'] = { type: 'dir', children: { '素材': { type: 'dir', children: {} } } };
     const win = makeEnv(root);
-    const r = await call(win, { tree: { 素材: '内容' }, root: '项目', dryRun: false });
+    const r = await call(win, { tree: { 素材: '内容' }, root: '项目', dryRun: false, merge: true });
     ok('D 目录占名时拒绝建文件', r.status === 409 && r.payload.code === 'pathConflictDir',
        'status=' + r.status + ' code=' + r.payload.code);
   }
@@ -180,6 +185,29 @@ async function call(win, body) {
     ok('E 大小写重复被拒', r.status === 409 && r.payload.code === 'treeSiblingDuplicated',
        'status=' + r.status + ' code=' + r.payload.code);
     ok('E 拒绝时不留半棵树', !root.children['项目'], JSON.stringify(Object.keys(root.children)));
+  }
+
+  /* F. 目标下已有同名**非空**根文件夹 → 先拒；带 merge 才合并（且不覆盖既有文件） */
+  {
+    const root = newRoot();
+    root.children['项目'] = { type: 'dir', children: {
+      '素材': { type: 'dir', children: { 'a.txt': { type: 'file', content: '原始内容' } } },
+    } };
+    const win = makeEnv(root);
+    const r1 = await call(win, { tree: { 素材: { 'a.txt': '覆盖尝试' } }, root: '项目', dryRun: false });
+    ok('F 同名非空根目录先拒', r1.status === 409 && r1.payload.code === 'targetDirExists',
+       'status=' + r1.status + ' code=' + r1.payload.code);
+    ok('F 拒绝时未写入', root.children['项目'].children['素材'].children['a.txt'].content === '原始内容',
+       root.children['项目'].children['素材'].children['a.txt'].content);
+
+    const r2 = await call(win, { tree: { 素材: { 'a.txt': '覆盖尝试', 'b.txt': '新' } },
+                                 root: '项目', dryRun: false, merge: true });
+    ok('F 确认合并后放行', r2.status === 200 && r2.payload.ok === true, 'status=' + r2.status);
+    ok('F 合并仍不覆盖既有文件',
+       root.children['项目'].children['素材'].children['a.txt'].content === '原始内容',
+       root.children['项目'].children['素材'].children['a.txt'].content);
+    ok('F 合并只补缺失文件', r2.payload.createdFiles.some((x) => x.endsWith('b.txt')),
+       JSON.stringify(r2.payload.createdFiles));
   }
 
   process.stdout.write('RESULT ' + JSON.stringify(out) + '\n');
@@ -252,6 +280,14 @@ class OnlineGenerateCollisionTests(unittest.TestCase):
     def test_case_only_siblings_rejected_atomically(self):
         self._ok("E 大小写重复被拒")
         self._ok("E 拒绝时不留半棵树")
+
+    def test_existing_nonempty_root_requires_merge(self):
+        """目标下已有同名**非空**根文件夹：先拒；确认合并后仍不覆盖既有文件。"""
+        self._ok("F 同名非空根目录先拒")
+        self._ok("F 拒绝时未写入")
+        self._ok("F 确认合并后放行")
+        self._ok("F 合并仍不覆盖既有文件")
+        self._ok("F 合并只补缺失文件")
 
 
 if __name__ == "__main__":

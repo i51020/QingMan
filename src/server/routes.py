@@ -221,6 +221,18 @@ def generate(payload: Dict[str, Any]) -> Dict[str, Any]:
     # `"false"`，旧写法会把「真写盘」当成演练（或反之）。前端恒传 JSON 布尔，故
     # `is True` 既堵住字符串真值、又不改变既有行为。
     dry_run = payload.get("dryRun") is True
+
+    # **2026-10-26**：目标位置下已有**同名根文件夹**（且非空）→ 先拒绝，避免把种子文件
+    # 灌进用户已有的同名目录（污染）。用户确认后带 `merge: true` 重发才放行；
+    # 放行时仍遵守 build_tree 的三条不变量：目录复用 / 文件跳过不覆盖 / 绝不删除。
+    # 两处**刻意不判**：① 根名为空（那时 base 就是用户自己选的目录，非空是常态）；
+    # ② 演练（预览无害，且回执里的 `existed` 已经告诉你哪些条目已存在）。
+    merge = payload.get("merge") is True
+    if not dry_run and root and base.is_dir():
+        entries = list(base.iterdir())
+        if entries and not merge:
+            raise TreeError("targetDirExists", dir=str(base), count=len(entries))
+
     result = dtree_core.build_tree(tree, base, dry_run=dry_run)
     result["ok"] = True
     result["target"] = str(base)

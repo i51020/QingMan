@@ -241,6 +241,7 @@ export const dict = {
   'err.tooManyNodes': 'Tree too large: {dirs} directories + {files} files = {total}, limit {limit}',
   'err.pathConflict': 'A file with the same name already exists at the target path; cannot create a directory: {path}',
   'err.pathConflictDir': 'A directory with the same name already exists at the target path; cannot create a file: {path}',
+  'err.targetDirExists': 'A folder with the same name already exists at the target: {dir} ({count} entries). Stopped to avoid polluting it; to merge on purpose, generate again and choose "Merge anyway" — merging only adds missing folders/files and never overwrites or deletes existing content',
   'err.treeSiblingDuplicated': 'Two sibling entries differ only by letter case: {name} and {first} ({path}) — a case-insensitive filesystem would merge them, so this was rejected to avoid polluting a same-named directory',
   'err.badJson': 'Request body is not a valid JSON object',
   'err.badPath': 'Invalid access path',
@@ -423,6 +424,7 @@ export const dict = {
   'status.genDone': 'Generation done: {dirs} dirs · {files} files · {existed} existed',
   'status.noteUpdated': 'Note of "{name}" updated',
   'status.genFailed': 'Generation failed: {message}',
+  'status.genCancelled': 'Cancelled (a folder with the same name already exists; nothing was written)',
   'status.backendOffHint': 'Backend offline, please launch via start.bat',
 
   /* ---------- Undo / redo ---------- */
@@ -452,6 +454,7 @@ export const dict = {
   'toast.dryDone': 'Dry run complete, no disk changes',
   'toast.generatedTo': 'Generated to {root}',
   'toast.copied': 'Copied to clipboard',
+  'toast.mergeConfirm': 'A folder with the same name already exists at the target:\n{dir}\n({count} entries)\n\nContinuing only ADDS the missing folders/files; nothing existing is overwritten or deleted.\nMerge anyway?',
   'toast.copyFailed': 'Copy failed (clipboard not granted)',
   'toast.batchCopied': 'Copied {n} paths',
   'toast.saveFailed': 'Save failed: {message}',

@@ -1047,7 +1047,28 @@ el('btnGenerate').addEventListener('click', async () => {
   setStatus(t(dryRun ? 'status.dryRunning' : 'status.writing'));
 
   try {
-    const result = await api.generate(treePayload(root), { target, root: rootName, dryRun });
+    /* 目标下已有同名非空文件夹 → 后端先拒（`targetDirExists`），这里问一句再带 merge 重发。
+       为什么不在后端自动合并：那等于把「树」灌进用户已有的同名目录，属于污染；
+       为什么允许重发：用户可能就是想给已有项目补建缺失的骨架。 */
+    let merge = false;
+    let result;
+    for (;;) {
+      try {
+        result = await api.generate(treePayload(root), { target, root: rootName, dryRun, merge });
+        break;
+      } catch (err) {
+        if (err && err.code === 'targetDirExists' && !merge) {
+          const d = err.detail || {};
+          if (!window.confirm(t('toast.mergeConfirm', { dir: d.dir || '', count: d.count || 0 }))) {
+            setStatus(t('status.genCancelled'));
+            return;
+          }
+          merge = true;
+          continue;
+        }
+        throw err;
+      }
+    }
     inspector.showResult(result);
     setStatus(t(dryRun ? 'status.dryDone' : 'status.genDone', {
       dirs: result.createdDirs.length,
