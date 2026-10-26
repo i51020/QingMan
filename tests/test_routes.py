@@ -600,6 +600,30 @@ class TemplateTests(unittest.TestCase):
         res = routes.list_templates()
         self.assertEqual([i["name"] for i in res["items"]], ["好"])
 
+    def test_uppercase_extension_listed_and_loadable(self):
+        """**2026-10-26**：扩展名判据必须**大小写不敏感**（与在线版 `/i`、与 Windows 文件系统一致）。
+
+        起因：`大写扩展.JSON` 在 Windows 上是合法模板，旧正则（区分大小写）把它判掉，
+        而列表的 glob 又会匹配到它 ⇒ 文件在目录里、列表里没有、且零提示。
+        """
+        self._write("大写.JSON", json.dumps({"name": "大写扩展", "tree": {"素材": {}}}, ensure_ascii=False))
+        self._write("小写.json", json.dumps({"name": "小写", "tree": {"a": {}}}, ensure_ascii=False))
+        res = routes.list_templates()
+        files = [i["file"] for i in res["items"]]
+        self.assertIn("大写.JSON", files, f"大写扩展名被漏掉：{files}")
+        self.assertEqual(res["skipped"], [])
+        # 能被载入（不只是列出来）
+        loaded = routes.load_template("大写.JSON")
+        self.assertEqual(loaded["name"], "大写扩展")
+        self.assertEqual(loaded["source"], "json")
+
+        # `.MD` 同理
+        self._write("大写.MD", "# 大写MD\n> 说明\n- 素材/\n")
+        res2 = routes.list_templates()
+        self.assertIn("大写.MD", [i["file"] for i in res2["items"]])
+        loaded_md = routes.load_template("大写.MD")
+        self.assertEqual(loaded_md["source"], "md")
+
     def test_skipped_reports_bad_files(self):
         """V0.4.0：被跳过的文件必须**如实报告**，不能静默消失。
 

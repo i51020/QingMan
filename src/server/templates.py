@@ -38,8 +38,12 @@ from server.dtree_core import TreeError
 
 
 _TPL_STEM_PATTERN = r"[A-Za-z0-9_\u4e00-\u9fff-]+"
-TEMPLATE_NAME = re.compile(r"^" + _TPL_STEM_PATTERN + r"\.json$")
-TEMPLATE_FILE = re.compile(r"^" + _TPL_STEM_PATTERN + r"\.(?:json|md)$")
+TEMPLATE_NAME = re.compile(r"^" + _TPL_STEM_PATTERN + r"\.json$", re.IGNORECASE)
+# **2026-10-26**：扩展名判据改为**大小写不敏感**。
+# 原因：Windows 文件系统不区分大小写，`大写扩展.JSON` 是合法模板；旧正则把它判掉，
+# 而列表的 glob 在 Windows 上又会**匹配**到它 ⇒ 文件在目录里、列表里却没有，且无提示
+# （与 V0.4.0 修的「静默消失」同族）。在线版一直是 `/\.(json|md)$/i`，这里向它看齐。
+TEMPLATE_FILE = re.compile(r"^" + _TPL_STEM_PATTERN + r"\.(?:json|md)$", re.IGNORECASE)
 # 可被「剥离」的模板扩展名（另存 / 改名时用户顺手带上 `.json` / `.md` 不报错）。
 _TEMPLATE_EXTS = (".json", ".md")
 
@@ -115,12 +119,14 @@ def list_templates() -> Dict[str, Any]:
     # 只能靠人肉猜测（2026-10-21 实证：一份围栏未闭合的 `.md` 就这样消失了）。
     # 现在把「跳过了谁、为什么」一并回传，由前端提示；判据仍是「单套坏了不拖垮整个列表」。
     skipped: list[Dict[str, Any]] = []
-    # 两个 glob 合并后统一排序（按小写名 + 原名，跨平台确定性；`.trash/` 是子目录，扫不到）。
-    found = sorted(list(d.glob("*.json")) + list(d.glob("*.md")),
+    # **2026-10-26**：改用 `iterdir()` + 正则过滤，不再拼接两个 `glob`。
+    # 为什么：`glob("*.json")` 的大小写行为**依赖文件系统**（Windows 不区分、macOS 默认不区分、
+    # Linux 区分），于是「`大写扩展.JSON` 能不能被看到」会随平台漂移；而白名单正则现在是
+    # 大小写不敏感的 —— 两者口径不一会产生「glob 没扫到、正则也没机会判」的静默漏项。
+    # 统一成「枚举目录 + 一条正则」，判据只剩一处。`.trash/` 是子目录，`iterdir` 不递归，扫不到。
+    found = sorted([p for p in d.iterdir() if p.is_file() and TEMPLATE_FILE.match(p.name)],
                    key=lambda q: (q.name.lower(), q.name))
     for p in found:
-        if not TEMPLATE_FILE.match(p.name):
-            continue
         try:
             doc = _read_template_doc(p, name=p.name)
         except (TreeError, OSError, ValueError) as exc:

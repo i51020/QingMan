@@ -2793,7 +2793,13 @@ def main() -> int:
         ("6C-1", ttext, "def _template_source(", "templates 缺格式判定"),
         ("6C-1", ttext, "def _strip_template_ext(", "templates 缺扩展名剥离助手"),
         ("6C-1", ttext, "def _read_template_doc(", "templates 缺统一读取分派"),
-        ("6C-1", ttext, 'd.glob("*.md")', "list_templates 未扫 .md"),
+        # 2026-10-26 重锚：列表改用 `iterdir()` + 单一正则（原先拼接两个 glob，大小写行为随
+        # 文件系统漂移）。判据从 `d.glob("*.md")` 换成这一行 —— **判据本身不变**：列表必须同时
+        # 收 `.json` 与 `.md`，且只能用 `TEMPLATE_FILE`（双格式）而不是 `TEMPLATE_NAME`（只 .json）。
+        ("6C-1", ttext, "p.is_file() and TEMPLATE_FILE.match(p.name)",
+         "list_templates 未用双格式白名单枚举（或又退回 glob 拼接）"),
+        ("6C-1", ttext, '(?:json|md)$", re.IGNORECASE',
+         "扩展名判据不是大小写不敏感（Windows 上会漏掉 .JSON / .MD）"),
         ("6C-1", ttext, '"source": _template_source(', "列表项未标 source"),
         ("6C-2", rtext, "TEMPLATES_IMPORT_PATH = ", "routes 缺导入端点常量"),
         ("6C-2", ttext, "def import_template(", "templates 缺导入处理器"),

@@ -191,6 +191,36 @@ node <wrangler-dist>\cli.js pages deploy dist/makers-live-v047 --project-name=qi
 **发布后核对（两条线都要）**：`js/demo-data.js` 的 `version`、`sw.js` 的 `CACHE`、
 以及 `js/demo-backend.js` 与本地产物 **SHA256 逐字节一致**。
 
+### 九 · r7（同日追加，不升版）：模板扩展名判据大小写不敏感（对齐在线版）
+
+**怎么发现的**：按用户要求做「两版排序规则」核查 —— 用同一批挑刺文件（中文 / 数字 / 大小写 /
+`.json`+`.md` 同名 / 大写扩展名 / 无标题 md）分别跑本地 `list_templates()` 与在线
+`scanDirTemplates()`，再把两边结果喂给**同一个** `sortTemplates()` 比对。
+
+**结论：排序规则本身两版完全一致**（拼音序、数字按大小、忽略大小写、六段规则 13 项用例全过），
+唯一差异在**列表口径**：
+
+| 文件 | 本机版 | 在线版 |
+|---|---|---|
+| `大写扩展.JSON` | ❌ 不列出（**静默消失**） | ✅ 列出 |
+
+根因：本地 `TEMPLATE_FILE` 正则区分大小写（`\.(?:json|md)$`），而列表用 `glob("*.json")`
+在 Windows 上**大小写不敏感**会匹配到它 —— 匹配到了又被正则判掉，于是「文件在目录里、
+列表里没有、零提示」。在线版一直是 `/\.(json|md)$/i`。
+
+**改法**：
+
+| 文件 | 改动 |
+|---|---|
+| `src/server/templates.py` | `TEMPLATE_FILE` / `TEMPLATE_NAME` 加 `re.IGNORECASE`；列表改为 `iterdir()` + **单一正则**枚举（不再拼接两个 glob —— glob 的大小写行为随文件系统漂移，与正则口径不一是漏项来源） |
+| `tools/verify.py` | 6C-1 守卫**重锚**（`d.glob("*.md")` → `p.is_file() and TEMPLATE_FILE.match(p.name)`），并**新增**一条判据：扩展名必须是 `re.IGNORECASE` |
+| `tests/test_routes.py` | +1 用例：`大写.JSON` / `大写.MD` 必须**列得出且载得进** |
+
+**复跑对比**：文件集一致、最终顺序一致（10/10 逐一相同）。
+
+**验证**：`unittest` **637 OK** · `verify` 121/0 · `smoke` 35/0 · `browser_smoke` 39/0。
+
+
 
 
 
